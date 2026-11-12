@@ -2,5 +2,5 @@
 set -e
 
 echo "Running Prisma migrations..."
-docker compose exec backend npx prisma migrate dev
+docker compose exec backend npx prisma db push --skip-generate
 

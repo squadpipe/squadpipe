@@ -3,13 +3,21 @@ version: '3.8'
 
 services:
   backend:
+    build:
+      context: ./talentos-backend
+      dockerfile: Dockerfile.dev
     volumes:
       - ./talentos-backend/src:/app/src
       - ./talentos-backend/prisma:/app/prisma
     command: npm run dev
 
   frontend:
-    command: npm run dev
+    build:
+      context: ./talentos-frontend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./talentos-frontend/src:/app/src
+    command: npm run dev -- --host 0.0.0.0 --port 80
 
   resume-parser:
     volumes:

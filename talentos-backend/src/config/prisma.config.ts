@@ -41,9 +41,9 @@ export const connectWithRetry = async (retries = 10, delayMs = 3000): Promise<vo
       console.log('Successfully connected to PostgreSQL database via Prisma.');
       return;
     } catch (error) {
-      console.warn(`PostgreSQL connection attempt ${i}/${retries} failed. Retrying in ${delayMs / 1000}s...`);
+      console.warn(`PostgreSQL connection attempt ${i}/${retries} failed: ${(error as any)?.message}`);
       if (i === retries) {
-        throw new Error(`Failed to connect to database after ${retries} attempts.`);
+        throw new Error(`Failed to connect to database after ${retries} attempts. Last error: ${(error as any)?.message}`);
       }
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     }

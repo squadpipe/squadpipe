@@ -9,7 +9,7 @@ This runbook provides complete operational guidance for deploying, maintaining, 
 | Service | Directory | Port | Healthcheck Endpoint | Description |
 | :--- | :--- | :---: | :--- | :--- |
 | **Frontend** | `talentos-frontend` | `:3000` | `http://localhost:3000` | React 18 + Vite + Tailwind CSS CRM web dashboard |
-| **Backend API** | `talentos-backend` | `:5000` | `http://localhost:5000/api/v1/health` | Node.js + TypeScript + Prisma ORM + Nodemailer |
+| **Backend API** | `talentos-backend` | `:5001` | `http://localhost:5001/api/v1/health` | Node.js + TypeScript + Prisma ORM + Nodemailer |
 | **Resume Parser** | `talentos-resume-parser` | `:8000` | `http://localhost:8000/health` | Python 3.11 + FastAPI + NLP resume & email parser |
 | **PostgreSQL** | Docker Container | `:5432` | `pg_isready -U talentos_admin` | In-house containerized PostgreSQL 16 (optional) |
 
@@ -88,7 +88,7 @@ make seed
 
 Once running:
 - Web App UI: [http://localhost:3000](http://localhost:3000)
-- Backend API Docs: [http://localhost:5000/api/v1/health](http://localhost:5000/api/v1/health)
+- Backend API Docs: [http://localhost:5001/api/v1/health](http://localhost:5001/api/v1/health)
 - Python Parser Swagger Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ---

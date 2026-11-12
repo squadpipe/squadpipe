@@ -24,7 +24,7 @@ TalentOS is a multi-service recruitment management platform orchestrated via Doc
    ```
 4. Access the applications:
    - **Frontend UI**: http://localhost:3000
-   - **Backend API**: http://localhost:5000/api/v1
+   - **Backend API**: http://localhost:5001/api/v1
    - **Resume Parser API**: http://localhost:8000/api/v1 (Docs at `/docs`)
 
 ## Dual Database Configuration

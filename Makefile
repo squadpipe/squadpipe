@@ -32,7 +32,7 @@ build:
 	docker compose build
 
 migrate:
-	docker compose exec backend npx prisma migrate dev
+	docker compose exec backend npx prisma db push --skip-generate
 
 seed:
 	docker compose exec backend npm run seed
