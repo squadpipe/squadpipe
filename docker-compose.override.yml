@@ -1,0 +1,18 @@
+# Development overrides for live code reloading
+version: '3.8'
+
+services:
+  backend:
+    volumes:
+      - ./talentos-backend/src:/app/src
+      - ./talentos-backend/prisma:/app/prisma
+    command: npm run dev
+
+  frontend:
+    command: npm run dev
+
+  resume-parser:
+    volumes:
+      - ./talentos-resume-parser/app:/app/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+

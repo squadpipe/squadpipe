@@ -1,0 +1,72 @@
+import sys
+import os
+
+# Add parent directory to python path for imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from app.extractors.contact_extractor import extract_contacts
+from app.extractors.work_auth_extractor import extract_work_authorization
+from app.extractors.skills_extractor import extract_skills, extract_current_title
+from app.extractors.education_extractor import extract_education
+
+def test_contact_extractor():
+    text = "Anand Verma | Austin, TX\nPhone: (512) 555-0144 | anand.verma@cloudmail.com\nLead Cloud Architect"
+    name, email, phone = extract_contacts(text)
+    assert name == "Anand Verma", f"Expected Anand Verma, got {name}"
+    assert email == "anand.verma@cloudmail.com", f"Expected anand.verma@cloudmail.com, got {email}"
+    assert phone == "+1 (512) 555-0144", f"Expected +1 (512) 555-0144, got {phone}"
+    print("✅ Contact Extractor: PASSED")
+
+def test_work_authorization_detector():
+    cases = [
+        ("Candidate is a US Citizen and does not require sponsorship", "US Citizen"),
+        ("Permanent Resident (Green Card holder) authorized to work", "Green Card"),
+        ("Currently on H-1B visa, transfer ready", "H-1B"),
+        ("Available on C2C basis with corp-to-corp subcontracting", "C2C Subcontractor"),
+        ("Open to W-2 hourly contract engagement", "W2 Hourly"),
+        ("Canadian national working under TN Visa status", "TN Visa")
+    ]
+    for text, expected in cases:
+        result = extract_work_authorization(text)
+        assert result == expected, f"For '{text}', expected {expected}, got {result}"
+    print("✅ Work Authorization Detector: PASSED")
+
+def test_skills_extractor():
+    text = """
+    TECHNICAL EXPERTISE:
+    Cloud Platforms: AWS (EKS, VPC, IAM), GCP
+    Infrastructure as Code: Terraform, Helm, Docker, Kubernetes
+    Data Processing: Snowflake, PySpark, Databricks, Apache Airflow
+    Languages: Python, Go, Java 17, Spring Boot, TypeScript
+    """
+    skills = extract_skills(text)
+    expected_subset = ["AWS", "GCP", "Kubernetes", "Docker", "Terraform", "Helm", "Snowflake", "Databricks", "Python"]
+    for s in expected_subset:
+        assert s in skills, f"Expected skill {s} was not extracted"
+    print("✅ Tech Skill Taxonomy Extractor: PASSED")
+
+def test_education_extractor():
+    text = "University of Texas at Austin\nMaster of Science in Computer Science, GPA: 3.9"
+    degree = extract_education(text)
+    assert "Master" in degree, f"Expected Master degree, got {degree}"
+    print("✅ Education Extractor: PASSED")
+
+def test_title_heuristic():
+    text = "Alex Rivera\nSenior Cloud Security Architect\nAustin, TX"
+    title = extract_current_title(text, ["AWS", "Terraform"])
+    assert "Architect" in title or "Senior" in title, f"Expected architect title, got {title}"
+    print("✅ Job Title Heuristic: PASSED")
+
+if __name__ == "__main__":
+    print("========================================================")
+    print("TalentOS Python NLP Resume Parser Test Suite")
+    print("========================================================\n")
+    test_contact_extractor()
+    test_work_authorization_detector()
+    test_skills_extractor()
+    test_education_extractor()
+    test_title_heuristic()
+    print("\n========================================================")
+    print("🎉 ALL PYTHON NLP EXTRACTOR TESTS PASSED (100% Success)")
+    print("========================================================")
+
