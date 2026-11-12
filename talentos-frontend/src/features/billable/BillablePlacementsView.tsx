@@ -108,12 +108,23 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                     <td className="py-3 px-4">
                       <div className="font-mono font-bold text-emerald-600 text-xs">
                         <MaskedValue
-                          value={p.hourlySpread !== undefined ? `+$${p.hourlySpread.toFixed(2)}/hr` : '-'}
+                          value={
+                            p.hourlySpread !== undefined && p.hourlySpread !== null
+                              ? `+$${Number(p.hourlySpread).toFixed(2)}/hr`
+                              : '-'
+                          }
                           isMasked={rateMasked}
                         />
                       </div>
                       <div className="text-[10px] text-slate-400">
-                        <MaskedValue value={p.marginPct !== undefined ? `${p.marginPct}% margin` : '-'} isMasked={rateMasked} />
+                        <MaskedValue
+                          value={
+                            p.marginPct !== undefined && p.marginPct !== null
+                              ? `${Number(p.marginPct).toFixed(1)}% margin`
+                              : '-'
+                          }
+                          isMasked={rateMasked}
+                        />
                       </div>
                     </td>
                     <td className="py-3 px-4 text-right">

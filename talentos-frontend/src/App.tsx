@@ -264,8 +264,14 @@ export const App: React.FC = () => {
               billing: p.billing || (p.billRate ? `$${p.billRate}/hr` : ''),
               payRate: p.payRate || (p.payRateAmount ? `$${p.payRateAmount}/hr` : ''),
               placementType: p.placementType || '',
-              hourlySpread: p.hourlySpread,
-              marginPct: p.marginPct,
+              hourlySpread:
+                p.hourlySpread !== undefined && p.hourlySpread !== null
+                  ? Number(p.hourlySpread)
+                  : undefined,
+              marginPct:
+                p.marginPct !== undefined && p.marginPct !== null
+                  ? Number(p.marginPct)
+                  : undefined,
             }))
           );
         }
@@ -355,14 +361,19 @@ export const App: React.FC = () => {
 
   // Financial KPI calculations
   const totalMonthlyGrossProfit = placements.reduce(
-    (sum, p) => sum + (p.hourlySpread || 0) * 160,
+    (sum, p) => sum + (Number(p.hourlySpread) || 0) * 160,
     0
   );
   const avgHourlyMarginSpread = placements.length
-    ? (placements.reduce((sum, p) => sum + (p.hourlySpread || 0), 0) / placements.length).toFixed(2)
+    ? (
+        placements.reduce((sum, p) => sum + (Number(p.hourlySpread) || 0), 0) /
+        placements.length
+      ).toFixed(2)
     : '0.00';
   const avgMarginPercent = placements.length
-    ? (placements.reduce((sum, p) => sum + (p.marginPct || 0), 0) / placements.length).toFixed(1)
+    ? (
+        placements.reduce((sum, p) => sum + (Number(p.marginPct) || 0), 0) / placements.length
+      ).toFixed(1)
     : '0.0';
 
   const expiringPlacementsCount = placements.filter((p) => {
@@ -453,7 +464,7 @@ export const App: React.FC = () => {
         timestamp: 'Just now',
         ruleName: 'Placement Activation & Margin Lock',
         target: `${newPlacement.resourceName} @ ${newPlacement.customer}`,
-        conditionsMet: `Bill: ${newPlacement.billing} | Spread: +$${(
+        conditionsMet: `Bill: ${newPlacement.billing} | Spread: +$${Number(
           newPlacement.hourlySpread || 0
         ).toFixed(2)}/hr`,
         actionDispatched: 'Registered to Billable Ledger & 30d Expiration Radar Scheduled',
