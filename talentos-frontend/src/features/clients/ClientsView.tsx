@@ -27,27 +27,34 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   );
 
   return (
-    <div className="space-y-4">
-      {/* Subheader */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 card-shadow">
-        <div className="relative">
-          <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search enterprise clients..."
-            className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs w-64 text-slate-700 focus:bg-white transition-all outline-none"
-          />
+    <section className="max-w-7xl mx-auto space-y-5 animate-fade-in">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-slate-900 tracking-tight">Client Companies</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Enterprise accounts, hiring managers, and active staffing agreements.
+          </p>
         </div>
-
-        <button
-          onClick={onOpenAddClient}
-          className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm shadow-brand-600/20 transition-all cursor-pointer"
-        >
-          <i className="fa-solid fa-building text-xs"></i>
-          <span>Add Client Account</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search enterprise clients..."
+              className="pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-md text-xs w-64 text-slate-700 outline-none focus:border-brand-500"
+            />
+          </div>
+          <button
+            onClick={onOpenAddClient}
+            className="px-3.5 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <i className="fa-solid fa-plus text-[10px]"></i>
+            <span>Add Client</span>
+          </button>
+        </div>
       </div>
 
       {/* Clients Cards Grid */}
@@ -63,53 +70,52 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
           return (
             <div
               key={client.id}
-              className="bg-white p-5 rounded-xl border border-slate-200 card-shadow hover:border-slate-300 transition-all flex flex-col justify-between"
+              className="bg-white p-5 rounded-xl border border-slate-200 card-shadow hover:border-brand-500 transition-colors flex flex-col justify-between cursor-pointer"
+              onClick={() => setSelectedClient(client)}
             >
               <div>
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3
-                      onClick={() => setSelectedClient(client)}
-                      className="font-extrabold text-sm text-slate-900 cursor-pointer hover:text-brand-600 transition-colors"
-                    >
+                    <h3 className="font-bold text-slate-900 text-sm hover:text-brand-600 transition-colors">
                       {client.name}
                     </h3>
-                    <a
-                      href={client.website}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-brand-600 hover:underline flex items-center gap-1 mt-0.5"
-                    >
-                      <span>{client.website.replace('https://', '')}</span>
-                      <i className="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
-                    </a>
+                    <span className="text-[11px] text-brand-600 font-mono mt-0.5 block">
+                      {client.website}
+                    </span>
                   </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    MSA Active
-                  </span>
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 text-xs">
+                    <i className="fa-solid fa-building"></i>
+                  </div>
                 </div>
 
-                <div className="mt-3 text-xs text-slate-500 flex items-center gap-2">
-                  <i className="fa-solid fa-location-dot text-slate-400"></i>
-                  <span>{client.location}</span>
+                <div className="mt-3 text-xs text-slate-500 space-y-1">
+                  <div>
+                    <i className="fa-solid fa-location-dot w-4 text-slate-400"></i>
+                    {client.location}
+                  </div>
+                  <div>
+                    <i className="fa-solid fa-phone w-4 text-slate-400"></i>
+                    {client.boardNumber || 'Direct Line'}
+                  </div>
                 </div>
 
                 {/* Contacts List */}
                 <div className="mt-3 pt-3 border-t border-slate-100">
-                  <div className="text-[10px] font-bold uppercase text-slate-400 mb-2">Key Account Leads</div>
-                  <div className="space-y-2">
+                  <div className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider mb-1.5">
+                    Contacts ({client.contacts.length})
+                  </div>
+                  <div className="space-y-1.5">
                     {client.contacts.map((contact, idx) => (
-                      <div key={idx} className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-xs">
-                        <div className="flex items-center justify-between font-bold text-slate-800">
-                          <span>{contact.name || (contact as any).fullName}</span>
-                          {contact.isPrimary && (
-                            <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.2 rounded font-semibold">
-                              Primary Lead
-                            </span>
-                          )}
+                      <div
+                        key={idx}
+                        className="text-xs bg-slate-50 p-2 rounded flex items-center justify-between"
+                      >
+                        <div className="font-medium text-slate-800">
+                          {contact.name || (contact as any).fullName}
                         </div>
-                        <div className="text-[11px] text-slate-500 font-medium">{contact.designation}</div>
-                        <div className="text-[10px] text-slate-400 font-mono mt-1">{contact.email}</div>
+                        <span className="text-[10px] font-mono text-slate-400">
+                          {contact.designation}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -117,24 +123,22 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
               </div>
 
               {/* Footer Activity Metrics */}
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                <span className="text-[11px] font-semibold text-slate-600">
-                  {clientReqs.length} Open Reqs &bull; {clientPlacements.length} Placements
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+                <span className="font-mono text-[11px] text-slate-600">
+                  <strong className="text-slate-900">{clientReqs.length}</strong> Reqs &bull;{' '}
+                  <strong className="text-emerald-700 font-semibold">{clientPlacements.length}</strong> Active Placements
                 </span>
-                <button
-                  onClick={() => setSelectedClient(client)}
-                  className="text-xs font-semibold text-brand-600 hover:text-brand-800 flex items-center gap-1 cursor-pointer"
-                >
+                <span className="text-brand-600 text-xs font-semibold flex items-center gap-1 hover:underline">
                   <span>View Details</span>
-                  <i className="fa-solid fa-arrow-right text-[10px]"></i>
-                </button>
+                  <i className="fa-solid fa-chevron-right text-[9px]"></i>
+                </span>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Deep-Dive Client Drawer Modal */}
+      {/* Client Detail Flyout Drawer */}
       <ClientDetailDrawer
         isOpen={Boolean(selectedClient)}
         onClose={() => setSelectedClient(null)}
@@ -143,6 +147,6 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
         placements={placements}
         showToast={showToast}
       />
-    </div>
+    </section>
   );
 };

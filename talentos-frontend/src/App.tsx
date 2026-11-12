@@ -26,7 +26,11 @@ import { EmailParserModal } from './features/modals/EmailParserModal';
 import { SkillMatcherModal } from './features/modals/SkillMatcherModal';
 import { SubmissionPitchModal } from './features/modals/SubmissionPitchModal';
 import { PlacementWizardModal } from './features/modals/PlacementWizardModal';
-import { QuickAddModal } from './components/shared/QuickAddModal';
+import { AddConsultantModal } from './components/modals/create/AddConsultantModal';
+import { AddRequirementModal } from './components/modals/create/AddRequirementModal';
+import { AddClientModal } from './components/modals/create/AddClientModal';
+import { AddVendorModal } from './components/modals/create/AddVendorModal';
+import { AddPlacementModal } from './components/modals/create/AddPlacementModal';
 import { SignOutModal } from './components/modals/SignOutModal';
 import { ProfileModal } from './components/modals/ProfileModal';
 import { ResumeViewerModal } from './components/modals/ResumeViewerModal';
@@ -76,10 +80,9 @@ export const App: React.FC = () => {
   const [isMatcherModalOpen, setIsMatcherModalOpen] = useState(false);
   const [isPitchModalOpen, setIsPitchModalOpen] = useState(false);
   const [isPlacementWizardOpen, setIsPlacementWizardOpen] = useState(false);
-  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
-  const [quickAddInitialTab, setQuickAddInitialTab] = useState<
-    'consultant' | 'requirement' | 'client' | 'vendor' | 'placement'
-  >('consultant');
+  const [activeCreateModal, setActiveCreateModal] = useState<
+    'consultant' | 'requirement' | 'client' | 'vendor' | 'placement' | null
+  >(null);
 
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -674,36 +677,29 @@ export const App: React.FC = () => {
 
       {/* Main Container */}
       <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
-        {/* Topbar with dynamic breadcrumb, search, quick add dropdown, rate mask & profile dropdown */}
+        {/* Topbar with clean design matching prototype (Left: View Title, Right: + Quick Add dropdown) */}
         <Topbar
           currentView={currentView}
-          globalSearch={globalSearch}
-          onSearchChange={setGlobalSearch}
-          onToggleSla={() => setIsSlaOpen(true)}
-          slaCount={slaTasks.filter((t) => !t.done).length}
-          rateMasked={rateMasked}
-          onToggleRateMask={() => setRateMasked(!rateMasked)}
-          onOpenQuickAddTab={(tab) => {
-            setQuickAddInitialTab(tab);
-            setIsQuickAddOpen(true);
-          }}
-          currentUser={currentUser}
-          onOpenProfile={() => setShowProfileModal(true)}
-          onOpenSignOut={() => setShowSignOutModal(true)}
-          onSwitchPersona={handleSwitchPersona}
+          onOpenCreateModal={(type) => setActiveCreateModal(type)}
         />
 
         {/* Dynamic View Body */}
         <main className="flex-1 overflow-y-auto p-6 space-y-6">
           {currentView === 'dashboard' && (
             <DashboardView
-              metrics={metrics}
-              rateMasked={rateMasked}
               requirements={requirements}
               candidates={candidates}
               placements={placements}
               slaTasks={slaTasks}
+              rateMasked={rateMasked}
               onNavigate={setCurrentView}
+              onOpenCreateReq={() => setActiveCreateModal('requirement')}
+              onSelectReq={(r) => setSelectedReqForDetail(r)}
+              onPreviewResumeByName={(candName) => {
+                const c = candidates.find((cand) => cand.fullName === candName);
+                if (c) setSelectedResumeCand(c);
+              }}
+              onStatusChange={handleStatusChange}
               onOpenMatcher={(req) => {
                 setActiveReq(req);
                 setIsMatcherModalOpen(true);
@@ -712,11 +708,8 @@ export const App: React.FC = () => {
                 setActiveReq(req);
                 setIsPitchModalOpen(true);
               }}
-              onStatusChange={handleStatusChange}
-              onAssignCandidate={handleAssignCandidate}
               onOpenSlaDrawer={() => setIsSlaOpen(true)}
-              onSelectReq={(r) => setSelectedReqForDetail(r)}
-              onPreviewResume={(c) => setSelectedResumeCand(c)}
+              showToast={showToast}
             />
           )}
 
@@ -739,6 +732,7 @@ export const App: React.FC = () => {
                 setIsPlacementWizardOpen(true);
               }}
               onSelectReq={(r) => setSelectedReqForDetail(r)}
+              onOpenAddReq={() => setActiveCreateModal('requirement')}
             />
           )}
 
@@ -748,6 +742,8 @@ export const App: React.FC = () => {
               rateMasked={rateMasked}
               onOpenResumeParser={() => setIsResumeModalOpen(true)}
               onPreviewResume={(c) => setSelectedResumeCand(c)}
+              onOpenAddConsultant={() => setActiveCreateModal('consultant')}
+              onOpenCsvImport={() => setCurrentView('import_data')}
             />
           )}
 
@@ -756,10 +752,7 @@ export const App: React.FC = () => {
               clients={clients}
               requirements={requirements}
               placements={placements}
-              onOpenAddClient={() => {
-                setQuickAddInitialTab('client');
-                setIsQuickAddOpen(true);
-              }}
+              onOpenAddClient={() => setActiveCreateModal('client')}
               showToast={showToast}
             />
           )}
@@ -767,10 +760,7 @@ export const App: React.FC = () => {
           {currentView === 'vendors' && (
             <VendorsView
               vendors={vendors}
-              onOpenAddVendor={() => {
-                setQuickAddInitialTab('vendor');
-                setIsQuickAddOpen(true);
-              }}
+              onOpenAddVendor={() => setActiveCreateModal('vendor')}
             />
           )}
 
@@ -778,11 +768,9 @@ export const App: React.FC = () => {
             <BillablePlacementsView
               placements={placements}
               rateMasked={rateMasked}
-              onOpenNewPlacement={() => {
-                setQuickAddInitialTab('placement');
-                setIsPlacementWizardOpen(true);
-              }}
+              onOpenNewPlacement={() => setActiveCreateModal('placement')}
               onExtendContract={handleExtendContract}
+              showToast={showToast}
             />
           )}
 
@@ -964,27 +952,56 @@ export const App: React.FC = () => {
         showToast={showToast}
       />
 
-      <QuickAddModal
-        isOpen={isQuickAddOpen}
-        onClose={() => setIsQuickAddOpen(false)}
-        initialTab={quickAddInitialTab}
-        onSaveCandidate={(c) => {
+      {/* 5 Distinct Dedicated Add Modals matching Prototype lines 3700-4210 */}
+      <AddConsultantModal
+        isOpen={activeCreateModal === 'consultant'}
+        onClose={() => setActiveCreateModal(null)}
+        users={users}
+        onSave={(c) => {
           setCandidates((prev) => [c, ...prev]);
           apiClient.post('/candidates', c).catch((e) => console.warn('API save candidate:', e));
         }}
-        onSaveRequirement={(r) => {
+        showToast={showToast}
+      />
+
+      <AddRequirementModal
+        isOpen={activeCreateModal === 'requirement'}
+        onClose={() => setActiveCreateModal(null)}
+        clients={clients}
+        users={users}
+        onSave={(r) => {
           setRequirements((prev) => [r, ...prev]);
           apiClient.post('/requirements', r).catch((e) => console.warn('API save requirement:', e));
         }}
-        onSaveClient={(cl) => {
+        showToast={showToast}
+      />
+
+      <AddClientModal
+        isOpen={activeCreateModal === 'client'}
+        onClose={() => setActiveCreateModal(null)}
+        onSave={(cl) => {
           setClients((prev) => [cl, ...prev]);
           apiClient.post('/clients', cl).catch((e) => console.warn('API save client:', e));
         }}
-        onSaveVendor={(v) => {
+        showToast={showToast}
+      />
+
+      <AddVendorModal
+        isOpen={activeCreateModal === 'vendor'}
+        onClose={() => setActiveCreateModal(null)}
+        onSave={(v) => {
           setVendors((prev) => [v, ...prev]);
           apiClient.post('/vendors', v).catch((e) => console.warn('API save vendor:', e));
         }}
-        onSavePlacement={(p) => {
+        showToast={showToast}
+      />
+
+      <AddPlacementModal
+        isOpen={activeCreateModal === 'placement'}
+        onClose={() => setActiveCreateModal(null)}
+        clients={clients}
+        users={users}
+        onSave={(p) => {
           setPlacements((prev) => [p, ...prev]);
           apiClient.post('/placements', p).catch((e) => console.warn('API save placement:', e));
         }}

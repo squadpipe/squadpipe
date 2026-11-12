@@ -1,0 +1,270 @@
+import React, { useState } from 'react';
+import { Candidate, User } from '../../../types';
+
+interface AddConsultantModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (candidate: Candidate) => void;
+  users?: User[];
+  showToast: (title: string, message: string, icon?: string) => void;
+}
+
+export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
+  isOpen,
+  onClose,
+  onSave,
+  users = [],
+  showToast,
+}) => {
+  const [form, setForm] = useState({
+    fullName: '',
+    currentTitle: '',
+    workAuth: 'US Citizen',
+    hourlyRate: '$95/hr (W2)',
+    email: '',
+    phone: '',
+    relocation: 'Yes',
+    education: "Master's Degree",
+    skillset: 'AWS, Kubernetes, Python',
+    recruiter: 'Marcus Brody',
+    pipelineStage: 'Available / Bench',
+  });
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.fullName.trim() || !form.email.trim()) {
+      showToast('Validation Error', 'Full Name and Email Address are required.', 'fa-solid fa-triangle-exclamation text-amber-500');
+      return;
+    }
+
+    const newCandidate: Candidate = {
+      id: 'cand_' + Date.now(),
+      fullName: form.fullName.trim(),
+      currentTitle: form.currentTitle.trim() || 'Software Engineer',
+      workAuth: form.workAuth,
+      hourlyRate: form.hourlyRate.trim() || '$95/hr (W2)',
+      email: form.email.trim(),
+      phone: form.phone.trim() || '+1 (555) 000-0000',
+      relocation: form.relocation,
+      education: form.education.trim() || "Master's Degree",
+      skillset: form.skillset.trim(),
+      assignedRecruiter: form.recruiter,
+      pipelineStage: form.pipelineStage,
+      resumeName: `${form.fullName.trim().replace(/\s+/g, '_')}_Resume.pdf`,
+      resumeFormat: 'PDF',
+    };
+
+    onSave(newCandidate);
+    showToast('Consultant Added', `${newCandidate.fullName} registered to talent roster!`, 'fa-solid fa-circle-check text-emerald-500');
+    onClose();
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in select-none"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden flex flex-col animate-fade-in max-h-[92vh]"
+      >
+        {/* Modal Header */}
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white flex-shrink-0">
+              <i className="fa-solid fa-user-plus text-sm"></i>
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                <span>Add New Consultant Profile</span>
+                <span className="text-[10px] font-mono font-semibold bg-brand-500/20 text-brand-300 border border-brand-500/30 px-1.5 py-0.2 rounded">
+                  Candidate Roster
+                </span>
+              </h2>
+              <div className="text-[11px] text-slate-400 mt-0.5">
+                Register candidate details, work authorization, hourly rates, and technical skillsets.
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center text-sm transition-colors"
+          >
+            <i className="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        {/* Modal Body Form */}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+          <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Full Name *</label>
+                <input
+                  value={form.fullName}
+                  onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+                  placeholder="e.g. Tarun Sengupta"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600 focus:outline-none"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Current Job Title *</label>
+                <input
+                  value={form.currentTitle}
+                  onChange={(e) => setForm({ ...form, currentTitle: e.target.value })}
+                  placeholder="e.g. Lead Java Cloud Architect"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600 focus:outline-none"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Work Authorization *</label>
+                <select
+                  value={form.workAuth}
+                  onChange={(e) => setForm({ ...form, workAuth: e.target.value })}
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600"
+                >
+                  <option value="US Citizen">US Citizen</option>
+                  <option value="Green Card">Green Card (Permanent Resident)</option>
+                  <option value="H-1B">H-1B (Transfer Ready)</option>
+                  <option value="TN Visa">TN Visa (NAFTA)</option>
+                  <option value="OPT EAD">OPT / CPT EAD</option>
+                </select>
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Target Hourly Pay Rate</label>
+                <input
+                  value={form.hourlyRate}
+                  onChange={(e) => setForm({ ...form, hourlyRate: e.target.value })}
+                  placeholder="e.g. $95/hr (W2) or $110/hr (C2C)"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-mono focus:border-brand-600 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Email Address *</label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  placeholder="e.g. tarun.dev@gmail.com"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600 focus:outline-none"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Phone Number</label>
+                <input
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  placeholder="e.g. +1 (512) 555-0199"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-mono focus:border-brand-600 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Relocation Preference</label>
+                <select
+                  value={form.relocation}
+                  onChange={(e) => setForm({ ...form, relocation: e.target.value })}
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600"
+                >
+                  <option value="Yes">Yes (Open Anywhere in US)</option>
+                  <option value="No">No (Local Only)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Highest Education Degree</label>
+                <input
+                  value={form.education}
+                  onChange={(e) => setForm({ ...form, education: e.target.value })}
+                  placeholder="e.g. Master's Degree"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs focus:border-brand-600 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">
+                Primary Technical Skills * (Comma-separated)
+              </label>
+              <input
+                value={form.skillset}
+                onChange={(e) => setForm({ ...form, skillset: e.target.value })}
+                placeholder="e.g. Java 17, Spring Boot, Apache Kafka, AWS, Microservices"
+                className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-mono text-[11px] focus:border-brand-600 focus:outline-none"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Assigned Desk Recruiter</label>
+                <select
+                  value={form.recruiter}
+                  onChange={(e) => setForm({ ...form, recruiter: e.target.value })}
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600"
+                >
+                  {users.length > 0 ? (
+                    users.map((u) => (
+                      <option key={u.id} value={u.name}>
+                        {u.name}
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="Marcus Brody">Marcus Brody</option>
+                      <option value="Sarah Jenkins">Sarah Jenkins</option>
+                      <option value="Elena Rostova">Elena Rostova</option>
+                    </>
+                  )}
+                </select>
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Initial Pipeline Status</label>
+                <select
+                  value={form.pipelineStage}
+                  onChange={(e) => setForm({ ...form, pipelineStage: e.target.value })}
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600"
+                >
+                  <option value="Available / Bench">Available / Bench</option>
+                  <option value="Submitted">Submitted to Client</option>
+                  <option value="Interview">Interview Scheduled</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Modal Footer */}
+          <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-white text-xs font-medium transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <i className="fa-solid fa-plus text-[10px]"></i>
+              <span>Save & Add Consultant to Roster</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+

@@ -10,6 +10,7 @@ interface PipelineViewProps {
   onOpenPitchWriter: (req: Requirement) => void;
   onOpenPlacementWizard: (req: Requirement) => void;
   onSelectReq?: (req: Requirement) => void;
+  onOpenAddReq?: () => void;
 }
 
 export const PipelineView: React.FC<PipelineViewProps> = ({
@@ -21,6 +22,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
   onOpenPitchWriter,
   onOpenPlacementWizard,
   onSelectReq,
+  onOpenAddReq,
 }) => {
   const [displayMode, setDisplayMode] = useState<'kanban' | 'list'>('kanban');
   const [search, setSearch] = useState('');
@@ -53,14 +55,42 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
   };
 
   return (
-    <div className="space-y-4">
-      {/* Subheader & Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 card-shadow">
+    <div className="space-y-5 animate-fade-in">
+      {/* Header matching Prototype */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-slate-900 tracking-tight">Recruitment Pipeline</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Track candidate submissions across the 5 standard recruitment lifecycle stages.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onOpenEmailParser}
+            className="px-3 py-1.5 rounded-md border border-brand-200 bg-brand-50 text-brand-700 text-xs font-medium hover:bg-brand-100 flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <i className="fa-solid fa-envelope-open-text text-xs"></i>
+            <span>Intake Email Parser</span>
+          </button>
+          {onOpenAddReq && (
+            <button
+              onClick={onOpenAddReq}
+              className="px-3.5 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <i className="fa-solid fa-plus text-[10px]"></i>
+              <span>Add Opportunity</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Controls Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 card-shadow">
         <div className="flex items-center gap-3">
           <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
             <button
               onClick={() => setDisplayMode('kanban')}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                 displayMode === 'kanban'
                   ? 'bg-white text-slate-900 shadow-sm'
                   : 'text-slate-500 hover:text-slate-800'
@@ -71,7 +101,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             </button>
             <button
               onClick={() => setDisplayMode('list')}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                 displayMode === 'list'
                   ? 'bg-white text-slate-900 shadow-sm'
                   : 'text-slate-500 hover:text-slate-800'
@@ -89,19 +119,9 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Filter pipeline orders..."
-              className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs w-56 text-slate-700"
+              className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs w-64 text-slate-700 outline-none focus:bg-white focus:border-brand-500 transition-all"
             />
           </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onOpenEmailParser}
-            className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
-          >
-            <i className="fa-solid fa-envelope-open-text text-xs"></i>
-            <span>Intake Email Parser</span>
-          </button>
         </div>
       </div>
 

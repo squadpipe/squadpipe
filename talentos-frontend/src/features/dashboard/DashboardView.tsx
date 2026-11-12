@@ -1,141 +1,399 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Requirement, Candidate, BillablePlacement, SlaTask } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 
 interface DashboardViewProps {
-  metrics: any;
-  rateMasked: boolean;
   requirements: Requirement[];
   candidates: Candidate[];
-  placements?: BillablePlacement[];
-  slaTasks?: SlaTask[];
+  placements: BillablePlacement[];
+  slaTasks: SlaTask[];
+  rateMasked: boolean;
   onNavigate: (view: string) => void;
+  onOpenCreateReq: () => void;
+  onSelectReq: (req: Requirement) => void;
+  onPreviewResumeByName: (candidateName: string) => void;
+  onStatusChange: (req: Requirement, newStatus: any) => void;
   onOpenMatcher: (req: Requirement) => void;
   onOpenPitchWriter: (req: Requirement) => void;
-  onStatusChange: (req: Requirement, newStatus: any) => void;
-  onAssignCandidate: (req: Requirement, candidate: Candidate) => void;
-  onOpenSlaDrawer?: () => void;
-  onSelectReq?: (req: Requirement) => void;
-  onPreviewResume?: (candidate: Candidate) => void;
+  onOpenSlaDrawer: () => void;
+  showToast: (title: string, message: string, icon?: string) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
-  metrics,
-  rateMasked,
   requirements,
   candidates,
-  placements = [],
-  slaTasks = [],
+  placements,
+  slaTasks,
+  rateMasked,
   onNavigate,
+  onOpenCreateReq,
+  onSelectReq,
+  onPreviewResumeByName,
+  onStatusChange,
   onOpenMatcher,
   onOpenPitchWriter,
-  onStatusChange,
-  onAssignCandidate,
   onOpenSlaDrawer,
-  onSelectReq,
-  onPreviewResume,
+  showToast,
 }) => {
+  const [tableSearch, setTableSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [remarksState, setRemarksState] = useState<Record<string, string>>({});
+
+  // 6 KPI Counts
+  const activeReqsCount = requirements.length;
+  const submittedCount = requirements.filter((r) => r.status === 'Submitted').length;
+  const interviewsCount = requirements.filter((r) => r.status === 'Interview').length;
+  const selectedCount = requirements.filter((r) => r.status === 'Selected').length;
+  const onboardingCount = requirements.filter((r) => r.status === 'Onboarding').length;
+  const activeBillableCount = placements.length;
+
+  const filteredRequirements = requirements.filter((r) => {
+    const matchesSearch =
+      r.opportunityTitle.toLowerCase().includes(tableSearch.toLowerCase()) ||
+      r.companyName.toLowerCase().includes(tableSearch.toLowerCase()) ||
+      r.code.toLowerCase().includes(tableSearch.toLowerCase()) ||
+      (r.resourceName || '').toLowerCase().includes(tableSearch.toLowerCase()) ||
+      r.skillsRequired.toLowerCase().includes(tableSearch.toLowerCase());
+
+    const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+
+  const getStatusBadgeClass = (status: Requirement['status']) => {
+    switch (status) {
+      case 'Submitted':
+        return 'bg-blue-50 text-blue-700 border-blue-200';
+      case 'Interview':
+        return 'bg-amber-50 text-amber-700 border-amber-200';
+      case 'Selected':
+        return 'bg-purple-50 text-purple-700 border-purple-200';
+      case 'Onboarding':
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      default:
+        return 'bg-slate-100 text-slate-700 border-slate-200';
+    }
+  };
+
+  const handleExport = (type: 'Excel' | 'PDF') => {
+    showToast(`Export ${type}`, `Generating ${type} export for active requirements pipeline...`, 'fa-solid fa-file-arrow-down text-emerald-500');
+  };
+
   return (
-    <div className="space-y-6">
-      {/* 4 KPI Metric Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div
-          onClick={() => onNavigate('pipeline')}
-          className="p-4 bg-white rounded-xl border border-slate-200 card-shadow card-hover cursor-pointer group"
-        >
-          <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-            <span>Active Requisitions</span>
-            <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
-              <i className="fa-solid fa-briefcase text-xs"></i>
-            </div>
-          </div>
-          <div className="text-2xl font-black text-slate-900 mt-2">
-            {metrics.activeReqsCount}
-          </div>
-          <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1.5">
-            <span className="text-emerald-600 font-semibold">{metrics.submittedCount} Submitted</span>
-            <span>&bull;</span>
-            <span className="text-blue-600 font-semibold">{metrics.interviewsCount} Interviewing</span>
-          </div>
+    <section className="max-w-7xl mx-auto space-y-6">
+      {/* Top Header matching prototype lines 1965-1980 */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-slate-900 tracking-tight">Recruitment Operations Overview</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Real-time candidate placement pipeline, active requirements, and billable roster.
+          </p>
         </div>
-
-        <div
-          onClick={() => onNavigate('billable')}
-          className="p-4 bg-white rounded-xl border border-slate-200 card-shadow card-hover cursor-pointer group"
-        >
-          <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-            <span>Monthly Gross Profit</span>
-            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-              <i className="fa-solid fa-dollar-sign text-xs"></i>
-            </div>
-          </div>
-          <div className="text-2xl font-black text-emerald-600 mt-2 font-mono">
-            <MaskedValue
-              value={`$${Number(metrics.totalMonthlyGrossProfit).toLocaleString()}/mo`}
-              isMasked={rateMasked}
-            />
-          </div>
-          <div className="text-[11px] text-slate-400 mt-1">Based on 160h/consultant</div>
-        </div>
-
-        <div
-          onClick={() => onNavigate('billable')}
-          className="p-4 bg-white rounded-xl border border-slate-200 card-shadow card-hover cursor-pointer group"
-        >
-          <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-            <span>Avg Hourly Spread</span>
-            <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-              <i className="fa-solid fa-chart-line text-xs"></i>
-            </div>
-          </div>
-          <div className="text-2xl font-black text-slate-900 mt-2 font-mono">
-            <MaskedValue
-              value={`+$${metrics.avgHourlyMarginSpread}/hr`}
-              isMasked={rateMasked}
-            />
-          </div>
-          <div className="text-[11px] text-emerald-600 font-semibold mt-1">
-            <MaskedValue value={`${metrics.avgMarginPercent}% avg margin`} isMasked={rateMasked} />
-          </div>
-        </div>
-
-        <div
-          onClick={() => onNavigate('billable')}
-          className="p-4 bg-white rounded-xl border border-slate-200 card-shadow card-hover cursor-pointer group"
-        >
-          <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-            <span>Expiring SOW Radar</span>
-            <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors">
-              <i className="fa-solid fa-triangle-exclamation text-xs"></i>
-            </div>
-          </div>
-          <div className="text-2xl font-black text-amber-600 mt-2">
-            {metrics.expiringPlacementsCount} Placements
-          </div>
-          <div className="text-[11px] text-amber-700 font-semibold mt-1">Ending within 30 days</div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleExport('Excel')}
+            className="px-3 py-1.5 rounded-md border border-slate-200 hover:bg-white text-slate-700 text-xs font-medium flex items-center gap-1.5 bg-white shadow-2xs transition-colors cursor-pointer"
+          >
+            <i className="fa-regular fa-file-excel text-emerald-600 text-xs"></i>
+            <span>Export to Excel</span>
+          </button>
+          <button
+            onClick={() => handleExport('PDF')}
+            className="px-3 py-1.5 rounded-md border border-slate-200 hover:bg-white text-slate-700 text-xs font-medium flex items-center gap-1.5 bg-white shadow-2xs transition-colors cursor-pointer"
+          >
+            <i className="fa-regular fa-file-pdf text-rose-600 text-xs"></i>
+            <span>Export to PDF</span>
+          </button>
         </div>
       </div>
 
-      {/* Two-Column Midsection: Daily SLA Alerts & Live Billable Consultants */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left: Daily SLA & Compliance Alerts */}
+      {/* 6 KPI Summary Cards matching prototype lines 1983-2049 */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        {/* Card 1: Active Reqs */}
+        <div
+          onClick={() => setStatusFilter('all')}
+          className="p-4 rounded-xl border border-slate-200/80 bg-white card-shadow card-hover cursor-pointer group"
+        >
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-xs font-medium">Active Reqs</span>
+            <div className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center text-slate-600 group-hover:bg-brand-50 group-hover:text-brand-600 transition-colors">
+              <i className="fa-solid fa-briefcase text-xs"></i>
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-slate-900 font-mono">{activeReqsCount}</div>
+          <div className="text-[10px] text-slate-400 mt-1">
+            <span className="text-emerald-600 font-medium">+3 new</span> this week
+          </div>
+        </div>
+
+        {/* Card 2: Submitted */}
+        <div
+          onClick={() => setStatusFilter('Submitted')}
+          className="p-4 rounded-xl border border-slate-200/80 bg-white card-shadow card-hover cursor-pointer group"
+        >
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-xs font-medium">Submitted</span>
+            <div className="w-6 h-6 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center">
+              <i className="fa-solid fa-paper-plane text-xs"></i>
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-slate-900 font-mono">{submittedCount}</div>
+          <div className="text-[10px] text-slate-400 mt-1">
+            <span className="text-blue-600 font-medium">Client review</span>
+          </div>
+        </div>
+
+        {/* Card 3: Interviews */}
+        <div
+          onClick={() => setStatusFilter('Interview')}
+          className="p-4 rounded-xl border border-slate-200/80 bg-white card-shadow card-hover cursor-pointer group"
+        >
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-xs font-medium">Interviews</span>
+            <div className="w-6 h-6 rounded-md bg-amber-50 text-amber-600 flex items-center justify-center">
+              <i className="fa-solid fa-calendar-check text-xs"></i>
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-slate-900 font-mono">{interviewsCount}</div>
+          <div className="text-[10px] text-slate-400 mt-1">
+            <span className="text-amber-600 font-medium">4 today</span>
+          </div>
+        </div>
+
+        {/* Card 4: Selected */}
+        <div
+          onClick={() => setStatusFilter('Selected')}
+          className="p-4 rounded-xl border border-slate-200/80 bg-white card-shadow card-hover cursor-pointer group"
+        >
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-xs font-medium">Selected</span>
+            <div className="w-6 h-6 rounded-md bg-purple-50 text-purple-600 flex items-center justify-center">
+              <i className="fa-solid fa-award text-xs"></i>
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-slate-900 font-mono">{selectedCount}</div>
+          <div className="text-[10px] text-slate-400 mt-1">
+            <span className="text-purple-600 font-medium">Offers finalized</span>
+          </div>
+        </div>
+
+        {/* Card 5: Onboarding */}
+        <div
+          onClick={() => setStatusFilter('Onboarding')}
+          className="p-4 rounded-xl border border-slate-200/80 bg-white card-shadow card-hover cursor-pointer group"
+        >
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-xs font-medium">Onboarding</span>
+            <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <i className="fa-solid fa-user-check text-xs"></i>
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-slate-900 font-mono">{onboardingCount}</div>
+          <div className="text-[10px] text-slate-400 mt-1">
+            <span className="text-indigo-600 font-medium">Background check</span>
+          </div>
+        </div>
+
+        {/* Card 6: Active Billable */}
+        <div
+          onClick={() => onNavigate('billable')}
+          className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/30 card-shadow card-hover cursor-pointer group"
+        >
+          <div className="flex items-center justify-between text-emerald-800 mb-2">
+            <span className="text-xs font-semibold">Active Billable</span>
+            <div className="w-6 h-6 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center">
+              <i className="fa-solid fa-dollar-sign text-xs"></i>
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-emerald-950 font-mono">{activeBillableCount}</div>
+          <div className="text-[10px] text-emerald-700 mt-1">Generating revenue</div>
+        </div>
+      </div>
+
+      {/* Requirements Overview Table matching prototype lines 2052-2134 */}
+      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-xs text-slate-900">Requirements Overview</span>
+            <span className="text-[11px] text-slate-400 font-mono bg-white border border-slate-200 px-1.5 py-0.2 rounded">
+              {filteredRequirements.length} rows
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <input
+              type="text"
+              value={tableSearch}
+              onChange={(e) => setTableSearch(e.target.value)}
+              placeholder="Filter rows..."
+              className="px-2.5 py-1 text-xs border border-slate-200 rounded-md bg-white w-48 text-slate-700 focus:outline-none focus:border-brand-600"
+            />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-2.5 py-1 text-xs border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:border-brand-600 cursor-pointer"
+            >
+              <option value="all">All Stages</option>
+              <option value="Requirement">Requirement</option>
+              <option value="Submitted">Submitted</option>
+              <option value="Interview">Interview</option>
+              <option value="Selected">Selected</option>
+              <option value="Onboarding">Onboarding</option>
+            </select>
+            <button
+              onClick={onOpenCreateReq}
+              className="px-2.5 py-1 rounded border border-slate-200 hover:bg-white text-xs font-medium text-slate-700 shadow-2xs transition-colors cursor-pointer"
+            >
+              <i className="fa-solid fa-plus text-[10px] mr-1"></i> Add Req
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 border-b border-slate-200/80 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+              <tr>
+                <th className="px-4 py-3">Date Received</th>
+                <th className="px-4 py-3">Opportunity</th>
+                <th className="px-4 py-3">Client Contact</th>
+                <th className="px-4 py-3">Company Name</th>
+                <th className="px-4 py-3">Location</th>
+                <th className="px-4 py-3">Resource Name</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Remarks</th>
+                <th className="px-3 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-slate-700">
+              {filteredRequirements.map((req, idx) => {
+                const contactName =
+                  typeof req.clientContact === 'object' && req.clientContact !== null
+                    ? (req.clientContact as any).fullName || (req.clientContact as any).name || ''
+                    : String(req.clientContact || '');
+
+                const contactTitle =
+                  typeof req.clientContactTitle === 'object' && req.clientContactTitle !== null
+                    ? (req.clientContactTitle as any).designation || ''
+                    : String(req.clientContactTitle || '');
+
+                const dateStr = `2026-10-${24 + (idx % 6)}`;
+
+                return (
+                  <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-4 py-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                      {dateStr}
+                    </td>
+                    <td className="px-4 py-3 font-medium text-slate-900 max-w-xs">
+                      <div
+                        className="flex items-center gap-1.5 cursor-pointer hover:text-brand-600 transition-colors"
+                        onClick={() => onSelectReq(req)}
+                      >
+                        <span className="truncate font-semibold">{req.opportunityTitle}</span>
+                        <span className="text-[9px] font-mono text-slate-400 bg-slate-100 px-1 py-0.2 rounded">
+                          {req.code}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 truncate mt-0.5">{req.skillsRequired}</div>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                      <div className="font-medium text-slate-800">{contactName}</div>
+                      <div className="text-[10px] text-slate-400">{contactTitle}</div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap font-semibold text-slate-800">
+                      {req.companyName}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-slate-600">{req.location}</td>
+                    <td className="px-4 py-3">
+                      {req.resourceName ? (
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="font-medium text-slate-800 hover:text-brand-600 cursor-pointer transition-colors"
+                            onClick={() => onPreviewResumeByName(req.resourceName!)}
+                          >
+                            {req.resourceName}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 italic text-[11px]">Unassigned</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <select
+                        value={req.status}
+                        onChange={(e) => onStatusChange(req, e.target.value)}
+                        className={`px-2 py-0.5 rounded text-[11px] font-medium border font-sans cursor-pointer ${getStatusBadgeClass(
+                          req.status
+                        )}`}
+                      >
+                        <option value="Requirement">Requirement</option>
+                        <option value="Submitted">Submitted</option>
+                        <option value="Interview">Interview</option>
+                        <option value="Selected">Selected</option>
+                        <option value="Onboarding">Onboarding</option>
+                      </select>
+                    </td>
+                    <td className="px-4 py-3 max-w-xs">
+                      <input
+                        value={remarksState[req.id] ?? ''}
+                        onChange={(e) => setRemarksState({ ...remarksState, [req.id]: e.target.value })}
+                        onBlur={() => showToast('Remarks Saved', `Saved notes for ${req.code}`)}
+                        placeholder="Click to add remarks..."
+                        className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-brand-600 rounded px-1.5 py-0.5 text-xs text-slate-700 truncate outline-none"
+                      />
+                    </td>
+                    <td className="px-3 py-3 text-right whitespace-nowrap">
+                      <button
+                        onClick={() => onSelectReq(req)}
+                        title="View Requisition Details"
+                        className="text-slate-400 hover:text-brand-600 p-1 transition-colors cursor-pointer"
+                      >
+                        <i className="fa-solid fa-arrow-up-right-from-square text-[11px]"></i>
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 2-Column Dashboard Lower Section matching prototype lines 2135-2220 */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 pt-1">
+        {/* Left: Today's Priority Action Queue */}
         <div className="lg:col-span-6 bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-3.5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs">
-                <i className="fa-solid fa-bell"></i>
+                <i className="fa-solid fa-list-check"></i>
               </div>
               <div>
-                <h3 className="font-bold text-xs text-slate-900">Daily SLA & Compliance Alerts</h3>
-                <span className="text-[10px] text-slate-400">Overdue client feedback, interviews, and expiring contracts</span>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-xs text-slate-900">Today's Priority Action Queue</h3>
+                  <span className="text-[9px] font-mono bg-emerald-50 text-emerald-700 px-1.5 py-0.2 rounded border border-emerald-200 font-semibold">
+                    {slaTasks.length} Rules
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-400">
+                  Overdue client feedback, interviews, and expiring contracts
+                </span>
               </div>
             </div>
-            <button
-              onClick={onOpenSlaDrawer}
-              className="text-xs font-semibold text-brand-600 hover:underline flex items-center gap-1 cursor-pointer"
-            >
-              <span>Open Queue</span> &rarr;
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => showToast('Rules Evaluated', 'Re-evaluated all SLA criteria across pipeline')}
+                title="Re-evaluate SLA rules across pipeline"
+                className="w-6 h-6 rounded border border-slate-200 text-slate-600 hover:text-brand-600 hover:bg-slate-50 flex items-center justify-center text-[11px] transition-colors cursor-pointer"
+              >
+                <i className="fa-solid fa-rotate"></i>
+              </button>
+              <button
+                onClick={onOpenSlaDrawer}
+                className="text-xs font-semibold text-brand-600 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <span>Open Queue</span> &rarr;
+              </button>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -157,24 +415,40 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </div>
                   <div className="text-[10px] text-slate-500 truncate">{item.desc}</div>
                 </div>
-                <button
-                  onClick={onOpenSlaDrawer}
-                  className="flex-shrink-0 px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-semibold hover:bg-blue-100 transition-colors"
-                >
-                  View
-                </button>
+                {item.actionType === 'pitch' ? (
+                  <button
+                    onClick={() => {
+                      const r = requirements.find((x) => x.id);
+                      if (r) onOpenPitchWriter(r);
+                    }}
+                    className="flex-shrink-0 px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-medium hover:bg-amber-200 transition-colors"
+                  >
+                    Follow-up
+                  </button>
+                ) : item.actionType === 'matcher' ? (
+                  <button
+                    onClick={() => {
+                      const r = requirements.find((x) => x.id);
+                      if (r) onOpenMatcher(r);
+                    }}
+                    className="flex-shrink-0 px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-medium hover:bg-emerald-200 transition-colors"
+                  >
+                    Match
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => onNavigate('pipeline')}
+                    className="flex-shrink-0 px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-medium hover:bg-blue-200 transition-colors"
+                  >
+                    View
+                  </button>
+                )}
               </div>
             ))}
-            {slaTasks.length === 0 && (
-              <div className="py-6 text-center text-slate-400 text-xs">
-                <i className="fa-solid fa-circle-check text-emerald-500 text-sm mb-1 block"></i>
-                All SLAs and reminder actions currently up to date!
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Right: Active Billable Consultants Summary */}
+        {/* Right: Live Billable Consultants Summary */}
         <div className="lg:col-span-6 bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-3.5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2.5">
@@ -202,173 +476,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               >
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-slate-900 text-xs">{b.resourceName}</span>
+                    <span
+                      onClick={() => onPreviewResumeByName(b.resourceName)}
+                      className="font-bold text-slate-900 text-xs cursor-pointer hover:text-brand-600 transition-colors"
+                    >
+                      {b.resourceName}
+                    </span>
                     <span className="text-[9px] font-mono bg-white border border-slate-200 px-1 py-0.2 rounded text-slate-600">
                       {b.deployment}
                     </span>
                   </div>
-                  <div className="text-[10px] text-slate-500">{b.customer} &bull; {b.skillRole}</div>
+                  <div className="text-[10px] text-slate-500">
+                    {b.customer} &bull; {b.skillRole}
+                  </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-mono font-bold text-emerald-700 text-xs">
+                  <span className="font-mono font-bold text-emerald-700 text-xs">
                     <MaskedValue value={b.billing} isMasked={rateMasked} />
-                  </div>
+                  </span>
                   <div className="text-[9px] font-mono text-slate-400">Ends {b.endDate}</div>
                 </div>
               </div>
             ))}
-            {placements.length === 0 && (
-              <div className="py-6 text-center text-slate-400 text-xs">
-                No active billable placements currently recorded.
-              </div>
-            )}
           </div>
         </div>
       </div>
-
-      {/* Active Requisitions & Sourcing Desk Table */}
-      <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <div>
-            <h3 className="font-bold text-xs text-slate-800">Active Requisitions & Direct Sourcing Desk</h3>
-            <p className="text-[11px] text-slate-400">Match bench talent, draft client pitches, and progress candidate stages</p>
-          </div>
-          <button
-            onClick={() => onNavigate('pipeline')}
-            className="text-xs font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1"
-          >
-            <span>Open Kanban Board</span>
-            <i className="fa-solid fa-arrow-right text-[10px]"></i>
-          </button>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-slate-50/80 text-[10px] uppercase font-bold text-slate-400 border-b border-slate-200">
-                <th className="py-2.5 px-4">Job Order & Code</th>
-                <th className="py-2.5 px-4">Client Company</th>
-                <th className="py-2.5 px-4">Required Competencies</th>
-                <th className="py-2.5 px-4">Linked Candidate</th>
-                <th className="py-2.5 px-4">Stage</th>
-                <th className="py-2.5 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {requirements.map((req) => {
-                const assignedCandidateObj = candidates.find(
-                  (c) => c.fullName.toLowerCase() === (req.resourceName || '').toLowerCase()
-                );
-
-                return (
-                  <tr key={req.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="py-3 px-4">
-                      <div
-                        onClick={() => onSelectReq && onSelectReq(req)}
-                        className="font-bold text-slate-900 cursor-pointer hover:text-brand-600 transition-colors"
-                      >
-                        {req.opportunityTitle}
-                      </div>
-                      <div className="font-mono text-[10px] text-slate-400">
-                        {req.code} &bull; {req.location}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 font-semibold text-slate-700">
-                      {req.companyName}
-                      <div className="text-[10px] text-slate-400 font-normal">
-                        {typeof req.clientContact === 'object' && req.clientContact !== null
-                          ? (req.clientContact as any).fullName || (req.clientContact as any).name || ''
-                          : String(req.clientContact || '')}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="max-w-xs truncate text-[11px] text-slate-600 font-mono">
-                        {req.skillsRequired}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      {req.resourceName ? (
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            onClick={() =>
-                              assignedCandidateObj && onPreviewResume && onPreviewResume(assignedCandidateObj)
-                            }
-                            className="font-semibold text-slate-800 flex items-center gap-1.5 cursor-pointer hover:text-brand-600 transition-colors"
-                          >
-                            <i className="fa-solid fa-user-check text-emerald-500 text-[10px]"></i>
-                            {req.resourceName}
-                          </span>
-                        </div>
-                      ) : (
-                        <select
-                          onChange={(e) => {
-                            const c = candidates.find((cand) => cand.fullName === e.target.value);
-                            if (c) onAssignCandidate(req, c);
-                          }}
-                          defaultValue=""
-                          className="text-[11px] py-1 px-2 rounded-lg border border-slate-200 bg-white text-slate-600 cursor-pointer"
-                        >
-                          <option value="" disabled>
-                            Assign Bench...
-                          </option>
-                          {candidates.map((c) => (
-                            <option key={c.id} value={c.fullName}>
-                              {c.fullName} ({c.workAuth})
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </td>
-                    <td className="py-3 px-4">
-                      <select
-                        value={req.status}
-                        onChange={(e) => onStatusChange(req, e.target.value)}
-                        className={`text-[10px] font-bold py-1 px-2.5 rounded-lg border ${
-                          req.status === 'Submitted'
-                            ? 'bg-blue-50 text-blue-700 border-blue-200'
-                            : req.status === 'Interview'
-                            ? 'bg-amber-50 text-amber-700 border-amber-200'
-                            : req.status === 'Selected'
-                            ? 'bg-purple-50 text-purple-700 border-purple-200'
-                            : req.status === 'Onboarding'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : 'bg-slate-100 text-slate-700 border-slate-300'
-                        }`}
-                      >
-                        <option value="Requirement">Requirement</option>
-                        <option value="Submitted">Submitted</option>
-                        <option value="Interview">Interview</option>
-                        <option value="Selected">Selected</option>
-                        <option value="Onboarding">Onboarding</option>
-                      </select>
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => onOpenMatcher(req)}
-                          title="Run Bench Skill Matcher"
-                          className="px-2 py-1 rounded bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-semibold flex items-center gap-1 transition-colors"
-                        >
-                          <i className="fa-solid fa-users-viewfinder"></i>
-                          <span>Match</span>
-                        </button>
-                        <button
-                          onClick={() => onOpenPitchWriter(req)}
-                          title="Draft Client Presentation Pitch"
-                          className="px-2 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 text-[10px] font-semibold flex items-center gap-1 transition-colors"
-                        >
-                          <i className="fa-solid fa-pen-nib"></i>
-                          <span>Pitch</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+    </section>
   );
 };
