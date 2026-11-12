@@ -101,7 +101,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                     {client.contacts.map((contact, idx) => (
                       <div key={idx} className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-xs">
                         <div className="flex items-center justify-between font-bold text-slate-800">
-                          <span>{contact.name}</span>
+                          <span>{contact.name || (contact as any).fullName}</span>
                           {contact.isPrimary && (
                             <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.2 rounded font-semibold">
                               Primary Lead

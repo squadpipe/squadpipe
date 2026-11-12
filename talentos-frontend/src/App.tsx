@@ -178,12 +178,20 @@ export const App: React.FC = () => {
               companyName: r.companyName || r.client?.name || '',
               opportunityTitle: r.opportunityTitle || '',
               location: r.location || '',
-              clientContact: r.clientContact?.name || r.clientContact || '',
-              clientContactTitle: r.clientContact?.designation || r.clientContactTitle || '',
+              clientContact:
+                r.clientContact?.fullName ||
+                r.clientContact?.name ||
+                (typeof r.clientContact === 'string' ? r.clientContact : ''),
+              clientContactTitle:
+                r.clientContact?.designation ||
+                (typeof r.clientContactTitle === 'string' ? r.clientContactTitle : ''),
               skillsRequired: r.skillsRequired || '',
               status: r.status || 'Requirement',
               resourceName: r.resourceName || '',
-              assignedRecruiter: r.assignedRecruiter?.fullName || r.assignedRecruiter || '',
+              assignedRecruiter:
+                r.assignedRecruiter?.fullName ||
+                r.assignedRecruiter?.name ||
+                (typeof r.assignedRecruiter === 'string' ? r.assignedRecruiter : ''),
               targetBillRate: r.targetBillRate,
               targetPayRate: r.targetPayRate,
             }))
@@ -191,11 +199,41 @@ export const App: React.FC = () => {
         }
 
         if (cliRes.status === 'fulfilled' && cliRes.value.data?.data) {
-          setClients(cliRes.value.data.data);
+          const raw = cliRes.value.data.data;
+          setClients(
+            raw.map((cl: any) => ({
+              id: cl.id,
+              name: cl.name || '',
+              website: cl.website || '',
+              boardNumber: cl.boardNumber || '',
+              location: cl.location || '',
+              contacts: (cl.contacts || []).map((cnt: any) => ({
+                name: cnt.fullName || cnt.name || '',
+                designation: cnt.designation || '',
+                phone: cnt.phone || '',
+                email: cnt.email || '',
+                isPrimary: cnt.isPrimary ?? false,
+              })),
+            }))
+          );
         }
 
         if (venRes.status === 'fulfilled' && venRes.value.data?.data) {
-          setVendors(venRes.value.data.data);
+          const raw = venRes.value.data.data;
+          setVendors(
+            raw.map((v: any) => ({
+              id: v.id,
+              name: v.name || '',
+              contactName: v.contactName || '',
+              phone: v.phone || '',
+              email: v.email || '',
+              location: v.location || '',
+              skillSpecialization: v.skillSpecialization || '',
+              paymentTerms: v.paymentTerms || '',
+              invoicingTerms: v.invoicingTerms || '',
+              msa: v.msaSigned ? 'Active' : v.msa || 'Pending',
+            }))
+          );
         }
 
         if (placeRes.status === 'fulfilled' && placeRes.value.data?.data) {
@@ -203,11 +241,21 @@ export const App: React.FC = () => {
           setPlacements(
             raw.map((p: any) => ({
               id: p.id,
-              recruiter: p.recruiter?.fullName || p.recruiter || '',
+              recruiter:
+                p.recruiter?.fullName ||
+                p.recruiter?.name ||
+                (typeof p.recruiter === 'string' ? p.recruiter : ''),
               deployment: p.deployment || 'Onshore',
               customer: p.customer || p.client?.name || '',
-              customerContact: p.customerContact || '',
-              resourceName: p.resourceName || p.candidate?.fullName || '',
+              customerContact:
+                p.customerContact?.fullName ||
+                p.customerContact?.name ||
+                (typeof p.customerContact === 'string' ? p.customerContact : ''),
+              resourceName:
+                p.resourceName ||
+                p.candidate?.fullName ||
+                p.candidate?.name ||
+                (typeof p.candidate === 'string' ? p.candidate : ''),
               phone: p.phone || p.candidate?.phone || '',
               email: p.email || p.candidate?.email || '',
               skillRole: p.skillRole || '',

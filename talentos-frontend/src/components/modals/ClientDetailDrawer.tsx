@@ -182,7 +182,7 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
                   >
                     <div>
                       <div className="font-bold text-slate-900 flex items-center gap-2">
-                        <span>{cnt.name}</span>
+                        <span>{cnt.name || (cnt as any).fullName}</span>
                         {cnt.isPrimary && (
                           <span className="text-[9px] font-mono font-bold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.2 rounded">
                             Primary Lead

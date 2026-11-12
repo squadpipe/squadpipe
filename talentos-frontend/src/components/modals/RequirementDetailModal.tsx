@@ -86,14 +86,24 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
             <div>
               <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider block">Client Contact</span>
               <span className="font-semibold text-slate-800 text-xs mt-0.5 block">
-                {requirement.clientContact || 'Primary Hiring Lead'}{' '}
-                {requirement.clientContactTitle ? `(${requirement.clientContactTitle})` : ''}
+                {typeof requirement.clientContact === 'object' && requirement.clientContact !== null
+                  ? (requirement.clientContact as any).fullName || (requirement.clientContact as any).name || 'Primary Hiring Lead'
+                  : requirement.clientContact || 'Primary Hiring Lead'}{' '}
+                {requirement.clientContactTitle
+                  ? `(${
+                      typeof requirement.clientContactTitle === 'object' && requirement.clientContactTitle !== null
+                        ? (requirement.clientContactTitle as any).designation || ''
+                        : requirement.clientContactTitle
+                    })`
+                  : ''}
               </span>
             </div>
             <div>
               <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider block">Assigned Recruiter</span>
               <span className="font-semibold text-slate-800 text-xs mt-0.5 block">
-                {requirement.assignedRecruiter || 'Desk Sourcing Specialist'}
+                {typeof requirement.assignedRecruiter === 'object' && requirement.assignedRecruiter !== null
+                  ? (requirement.assignedRecruiter as any).fullName || (requirement.assignedRecruiter as any).name || 'Desk Sourcing Specialist'
+                  : requirement.assignedRecruiter || 'Desk Sourcing Specialist'}
               </span>
             </div>
           </div>

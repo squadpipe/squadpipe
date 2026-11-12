@@ -27,7 +27,11 @@ export const SubmissionPitchModal: React.FC<SubmissionPitchModalProps> = ({
   const candidateSkills = candidate?.skillset || '';
   const companyName = requirement?.companyName || '';
   const jobTitle = requirement?.opportunityTitle || '';
-  const recruiterName = requirement?.assignedRecruiter || candidate?.assignedRecruiter || 'Talent Acquisition Team';
+  const rawRecruiter = requirement?.assignedRecruiter || candidate?.assignedRecruiter;
+  const recruiterName =
+    typeof rawRecruiter === 'object' && rawRecruiter !== null
+      ? (rawRecruiter as any).fullName || (rawRecruiter as any).name || 'Talent Acquisition Team'
+      : String(rawRecruiter || 'Talent Acquisition Team');
 
   const getPitchContent = () => {
     if (!candidateName || !companyName) {

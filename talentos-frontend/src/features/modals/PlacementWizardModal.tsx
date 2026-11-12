@@ -18,10 +18,13 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
   onConfirmPlacement,
   showToast,
 }) => {
+  const getContactStr = (c: any) => (typeof c === 'object' && c !== null ? c.fullName || c.name || '' : String(c || ''));
+  const getRecruiterStr = (r: any) => (typeof r === 'object' && r !== null ? r.fullName || r.name || '' : String(r || ''));
+
   const [formData, setFormData] = useState({
     resourceName: candidate?.fullName || '',
     customer: requirement?.companyName || '',
-    customerContact: requirement?.clientContact || '',
+    customerContact: getContactStr(requirement?.clientContact),
     phone: candidate?.phone || '',
     email: candidate?.email || '',
     skillRole: requirement?.opportunityTitle || '',
@@ -31,7 +34,7 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
     billRate: requirement?.targetBillRate || 0,
     payRate: requirement?.targetPayRate || 0,
     placementType: 'W2 Hourly',
-    recruiter: requirement?.assignedRecruiter || candidate?.assignedRecruiter || '',
+    recruiter: getRecruiterStr(requirement?.assignedRecruiter || candidate?.assignedRecruiter),
   });
 
   useEffect(() => {
@@ -39,7 +42,7 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
       setFormData({
         resourceName: candidate?.fullName || '',
         customer: requirement?.companyName || '',
-        customerContact: requirement?.clientContact || '',
+        customerContact: getContactStr(requirement?.clientContact),
         phone: candidate?.phone || '',
         email: candidate?.email || '',
         skillRole: requirement?.opportunityTitle || '',
@@ -49,7 +52,7 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
         billRate: requirement?.targetBillRate || 0,
         payRate: requirement?.targetPayRate || 0,
         placementType: 'W2 Hourly',
-        recruiter: requirement?.assignedRecruiter || candidate?.assignedRecruiter || '',
+        recruiter: getRecruiterStr(requirement?.assignedRecruiter || candidate?.assignedRecruiter),
       });
     }
   }, [isOpen, candidate, requirement]);

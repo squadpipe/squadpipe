@@ -275,7 +275,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </td>
                     <td className="py-3 px-4 font-semibold text-slate-700">
                       {req.companyName}
-                      <div className="text-[10px] text-slate-400 font-normal">{req.clientContact}</div>
+                      <div className="text-[10px] text-slate-400 font-normal">
+                        {typeof req.clientContact === 'object' && req.clientContact !== null
+                          ? (req.clientContact as any).fullName || (req.clientContact as any).name || ''
+                          : String(req.clientContact || '')}
+                      </div>
                     </td>
                     <td className="py-3 px-4">
                       <div className="max-w-xs truncate text-[11px] text-slate-600 font-mono">
