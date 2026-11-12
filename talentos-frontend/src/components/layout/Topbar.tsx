@@ -23,13 +23,13 @@ export const Topbar: React.FC<TopbarProps> = ({ currentView, onOpenCreateModal }
       case 'billable':
         return 'Billable Consultants';
       case 'user_management':
-        return 'User Management';
+        return 'User Management & Team Permissions';
       case 'custom_fields':
-        return 'Custom Fields';
+        return 'Custom Fields & Master Taxonomy';
       case 'automation':
         return 'Workflow Automations';
       case 'import_data':
-        return 'Import & Migration';
+        return 'Data Import & Migration';
       default:
         return 'Dashboard Overview';
     }

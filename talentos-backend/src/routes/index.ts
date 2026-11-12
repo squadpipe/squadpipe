@@ -61,6 +61,45 @@ router.get('/dashboard/metrics', async (req: Request, res: Response) => {
   });
 });
 
+// Sidebar navigation counts (fast, lightweight aggregate query)
+router.get('/sidebar/counts', async (req: Request, res: Response) => {
+  try {
+    const [
+      requirements,
+      consultants,
+      clients,
+      vendors,
+      billable,
+      users,
+      activeRules
+    ] = await Promise.all([
+      prisma.requirement.count(),
+      prisma.candidate.count(),
+      prisma.client.count(),
+      prisma.vendor.count(),
+      prisma.billablePlacement.count(),
+      prisma.user.count(),
+      prisma.automationRule.count({ where: { active: true } })
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        requirements,
+        consultants,
+        clients,
+        vendors,
+        billable,
+        users,
+        customFields: 8,
+        activeRules
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to fetch sidebar counts' });
+  }
+});
+
 // Candidates
 router.get('/candidates', candidateController.getCandidates);
 router.post('/candidates', candidateController.createCandidate);

@@ -34,11 +34,27 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
 
   // Executive Financial KPI calculations
   const totalHourlySpread = placements.reduce((sum, p) => sum + (Number(p.hourlySpread) || 0), 0);
-  const avgHourlySpread = placements.length ? (totalHourlySpread / placements.length).toFixed(2) : '0.00';
+  const avgHourlySpread = placements.length && !isNaN(totalHourlySpread / placements.length)
+    ? (totalHourlySpread / placements.length).toFixed(2)
+    : '0.00';
   const totalMarginPct = placements.reduce((sum, p) => sum + (Number(p.marginPct) || 0), 0);
-  const avgMarginPercent = placements.length ? (totalMarginPct / placements.length).toFixed(1) : '0.0';
+  const avgMarginPercent = placements.length && !isNaN(totalMarginPct / placements.length)
+    ? (totalMarginPct / placements.length).toFixed(1)
+    : '0.0';
   const totalMonthlyGrossProfit = Math.round(totalHourlySpread * 160);
   const contractsExpiringSoon = placements.filter((p) => isExpiringSoon(p.endDate)).length;
+
+  const formatSpread = (val: any) => {
+    if (val === undefined || val === null || val === '') return '-';
+    const n = Number(val);
+    return isNaN(n) ? '-' : `+$${n.toFixed(2)}/hr`;
+  };
+
+  const formatMargin = (val: any) => {
+    if (val === undefined || val === null || val === '') return '-';
+    const n = Number(val);
+    return isNaN(n) ? '-' : `${n.toFixed(1)}% margin`;
+  };
 
   const handleExport = () => {
     if (showToast) {
@@ -217,21 +233,13 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                     <td className="px-3.5 py-3">
                       <div className="font-mono font-bold text-emerald-600 text-xs">
                         <MaskedValue
-                          value={
-                            p.hourlySpread !== undefined && p.hourlySpread !== null
-                              ? `+$${Number(p.hourlySpread).toFixed(2)}/hr`
-                              : '-'
-                          }
+                          value={formatSpread(p.hourlySpread)}
                           isMasked={rateMasked}
                         />
                       </div>
                       <div className="text-[10px] text-slate-400">
                         <MaskedValue
-                          value={
-                            p.marginPct !== undefined && p.marginPct !== null
-                              ? `${Number(p.marginPct).toFixed(1)}% margin`
-                              : '-'
-                          }
+                          value={formatMargin(p.marginPct)}
                           isMasked={rateMasked}
                         />
                       </div>

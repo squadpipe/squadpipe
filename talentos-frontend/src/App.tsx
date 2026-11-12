@@ -121,246 +121,363 @@ export const App: React.FC = () => {
   const [auditLogs, setAuditLogs] = useState<AutomationAuditLog[]>([]);
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
 
-  // Fetch dynamic entities from backend API on mount or when token changes
+  // Sidebar counts (lightweight navigation metadata)
+  const [sidebarCounts, setSidebarCounts] = useState({
+    requirements: 6,
+    consultants: 6,
+    clients: 3,
+    vendors: 2,
+    billable: 3,
+    users: 6,
+    customFields: 8,
+    activeRules: 6,
+  });
+
+  // Track loaded entities to support view-scoped lazy loading without duplicate requests
+  const loadedEntities = React.useRef<Set<string>>(new Set());
+
+  // Dedicated, view-scoped fetch functions
+  const fetchSidebarCounts = async () => {
+    try {
+      const res = await apiClient.get('/sidebar/counts');
+      if (res.data?.success && res.data?.data) {
+        setSidebarCounts((prev) => ({ ...prev, ...res.data.data }));
+      }
+    } catch {
+      // Graceful fallback to local counts
+    }
+  };
+
+  const fetchCandidates = async () => {
+    try {
+      const res = await apiClient.get('/candidates');
+      if (res.data?.data) {
+        const raw = res.data.data;
+        const mapped = raw.map((c: any) => ({
+          id: c.id,
+          fullName: c.fullName || '',
+          phone: c.phone || '',
+          email: c.email || '',
+          workAuth: c.workAuth || '',
+          education: c.education || '',
+          currentTitle: c.currentTitle || '',
+          skillset: c.skillset || '',
+          hourlyRate: c.hourlyRateDisplay || (c.hourlyRateW2 ? `$${c.hourlyRateW2}/hr (W2)` : ''),
+          relocation: c.relocation || 'Yes',
+          resumeName: c.resumeFileName || '',
+          resumeFormat: c.resumeFormat || 'PDF',
+          assignedRecruiter: c.assignedRecruiter?.fullName || c.assignedRecruiter || '',
+          pipelineStage: c.pipelineStage || 'Available / Bench',
+          rawSnippet: c.rawSnippet || '',
+        }));
+        setCandidates(mapped);
+        setSidebarCounts((prev) => ({ ...prev, consultants: mapped.length }));
+        loadedEntities.current.add('candidates');
+      }
+    } catch (e) {
+      console.warn('API fetch candidates:', e);
+    }
+  };
+
+  const fetchRequirements = async () => {
+    try {
+      const res = await apiClient.get('/requirements');
+      if (res.data?.data) {
+        const raw = res.data.data;
+        const mapped = raw.map((r: any) => ({
+          id: r.id,
+          code: r.code || '',
+          companyName: r.companyName || r.client?.name || '',
+          opportunityTitle: r.opportunityTitle || '',
+          location: r.location || '',
+          clientContact:
+            r.clientContact?.fullName ||
+            r.clientContact?.name ||
+            (typeof r.clientContact === 'string' ? r.clientContact : ''),
+          clientContactTitle:
+            r.clientContact?.designation ||
+            (typeof r.clientContactTitle === 'string' ? r.clientContactTitle : ''),
+          skillsRequired: r.skillsRequired || '',
+          status: r.status || 'Requirement',
+          resourceName: r.resourceName || '',
+          assignedRecruiter:
+            r.assignedRecruiter?.fullName ||
+            r.assignedRecruiter?.name ||
+            (typeof r.assignedRecruiter === 'string' ? r.assignedRecruiter : ''),
+          targetBillRate: r.targetBillRate,
+          targetPayRate: r.targetPayRate,
+        }));
+        setRequirements(mapped);
+        setSidebarCounts((prev) => ({ ...prev, requirements: mapped.length }));
+        loadedEntities.current.add('requirements');
+      }
+    } catch (e) {
+      console.warn('API fetch requirements:', e);
+    }
+  };
+
+  const fetchClients = async () => {
+    try {
+      const res = await apiClient.get('/clients');
+      if (res.data?.data) {
+        const raw = res.data.data;
+        const mapped = raw.map((cl: any) => ({
+          id: cl.id,
+          name: cl.name || '',
+          website: cl.website || '',
+          boardNumber: cl.boardNumber || '',
+          location: cl.location || '',
+          contacts: (cl.contacts || []).map((cnt: any) => ({
+            name: cnt.fullName || cnt.name || '',
+            designation: cnt.designation || '',
+            phone: cnt.phone || '',
+            email: cnt.email || '',
+            isPrimary: cnt.isPrimary ?? false,
+          })),
+        }));
+        setClients(mapped);
+        setSidebarCounts((prev) => ({ ...prev, clients: mapped.length }));
+        loadedEntities.current.add('clients');
+      }
+    } catch (e) {
+      console.warn('API fetch clients:', e);
+    }
+  };
+
+  const fetchVendors = async () => {
+    try {
+      const res = await apiClient.get('/vendors');
+      if (res.data?.data) {
+        const raw = res.data.data;
+        const mapped = raw.map((v: any) => ({
+          id: v.id,
+          name: v.name || '',
+          contactName: v.contactName || '',
+          phone: v.phone || '',
+          email: v.email || '',
+          location: v.location || '',
+          skillSpecialization: v.skillSpecialization || '',
+          paymentTerms: v.paymentTerms || '',
+          invoicingTerms: v.invoicingTerms || '',
+          msa: v.msaSigned ? 'Active' : v.msa || 'Pending',
+        }));
+        setVendors(mapped);
+        setSidebarCounts((prev) => ({ ...prev, vendors: mapped.length }));
+        loadedEntities.current.add('vendors');
+      }
+    } catch (e) {
+      console.warn('API fetch vendors:', e);
+    }
+  };
+
+  const fetchPlacements = async () => {
+    try {
+      const res = await apiClient.get('/placements');
+      if (res.data?.data) {
+        const raw = res.data.data;
+        const mapped = raw.map((p: any) => ({
+          id: p.id,
+          recruiter:
+            p.recruiter?.fullName ||
+            p.recruiter?.name ||
+            (typeof p.recruiter === 'string' ? p.recruiter : ''),
+          deployment: p.deployment || 'Onshore',
+          customer: p.customer || p.client?.name || '',
+          customerContact:
+            p.customerContact?.fullName ||
+            p.customerContact?.name ||
+            (typeof p.customerContact === 'string' ? p.customerContact : ''),
+          resourceName:
+            p.resourceName ||
+            p.candidate?.fullName ||
+            p.candidate?.name ||
+            (typeof p.candidate === 'string' ? p.candidate : ''),
+          phone: p.phone || p.candidate?.phone || '',
+          email: p.email || p.candidate?.email || '',
+          skillRole: p.skillRole || '',
+          startDate: p.startDate ? new Date(p.startDate).toISOString().split('T')[0] : '',
+          endDate: p.endDate ? new Date(p.endDate).toISOString().split('T')[0] : '',
+          billing: p.billing || (p.billRate ? `$${p.billRate}/hr` : ''),
+          payRate: p.payRate || (p.payRateAmount ? `$${p.payRateAmount}/hr` : ''),
+          placementType: p.placementType || '',
+          hourlySpread:
+            p.hourlySpread !== undefined && p.hourlySpread !== null
+              ? Number(p.hourlySpread)
+              : undefined,
+          marginPct:
+            p.marginPct !== undefined && p.marginPct !== null
+              ? Number(p.marginPct)
+              : undefined,
+        }));
+        setPlacements(mapped);
+        setSidebarCounts((prev) => ({ ...prev, billable: mapped.length }));
+        loadedEntities.current.add('placements');
+      }
+    } catch (e) {
+      console.warn('API fetch placements:', e);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const res = await apiClient.get('/users');
+      if (res.data?.data) {
+        const raw = res.data.data;
+        const mapped = raw.map((u: any) => ({
+          id: u.id,
+          name: u.fullName || u.name || '',
+          email: u.email || '',
+          role: u.role || 'Associate Recruiter',
+          desk: u.desk || '',
+          rateMasked: u.rateMasked ?? true,
+          workload: u.workload || '',
+          status: u.status || 'Active',
+          isCurrentUser: u.isCurrentUser ?? false,
+          lastActive: u.lastActive || 'Active Now',
+        }));
+        setUsers(mapped);
+        setSidebarCounts((prev) => ({ ...prev, users: mapped.length }));
+        loadedEntities.current.add('users');
+      }
+    } catch (e) {
+      console.warn('API fetch users:', e);
+    }
+  };
+
+  const fetchSlaTasks = async () => {
+    try {
+      const res = await apiClient.get('/sla-tasks');
+      if (res.data?.data) {
+        const raw = res.data.data;
+        const mapped = raw.map((s: any) => ({
+          id: s.id,
+          category: s.category || '',
+          slaRuleTag: s.slaRuleTag || '',
+          badgeClass: s.badgeClass || 'bg-blue-50 text-blue-700 border-blue-200',
+          title: s.title || '',
+          desc: s.description || s.desc || '',
+          meta: s.meta || '',
+          actionType: s.actionType || 'pipeline',
+          actionLabel: s.actionLabel || 'Review',
+          done: s.isDone ?? s.done ?? false,
+        }));
+        setSlaTasks(mapped);
+        loadedEntities.current.add('slaTasks');
+      }
+    } catch (e) {
+      console.warn('API fetch sla-tasks:', e);
+    }
+  };
+
+  const fetchAutomations = async () => {
+    try {
+      const [ruleRes, auditRes] = await Promise.allSettled([
+        apiClient.get('/automations/rules'),
+        apiClient.get('/automations/audit-logs'),
+      ]);
+
+      if (ruleRes.status === 'fulfilled' && ruleRes.value.data?.data) {
+        const raw = ruleRes.value.data.data;
+        const mappedRules = raw.map((rl: any) => ({
+          id: rl.id,
+          name: rl.name,
+          category: rl.category || '',
+          icon: rl.icon || 'fa-solid fa-gear',
+          color: rl.color || 'blue',
+          active: rl.active ?? rl.isActive ?? true,
+          whenText: rl.whenText || '',
+          threshold: rl.threshold || '',
+          thenSummary: rl.thenSummary || '',
+          actionPills: rl.actionPills || [],
+          executionsToday: rl.executionsToday || 0,
+          lastFired: rl.lastFired || 'Active',
+        }));
+        setRules(mappedRules);
+        setSidebarCounts((prev) => ({
+          ...prev,
+          activeRules: mappedRules.filter((r: any) => r.active).length,
+        }));
+      }
+
+      if (auditRes.status === 'fulfilled' && auditRes.value.data?.data) {
+        const raw = auditRes.value.data.data;
+        setAuditLogs(
+          raw.map((lg: any) => ({
+            id: lg.id,
+            timestamp: lg.createdAt
+              ? new Date(lg.createdAt).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : lg.timestamp || 'Just now',
+            ruleName: lg.ruleName,
+            target: lg.target,
+            conditionsMet: lg.conditionsMet,
+            actionDispatched: lg.actionDispatched,
+            status: lg.status === 'EXECUTED' ? 'Executed' : lg.status || 'Executed',
+          }))
+        );
+      }
+      loadedEntities.current.add('automations');
+    } catch (e) {
+      console.warn('API fetch automations:', e);
+    }
+  };
+
+  // 1. Fetch lightweight navigation counts once on authentication
+  useEffect(() => {
+    if (!authToken && !currentUser) return;
+    fetchSidebarCounts();
+  }, [authToken]);
+
+  // 2. ON-DEMAND / VIEW-SCOPED FETCHING: Only call APIs for the active view when opened!
   useEffect(() => {
     if (!authToken && !currentUser) return;
 
-    const fetchAllData = async () => {
-      try {
-        const [
-          candRes,
-          reqRes,
-          cliRes,
-          venRes,
-          placeRes,
-          userRes,
-          slaRes,
-          ruleRes,
-          auditRes,
-        ] = await Promise.allSettled([
-          apiClient.get('/candidates'),
-          apiClient.get('/requirements'),
-          apiClient.get('/clients'),
-          apiClient.get('/vendors'),
-          apiClient.get('/placements'),
-          apiClient.get('/users'),
-          apiClient.get('/sla-tasks'),
-          apiClient.get('/automations/rules'),
-          apiClient.get('/automations/audit-logs'),
-        ]);
+    switch (currentView) {
+      case 'dashboard':
+        // Only fetch Dashboard requirements, candidates, placements, and SLA radar
+        if (!loadedEntities.current.has('requirements')) fetchRequirements();
+        if (!loadedEntities.current.has('candidates')) fetchCandidates();
+        if (!loadedEntities.current.has('placements')) fetchPlacements();
+        if (!loadedEntities.current.has('slaTasks')) fetchSlaTasks();
+        break;
 
-        if (candRes.status === 'fulfilled' && candRes.value.data?.data) {
-          const raw = candRes.value.data.data;
-          setCandidates(
-            raw.map((c: any) => ({
-              id: c.id,
-              fullName: c.fullName || '',
-              phone: c.phone || '',
-              email: c.email || '',
-              workAuth: c.workAuth || '',
-              education: c.education || '',
-              currentTitle: c.currentTitle || '',
-              skillset: c.skillset || '',
-              hourlyRate: c.hourlyRateDisplay || (c.hourlyRateW2 ? `$${c.hourlyRateW2}/hr (W2)` : ''),
-              relocation: c.relocation || 'Yes',
-              resumeName: c.resumeFileName || '',
-              resumeFormat: c.resumeFormat || 'PDF',
-              assignedRecruiter: c.assignedRecruiter?.fullName || c.assignedRecruiter || '',
-              pipelineStage: c.pipelineStage || 'Available / Bench',
-              rawSnippet: c.rawSnippet || '',
-            }))
-          );
-        }
+      case 'pipeline':
+        if (!loadedEntities.current.has('requirements')) fetchRequirements();
+        if (!loadedEntities.current.has('candidates')) fetchCandidates();
+        break;
 
-        if (reqRes.status === 'fulfilled' && reqRes.value.data?.data) {
-          const raw = reqRes.value.data.data;
-          setRequirements(
-            raw.map((r: any) => ({
-              id: r.id,
-              code: r.code || '',
-              companyName: r.companyName || r.client?.name || '',
-              opportunityTitle: r.opportunityTitle || '',
-              location: r.location || '',
-              clientContact:
-                r.clientContact?.fullName ||
-                r.clientContact?.name ||
-                (typeof r.clientContact === 'string' ? r.clientContact : ''),
-              clientContactTitle:
-                r.clientContact?.designation ||
-                (typeof r.clientContactTitle === 'string' ? r.clientContactTitle : ''),
-              skillsRequired: r.skillsRequired || '',
-              status: r.status || 'Requirement',
-              resourceName: r.resourceName || '',
-              assignedRecruiter:
-                r.assignedRecruiter?.fullName ||
-                r.assignedRecruiter?.name ||
-                (typeof r.assignedRecruiter === 'string' ? r.assignedRecruiter : ''),
-              targetBillRate: r.targetBillRate,
-              targetPayRate: r.targetPayRate,
-            }))
-          );
-        }
+      case 'consultants':
+        if (!loadedEntities.current.has('candidates')) fetchCandidates();
+        break;
 
-        if (cliRes.status === 'fulfilled' && cliRes.value.data?.data) {
-          const raw = cliRes.value.data.data;
-          setClients(
-            raw.map((cl: any) => ({
-              id: cl.id,
-              name: cl.name || '',
-              website: cl.website || '',
-              boardNumber: cl.boardNumber || '',
-              location: cl.location || '',
-              contacts: (cl.contacts || []).map((cnt: any) => ({
-                name: cnt.fullName || cnt.name || '',
-                designation: cnt.designation || '',
-                phone: cnt.phone || '',
-                email: cnt.email || '',
-                isPrimary: cnt.isPrimary ?? false,
-              })),
-            }))
-          );
-        }
+      case 'clients':
+        if (!loadedEntities.current.has('clients')) fetchClients();
+        if (!loadedEntities.current.has('requirements')) fetchRequirements();
+        if (!loadedEntities.current.has('placements')) fetchPlacements();
+        break;
 
-        if (venRes.status === 'fulfilled' && venRes.value.data?.data) {
-          const raw = venRes.value.data.data;
-          setVendors(
-            raw.map((v: any) => ({
-              id: v.id,
-              name: v.name || '',
-              contactName: v.contactName || '',
-              phone: v.phone || '',
-              email: v.email || '',
-              location: v.location || '',
-              skillSpecialization: v.skillSpecialization || '',
-              paymentTerms: v.paymentTerms || '',
-              invoicingTerms: v.invoicingTerms || '',
-              msa: v.msaSigned ? 'Active' : v.msa || 'Pending',
-            }))
-          );
-        }
+      case 'vendors':
+        if (!loadedEntities.current.has('vendors')) fetchVendors();
+        break;
 
-        if (placeRes.status === 'fulfilled' && placeRes.value.data?.data) {
-          const raw = placeRes.value.data.data;
-          setPlacements(
-            raw.map((p: any) => ({
-              id: p.id,
-              recruiter:
-                p.recruiter?.fullName ||
-                p.recruiter?.name ||
-                (typeof p.recruiter === 'string' ? p.recruiter : ''),
-              deployment: p.deployment || 'Onshore',
-              customer: p.customer || p.client?.name || '',
-              customerContact:
-                p.customerContact?.fullName ||
-                p.customerContact?.name ||
-                (typeof p.customerContact === 'string' ? p.customerContact : ''),
-              resourceName:
-                p.resourceName ||
-                p.candidate?.fullName ||
-                p.candidate?.name ||
-                (typeof p.candidate === 'string' ? p.candidate : ''),
-              phone: p.phone || p.candidate?.phone || '',
-              email: p.email || p.candidate?.email || '',
-              skillRole: p.skillRole || '',
-              startDate: p.startDate ? new Date(p.startDate).toISOString().split('T')[0] : '',
-              endDate: p.endDate ? new Date(p.endDate).toISOString().split('T')[0] : '',
-              billing: p.billing || (p.billRate ? `$${p.billRate}/hr` : ''),
-              payRate: p.payRate || (p.payRateAmount ? `$${p.payRateAmount}/hr` : ''),
-              placementType: p.placementType || '',
-              hourlySpread:
-                p.hourlySpread !== undefined && p.hourlySpread !== null
-                  ? Number(p.hourlySpread)
-                  : undefined,
-              marginPct:
-                p.marginPct !== undefined && p.marginPct !== null
-                  ? Number(p.marginPct)
-                  : undefined,
-            }))
-          );
-        }
+      case 'billable':
+        if (!loadedEntities.current.has('placements')) fetchPlacements();
+        break;
 
-        if (userRes.status === 'fulfilled' && userRes.value.data?.data) {
-          const raw = userRes.value.data.data;
-          setUsers(
-            raw.map((u: any) => ({
-              id: u.id,
-              name: u.fullName || u.name || '',
-              email: u.email || '',
-              role: u.role || 'Associate Recruiter',
-              desk: u.desk || '',
-              rateMasked: u.rateMasked ?? true,
-              workload: u.workload || '',
-              status: u.status || 'Active',
-              isCurrentUser: u.isCurrentUser ?? false,
-              lastActive: u.lastActive || 'Active Now',
-            }))
-          );
-        }
+      case 'user_management':
+        if (!loadedEntities.current.has('users')) fetchUsers();
+        break;
 
-        if (slaRes.status === 'fulfilled' && slaRes.value.data?.data) {
-          const raw = slaRes.value.data.data;
-          setSlaTasks(
-            raw.map((s: any) => ({
-              id: s.id,
-              category: s.category || '',
-              slaRuleTag: s.slaRuleTag || '',
-              badgeClass: s.badgeClass || 'bg-blue-50 text-blue-700 border-blue-200',
-              title: s.title || '',
-              desc: s.description || s.desc || '',
-              meta: s.meta || '',
-              actionType: s.actionType || 'pipeline',
-              actionLabel: s.actionLabel || 'Review',
-              done: s.isDone ?? s.done ?? false,
-            }))
-          );
-        }
+      case 'automation':
+        if (!loadedEntities.current.has('automations')) fetchAutomations();
+        break;
 
-        if (ruleRes.status === 'fulfilled' && ruleRes.value.data?.data) {
-          const raw = ruleRes.value.data.data;
-          setRules(
-            raw.map((rl: any) => ({
-              id: rl.id,
-              name: rl.name,
-              category: rl.category || '',
-              icon: rl.icon || 'fa-solid fa-gear',
-              color: rl.color || 'blue',
-              active: rl.active ?? rl.isActive ?? true,
-              whenText: rl.whenText || '',
-              threshold: rl.threshold || '',
-              thenSummary: rl.thenSummary || '',
-              actionPills: rl.actionPills || [],
-              executionsToday: rl.executionsToday || 0,
-              lastFired: rl.lastFired || 'Active',
-            }))
-          );
-        }
-
-        if (auditRes.status === 'fulfilled' && auditRes.value.data?.data) {
-          const raw = auditRes.value.data.data;
-          setAuditLogs(
-            raw.map((lg: any) => ({
-              id: lg.id,
-              timestamp: lg.createdAt
-                ? new Date(lg.createdAt).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })
-                : lg.timestamp || 'Just now',
-              ruleName: lg.ruleName,
-              target: lg.target,
-              conditionsMet: lg.conditionsMet,
-              actionDispatched: lg.actionDispatched,
-              status: lg.status === 'EXECUTED' ? 'Executed' : lg.status || 'Executed',
-            }))
-          );
-        }
-      } catch (err) {
-        console.warn('API sync warning:', err);
-      }
-    };
-
-    fetchAllData();
-  }, [authToken]);
+      default:
+        break;
+    }
+  }, [currentView, authToken]);
 
   // Financial KPI calculations
   const totalMonthlyGrossProfit = placements.reduce(
@@ -641,15 +758,15 @@ export const App: React.FC = () => {
     );
   }
 
-  const sidebarCounts = {
-    requirements: requirements.length,
-    consultants: candidates.length,
-    clients: clients.length,
-    vendors: vendors.length,
-    billable: placements.length,
-    users: users.length,
-    customFields: customFields.length,
-    activeRules: rules.filter((r) => r.active).length,
+  const computedSidebarCounts = {
+    requirements: requirements.length || sidebarCounts.requirements,
+    consultants: candidates.length || sidebarCounts.consultants,
+    clients: clients.length || sidebarCounts.clients,
+    vendors: vendors.length || sidebarCounts.vendors,
+    billable: placements.length || sidebarCounts.billable,
+    users: users.length || sidebarCounts.users,
+    customFields: customFields.length || sidebarCounts.customFields,
+    activeRules: rules.filter((r) => r.active).length || sidebarCounts.activeRules,
   };
 
   return (
@@ -669,7 +786,7 @@ export const App: React.FC = () => {
       <Sidebar
         currentView={currentView}
         onNavigate={setCurrentView}
-        counts={sidebarCounts}
+        counts={computedSidebarCounts}
         currentUser={currentUser}
         onOpenProfile={() => setShowProfileModal(true)}
         onOpenSignOut={() => setShowSignOutModal(true)}
@@ -837,6 +954,7 @@ export const App: React.FC = () => {
                   prev.map((r) => (r.id === id ? { ...r, active: !r.active } : r))
                 );
               }}
+              showToast={showToast}
             />
           )}
 
@@ -845,6 +963,8 @@ export const App: React.FC = () => {
               onImportCandidates={(newCands) => {
                 setCandidates((prev) => [...newCands, ...prev]);
               }}
+              onOpenResumeParser={() => setIsResumeModalOpen(true)}
+              onNavigate={setCurrentView}
               showToast={showToast}
             />
           )}
