@@ -1,5 +1,5 @@
 import React from 'react';
-import { Requirement, Candidate } from '../../types';
+import { Requirement, Candidate, BillablePlacement, SlaTask } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 
 interface DashboardViewProps {
@@ -7,11 +7,16 @@ interface DashboardViewProps {
   rateMasked: boolean;
   requirements: Requirement[];
   candidates: Candidate[];
+  placements?: BillablePlacement[];
+  slaTasks?: SlaTask[];
   onNavigate: (view: string) => void;
   onOpenMatcher: (req: Requirement) => void;
   onOpenPitchWriter: (req: Requirement) => void;
   onStatusChange: (req: Requirement, newStatus: any) => void;
   onAssignCandidate: (req: Requirement, candidate: Candidate) => void;
+  onOpenSlaDrawer?: () => void;
+  onSelectReq?: (req: Requirement) => void;
+  onPreviewResume?: (candidate: Candidate) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -19,15 +24,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   rateMasked,
   requirements,
   candidates,
+  placements = [],
+  slaTasks = [],
   onNavigate,
   onOpenMatcher,
   onOpenPitchWriter,
   onStatusChange,
   onAssignCandidate,
+  onOpenSlaDrawer,
+  onSelectReq,
+  onPreviewResume,
 }) => {
   return (
     <div className="space-y-6">
-      {/* KPI Metric Cards */}
+      {/* 4 KPI Metric Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div
           onClick={() => onNavigate('pipeline')}
@@ -44,7 +54,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1.5">
             <span className="text-emerald-600 font-semibold">{metrics.submittedCount} Submitted</span>
-            <span>•</span>
+            <span>&bull;</span>
             <span className="text-blue-600 font-semibold">{metrics.interviewsCount} Interviewing</span>
           </div>
         </div>
@@ -106,6 +116,116 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
+      {/* Two-Column Midsection: Daily SLA Alerts & Live Billable Consultants */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Left: Daily SLA & Compliance Alerts */}
+        <div className="lg:col-span-6 bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-3.5">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs">
+                <i className="fa-solid fa-bell"></i>
+              </div>
+              <div>
+                <h3 className="font-bold text-xs text-slate-900">Daily SLA & Compliance Alerts</h3>
+                <span className="text-[10px] text-slate-400">Overdue client feedback, interviews, and expiring contracts</span>
+              </div>
+            </div>
+            <button
+              onClick={onOpenSlaDrawer}
+              className="text-xs font-semibold text-brand-600 hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <span>Open Queue</span> &rarr;
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {slaTasks.slice(0, 3).map((item) => (
+              <div
+                key={item.id}
+                className="p-2.5 bg-slate-50/80 hover:bg-slate-100/70 rounded-lg border border-slate-200/60 flex items-center justify-between text-xs transition-colors"
+              >
+                <div className="space-y-0.5 overflow-hidden pr-2">
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border ${
+                        item.badgeClass || 'bg-amber-50 text-amber-700 border-amber-200'
+                      }`}
+                    >
+                      {item.category}
+                    </span>
+                    <span className="font-semibold text-slate-800 text-[11px] truncate">{item.title}</span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 truncate">{item.desc}</div>
+                </div>
+                <button
+                  onClick={onOpenSlaDrawer}
+                  className="flex-shrink-0 px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-semibold hover:bg-blue-100 transition-colors"
+                >
+                  View
+                </button>
+              </div>
+            ))}
+            {slaTasks.length === 0 && (
+              <div className="py-6 text-center text-slate-400 text-xs">
+                <i className="fa-solid fa-circle-check text-emerald-500 text-sm mb-1 block"></i>
+                All SLAs and reminder actions currently up to date!
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right: Active Billable Consultants Summary */}
+        <div className="lg:col-span-6 bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-3.5">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center text-xs">
+                <i className="fa-solid fa-file-invoice-dollar"></i>
+              </div>
+              <div>
+                <h3 className="font-bold text-xs text-slate-900">Active Billable Consultants (Live Sync)</h3>
+                <span className="text-[10px] text-slate-400">Auto-updated when candidates complete onboarding</span>
+              </div>
+            </div>
+            <button
+              onClick={() => onNavigate('billable')}
+              className="text-xs font-semibold text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <span>View All ({placements.length})</span> &rarr;
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {placements.slice(0, 3).map((b) => (
+              <div
+                key={b.id}
+                className="p-2.5 bg-emerald-50/30 hover:bg-emerald-50/60 rounded-lg border border-emerald-100 flex items-center justify-between text-xs transition-colors"
+              >
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-slate-900 text-xs">{b.resourceName}</span>
+                    <span className="text-[9px] font-mono bg-white border border-slate-200 px-1 py-0.2 rounded text-slate-600">
+                      {b.deployment}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-500">{b.customer} &bull; {b.skillRole}</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-mono font-bold text-emerald-700 text-xs">
+                    <MaskedValue value={b.billing} isMasked={rateMasked} />
+                  </div>
+                  <div className="text-[9px] font-mono text-slate-400">Ends {b.endDate}</div>
+                </div>
+              </div>
+            ))}
+            {placements.length === 0 && (
+              <div className="py-6 text-center text-slate-400 text-xs">
+                No active billable placements currently recorded.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Active Requisitions & Sourcing Desk Table */}
       <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
@@ -135,90 +255,112 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {requirements.map((req) => (
-                <tr key={req.id} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="py-3 px-4">
-                    <span className="font-bold text-slate-900">{req.opportunityTitle}</span>
-                    <div className="font-mono text-[10px] text-slate-400">{req.code} • {req.location}</div>
-                  </td>
-                  <td className="py-3 px-4 font-semibold text-slate-700">
-                    {req.companyName}
-                    <div className="text-[10px] text-slate-400 font-normal">{req.clientContact}</div>
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="max-w-xs truncate text-[11px] text-slate-600 font-mono">
-                      {req.skillsRequired}
-                    </div>
-                  </td>
-                  <td className="py-3 px-4">
-                    {req.resourceName ? (
-                      <span className="font-semibold text-slate-800 flex items-center gap-1.5">
-                        <i className="fa-solid fa-user-check text-emerald-500 text-[10px]"></i>
-                        {req.resourceName}
-                      </span>
-                    ) : (
-                      <select
-                        onChange={(e) => {
-                          const c = candidates.find((cand) => cand.fullName === e.target.value);
-                          if (c) onAssignCandidate(req, c);
-                        }}
-                        defaultValue=""
-                        className="text-[11px] py-1 px-2 rounded-lg border border-slate-200 bg-white text-slate-600 cursor-pointer"
+              {requirements.map((req) => {
+                const assignedCandidateObj = candidates.find(
+                  (c) => c.fullName.toLowerCase() === (req.resourceName || '').toLowerCase()
+                );
+
+                return (
+                  <tr key={req.id} className="hover:bg-slate-50/60 transition-colors">
+                    <td className="py-3 px-4">
+                      <div
+                        onClick={() => onSelectReq && onSelectReq(req)}
+                        className="font-bold text-slate-900 cursor-pointer hover:text-brand-600 transition-colors"
                       >
-                        <option value="" disabled>Assign Bench...</option>
-                        {candidates.map((c) => (
-                          <option key={c.id} value={c.fullName}>
-                            {c.fullName} ({c.workAuth})
+                        {req.opportunityTitle}
+                      </div>
+                      <div className="font-mono text-[10px] text-slate-400">
+                        {req.code} &bull; {req.location}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 font-semibold text-slate-700">
+                      {req.companyName}
+                      <div className="text-[10px] text-slate-400 font-normal">{req.clientContact}</div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="max-w-xs truncate text-[11px] text-slate-600 font-mono">
+                        {req.skillsRequired}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      {req.resourceName ? (
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            onClick={() =>
+                              assignedCandidateObj && onPreviewResume && onPreviewResume(assignedCandidateObj)
+                            }
+                            className="font-semibold text-slate-800 flex items-center gap-1.5 cursor-pointer hover:text-brand-600 transition-colors"
+                          >
+                            <i className="fa-solid fa-user-check text-emerald-500 text-[10px]"></i>
+                            {req.resourceName}
+                          </span>
+                        </div>
+                      ) : (
+                        <select
+                          onChange={(e) => {
+                            const c = candidates.find((cand) => cand.fullName === e.target.value);
+                            if (c) onAssignCandidate(req, c);
+                          }}
+                          defaultValue=""
+                          className="text-[11px] py-1 px-2 rounded-lg border border-slate-200 bg-white text-slate-600 cursor-pointer"
+                        >
+                          <option value="" disabled>
+                            Assign Bench...
                           </option>
-                        ))}
+                          {candidates.map((c) => (
+                            <option key={c.id} value={c.fullName}>
+                              {c.fullName} ({c.workAuth})
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </td>
+                    <td className="py-3 px-4">
+                      <select
+                        value={req.status}
+                        onChange={(e) => onStatusChange(req, e.target.value)}
+                        className={`text-[10px] font-bold py-1 px-2.5 rounded-lg border ${
+                          req.status === 'Submitted'
+                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            : req.status === 'Interview'
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : req.status === 'Selected'
+                            ? 'bg-purple-50 text-purple-700 border-purple-200'
+                            : req.status === 'Onboarding'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-slate-100 text-slate-700 border-slate-300'
+                        }`}
+                      >
+                        <option value="Requirement">Requirement</option>
+                        <option value="Submitted">Submitted</option>
+                        <option value="Interview">Interview</option>
+                        <option value="Selected">Selected</option>
+                        <option value="Onboarding">Onboarding</option>
                       </select>
-                    )}
-                  </td>
-                  <td className="py-3 px-4">
-                    <select
-                      value={req.status}
-                      onChange={(e) => onStatusChange(req, e.target.value)}
-                      className={`text-[10px] font-bold py-1 px-2.5 rounded-lg border ${
-                        req.status === 'Submitted'
-                          ? 'bg-blue-50 text-blue-700 border-blue-200'
-                          : req.status === 'Interview'
-                          ? 'bg-amber-50 text-amber-700 border-amber-200'
-                          : req.status === 'Selected'
-                          ? 'bg-purple-50 text-purple-700 border-purple-200'
-                          : req.status === 'Onboarding'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : 'bg-slate-100 text-slate-700 border-slate-300'
-                      }`}
-                    >
-                      <option value="Requirement">Requirement</option>
-                      <option value="Submitted">Submitted</option>
-                      <option value="Interview">Interview</option>
-                      <option value="Selected">Selected</option>
-                      <option value="Onboarding">Onboarding</option>
-                    </select>
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        onClick={() => onOpenMatcher(req)}
-                        title="Run Bench Skill Matcher"
-                        className="px-2 py-1 rounded bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-semibold flex items-center gap-1 transition-colors"
-                      >
-                        <i className="fa-solid fa-users-viewfinder"></i>
-                        <span>Match</span>
-                      </button>
-                      <button
-                        onClick={() => onOpenPitchWriter(req)}
-                        title="Draft Client Presentation Pitch"
-                        className="px-2 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 text-[10px] font-semibold flex items-center gap-1 transition-colors"
-                      >
-                        <i className="fa-solid fa-pen-nib"></i>
-                        <span>Pitch</span>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => onOpenMatcher(req)}
+                          title="Run Bench Skill Matcher"
+                          className="px-2 py-1 rounded bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-semibold flex items-center gap-1 transition-colors"
+                        >
+                          <i className="fa-solid fa-users-viewfinder"></i>
+                          <span>Match</span>
+                        </button>
+                        <button
+                          onClick={() => onOpenPitchWriter(req)}
+                          title="Draft Client Presentation Pitch"
+                          className="px-2 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 text-[10px] font-semibold flex items-center gap-1 transition-colors"
+                        >
+                          <i className="fa-solid fa-pen-nib"></i>
+                          <span>Pitch</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

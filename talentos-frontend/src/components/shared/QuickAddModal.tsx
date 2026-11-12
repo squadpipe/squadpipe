@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Candidate, Requirement, Client, Vendor, BillablePlacement } from '../../types';
 
 interface QuickAddModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialTab?: 'consultant' | 'requirement' | 'client' | 'vendor' | 'placement';
   onSaveCandidate: (candidate: Candidate) => void;
   onSaveRequirement: (req: Requirement) => void;
   onSaveClient: (client: Client) => void;
@@ -15,6 +16,7 @@ interface QuickAddModalProps {
 export const QuickAddModal: React.FC<QuickAddModalProps> = ({
   isOpen,
   onClose,
+  initialTab,
   onSaveCandidate,
   onSaveRequirement,
   onSaveClient,
@@ -23,6 +25,12 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
   showToast,
 }) => {
   const [activeTab, setActiveTab] = useState<'consultant' | 'requirement' | 'client' | 'vendor' | 'placement'>('consultant');
+
+  useEffect(() => {
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
 
   // Candidate Form
   const [conForm, setConForm] = useState({

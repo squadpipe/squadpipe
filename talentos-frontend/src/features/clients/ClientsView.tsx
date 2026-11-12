@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Client, Requirement, BillablePlacement } from '../../types';
+import { ClientDetailDrawer } from '../../components/modals/ClientDetailDrawer';
 
 interface ClientsViewProps {
   clients: Client[];
   requirements: Requirement[];
   placements: BillablePlacement[];
   onOpenAddClient: () => void;
+  showToast?: (title: string, message: string, icon?: string) => void;
 }
 
 export const ClientsView: React.FC<ClientsViewProps> = ({
@@ -13,6 +15,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   requirements,
   placements,
   onOpenAddClient,
+  showToast = () => {},
 }) => {
   const [search, setSearch] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -34,13 +37,13 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search enterprise clients..."
-            className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs w-64 text-slate-700"
+            className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs w-64 text-slate-700 focus:bg-white transition-all outline-none"
           />
         </div>
 
         <button
           onClick={onOpenAddClient}
-          className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm shadow-brand-600/20 transition-all"
+          className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm shadow-brand-600/20 transition-all cursor-pointer"
         >
           <i className="fa-solid fa-building text-xs"></i>
           <span>Add Client Account</span>
@@ -50,8 +53,12 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
       {/* Clients Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((client) => {
-          const clientReqs = requirements.filter((r) => r.companyName === client.name);
-          const clientPlacements = placements.filter((p) => p.customer === client.name);
+          const clientReqs = requirements.filter(
+            (r) => r.companyName.toLowerCase() === client.name.toLowerCase()
+          );
+          const clientPlacements = placements.filter(
+            (p) => p.customer.toLowerCase() === client.name.toLowerCase()
+          );
 
           return (
             <div
@@ -61,7 +68,12 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
               <div>
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-extrabold text-sm text-slate-900">{client.name}</h3>
+                    <h3
+                      onClick={() => setSelectedClient(client)}
+                      className="font-extrabold text-sm text-slate-900 cursor-pointer hover:text-brand-600 transition-colors"
+                    >
+                      {client.name}
+                    </h3>
                     <a
                       href={client.website}
                       target="_blank"
@@ -107,13 +119,14 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
               {/* Footer Activity Metrics */}
               <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                 <span className="text-[11px] font-semibold text-slate-600">
-                  {clientReqs.length} Open Reqs • {clientPlacements.length} Placements
+                  {clientReqs.length} Open Reqs &bull; {clientPlacements.length} Placements
                 </span>
                 <button
                   onClick={() => setSelectedClient(client)}
-                  className="text-xs font-semibold text-brand-600 hover:text-brand-800"
+                  className="text-xs font-semibold text-brand-600 hover:text-brand-800 flex items-center gap-1 cursor-pointer"
                 >
-                  View Details &rarr;
+                  <span>View Details</span>
+                  <i className="fa-solid fa-arrow-right text-[10px]"></i>
                 </button>
               </div>
             </div>
@@ -121,35 +134,15 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
         })}
       </div>
 
-      {/* Client Detail Flyout Modal if clicked */}
-      {selectedClient && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 border border-slate-200 card-shadow space-y-4">
-            <div className="flex items-center justify-between border-b pb-3">
-              <div>
-                <h3 className="font-extrabold text-sm text-slate-900">{selectedClient.name}</h3>
-                <p className="text-xs text-slate-400">{selectedClient.location}</p>
-              </div>
-              <button onClick={() => setSelectedClient(null)} className="p-1 text-slate-400 hover:text-slate-600">
-                <i className="fa-solid fa-xmark"></i>
-              </button>
-            </div>
-            <div className="space-y-2 text-xs text-slate-700">
-              <p><strong>Website:</strong> {selectedClient.website}</p>
-              <p><strong>Switchboard:</strong> {selectedClient.boardNumber}</p>
-              <p><strong>Primary Contact:</strong> {selectedClient.contacts[0]?.name} ({selectedClient.contacts[0]?.email})</p>
-            </div>
-            <div className="pt-3 border-t flex justify-end">
-              <button
-                onClick={() => setSelectedClient(null)}
-                className="px-4 py-1.5 text-xs font-semibold bg-slate-100 rounded-lg text-slate-700"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Deep-Dive Client Drawer Modal */}
+      <ClientDetailDrawer
+        isOpen={Boolean(selectedClient)}
+        onClose={() => setSelectedClient(null)}
+        client={selectedClient}
+        requirements={requirements}
+        placements={placements}
+        showToast={showToast}
+      />
     </div>
   );
 };

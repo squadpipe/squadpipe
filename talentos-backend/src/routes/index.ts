@@ -4,6 +4,7 @@ import { prisma } from '../config/prisma.config';
 import { authenticateJwt } from '../middlewares/auth.middleware';
 import { rateMaskMiddleware } from '../middlewares/rateMask.middleware';
 
+import * as authController from '../controllers/auth.controller';
 import * as candidateController from '../controllers/candidate.controller';
 import * as requirementController from '../controllers/requirement.controller';
 import * as placementController from '../controllers/placement.controller';
@@ -14,13 +15,20 @@ import * as slaController from '../controllers/sla.controller';
 
 const router = Router();
 
-router.use(authenticateJwt);
-router.use(rateMaskMiddleware);
-
-// Health check
+// Public routes (Health check & Authentication)
 router.get('/health', (req: Request, res: Response) => {
   res.json({ success: true, service: 'talentos-backend', status: 'operational' });
 });
+
+router.post('/auth/login', authController.login);
+
+// Protected routes (JWT authentication & Rate Masking)
+router.use(authenticateJwt);
+router.use(rateMaskMiddleware);
+
+// Authenticated session routes
+router.get('/auth/me', authController.me);
+router.post('/auth/logout', authController.logout);
 
 // Dashboard metrics
 router.get('/dashboard/metrics', async (req: Request, res: Response) => {

@@ -77,7 +77,12 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
             <div>
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <h3 className="font-extrabold text-sm text-slate-900">{c.fullName}</h3>
+                  <h3
+                    onClick={() => onPreviewResume(c)}
+                    className="font-extrabold text-sm text-slate-900 cursor-pointer hover:text-brand-600 transition-colors"
+                  >
+                    {c.fullName}
+                  </h3>
                   <div className="text-xs font-semibold text-brand-600 mt-0.5">{c.currentTitle}</div>
                 </div>
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">

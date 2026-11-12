@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { apiClient } from './config/api.config';
 
 import { Sidebar } from './components/layout/Sidebar';
@@ -18,6 +17,9 @@ import { CustomFieldsView } from './features/custom-fields/CustomFieldsView';
 import { AutomationsView } from './features/automations/AutomationsView';
 import { ImportDataView } from './features/import-data/ImportDataView';
 
+// Auth View
+import { LoginView } from './features/auth/LoginView';
+
 // Modals
 import { ResumeParserModal } from './features/modals/ResumeParserModal';
 import { EmailParserModal } from './features/modals/EmailParserModal';
@@ -25,6 +27,10 @@ import { SkillMatcherModal } from './features/modals/SkillMatcherModal';
 import { SubmissionPitchModal } from './features/modals/SubmissionPitchModal';
 import { PlacementWizardModal } from './features/modals/PlacementWizardModal';
 import { QuickAddModal } from './components/shared/QuickAddModal';
+import { SignOutModal } from './components/modals/SignOutModal';
+import { ProfileModal } from './components/modals/ProfileModal';
+import { ResumeViewerModal } from './components/modals/ResumeViewerModal';
+import { RequirementDetailModal } from './components/modals/RequirementDetailModal';
 
 import {
   Candidate,
@@ -40,9 +46,28 @@ import {
 } from './types';
 
 export const App: React.FC = () => {
+  // Session / Authentication state
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    try {
+      const saved =
+        localStorage.getItem('talentos_current_user') ||
+        sessionStorage.getItem('talentos_current_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [authToken, setAuthToken] = useState<string | null>(() => {
+    return (
+      localStorage.getItem('talentos_access_token') ||
+      sessionStorage.getItem('talentos_access_token')
+    );
+  });
+
   const [currentView, setCurrentView] = useState<string>('dashboard');
   const [globalSearch, setGlobalSearch] = useState<string>('');
-  const [rateMasked, setRateMasked] = useState<boolean>(false);
+  const [rateMasked, setRateMasked] = useState<boolean>(() => currentUser?.rateMasked ?? false);
   const [isSlaOpen, setIsSlaOpen] = useState<boolean>(false);
 
   // Modals visibility
@@ -52,15 +77,29 @@ export const App: React.FC = () => {
   const [isPitchModalOpen, setIsPitchModalOpen] = useState(false);
   const [isPlacementWizardOpen, setIsPlacementWizardOpen] = useState(false);
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [quickAddInitialTab, setQuickAddInitialTab] = useState<
+    'consultant' | 'requirement' | 'client' | 'vendor' | 'placement'
+  >('consultant');
+
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [selectedResumeCand, setSelectedResumeCand] = useState<Candidate | null>(null);
+  const [selectedReqForDetail, setSelectedReqForDetail] = useState<Requirement | null>(null);
 
   // Selected items for context modals
   const [activeReq, setActiveReq] = useState<Requirement | null>(null);
   const [activeCandidate, setActiveCandidate] = useState<Candidate | null>(null);
 
   // Toast Notification state
-  const [toast, setToast] = useState<{ title: string; message: string; icon?: string } | null>(null);
+  const [toast, setToast] = useState<{ title: string; message: string; icon?: string } | null>(
+    null
+  );
 
-  const showToast = (title: string, message: string, icon = 'fa-solid fa-circle-check text-emerald-500') => {
+  const showToast = (
+    title: string,
+    message: string,
+    icon = 'fa-solid fa-circle-check text-emerald-500'
+  ) => {
     setToast({ title, message, icon });
     setTimeout(() => {
       setToast(null);
@@ -79,8 +118,10 @@ export const App: React.FC = () => {
   const [auditLogs, setAuditLogs] = useState<AutomationAuditLog[]>([]);
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
 
-  // Fetch dynamic entities from backend API on mount
+  // Fetch dynamic entities from backend API on mount or when token changes
   useEffect(() => {
+    if (!authToken && !currentUser) return;
+
     const fetchAllData = async () => {
       try {
         const [
@@ -242,7 +283,12 @@ export const App: React.FC = () => {
           setAuditLogs(
             raw.map((lg: any) => ({
               id: lg.id,
-              timestamp: lg.createdAt ? new Date(lg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : lg.timestamp || 'Just now',
+              timestamp: lg.createdAt
+                ? new Date(lg.createdAt).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : lg.timestamp || 'Just now',
               ruleName: lg.ruleName,
               target: lg.target,
               conditionsMet: lg.conditionsMet,
@@ -257,11 +303,11 @@ export const App: React.FC = () => {
     };
 
     fetchAllData();
-  }, []);
+  }, [authToken]);
 
   // Financial KPI calculations
   const totalMonthlyGrossProfit = placements.reduce(
-    (sum, p) => sum + ((p.hourlySpread || 0) * 160),
+    (sum, p) => sum + (p.hourlySpread || 0) * 160,
     0
   );
   const avgHourlyMarginSpread = placements.length
@@ -293,13 +339,32 @@ export const App: React.FC = () => {
     setRequirements((prev) =>
       prev.map((r) => (r.id === req.id ? { ...r, status: newStatus } : r))
     );
-    showToast('Stage Updated', `${req.opportunityTitle} moved to ${newStatus}.`, 'fa-solid fa-arrows-spin text-brand-600');
+    apiClient
+      .put(`/requirements/${req.id}`, { status: newStatus })
+      .catch((e) => console.warn('API status change:', e));
+
+    showToast(
+      'Stage Updated',
+      `${req.opportunityTitle} moved to ${newStatus}.`,
+      'fa-solid fa-arrows-spin text-brand-600'
+    );
   };
 
   const handleAssignCandidate = (req: Requirement, candidate: Candidate) => {
     setRequirements((prev) =>
-      prev.map((r) => (r.id === req.id ? { ...r, resourceName: candidate.fullName, status: 'Submitted' } : r))
+      prev.map((r) =>
+        r.id === req.id
+          ? { ...r, resourceName: candidate.fullName, status: 'Submitted' }
+          : r
+      )
     );
+    apiClient
+      .put(`/requirements/${req.id}`, {
+        resourceName: candidate.fullName,
+        status: 'Submitted',
+      })
+      .catch((e) => console.warn('API assign candidate:', e));
+
     setAuditLogs((prev) => [
       {
         id: 'log_' + Date.now(),
@@ -312,7 +377,11 @@ export const App: React.FC = () => {
       },
       ...prev,
     ]);
-    showToast('Candidate Assigned', `${candidate.fullName} submitted to ${req.code}!`, 'fa-solid fa-circle-check text-emerald-400');
+    showToast(
+      'Candidate Assigned',
+      `${candidate.fullName} submitted to ${req.code}!`,
+      'fa-solid fa-circle-check text-emerald-400'
+    );
   };
 
   const handleConfirmPlacement = async (newPlacement: BillablePlacement, reqId?: string) => {
@@ -326,6 +395,9 @@ export const App: React.FC = () => {
       setRequirements((prev) =>
         prev.map((r) => (r.id === reqId ? { ...r, status: 'Onboarding' } : r))
       );
+      apiClient
+        .put(`/requirements/${reqId}`, { status: 'Onboarding' })
+        .catch((e) => console.warn('API update requirement status:', e));
     }
     setAuditLogs((prev) => [
       {
@@ -333,12 +405,19 @@ export const App: React.FC = () => {
         timestamp: 'Just now',
         ruleName: 'Placement Activation & Margin Lock',
         target: `${newPlacement.resourceName} @ ${newPlacement.customer}`,
-        conditionsMet: `Bill: ${newPlacement.billing} | Spread: +$${(newPlacement.hourlySpread || 0).toFixed(2)}/hr`,
+        conditionsMet: `Bill: ${newPlacement.billing} | Spread: +$${(
+          newPlacement.hourlySpread || 0
+        ).toFixed(2)}/hr`,
         actionDispatched: 'Registered to Billable Ledger & 30d Expiration Radar Scheduled',
         status: 'Executed',
       },
       ...prev,
     ]);
+    showToast(
+      'Placement Activated',
+      `Locked in commercial placement for ${newPlacement.resourceName}!`,
+      'fa-solid fa-file-invoice-dollar text-emerald-400'
+    );
   };
 
   const handleExtendContract = async (placement: BillablePlacement) => {
@@ -367,7 +446,11 @@ export const App: React.FC = () => {
       },
       ...prev,
     ]);
-    showToast('Contract Extended', `SOW for ${placement.resourceName} extended through ${newEnd}!`, 'fa-solid fa-circle-check text-emerald-400');
+    showToast(
+      'Contract Extended',
+      `SOW for ${placement.resourceName} extended through ${newEnd}!`,
+      'fa-solid fa-circle-check text-emerald-400'
+    );
   };
 
   const handleTestTriggerRule = async (rule: AutomationRule) => {
@@ -377,7 +460,11 @@ export const App: React.FC = () => {
       console.warn('API test rule trigger:', e);
     }
     setRules((prev) =>
-      prev.map((r) => (r.id === rule.id ? { ...r, executionsToday: r.executionsToday + 1, lastFired: 'Just now' } : r))
+      prev.map((r) =>
+        r.id === rule.id
+          ? { ...r, executionsToday: r.executionsToday + 1, lastFired: 'Just now' }
+          : r
+      )
     );
     setAuditLogs((prev) => [
       {
@@ -391,7 +478,11 @@ export const App: React.FC = () => {
       },
       ...prev,
     ]);
-    showToast('Automation Triggered', `Rule "${rule.name}" fired successfully!`, 'fa-solid fa-bolt text-amber-500');
+    showToast(
+      'Automation Triggered',
+      `Rule "${rule.name}" fired successfully!`,
+      'fa-solid fa-bolt text-amber-500'
+    );
   };
 
   const handleTaskAction = (task: SlaTask) => {
@@ -407,17 +498,96 @@ export const App: React.FC = () => {
     setIsSlaOpen(false);
   };
 
-  const viewTitles: Record<string, string> = {
-    dashboard: 'Dashboard Overview',
-    pipeline: 'Recruitment Pipeline',
-    consultants: 'Consultant Directory',
-    clients: 'Client Directory',
-    vendors: 'Staffing Vendors',
-    billable: 'Billable Consultants',
-    user_management: 'User Management & Team Permissions',
-    custom_fields: 'Custom Fields & Master Taxonomy',
-    automation: 'Workflow Automations',
-    import_data: 'Data Import & Migration',
+  const handleSignOut = () => {
+    localStorage.removeItem('talentos_access_token');
+    localStorage.removeItem('talentos_current_user');
+    sessionStorage.removeItem('talentos_access_token');
+    sessionStorage.removeItem('talentos_current_user');
+    setCurrentUser(null);
+    setAuthToken(null);
+    setShowSignOutModal(false);
+    showToast(
+      'Signed Out',
+      'You have been signed out of TalentOS.',
+      'fa-solid fa-arrow-right-from-bracket text-slate-700'
+    );
+  };
+
+  const handleSwitchPersona = (persona: {
+    name: string;
+    email: string;
+    role: string;
+    desk: string;
+    rateMasked: boolean;
+  }) => {
+    const switchedUser: User = {
+      id: 'usr_' + persona.name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+      name: persona.name,
+      email: persona.email,
+      role: persona.role,
+      desk: persona.desk,
+      rateMasked: persona.rateMasked,
+      workload: 'Active Operational Desk',
+      status: 'Active',
+      lastActive: 'Active Now',
+    };
+    setCurrentUser(switchedUser);
+    setRateMasked(persona.rateMasked);
+    localStorage.setItem('talentos_current_user', JSON.stringify(switchedUser));
+    showToast(
+      'Persona Switched',
+      `Active account switched to ${persona.name} (${persona.role}).`,
+      'fa-solid fa-arrows-rotate text-brand-600'
+    );
+  };
+
+  const handleUpdateProfile = (updated: User) => {
+    setCurrentUser(updated);
+    localStorage.setItem('talentos_current_user', JSON.stringify(updated));
+    setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+    showToast(
+      'Profile Updated',
+      'Your profile details have been updated.',
+      'fa-solid fa-circle-check text-emerald-500'
+    );
+  };
+
+  // If unauthenticated, render the full-screen Obsidian SaaS Login View
+  if (!currentUser) {
+    return (
+      <div className="flex h-screen w-screen overflow-hidden bg-[#0B0F17]">
+        {/* Global Toast Banner */}
+        {toast && (
+          <div className="fixed top-5 right-5 z-50 bg-white border border-slate-200 shadow-2xl rounded-xl p-4 flex items-center gap-3 animate-fade-in">
+            <i className={`${toast.icon} text-base`}></i>
+            <div>
+              <div className="text-xs font-bold text-slate-900">{toast.title}</div>
+              <div className="text-[11px] text-slate-500">{toast.message}</div>
+            </div>
+          </div>
+        )}
+
+        <LoginView
+          onLoginSuccess={(user, token) => {
+            setCurrentUser(user);
+            setAuthToken(token);
+            setRateMasked(user.rateMasked ?? false);
+          }}
+          showToast={showToast}
+        />
+      </div>
+    );
+  }
+
+  const sidebarCounts = {
+    requirements: requirements.length,
+    consultants: candidates.length,
+    clients: clients.length,
+    vendors: vendors.length,
+    billable: placements.length,
+    users: users.length,
+    customFields: customFields.length,
+    activeRules: rules.filter((r) => r.active).length,
   };
 
   return (
@@ -433,20 +603,35 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* Navigation Sidebar */}
-      <Sidebar currentView={currentView} onNavigate={setCurrentView} />
+      {/* Obsidian Dark Sidebar with live counts & profile popover */}
+      <Sidebar
+        currentView={currentView}
+        onNavigate={setCurrentView}
+        counts={sidebarCounts}
+        currentUser={currentUser}
+        onOpenProfile={() => setShowProfileModal(true)}
+        onOpenSignOut={() => setShowSignOutModal(true)}
+      />
 
       {/* Main Container */}
       <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
+        {/* Topbar with dynamic breadcrumb, search, quick add dropdown, rate mask & profile dropdown */}
         <Topbar
-          viewTitle={viewTitles[currentView] || 'TalentOS Platform'}
+          currentView={currentView}
           globalSearch={globalSearch}
           onSearchChange={setGlobalSearch}
           onToggleSla={() => setIsSlaOpen(true)}
           slaCount={slaTasks.filter((t) => !t.done).length}
           rateMasked={rateMasked}
           onToggleRateMask={() => setRateMasked(!rateMasked)}
-          onOpenQuickAdd={() => setIsQuickAddOpen(true)}
+          onOpenQuickAddTab={(tab) => {
+            setQuickAddInitialTab(tab);
+            setIsQuickAddOpen(true);
+          }}
+          currentUser={currentUser}
+          onOpenProfile={() => setShowProfileModal(true)}
+          onOpenSignOut={() => setShowSignOutModal(true)}
+          onSwitchPersona={handleSwitchPersona}
         />
 
         {/* Dynamic View Body */}
@@ -457,6 +642,8 @@ export const App: React.FC = () => {
               rateMasked={rateMasked}
               requirements={requirements}
               candidates={candidates}
+              placements={placements}
+              slaTasks={slaTasks}
               onNavigate={setCurrentView}
               onOpenMatcher={(req) => {
                 setActiveReq(req);
@@ -468,6 +655,9 @@ export const App: React.FC = () => {
               }}
               onStatusChange={handleStatusChange}
               onAssignCandidate={handleAssignCandidate}
+              onOpenSlaDrawer={() => setIsSlaOpen(true)}
+              onSelectReq={(r) => setSelectedReqForDetail(r)}
+              onPreviewResume={(c) => setSelectedResumeCand(c)}
             />
           )}
 
@@ -489,6 +679,7 @@ export const App: React.FC = () => {
                 setActiveReq(req);
                 setIsPlacementWizardOpen(true);
               }}
+              onSelectReq={(r) => setSelectedReqForDetail(r)}
             />
           )}
 
@@ -497,10 +688,7 @@ export const App: React.FC = () => {
               candidates={candidates}
               rateMasked={rateMasked}
               onOpenResumeParser={() => setIsResumeModalOpen(true)}
-              onPreviewResume={(c) => {
-                setActiveCandidate(c);
-                setIsResumeModalOpen(true);
-              }}
+              onPreviewResume={(c) => setSelectedResumeCand(c)}
             />
           )}
 
@@ -509,14 +697,21 @@ export const App: React.FC = () => {
               clients={clients}
               requirements={requirements}
               placements={placements}
-              onOpenAddClient={() => setIsQuickAddOpen(true)}
+              onOpenAddClient={() => {
+                setQuickAddInitialTab('client');
+                setIsQuickAddOpen(true);
+              }}
+              showToast={showToast}
             />
           )}
 
           {currentView === 'vendors' && (
             <VendorsView
               vendors={vendors}
-              onOpenAddVendor={() => setIsQuickAddOpen(true)}
+              onOpenAddVendor={() => {
+                setQuickAddInitialTab('vendor');
+                setIsQuickAddOpen(true);
+              }}
             />
           )}
 
@@ -524,7 +719,10 @@ export const App: React.FC = () => {
             <BillablePlacementsView
               placements={placements}
               rateMasked={rateMasked}
-              onOpenNewPlacement={() => setIsPlacementWizardOpen(true)}
+              onOpenNewPlacement={() => {
+                setQuickAddInitialTab('placement');
+                setIsPlacementWizardOpen(true);
+              }}
               onExtendContract={handleExtendContract}
             />
           )}
@@ -543,7 +741,9 @@ export const App: React.FC = () => {
                 );
                 showToast(
                   'Clearance Updated',
-                  `${user.name}'s billing rate visibility is now ${!user.rateMasked ? 'Masked (••••)' : 'Visible'}.`
+                  `${user.name}'s billing rate visibility is now ${
+                    !user.rateMasked ? 'Masked (••••)' : 'Visible'
+                  }.`
                 );
               }}
               onInviteUser={async (newUser) => {
@@ -622,6 +822,46 @@ export const App: React.FC = () => {
         }}
       />
 
+      {/* Candidate Resume Dossier Preview Modal */}
+      <ResumeViewerModal
+        isOpen={Boolean(selectedResumeCand)}
+        onClose={() => setSelectedResumeCand(null)}
+        candidate={selectedResumeCand}
+        requirements={requirements}
+        onSubmitToReq={(candidate, req) => {
+          handleAssignCandidate(req, candidate);
+          showToast(
+            'Candidate Submitted',
+            `${candidate.fullName} submitted to ${req.code} (${req.opportunityTitle})!`,
+            'fa-solid fa-bolt text-amber-500'
+          );
+        }}
+        showToast={showToast}
+      />
+
+      {/* Job Requisition Detail & Inline Bench Matcher Modal */}
+      <RequirementDetailModal
+        isOpen={Boolean(selectedReqForDetail)}
+        onClose={() => setSelectedReqForDetail(null)}
+        requirement={selectedReqForDetail}
+        candidates={candidates}
+        onAssignCandidate={(req, cand) => {
+          handleAssignCandidate(req, cand);
+          setSelectedReqForDetail((prev) =>
+            prev ? { ...prev, resourceName: cand.fullName, status: 'Submitted' } : null
+          );
+        }}
+        onOpenResumePreview={(cand) => setSelectedResumeCand(cand)}
+        onOpenPitchWriter={(req) => {
+          setActiveReq(req);
+          setIsPitchModalOpen(true);
+        }}
+        onOpenPlacementWizard={(req) => {
+          setActiveReq(req);
+          setIsPlacementWizardOpen(true);
+        }}
+      />
+
       {/* Specialized Modals */}
       <ResumeParserModal
         isOpen={isResumeModalOpen}
@@ -642,7 +882,9 @@ export const App: React.FC = () => {
         onClose={() => setIsMatcherModalOpen(false)}
         requirements={requirements}
         candidates={candidates}
-        onSubmitCandidate={(candidate, requirement) => handleAssignCandidate(requirement, candidate)}
+        onSubmitCandidate={(candidate, requirement) =>
+          handleAssignCandidate(requirement, candidate)
+        }
         showToast={showToast}
       />
 
@@ -666,6 +908,7 @@ export const App: React.FC = () => {
       <QuickAddModal
         isOpen={isQuickAddOpen}
         onClose={() => setIsQuickAddOpen(false)}
+        initialTab={quickAddInitialTab}
         onSaveCandidate={(c) => {
           setCandidates((prev) => [c, ...prev]);
           apiClient.post('/candidates', c).catch((e) => console.warn('API save candidate:', e));
@@ -687,6 +930,27 @@ export const App: React.FC = () => {
           apiClient.post('/placements', p).catch((e) => console.warn('API save placement:', e));
         }}
         showToast={showToast}
+      />
+
+      {/* Account Settings / Profile Modal */}
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        currentUser={currentUser}
+        onUpdateUser={handleUpdateProfile}
+        onOpenSignOut={() => {
+          setShowProfileModal(false);
+          setShowSignOutModal(true);
+        }}
+        showToast={showToast}
+      />
+
+      {/* Sign Out Confirmation Modal */}
+      <SignOutModal
+        isOpen={showSignOutModal}
+        onClose={() => setShowSignOutModal(false)}
+        currentUser={currentUser}
+        onConfirm={handleSignOut}
       />
     </div>
   );

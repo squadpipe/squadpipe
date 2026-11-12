@@ -9,6 +9,7 @@ interface PipelineViewProps {
   onOpenMatcher: (req: Requirement) => void;
   onOpenPitchWriter: (req: Requirement) => void;
   onOpenPlacementWizard: (req: Requirement) => void;
+  onSelectReq?: (req: Requirement) => void;
 }
 
 export const PipelineView: React.FC<PipelineViewProps> = ({
@@ -19,6 +20,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
   onOpenMatcher,
   onOpenPitchWriter,
   onOpenPlacementWizard,
+  onSelectReq,
 }) => {
   const [displayMode, setDisplayMode] = useState<'kanban' | 'list'>('kanban');
   const [search, setSearch] = useState('');
@@ -136,14 +138,20 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                         className="bg-white p-3.5 rounded-xl border border-slate-200 card-shadow hover:border-slate-300 transition-all space-y-2"
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <span className="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                          <span
+                            onClick={() => onSelectReq && onSelectReq(req)}
+                            className="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 cursor-pointer hover:bg-brand-50 hover:text-brand-600 transition-colors"
+                          >
                             {req.code}
                           </span>
                           <span className="text-[10px] text-slate-400">{req.location}</span>
                         </div>
 
                         <div>
-                          <h4 className="font-bold text-xs text-slate-900 leading-snug">
+                          <h4
+                            onClick={() => onSelectReq && onSelectReq(req)}
+                            className="font-bold text-xs text-slate-900 leading-snug cursor-pointer hover:text-brand-600 transition-colors"
+                          >
                             {req.opportunityTitle}
                           </h4>
                           <div className="text-[11px] font-semibold text-slate-600 mt-0.5">
@@ -228,9 +236,14 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredReqs.map((req) => (
-                <tr key={req.id} className="hover:bg-slate-50/60">
+                <tr key={req.id} className="hover:bg-slate-50/60 transition-colors">
                   <td className="py-3 px-4 font-bold text-slate-900">
-                    {req.opportunityTitle}
+                    <span
+                      onClick={() => onSelectReq && onSelectReq(req)}
+                      className="cursor-pointer hover:text-brand-600 transition-colors block"
+                    >
+                      {req.opportunityTitle}
+                    </span>
                     <div className="font-mono text-[10px] text-slate-400">{req.code}</div>
                   </td>
                   <td className="py-3 px-4 font-semibold text-slate-700">{req.companyName}</td>
