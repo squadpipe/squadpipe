@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Check, Plus, X } from 'lucide-react';
 import { Candidate, Requirement, Client, Vendor, BillablePlacement } from '../../types';
 import { formatRateDisplay, useCurrency } from '../../utils/currency';
 
@@ -206,15 +207,19 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white">
-              <i className="fa-solid fa-plus text-xs"></i>
+              <Plus className="w-4 h-4" strokeWidth={2.4} />
             </div>
             <div>
               <h3 className="font-bold text-slate-800 text-sm">Universal Quick Add</h3>
               <p className="text-[11px] text-slate-400">Instantly provision records across CRM modules</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
-            <i className="fa-solid fa-xmark text-sm"></i>
+          <button
+            onClick={onClose}
+            aria-label="Close modal"
+            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -539,9 +544,9 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 text-xs font-semibold bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow-sm shadow-brand-600/20 flex items-center gap-1.5 transition-all"
+            className="px-4 py-2 text-xs font-semibold bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow-sm shadow-brand-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
           >
-            <i className="fa-solid fa-check text-xs"></i>
+            <Check className="w-3.5 h-3.5" strokeWidth={2.5} />
             <span>Save Record</span>
           </button>
         </div>

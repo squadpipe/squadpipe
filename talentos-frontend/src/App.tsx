@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
+import { AppIcon } from './components/shared/AppIcon';
 import { apiClient } from './config/api.config';
 import { formatRateDisplay, getCurrencySymbol, initWorkspaceCurrency } from './utils/currency';
 
@@ -1206,7 +1208,7 @@ export const App: React.FC = () => {
             style={{ zIndex: 9999 }}
             className="fixed bottom-5 right-5 z-[9999] max-w-md bg-white border border-slate-200 shadow-2xl rounded-xl p-4 flex items-center gap-3 animate-fade-in"
           >
-            <i className={`${toast.icon} text-base flex-shrink-0`}></i>
+            <AppIcon icon={toast.icon} className="w-4 h-4 flex-shrink-0" />
             <div className="min-w-0 flex-1">
               <div className="text-xs font-bold text-slate-900">{toast.title}</div>
               <div className="text-[11px] text-slate-500 break-words">{toast.message}</div>
@@ -1216,7 +1218,7 @@ export const App: React.FC = () => {
               aria-label="Dismiss notification"
               className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer flex-shrink-0"
             >
-              <i className="fa-solid fa-xmark text-xs"></i>
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
@@ -1258,7 +1260,7 @@ export const App: React.FC = () => {
           style={{ zIndex: 9999 }}
           className="fixed bottom-5 right-5 z-[9999] max-w-md bg-white border border-slate-200 card-shadow rounded-xl p-4 flex items-center gap-3 animate-fade-in"
         >
-          <i className={`${toast.icon} text-base flex-shrink-0`}></i>
+          <AppIcon icon={toast.icon} className="w-4 h-4 flex-shrink-0" />
           <div className="min-w-0 flex-1">
             <div className="text-xs font-bold text-slate-900">{toast.title}</div>
             <div className="text-[11px] text-slate-500 break-words">{toast.message}</div>
@@ -1268,7 +1270,7 @@ export const App: React.FC = () => {
             aria-label="Dismiss notification"
             className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer flex-shrink-0"
           >
-            <i className="fa-solid fa-xmark text-xs"></i>
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}

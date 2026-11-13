@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Pencil } from 'lucide-react';
+import { Building2, FileText, Pencil, Plus, X } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Client, Requirement, BillablePlacement } from '../../types';
 
@@ -148,8 +148,8 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center text-sm border border-brand-100 shadow-2xs">
-              <i className="fa-solid fa-building"></i>
+            <div className="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center border border-brand-100 shadow-2xs">
+              <Building2 className="w-4 h-4" />
             </div>
             <div>
               <h2 className="text-sm font-bold text-slate-900">{client.name}</h2>
@@ -160,9 +160,10 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-100 transition-colors"
+            aria-label="Close drawer"
+            className="text-slate-400 hover:text-slate-700 w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-100 transition-colors cursor-pointer"
           >
-            <i className="fa-solid fa-xmark"></i>
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -297,7 +298,7 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
 
               <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-100 text-slate-700 space-y-1.5 leading-relaxed">
                 <div className="text-[11px] font-bold text-blue-900 flex items-center gap-1.5">
-                  <i className="fa-solid fa-file-contract text-blue-600"></i>
+                  <FileText className="w-3.5 h-3.5 text-blue-600" />
                   <span>Master Services Agreement (MSA) Terms</span>
                 </div>
                 <p className="text-[11px] text-slate-600">
@@ -331,7 +332,7 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
                   onClick={() => setShowAddContact((prev) => !prev)}
                   className="text-brand-600 font-semibold hover:underline text-xs flex items-center gap-1 cursor-pointer"
                 >
-                  <i className={`fa-solid ${showAddContact ? 'fa-xmark' : 'fa-plus'} text-[10px]`}></i>
+                  {showAddContact ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3" strokeWidth={2.4} />}
                   <span>{showAddContact ? 'Cancel' : 'Add Contact'}</span>
                 </button>
               </div>

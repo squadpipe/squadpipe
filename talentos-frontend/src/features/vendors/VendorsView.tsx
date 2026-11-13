@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Pencil, X } from 'lucide-react';
+import { Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Vendor } from '../../types';
 import { TablePagination } from '../../components/shared/TablePagination';
@@ -90,7 +90,7 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
           onClick={onOpenAddVendor}
           className="px-3.5 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
         >
-          <i className="fa-solid fa-plus text-[10px]"></i>
+          <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
           <span>Add Vendor</span>
         </button>
       </div>
@@ -103,7 +103,7 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
             {totalRows} Registered Vendors
           </span>
           <div className="relative">
-            <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
               type="text"
               value={search}
@@ -192,7 +192,7 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                               title="Delete vendor"
                               className="p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
                             >
-                              <i className="fa-solid fa-trash-can text-xs"></i>
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Building2, Plus, X } from 'lucide-react';
 import { Client } from '../../../types';
 import { DynamicCustomFieldsSection } from '../../shared/DynamicCustomFieldsSection';
 
@@ -83,7 +84,7 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-purple-600 flex items-center justify-center text-white flex-shrink-0">
-              <i className="fa-solid fa-building text-sm"></i>
+              <Building2 className="w-4 h-4" />
             </div>
             <div>
               <h2 className="text-sm font-bold text-white">
@@ -96,9 +97,10 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center text-sm transition-colors"
+            aria-label="Close modal"
+            className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center transition-colors cursor-pointer"
           >
-            <i className="fa-solid fa-xmark"></i>
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -219,7 +221,7 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
               type="submit"
               className="px-5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <i className="fa-solid fa-plus text-[10px]"></i>
+              <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
               <span>Save & Register Client Account</span>
             </button>
           </div>

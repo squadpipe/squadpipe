@@ -1,4 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
+import {
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  CloudUpload,
+  File,
+  FileSpreadsheet,
+  FileText,
+  Info,
+  Loader2,
+  Plus,
+  Upload,
+  X,
+} from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Candidate } from '../../types';
 import { formatRateDisplay, useCurrency } from '../../utils/currency';
@@ -197,7 +211,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white flex-shrink-0 shadow-xs">
-              <i className="fa-solid fa-file-lines text-sm"></i>
+              <FileText className="w-4 h-4" />
             </div>
             <div>
               <h2 className="text-sm font-bold text-white flex items-center gap-2">
@@ -213,9 +227,10 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
           </div>
           <button
             onClick={handleClose}
-            className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center text-sm transition-colors cursor-pointer"
+            aria-label="Close modal"
+            className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center transition-colors cursor-pointer"
           >
-            <i className="fa-solid fa-xmark"></i>
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -226,7 +241,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
             {/* Left: Prominent Upload Button */}
             <div className="flex items-center gap-3">
               <label className="px-3.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold shadow-xs flex items-center gap-2 cursor-pointer transition-all">
-                <i className="fa-solid fa-cloud-arrow-up text-sm"></i>
+                <CloudUpload className="w-4 h-4" />
                 <span>Upload Candidate Resume (.pdf / .docx)</span>
                 <input
                   type="file"
@@ -257,7 +272,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
             <div className="p-3 bg-brand-50 border border-brand-200 rounded-lg text-brand-900 space-y-1.5 animate-fade-in">
               <div className="flex items-center justify-between text-xs font-semibold">
                 <span className="flex items-center gap-2">
-                  <i className="fa-solid fa-spinner fa-spin text-brand-600"></i>
+                  <Loader2 className="w-3.5 h-3.5 text-brand-600 animate-spin" />
                   <span>Scanning Document &amp; Extracting Entities via Pattern Engine...</span>
                 </span>
                 <span >{parseProgress}%</span>
@@ -277,19 +292,17 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
             <div className="lg:col-span-5 bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-3">
               <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                 <div className="flex items-center gap-1.5">
-                  <i className="fa-regular fa-file-lines text-slate-500"></i>
+                  <FileText className="w-3.5 h-3.5 text-slate-500" />
                   <span className="font-bold text-slate-800 text-xs">Source Document</span>
                 </div>
                 <span className={`text-[10px] px-2 py-0.5 rounded font-medium flex items-center gap-1 border ${hasParsedFile && profile.fileName ? 'text-brand-700 bg-brand-50 border-brand-200' : 'text-slate-400 bg-slate-100 border-slate-200'}`}>
-                  <i
-                    className={
-                      hasParsedFile && profile.fileName
-                        ? profile.fileName.endsWith('.docx')
-                          ? 'fa-regular fa-file-word text-blue-500'
-                          : 'fa-regular fa-file-pdf text-rose-500'
-                        : 'fa-regular fa-file text-slate-400'
-                    }
-                  ></i>
+                  {hasParsedFile && profile.fileName ? (
+                    <FileText
+                      className={`w-3 h-3 ${profile.fileName.endsWith('.docx') ? 'text-blue-500' : 'text-rose-500'}`}
+                    />
+                  ) : (
+                    <File className="w-3 h-3 text-slate-400" />
+                  )}
                   <span>{hasParsedFile && profile.fileName ? profile.fileName : 'No file selected'}</span>
                 </span>
               </div>
@@ -300,7 +313,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
                 className="border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-lg p-3 text-center bg-white cursor-pointer transition-colors group"
               >
                 <div className="flex items-center justify-center gap-2 text-slate-600 group-hover:text-brand-600 transition-colors">
-                  <i className="fa-solid fa-cloud-arrow-up text-brand-600 text-sm"></i>
+                  <CloudUpload className="w-4 h-4 text-brand-600" />
                   <span className="font-semibold text-xs text-slate-800 group-hover:text-brand-600">
                     Drop new resume file here or click to browse
                   </span>
@@ -318,7 +331,11 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
               {/* Parsing Controls */}
               <div className="flex items-center justify-between pt-1">
                 <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
-                  <i className={`fa-solid ${hasParsedFile ? 'fa-circle-check text-emerald-500' : 'fa-circle-info text-slate-400'}`}></i>
+                  {hasParsedFile ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                  ) : (
+                    <Info className="w-3.5 h-3.5 text-slate-400" />
+                  )}
                   <span>{hasParsedFile ? 'Document Parsed Successfully' : 'Awaiting Resume Upload'}</span>
                 </span>
                 <button
@@ -326,7 +343,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
                   onClick={() => fileInputRef.current?.click()}
                   className="px-2.5 py-1 rounded bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
                 >
-                  <i className="fa-solid fa-upload text-[10px]"></i>
+                  <Upload className="w-3 h-3" />
                   <span>Choose File</span>
                 </button>
               </div>
@@ -343,7 +360,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
                 </div>
                 {hasParsedFile && (
                   <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
-                    <i className="fa-solid fa-check text-[9px]"></i>
+                    <Check className="w-3 h-3" strokeWidth={2.5} />
                     <span>Pattern Matched</span>
                   </span>
                 )}
@@ -481,8 +498,9 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
             }}
             className="text-emerald-700 font-semibold hover:underline flex items-center gap-1.5 cursor-pointer"
           >
-            <i className="fa-solid fa-file-csv text-emerald-600"></i>
-            <span>Switch to CSV Import &amp; Column Mapping &rarr;</span>
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Switch to CSV Import &amp; Column Mapping</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
           <div className="flex items-center gap-2">
             <button
@@ -497,7 +515,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
               onClick={handleApprove}
               className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
             >
-              <i className="fa-solid fa-plus text-[10px]"></i>
+              <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
               <span>Add Consultant to Roster</span>
             </button>
           </div>

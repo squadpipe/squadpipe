@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Handshake, Plus, X } from 'lucide-react';
 import { Vendor } from '../../../types';
 import { DynamicCustomFieldsSection, useMasterTaxonomies } from '../../shared/DynamicCustomFieldsSection';
 
@@ -80,7 +81,7 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-amber-600 flex items-center justify-center text-white flex-shrink-0">
-              <i className="fa-solid fa-handshake text-sm"></i>
+              <Handshake className="w-4 h-4" />
             </div>
             <div>
               <h2 className="text-sm font-bold text-white">
@@ -93,9 +94,10 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center text-sm transition-colors"
+            aria-label="Close modal"
+            className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center transition-colors cursor-pointer"
           >
-            <i className="fa-solid fa-xmark"></i>
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -219,7 +221,7 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
               type="submit"
               className="px-5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <i className="fa-solid fa-plus text-[10px]"></i>
+              <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
               <span>Save & Register Vendor Partner</span>
             </button>
           </div>

@@ -1,4 +1,19 @@
 import React, { useState, useEffect } from 'react';
+import {
+  ArrowRight,
+  Award,
+  Briefcase,
+  CalendarCheck,
+  DollarSign,
+  ExternalLink,
+  FileSpreadsheet,
+  FileText,
+  ListChecks,
+  Plus,
+  RefreshCw,
+  Send,
+  UserCheck,
+} from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Requirement, Candidate, BillablePlacement, SlaTask } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
@@ -165,14 +180,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             onClick={() => handleExport('Excel')}
             className="px-3 py-1.5 rounded-md border border-slate-200 hover:bg-white text-slate-700 text-xs font-medium flex items-center gap-1.5 bg-white shadow-2xs transition-colors cursor-pointer"
           >
-            <i className="fa-regular fa-file-excel text-emerald-600 text-xs"></i>
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
             <span>Export to Excel</span>
           </button>
           <button
             onClick={() => handleExport('PDF')}
             className="px-3 py-1.5 rounded-md border border-slate-200 hover:bg-white text-slate-700 text-xs font-medium flex items-center gap-1.5 bg-white shadow-2xs transition-colors cursor-pointer"
           >
-            <i className="fa-regular fa-file-pdf text-rose-600 text-xs"></i>
+            <FileText className="w-3.5 h-3.5 text-rose-600" />
             <span>Export to PDF</span>
           </button>
         </div>
@@ -188,7 +203,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium">Active Reqs</span>
             <div className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center text-slate-600 group-hover:bg-brand-50 group-hover:text-brand-600 transition-colors">
-              <i className="fa-solid fa-briefcase text-xs"></i>
+              <Briefcase className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="text-2xl font-bold text-slate-900">{activeReqsCount}</div>
@@ -205,7 +220,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium">Submitted</span>
             <div className="w-6 h-6 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center">
-              <i className="fa-solid fa-paper-plane text-xs"></i>
+              <Send className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="text-2xl font-bold text-slate-900">{submittedCount}</div>
@@ -222,7 +237,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium">Interviews</span>
             <div className="w-6 h-6 rounded-md bg-amber-50 text-amber-600 flex items-center justify-center">
-              <i className="fa-solid fa-calendar-check text-xs"></i>
+              <CalendarCheck className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="text-2xl font-bold text-slate-900">{interviewsCount}</div>
@@ -239,7 +254,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium">Selected</span>
             <div className="w-6 h-6 rounded-md bg-purple-50 text-purple-600 flex items-center justify-center">
-              <i className="fa-solid fa-award text-xs"></i>
+              <Award className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="text-2xl font-bold text-slate-900">{selectedCount}</div>
@@ -256,7 +271,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium">Onboarding</span>
             <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center">
-              <i className="fa-solid fa-user-check text-xs"></i>
+              <UserCheck className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="text-2xl font-bold text-slate-900">{onboardingCount}</div>
@@ -273,7 +288,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex items-center justify-between text-emerald-800 mb-2">
             <span className="text-xs font-semibold">Active Billable</span>
             <div className="w-6 h-6 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center">
-              <i className="fa-solid fa-dollar-sign text-xs"></i>
+              <DollarSign className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="text-2xl font-bold text-emerald-950">{activeBillableCount}</div>
@@ -313,9 +328,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </select>
             <button
               onClick={onOpenCreateReq}
-              className="px-2.5 py-1 rounded border border-slate-200 hover:bg-white text-xs font-medium text-slate-700 shadow-2xs transition-colors cursor-pointer"
+              className="px-2.5 py-1 rounded border border-slate-200 hover:bg-white text-xs font-medium text-slate-700 shadow-2xs transition-colors cursor-pointer inline-flex items-center gap-1"
             >
-              <i className="fa-solid fa-plus text-[10px] mr-1"></i> Add Req
+              <Plus className="w-3 h-3" strokeWidth={2.3} /> Add Req
             </button>
           </div>
         </div>
@@ -441,7 +456,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           title="View Requisition Details"
                           className="text-slate-400 hover:text-brand-600 p-1 transition-colors cursor-pointer"
                         >
-                          <i className="fa-solid fa-arrow-up-right-from-square text-[11px]"></i>
+                          <ExternalLink className="w-3.5 h-3.5" />
                         </button>
                       </td>
                     </tr>
@@ -471,8 +486,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="lg:col-span-6 bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-3.5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs">
-                <i className="fa-solid fa-list-check"></i>
+              <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+                <ListChecks className="w-4 h-4" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
@@ -500,13 +515,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 title="Re-evaluate SLA rules across pipeline"
                 className="w-6 h-6 rounded border border-slate-200 text-slate-600 hover:text-brand-600 hover:bg-slate-50 flex items-center justify-center text-[11px] transition-colors cursor-pointer"
               >
-                <i className="fa-solid fa-rotate"></i>
+                <RefreshCw className="w-3 h-3" />
               </button>
               <button
                 onClick={onOpenSlaDrawer}
                 className="text-xs font-semibold text-brand-600 hover:underline flex items-center gap-1 cursor-pointer"
               >
-                <span>Open Queue</span> &rarr;
+                <span>Open Queue</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
@@ -573,8 +589,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="lg:col-span-6 bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-3.5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center text-xs">
-                <i className="fa-solid fa-file-invoice-dollar"></i>
+              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                <FileSpreadsheet className="w-4 h-4" />
               </div>
               <div>
                 <h3 className="font-bold text-xs text-slate-900">Active Billable Consultants (Live Sync)</h3>
@@ -585,7 +601,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               onClick={() => onNavigate('billable')}
               className="text-xs font-semibold text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer"
             >
-              <span>View All ({placements.length})</span> &rarr;
+              <span>View All ({placements.length})</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
 

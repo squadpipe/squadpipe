@@ -640,7 +640,9 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                   </div>
                   <p className="text-[11px] text-slate-600 leading-relaxed">
                     <span className="font-semibold text-slate-800">WHEN</span> {tpl.whenText}{' '}
-                    <span className="font-semibold text-slate-900">{tpl.threshold}</span> &rarr; {tpl.thenSummary}
+                    <span className="font-semibold text-slate-900">{tpl.threshold}</span>{' '}
+                    <ArrowRight className="w-3 h-3 inline text-slate-400 mx-0.5 align-text-bottom" />{' '}
+                    {tpl.thenSummary}
                   </p>
                 </div>
                 <button

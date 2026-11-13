@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Copy, PenTool, Send, X } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Candidate, Requirement } from '../../types';
 
@@ -154,15 +155,19 @@ export const SubmissionPitchModal: React.FC<SubmissionPitchModalProps> = ({
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
-              <i className="fa-solid fa-pen-nib text-sm"></i>
+              <PenTool className="w-4 h-4" />
             </div>
             <div>
               <h3 className="font-bold text-slate-800 text-sm">Automated Client Submission Pitch Writer</h3>
               <p className="text-[11px] text-slate-400">Tailors presentation emails with custom tones for hiring managers</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
-            <i className="fa-solid fa-xmark text-sm"></i>
+          <button
+            onClick={onClose}
+            aria-label="Close modal"
+            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -251,7 +256,7 @@ export const SubmissionPitchModal: React.FC<SubmissionPitchModalProps> = ({
               onClick={handleCopy}
               className="px-4 py-2 text-xs font-semibold bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <i className="fa-regular fa-copy text-xs"></i>
+              <Copy className="w-3.5 h-3.5" />
               <span>Copy Text</span>
             </button>
             <button
@@ -259,7 +264,7 @@ export const SubmissionPitchModal: React.FC<SubmissionPitchModalProps> = ({
               disabled={isSending}
               className="px-4 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm shadow-emerald-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
             >
-              <i className="fa-solid fa-paper-plane text-xs"></i>
+              <Send className="w-3.5 h-3.5" />
               <span>{isSending ? 'Sending...' : 'Dispatch via SMTP'}</span>
             </button>
           </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { LogOut } from 'lucide-react';
 import { User } from '../../types';
 
 interface SignOutModalProps {
@@ -26,8 +27,8 @@ export const SignOutModal: React.FC<SignOutModalProps> = ({
         className="bg-white rounded-2xl shadow-2xl max-w-sm w-full border border-slate-200 overflow-hidden flex flex-col"
       >
         <div className="p-6 text-center space-y-4">
-          <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center text-lg mx-auto shadow-xs">
-            <i className="fa-solid fa-arrow-right-from-bracket"></i>
+          <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center mx-auto shadow-xs">
+            <LogOut className="w-5 h-5" />
           </div>
 
           <div>
@@ -57,9 +58,9 @@ export const SignOutModal: React.FC<SignOutModalProps> = ({
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors"
+            className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <i className="fa-solid fa-arrow-right-from-bracket text-[10px]"></i>
+            <LogOut className="w-3.5 h-3.5" />
             <span>Yes, Sign Out</span>
           </button>
         </div>

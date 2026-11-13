@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Pencil } from 'lucide-react';
+import { FileSpreadsheet, PenTool, Pencil, UserPlus, X } from 'lucide-react';
 import { Requirement, Candidate } from '../../types';
 import { useCurrency } from '../../utils/currency';
 
@@ -102,9 +102,10 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
             )}
             <button
               onClick={onClose}
+              aria-label="Close modal"
               className="text-slate-400 hover:text-slate-700 w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-100 transition-colors cursor-pointer"
             >
-              <i className="fa-solid fa-xmark"></i>
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -256,15 +257,19 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
               <span className="font-bold text-slate-800 text-[11px]">Submitted Candidates</span>
               <button
                 onClick={() => setShowBenchPicker(!showBenchPicker)}
-                className="text-brand-600 hover:text-brand-700 text-[11px] font-semibold flex items-center gap-1 transition-colors"
+                className="text-brand-600 hover:text-brand-700 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
               >
-                <i className={`fa-solid ${showBenchPicker ? 'fa-xmark' : 'fa-user-plus'} text-[10px]`}></i>
+                {showBenchPicker ? (
+                  <X className="w-3 h-3" />
+                ) : (
+                  <UserPlus className="w-3 h-3" />
+                )}
                 <span>
                   {showBenchPicker
                     ? 'Cancel Selection'
                     : requirement.resourceName
                     ? 'Reassign from Bench'
-                    : '+ Match Bench Candidate'}
+                    : 'Match Bench Candidate'}
                 </span>
               </button>
             </div>
@@ -354,9 +359,9 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                 onClose();
                 onOpenPitchWriter(requirement);
               }}
-              className="text-brand-600 font-semibold hover:text-brand-700 flex items-center gap-1.5"
+              className="text-brand-600 font-semibold hover:text-brand-700 flex items-center gap-1.5 cursor-pointer"
             >
-              <i className="fa-solid fa-pen-nib"></i>
+              <PenTool className="w-3.5 h-3.5" />
               <span>Compose Pitch</span>
             </button>
             {requirement.resourceName && (
@@ -365,9 +370,9 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                   onClose();
                   onOpenPlacementWizard(requirement);
                 }}
-                className="text-emerald-700 font-semibold hover:text-emerald-800 flex items-center gap-1.5"
+                className="text-emerald-700 font-semibold hover:text-emerald-800 flex items-center gap-1.5 cursor-pointer"
               >
-                <i className="fa-solid fa-file-invoice-dollar"></i>
+                <FileSpreadsheet className="w-3.5 h-3.5" />
                 <span>Activate Placement</span>
               </button>
             )}

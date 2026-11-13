@@ -1,4 +1,17 @@
 import React, { useState } from 'react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  CloudUpload,
+  FileDown,
+  FileSpreadsheet,
+  FileText,
+  FileUp,
+  Loader2,
+  X,
+} from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Candidate } from '../../types';
 import { useCurrency } from '../../utils/currency';
@@ -279,7 +292,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
         {/* Card 1: Excel & CSV Spreadsheet Import */}
         <div className="bg-white rounded-xl border border-slate-200 card-shadow p-6 space-y-4">
           <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-            <i className="fa-regular fa-file-excel text-emerald-600 text-base"></i>
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
             <span>Excel & CSV Spreadsheet Import</span>
           </h3>
           <p className="text-xs text-slate-500 leading-relaxed">
@@ -299,7 +312,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
             }}
             className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-brand-600 cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-all group"
           >
-            <i className="fa-solid fa-cloud-arrow-up text-3xl text-brand-600 mb-2 group-hover:scale-110 transition-transform"></i>
+            <CloudUpload className="w-8 h-8 text-brand-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
             <div className="text-xs font-semibold text-slate-700">Launch Spreadsheet Column Mapper</div>
             <div className="text-[11px] text-slate-400 mt-1">Interactive Excel preview, field mapping & validation</div>
           </div>
@@ -308,7 +321,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
         {/* Card 2: Candidate CSV & Resume Import Engine */}
         <div className="bg-white rounded-xl border border-slate-200 card-shadow p-6 space-y-4">
           <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-            <i className="fa-solid fa-file-csv text-emerald-600 text-base"></i>
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
             <span>Candidate CSV & Resume Import Engine</span>
           </h3>
           <p className="text-xs text-slate-500 leading-relaxed">
@@ -328,7 +341,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
               }}
               className="border border-slate-200 hover:border-emerald-500 rounded-xl p-5 text-center cursor-pointer bg-slate-50/60 hover:bg-white transition-all group shadow-2xs"
             >
-              <i className="fa-solid fa-file-csv text-2xl text-emerald-600 mb-2 group-hover:scale-110 transition-transform"></i>
+              <FileSpreadsheet className="w-7 h-7 text-emerald-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
               <div className="text-xs font-semibold text-slate-800">Candidate CSV Import</div>
               <div className="text-[10px] text-slate-400 mt-0.5">Bulk roster import with schema validation</div>
             </div>
@@ -339,7 +352,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
               }}
               className="border border-slate-200 hover:border-brand-500 rounded-xl p-5 text-center cursor-pointer bg-slate-50/60 hover:bg-white transition-all group shadow-2xs"
             >
-              <i className="fa-solid fa-file-lines text-2xl text-brand-600 mb-2 group-hover:scale-110 transition-transform"></i>
+              <FileText className="w-7 h-7 text-brand-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
               <div className="text-xs font-semibold text-slate-800">Rule-Based Parser</div>
               <div className="text-[10px] text-slate-400 mt-0.5">Regex pattern extraction from PDF/Word</div>
             </div>
@@ -353,7 +366,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
           <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col animate-scale-up max-h-[90vh]">
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
-                <i className="fa-solid fa-file-excel text-emerald-600 text-base"></i>
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
                 <div>
                   <h2 className="text-sm font-bold text-slate-900">Spreadsheet Migration &amp; Column Mapping Wizard</h2>
                   <div className="text-[11px] text-slate-500">
@@ -363,9 +376,10 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
               </div>
               <button
                 onClick={() => setShowMigrationModal(false)}
+                aria-label="Close modal"
                 className="text-slate-400 hover:text-slate-700 w-7 h-7 rounded flex items-center justify-center cursor-pointer"
               >
-                <i className="fa-solid fa-xmark text-sm"></i>
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -380,7 +394,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
                       onChange={handleFileDrop}
                       className="hidden"
                     />
-                    <i className="fa-solid fa-cloud-arrow-up text-3xl text-brand-600 mb-2"></i>
+                    <CloudUpload className="w-8 h-8 text-brand-600 mx-auto mb-2" />
                     <div className="font-bold text-slate-800 text-sm">
                       {uploadedFileName ? `Loaded: ${uploadedFileName}` : 'No File Selected'}
                     </div>
@@ -389,8 +403,9 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
                         ? `${parsedRows.length} parsed candidate rows detected`
                         : 'Select a UTF-8 CSV file with header columns (Name, Email, Title, Skills, etc.)'}
                     </div>
-                    <div className="mt-4 inline-block px-3 py-1 bg-white border border-slate-200 rounded text-brand-600 font-medium">
-                      Select or Drop CSV File &rarr;
+                    <div className="mt-4 inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-slate-200 rounded text-brand-600 font-medium">
+                      <span>Select or Drop CSV File</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
                     </div>
                   </label>
                   <div className="flex items-center justify-between pt-1">
@@ -399,7 +414,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
                       onClick={downloadSampleCsv}
                       className="text-emerald-700 hover:underline font-semibold text-xs flex items-center gap-1.5 cursor-pointer"
                     >
-                      <i className="fa-solid fa-file-arrow-down text-[11px]"></i>
+                      <FileDown className="w-3.5 h-3.5" />
                       <span>Download Sample CSV Template</span>
                     </button>
                     <button
@@ -407,7 +422,8 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
                       disabled={parsedRows.length === 0}
                       className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold rounded text-xs cursor-pointer shadow-xs"
                     >
-                      Continue with File ({parsedRows.length} Rows) &rarr;
+                      <span>Continue with File ({parsedRows.length} Rows)</span>
+                      <ArrowRight className="w-3.5 h-3.5 inline ml-1" />
                     </button>
                   </div>
                 </div>
@@ -439,8 +455,9 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
                             </span>
                           </td>
                           <td className="p-2">
-                            <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                              ✅ 100% Match
+                            <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 font-medium">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              <span>100% Match</span>
                             </span>
                           </td>
                         </tr>
@@ -451,9 +468,10 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
                   <div className="flex justify-between items-center pt-2">
                     <button
                       onClick={() => setMigrationStep(1)}
-                      className="text-slate-500 hover:underline text-xs cursor-pointer"
+                      className="text-slate-500 hover:text-slate-700 hover:underline text-xs cursor-pointer inline-flex items-center gap-1"
                     >
-                      &larr; Back
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      <span>Back</span>
                     </button>
                     <button
                       onClick={handleRunMigration}
@@ -462,12 +480,13 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
                     >
                       {isImporting ? (
                         <>
-                          <i className="fa-solid fa-spinner fa-spin text-xs"></i>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           <span>Importing to PostgreSQL...</span>
                         </>
                       ) : (
                         <>
-                          <span>Execute Import ({parsedRows.length} Rows)</span> &rarr;
+                          <span>Execute Import ({parsedRows.length} Rows)</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
                         </>
                       )}
                     </button>
@@ -478,8 +497,8 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
               {/* Step 3: Completion */}
               {migrationStep === 3 && (
                 <div className="text-center py-8 space-y-3">
-                  <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl mx-auto shadow-xs">
-                    <i className="fa-solid fa-check"></i>
+                  <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
+                    <Check className="w-6 h-6" strokeWidth={2.5} />
                   </div>
                   <h3 className="font-bold text-slate-900 text-sm">Data Migration Complete!</h3>
                   <p className="text-slate-500 text-xs">
@@ -507,7 +526,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
           <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden flex flex-col animate-scale-up">
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
-                <i className="fa-solid fa-file-csv text-emerald-600 text-base"></i>
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
                 <div>
                   <h2 className="text-sm font-bold text-slate-900">Candidate CSV Import</h2>
                   <div className="text-[11px] text-slate-500">Bulk roster ingestion</div>
@@ -515,9 +534,10 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
               </div>
               <button
                 onClick={() => setShowCsvImportModal(false)}
+                aria-label="Close modal"
                 className="text-slate-400 hover:text-slate-700 w-7 h-7 rounded flex items-center justify-center cursor-pointer"
               >
-                <i className="fa-solid fa-xmark text-sm"></i>
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -529,7 +549,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
                   onChange={handleFileDrop}
                   className="hidden"
                 />
-                <i className="fa-solid fa-file-arrow-up text-2xl text-emerald-600 mb-1"></i>
+                <FileUp className="w-7 h-7 text-emerald-600 mx-auto mb-1.5" />
                 <div className="font-semibold text-slate-800">
                   {uploadedFileName ? `${uploadedFileName} (${parsedRows.length} rows parsed)` : 'Click to Select CSV Roster File'}
                 </div>
@@ -542,7 +562,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
                   onClick={downloadSampleCsv}
                   className="text-emerald-700 hover:underline font-semibold text-xs flex items-center gap-1.5 cursor-pointer"
                 >
-                  <i className="fa-solid fa-file-arrow-down text-[11px]"></i>
+                  <FileDown className="w-3.5 h-3.5" />
                   <span>Sample CSV</span>
                 </button>
                 <div className="flex items-center gap-2">

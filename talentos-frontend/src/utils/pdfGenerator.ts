@@ -1,4 +1,5 @@
 import { Candidate } from '../types';
+import { cleanExtractedResumeText, resolveCandidateEducation } from './resumeFormatter';
 
 interface StyledLine {
   text: string;
@@ -199,8 +200,9 @@ export function generateCandidateResumePdf(candidate: Candidate, formattedRate: 
 
   // Experience / Resume Details
   addSectionHeading(candidate.rawSnippet ? 'Extracted Resume Content & Experience' : 'Professional Experience');
+  const cleanedSnippet = cleanExtractedResumeText(candidate.rawSnippet);
   const experienceText =
-    candidate.rawSnippet?.trim() ||
+    cleanedSnippet ||
     `${candidate.currentTitle || 'Senior Consultant'} - Enterprise Staffing & Consulting\nSpecializing in ${skills.join(', ') || 'enterprise software delivery'} with verified project execution.`;
 
   for (const l of wrapText(experienceText, contentWidth, 9.5, false)) {
@@ -216,7 +218,8 @@ export function generateCandidateResumePdf(candidate: Candidate, formattedRate: 
 
   // Education & Credentials
   addSectionHeading('Education & Credentials');
-  for (const l of wrapText(candidate.education || 'Accredited University Degree', contentWidth, 10, true)) {
+  const resolvedEdu = resolveCandidateEducation(candidate.education, candidate.rawSnippet);
+  for (const l of wrapText(resolvedEdu, contentWidth, 10, true)) {
     lines.push({
       text: l,
       font: 'F2',

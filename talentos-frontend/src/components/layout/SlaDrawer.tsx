@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Bell, CheckCheck, CheckCircle2, Circle, X, Zap } from 'lucide-react';
 import { SlaTask } from '../../types';
 
 interface SlaDrawerProps {
@@ -42,7 +43,7 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
           <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
-                <i className="fa-solid fa-bell text-sm"></i>
+                <Bell className="w-4 h-4" />
               </div>
               <div>
                 <h3 className="font-bold text-slate-800 text-sm">Priority Action Center (SLA)</h3>
@@ -53,9 +54,10 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+              aria-label="Close drawer"
+              className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
             >
-              <i className="fa-solid fa-xmark text-sm"></i>
+              <X className="w-4 h-4" />
             </button>
           </div>
 
@@ -82,7 +84,7 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
           <div className="flex-1 overflow-y-auto p-5 space-y-3">
             {filteredTasks.length === 0 ? (
               <div className="text-center py-12 text-slate-400 text-xs">
-                <i className="fa-solid fa-check-double text-2xl mb-2 text-emerald-400"></i>
+                <CheckCheck className="w-7 h-7 mx-auto mb-2 text-emerald-400" />
                 <p className="font-semibold text-slate-600">All clear!</p>
                 <p className="mt-1">No pending SLA tasks in this category.</p>
               </div>
@@ -105,11 +107,11 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
                     <button
                       onClick={() => onToggleTaskDone(item.id)}
                       title={item.done ? 'Mark as pending' : 'Mark as completed'}
-                      className={`text-sm ${
+                      className={`transition-colors cursor-pointer ${
                         item.done ? 'text-emerald-500' : 'text-slate-300 hover:text-slate-500'
                       }`}
                     >
-                      <i className={item.done ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle'}></i>
+                      {item.done ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
                     </button>
                   </div>
 
@@ -127,9 +129,9 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
                     <div className="mt-3 pt-3 border-t border-slate-100 flex justify-end">
                       <button
                         onClick={() => onTaskAction(item)}
-                        className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 flex items-center gap-1.5 transition-colors"
+                        className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 flex items-center gap-1.5 transition-colors cursor-pointer"
                       >
-                        <i className="fa-solid fa-bolt text-[10px]"></i>
+                        <Zap className="w-3 h-3" />
                         <span>{item.actionLabel}</span>
                       </button>
                     </div>

@@ -1,4 +1,22 @@
 import React, { useState } from 'react';
+import {
+  Building2,
+  ChevronDown,
+  FileSpreadsheet,
+  FileUp,
+  Handshake,
+  Kanban,
+  LogOut,
+  MailCheck,
+  MoreVertical,
+  PieChart,
+  SlidersHorizontal,
+  Tags,
+  User as UserIcon,
+  UserCog,
+  Users,
+  Zap,
+} from 'lucide-react';
 import { User } from '../../types';
 
 interface SidebarProps {
@@ -80,11 +98,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
             }`}
           >
-            <i
-              className={`fa-solid fa-chart-pie w-4 text-center transition-colors ${
+            <PieChart
+              className={`w-4 h-4 flex-shrink-0 transition-colors ${
                 currentView === 'dashboard' ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-200'
               }`}
-            ></i>
+            />
             <span>Dashboard</span>
           </div>
 
@@ -97,11 +115,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }`}
           >
             <div className="flex items-center gap-2.5">
-              <i
-                className={`fa-solid fa-bars-staggered w-4 text-center transition-colors ${
+              <Kanban
+                className={`w-4 h-4 flex-shrink-0 transition-colors ${
                   currentView === 'pipeline' ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-200'
                 }`}
-              ></i>
+              />
               <span>Pipeline</span>
             </div>
             <span className="text-[10px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded">
@@ -125,11 +143,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }`}
           >
             <div className="flex items-center gap-2.5">
-              <i
-                className={`fa-solid fa-user-group w-4 text-center transition-colors ${
+              <Users
+                className={`w-4 h-4 flex-shrink-0 transition-colors ${
                   currentView === 'consultants' ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-200'
                 }`}
-              ></i>
+              />
               <span>Consultants</span>
             </div>
             <span className="text-[10px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded">
@@ -146,11 +164,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }`}
           >
             <div className="flex items-center gap-2.5">
-              <i
-                className={`fa-solid fa-building w-4 text-center transition-colors ${
+              <Building2
+                className={`w-4 h-4 flex-shrink-0 transition-colors ${
                   currentView === 'clients' ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-200'
                 }`}
-              ></i>
+              />
               <span>Clients</span>
             </div>
             <span className="text-[10px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded">
@@ -167,11 +185,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }`}
           >
             <div className="flex items-center gap-2.5">
-              <i
-                className={`fa-solid fa-handshake w-4 text-center transition-colors ${
+              <Handshake
+                className={`w-4 h-4 flex-shrink-0 transition-colors ${
                   currentView === 'vendors' ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-200'
                 }`}
-              ></i>
+              />
               <span>Vendors</span>
             </div>
             <span className="text-[10px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded">
@@ -188,11 +206,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }`}
           >
             <div className="flex items-center gap-2.5">
-              <i
-                className={`fa-solid fa-file-invoice-dollar w-4 text-center transition-colors ${
+              <FileSpreadsheet
+                className={`w-4 h-4 flex-shrink-0 transition-colors ${
                   currentView === 'billable' ? 'text-emerald-400' : 'text-slate-400 group-hover:text-slate-200'
                 }`}
-              ></i>
+              />
               <span>Billable Consultants</span>
             </div>
             <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/30">
@@ -216,11 +234,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }`}
           >
             <div className="flex items-center gap-2.5">
-              <i
-                className={`fa-solid fa-bolt w-4 text-center transition-colors ${
+              <Zap
+                className={`w-4 h-4 flex-shrink-0 transition-colors ${
                   currentView === 'automation' ? 'text-amber-400' : 'text-slate-400 group-hover:text-slate-200'
                 }`}
-              ></i>
+              />
               <span>Automations</span>
             </div>
             <span className="text-[9px] font-bold text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">
@@ -237,11 +255,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }`}
           >
             <div className="flex items-center gap-2.5">
-              <i
-                className={`fa-solid fa-tags w-4 text-center transition-colors ${
+              <Tags
+                className={`w-4 h-4 flex-shrink-0 transition-colors ${
                   currentView === 'custom_fields' ? 'text-indigo-400' : 'text-slate-400 group-hover:text-slate-200'
                 }`}
-              ></i>
+              />
               <span>Custom Fields</span>
             </div>
             <span className="text-[10px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded">
@@ -258,11 +276,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }`}
           >
             <div className="flex items-center gap-2.5">
-              <i
-                className={`fa-solid fa-file-import w-4 text-center transition-colors ${
+              <FileUp
+                className={`w-4 h-4 flex-shrink-0 transition-colors ${
                   currentView === 'import_data' ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-200'
                 }`}
-              ></i>
+              />
               <span>Import & Migration</span>
             </div>
             <span className="text-[9px] text-emerald-400 font-medium bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
@@ -286,11 +304,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }`}
           >
             <div className="flex items-center gap-2.5">
-              <i
-                className={`fa-solid fa-sliders w-4 text-center transition-colors ${
+              <SlidersHorizontal
+                className={`w-4 h-4 flex-shrink-0 transition-colors ${
                   currentView === 'settings_general' ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-200'
                 }`}
-              ></i>
+              />
               <span>General Settings</span>
             </div>
           </div>
@@ -304,11 +322,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }`}
           >
             <div className="flex items-center gap-2.5">
-              <i
-                className={`fa-solid fa-envelope-circle-check w-4 text-center transition-colors ${
+              <MailCheck
+                className={`w-4 h-4 flex-shrink-0 transition-colors ${
                   currentView === 'settings_smtp' ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-200'
                 }`}
-              ></i>
+              />
               <span>Email Setup (SMTP)</span>
             </div>
             <span className="text-[9px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded">
@@ -325,11 +343,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }`}
           >
             <div className="flex items-center gap-2.5">
-              <i
-                className={`fa-solid fa-users-gear w-4 text-center transition-colors ${
+              <UserCog
+                className={`w-4 h-4 flex-shrink-0 transition-colors ${
                   currentView === 'user_management' ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-200'
                 }`}
-              ></i>
+              />
               <span>User Management</span>
             </div>
             <span className="text-[10px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded">
@@ -377,7 +395,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }}
               className="w-full text-left px-2.5 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/[0.06] flex items-center gap-2 transition-colors cursor-pointer"
             >
-              <i className="fa-solid fa-user text-slate-400 w-4 text-center"></i>
+              <UserIcon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
               <span>My Profile</span>
             </button>
 
@@ -391,7 +409,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }}
               className="w-full text-left px-2.5 py-2 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/15 flex items-center gap-2 font-semibold transition-colors cursor-pointer"
             >
-              <i className="fa-solid fa-arrow-right-from-bracket text-rose-400 w-4 text-center"></i>
+              <LogOut className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
               <span>Sign Out</span>
             </button>
           </div>
@@ -421,11 +439,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </div>
           </div>
-          <i
-            className={`fa-solid text-[11px] transition-transform text-slate-400 group-hover:text-slate-200 mr-1 ${
-              showProfileMenu ? 'fa-chevron-down text-white' : 'fa-ellipsis-vertical'
-            }`}
-          ></i>
+          {showProfileMenu ? (
+            <ChevronDown className="w-3.5 h-3.5 text-white mr-1 flex-shrink-0 transition-transform" />
+          ) : (
+            <MoreVertical className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-200 mr-1 flex-shrink-0 transition-colors" />
+          )}
         </div>
       </div>
     </aside>

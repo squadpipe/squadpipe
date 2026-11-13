@@ -1,5 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Pencil, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  Columns,
+  GripVertical,
+  List,
+  MailOpen,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  User,
+  UsersRound,
+  X,
+} from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Requirement, Candidate } from '../../types';
 import { TablePagination } from '../../components/shared/TablePagination';
@@ -131,7 +146,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             onClick={onOpenEmailParser}
             className="px-3 py-1.5 rounded-md border border-brand-200 bg-brand-50 text-brand-700 text-xs font-medium hover:bg-brand-100 flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <i className="fa-solid fa-envelope-open-text text-xs"></i>
+            <MailOpen className="w-3.5 h-3.5" />
             <span>Intake Email Parser</span>
           </button>
           {onOpenAddReq && (
@@ -139,7 +154,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               onClick={onOpenAddReq}
               className="px-3.5 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <i className="fa-solid fa-plus text-[10px]"></i>
+              <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
               <span>Add Requirement</span>
             </button>
           )}
@@ -158,7 +173,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              <i className="fa-solid fa-table-columns text-xs"></i>
+              <Columns className="w-3.5 h-3.5" />
               <span>Kanban</span>
             </button>
             <button
@@ -169,13 +184,13 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              <i className="fa-solid fa-list-ul text-xs"></i>
+              <List className="w-3.5 h-3.5" />
               <span>Table</span>
             </button>
           </div>
 
           <div className="relative">
-            <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
               type="text"
               value={search}
@@ -271,7 +286,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                             onClick={() => onSelectReq && onSelectReq(req)}
                             className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 cursor-pointer hover:bg-brand-50 hover:text-brand-600 transition-colors inline-flex items-center"
                           >
-                            <i className="fa-solid fa-grip-vertical text-[9px] text-slate-300 mr-1"></i>
+                            <GripVertical className="w-2.5 h-2.5 text-slate-300 mr-1" />
                             {req.code}
                           </span>
                           <span className="text-[10px] text-slate-400">{req.location}</span>
@@ -292,7 +307,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                         {req.resourceName ? (
                           <div className="p-2 rounded-lg bg-emerald-50/60 border border-emerald-100 flex items-center justify-between">
                             <span className="text-[11px] font-semibold text-emerald-800 flex items-center gap-1.5">
-                              <i className="fa-solid fa-user text-[10px] text-emerald-600"></i>
+                              <User className="w-3 h-3 text-emerald-600" />
                               {req.resourceName}
                             </span>
                             <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
@@ -302,9 +317,9 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                         ) : (
                           <button
                             onClick={() => onOpenMatcher(req)}
-                            className="w-full py-1.5 px-2 rounded-lg text-[10px] font-semibold bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 flex items-center justify-center gap-1 transition-colors"
+                            className="w-full py-1.5 px-2 rounded-lg text-[10px] font-semibold bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                           >
-                            <i className="fa-solid fa-users-viewfinder"></i>
+                            <UsersRound className="w-3.5 h-3.5" />
                             <span>Match Bench Talent</span>
                           </button>
                         )}
@@ -318,10 +333,10 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                           <button
                             disabled={stageOrder.indexOf(req.status) === 0}
                             onClick={() => moveStage(req, -1)}
-                            className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20"
+                            className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20 cursor-pointer"
                             title="Move Backward"
                           >
-                            <i className="fa-solid fa-arrow-left"></i>
+                            <ArrowLeft className="w-3.5 h-3.5" />
                           </button>
 
                           <div className="flex gap-1.5 items-center">
@@ -346,7 +361,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                                 title="Delete requirement"
                                 className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
                               >
-                                <i className="fa-solid fa-trash-can text-[10px]"></i>
+                                <Trash2 className="w-3 h-3" />
                               </button>
                             )}
                           </div>
@@ -354,10 +369,10 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                           <button
                             disabled={stageOrder.indexOf(req.status) === stageOrder.length - 1}
                             onClick={() => moveStage(req, 1)}
-                            className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20"
+                            className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20 cursor-pointer"
                             title="Advance Stage"
                           >
-                            <i className="fa-solid fa-arrow-right"></i>
+                            <ArrowRight className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>
@@ -448,7 +463,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                           title="Delete requirement"
                           className="ml-1 p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
                         >
-                          <i className="fa-solid fa-trash-can text-xs"></i>
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </td>
@@ -615,7 +630,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             <div className="p-6 space-y-4">
               <div className="flex items-start gap-3.5">
                 <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center flex-shrink-0">
-                  <i className="fa-solid fa-triangle-exclamation text-base"></i>
+                  <AlertTriangle className="w-4 h-4" />
                 </div>
                 <div className="space-y-1">
                   <h3 className="text-sm font-bold text-slate-900">Delete Requirement?</h3>
@@ -647,7 +662,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                   }}
                   className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  <i className="fa-solid fa-trash-can text-[11px]"></i>
+                  <Trash2 className="w-3.5 h-3.5" />
                   <span>Delete Requisition</span>
                 </button>
               </div>

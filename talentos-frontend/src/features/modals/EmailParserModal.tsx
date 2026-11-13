@@ -1,4 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
+import {
+  Check,
+  CheckCircle2,
+  Eraser,
+  Info,
+  Loader2,
+  MailOpen,
+  Plus,
+  X,
+} from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Requirement, Client, User } from '../../types';
 import { useCurrency } from '../../utils/currency';
@@ -253,7 +263,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-[#0B0F17] text-white">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
-              <i className="fa-solid fa-envelope-open-text text-sm"></i>
+              <MailOpen className="w-4 h-4" />
             </div>
             <div>
               <h3 className="font-bold text-white text-sm">
@@ -264,8 +274,12 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
               </p>
             </div>
           </div>
-          <button onClick={handleClose} className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 cursor-pointer">
-            <i className="fa-solid fa-xmark text-sm"></i>
+          <button
+            onClick={handleClose}
+            aria-label="Close modal"
+            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -283,14 +297,15 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                     <button
                       type="button"
                       onClick={handleClearAll}
-                      className="text-[11px] font-semibold text-slate-400 hover:text-rose-600 cursor-pointer"
+                      className="text-[11px] font-semibold text-slate-400 hover:text-rose-600 cursor-pointer inline-flex items-center gap-1"
                     >
-                      <i className="fa-solid fa-eraser mr-1"></i>Clear
+                      <Eraser className="w-3 h-3" />
+                      <span>Clear</span>
                     </button>
                   )}
                   {isParsing ? (
                     <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-brand-600">
-                      <i className="fa-solid fa-spinner fa-spin text-xs"></i>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       <span>Extracting...</span>
                     </span>
                   ) : hasParsed ? (
@@ -298,7 +313,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                       title="Email parsed"
                       className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600"
                     >
-                      <i className="fa-solid fa-check text-[11px]"></i>
+                      <Check className="w-3.5 h-3.5" strokeWidth={2.4} />
                     </span>
                   ) : null}
                 </div>
@@ -316,8 +331,8 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                 placeholder="Paste any hiring manager email here — parsing runs automatically on paste..."
                 className="w-full flex-1 p-3.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-700 leading-relaxed focus:bg-white focus:border-brand-600 focus:outline-none"
               ></textarea>
-              <div className="text-[10px] text-slate-400 flex items-center gap-1">
-                <i className="fa-solid fa-circle-info"></i>
+              <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5 flex-shrink-0" />
                 <span>Tip: Pasting an email automatically triggers extraction.</span>
               </div>
             </div>
@@ -326,7 +341,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
             <div className="lg:col-span-7 bg-slate-50/70 p-4 rounded-xl border border-slate-200 space-y-3 text-xs">
               <div className="flex items-center justify-between">
                 <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <i className="fa-solid fa-circle-check text-emerald-500"></i>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                   <span>2. Review &amp; Complete Extracted Fields</span>
                 </div>
                 {marginSpread > 0 && (
@@ -509,9 +524,10 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                         <button
                           type="button"
                           onClick={() => handleRemoveSkillTag(tag)}
-                          className="text-blue-400 hover:text-rose-600 cursor-pointer"
+                          aria-label={`Remove ${tag}`}
+                          className="text-blue-400 hover:text-rose-600 cursor-pointer inline-flex items-center"
                         >
-                          &times;
+                          <X className="w-3 h-3" />
                         </button>
                       </span>
                     ))}
@@ -585,7 +601,11 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
               disabled={isSaving}
               className="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg shadow-sm shadow-blue-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
             >
-              <i className={`fa-solid ${isSaving ? 'fa-spinner fa-spin' : 'fa-plus'} text-xs`}></i>
+              {isSaving ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
+              )}
               <span>{isSaving ? 'Creating Requisition...' : 'Approve & Create Requisition'}</span>
             </button>
           </div>

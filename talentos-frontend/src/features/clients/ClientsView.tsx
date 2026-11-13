@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Pencil, X } from 'lucide-react';
+import {
+  Building2,
+  ChevronRight,
+  MapPin,
+  Pencil,
+  Phone,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Client, Requirement, BillablePlacement } from '../../types';
 import { ClientDetailDrawer } from '../../components/modals/ClientDetailDrawer';
@@ -113,7 +123,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
-            <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
               type="text"
               value={search}
@@ -126,7 +136,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
             onClick={onOpenAddClient}
             className="px-3.5 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <i className="fa-solid fa-plus text-[10px]"></i>
+            <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
             <span>Add Client</span>
           </button>
         </div>
@@ -191,23 +201,23 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                         title="Delete client"
                         className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-rose-50 flex items-center justify-center text-slate-400 hover:text-rose-600 text-xs transition-colors cursor-pointer"
                       >
-                        <i className="fa-solid fa-trash-can"></i>
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
-                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 text-xs">
-                      <i className="fa-solid fa-building"></i>
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
+                      <Building2 className="w-4 h-4" />
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-3 text-xs text-slate-500 space-y-1">
-                  <div>
-                    <i className="fa-solid fa-location-dot w-4 text-slate-400"></i>
-                    {client.location}
+                <div className="mt-3 text-xs text-slate-500 space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                    <span>{client.location}</span>
                   </div>
-                  <div>
-                    <i className="fa-solid fa-phone w-4 text-slate-400"></i>
-                    {client.boardNumber || 'Direct Line'}
+                  <div className="flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                    <span>{client.boardNumber || 'Direct Line'}</span>
                   </div>
                 </div>
 
@@ -246,7 +256,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                 </span>
                 <span className="text-brand-600 text-xs font-semibold flex items-center gap-1 hover:underline">
                   <span>View Details</span>
-                  <i className="fa-solid fa-chevron-right text-[9px]"></i>
+                  <ChevronRight className="w-3.5 h-3.5" />
                 </span>
               </div>
             </div>

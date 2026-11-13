@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Pencil, X } from 'lucide-react';
+import { FileSpreadsheet, FileText, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Candidate } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
@@ -121,7 +121,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
               onClick={onOpenCsvImport}
               className="px-3 py-1.5 rounded-md border border-emerald-300 bg-emerald-50 text-emerald-800 text-xs font-semibold hover:bg-emerald-100 flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
             >
-              <i className="fa-solid fa-file-csv text-emerald-600 text-[12px]"></i>
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
               <span>CSV Import & Column Mapping</span>
             </button>
           )}
@@ -129,7 +129,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
             onClick={onOpenResumeParser}
             className="px-3 py-1.5 rounded-md border border-brand-200 bg-brand-50 text-brand-700 text-xs font-medium hover:bg-brand-100 flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <i className="fa-solid fa-file-lines text-[11px]"></i>
+            <FileText className="w-3.5 h-3.5" />
             <span>Resume Parser</span>
           </button>
           {onOpenAddConsultant && (
@@ -137,7 +137,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
               onClick={onOpenAddConsultant}
               className="px-3.5 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <i className="fa-solid fa-plus text-[10px]"></i>
+              <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
               <span>Add Consultant</span>
             </button>
           )}
@@ -167,7 +167,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
           </div>
 
           <div className="relative">
-            <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
               type="text"
               value={search}
@@ -291,9 +291,9 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                   <td className="px-4 py-3 whitespace-nowrap">
                     <button
                       onClick={() => onPreviewResume(c)}
-                      className="text-[11px] text-brand-600 hover:underline flex items-center gap-1 cursor-pointer"
+                      className="text-[11px] text-brand-600 hover:underline flex items-center gap-1.5 cursor-pointer"
                     >
-                      <i className="fa-regular fa-file-pdf text-rose-500"></i>
+                      <FileText className="w-3.5 h-3.5 text-rose-500" />
                       <span>{c.resumeFormat || 'PDF'}</span>
                     </button>
                   </td>
@@ -327,7 +327,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                             title="Delete consultant"
                             className="p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
                           >
-                            <i className="fa-solid fa-trash-can text-xs"></i>
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </div>

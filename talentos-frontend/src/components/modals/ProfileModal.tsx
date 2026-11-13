@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { LogOut, ShieldCheck, X } from 'lucide-react';
 import { User } from '../../types';
 
 interface ProfileModalProps {
@@ -78,9 +79,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center text-sm transition-colors"
+            aria-label="Close modal"
+            className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center transition-colors cursor-pointer"
           >
-            <i className="fa-solid fa-xmark"></i>
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -126,7 +128,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl space-y-1">
             <div className="flex items-center justify-between text-xs font-bold text-slate-800">
               <span className="flex items-center gap-1.5">
-                <i className="fa-solid fa-shield-halved text-amber-600"></i>
+                <ShieldCheck className="w-4 h-4 text-amber-600" />
                 Rate Masking Status
               </span>
               <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
@@ -150,9 +152,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               onClose();
               onOpenSignOut();
             }}
-            className="text-rose-600 hover:text-rose-700 font-semibold text-xs flex items-center gap-1.5 transition-colors"
+            className="text-rose-600 hover:text-rose-700 font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <i className="fa-solid fa-arrow-right-from-bracket text-[11px]"></i>
+            <LogOut className="w-3.5 h-3.5" />
             <span>Sign Out</span>
           </button>
           <button

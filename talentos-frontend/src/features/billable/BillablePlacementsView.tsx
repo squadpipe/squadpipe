@@ -15,6 +15,7 @@ import {
   Clock,
   X,
   FileText,
+  ArrowRight,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { BillablePlacement } from '../../types';
@@ -531,8 +532,10 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
 
                       {/* Contract Period */}
                       <td className="px-3.5 py-3 text-[11px] text-slate-600">
-                        <div>
-                          {p.startDate} &rarr; {p.endDate}
+                        <div className="inline-flex items-center gap-1">
+                          <span>{p.startDate}</span>
+                          <ArrowRight className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                          <span>{p.endDate}</span>
                         </div>
                         {daysLeft !== null && !ended && (
                           <div

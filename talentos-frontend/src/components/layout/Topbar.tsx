@@ -1,4 +1,13 @@
 import React, { useState } from 'react';
+import {
+  Briefcase,
+  Building2,
+  ChevronDown,
+  FileSpreadsheet,
+  Handshake,
+  Plus,
+  UserPlus,
+} from 'lucide-react';
 
 interface TopbarProps {
   currentView: string;
@@ -55,9 +64,9 @@ export const Topbar: React.FC<TopbarProps> = ({ currentView, onOpenCreateModal }
             onClick={() => setShowQuickAddDropdown(!showQuickAddDropdown)}
             className="px-3.5 py-1.5 rounded-md bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-medium shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
           >
-            <i className="fa-solid fa-plus text-[10px]"></i>
+            <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
             <span>Quick Add</span>
-            <i className="fa-solid fa-chevron-down text-[9px] opacity-70 ml-0.5"></i>
+            <ChevronDown className={`w-3.5 h-3.5 opacity-75 transition-transform ${showQuickAddDropdown ? 'rotate-180' : ''}`} />
           </button>
 
           {/* Click-away backdrop overlay */}
@@ -82,7 +91,7 @@ export const Topbar: React.FC<TopbarProps> = ({ currentView, onOpenCreateModal }
                   }}
                   className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 hover:text-brand-600 transition-colors cursor-pointer"
                 >
-                  <i className="fa-solid fa-user-plus text-brand-600 w-4 text-center"></i>
+                  <UserPlus className="w-4 h-4 text-brand-600 flex-shrink-0" />
                   <span className="font-medium">New Consultant</span>
                 </button>
                 <button
@@ -92,7 +101,7 @@ export const Topbar: React.FC<TopbarProps> = ({ currentView, onOpenCreateModal }
                   }}
                   className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 hover:text-brand-600 transition-colors cursor-pointer"
                 >
-                  <i className="fa-solid fa-briefcase text-blue-600 w-4 text-center"></i>
+                  <Briefcase className="w-4 h-4 text-blue-600 flex-shrink-0" />
                   <span className="font-medium">New Requirement</span>
                 </button>
                 <button
@@ -102,7 +111,7 @@ export const Topbar: React.FC<TopbarProps> = ({ currentView, onOpenCreateModal }
                   }}
                   className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 hover:text-brand-600 transition-colors cursor-pointer"
                 >
-                  <i className="fa-solid fa-file-invoice-dollar text-emerald-600 w-4 text-center"></i>
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                   <span className="font-medium">New Billable Placement</span>
                 </button>
               </div>
@@ -114,7 +123,7 @@ export const Topbar: React.FC<TopbarProps> = ({ currentView, onOpenCreateModal }
                   }}
                   className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 hover:text-brand-600 transition-colors cursor-pointer"
                 >
-                  <i className="fa-solid fa-building text-purple-600 w-4 text-center"></i>
+                  <Building2 className="w-4 h-4 text-purple-600 flex-shrink-0" />
                   <span className="font-medium">New Client Account</span>
                 </button>
                 <button
@@ -124,7 +133,7 @@ export const Topbar: React.FC<TopbarProps> = ({ currentView, onOpenCreateModal }
                   }}
                   className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 hover:text-brand-600 transition-colors cursor-pointer"
                 >
-                  <i className="fa-solid fa-handshake text-amber-600 w-4 text-center"></i>
+                  <Handshake className="w-4 h-4 text-amber-600 flex-shrink-0" />
                   <span className="font-medium">New Staffing Vendor</span>
                 </button>
               </div>
