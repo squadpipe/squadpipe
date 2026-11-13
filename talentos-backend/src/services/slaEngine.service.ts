@@ -1,15 +1,44 @@
 import { prisma } from '../config/prisma.config';
-import { SlaCategory, SlaActionType, AutomationCategory, AuditStatus } from '@prisma/client';
+import {
+  SlaCategory,
+  SlaActionType,
+  AutomationCategory,
+  TriggerEvent,
+  AuditStatus,
+  AutomationRule,
+} from '@prisma/client';
 
 export class SlaEngineService {
-  async getActiveTasks(tenantId: string) {
-    return prisma.slaTask.findMany({
-      where: { tenantId, isDone: false },
-      orderBy: { createdAt: 'desc' },
-    });
+  /**
+   * Fetch pending (and optionally recently completed) SLA tasks for a tenant.
+   */
+  async getActiveTasks(tenantId: string, includeCompleted = false) {
+    if (!includeCompleted) {
+      return prisma.slaTask.findMany({
+        where: { tenantId, isDone: false },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+
+    const [pending, completed] = await Promise.all([
+      prisma.slaTask.findMany({
+        where: { tenantId, isDone: false },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.slaTask.findMany({
+        where: { tenantId, isDone: true },
+        orderBy: { updatedAt: 'desc' },
+        take: 25,
+      }),
+    ]);
+
+    return [...pending, ...completed];
   }
 
-  async completeTask(id: string, tenantId: string) {
+  /**
+   * Toggle or set completion status on an SLA task scoped to tenantId.
+   */
+  async completeTask(id: string, tenantId: string, done?: boolean) {
     const existing = await prisma.slaTask.findFirst({
       where: { id, tenantId },
     });
@@ -17,235 +46,282 @@ export class SlaEngineService {
 
     return prisma.slaTask.update({
       where: { id: existing.id },
-      data: { isDone: true },
-    });
-  }
-
-  private async recordRuleExecution(
-    tenantId: string,
-    categories: AutomationCategory[],
-    target: string,
-    conditionsMet: string,
-    actionDispatched: string
-  ) {
-    const matchingRule = await prisma.automationRule.findFirst({
-      where: {
-        tenantId,
-        active: true,
-        category: { in: categories },
-      },
-    });
-    if (!matchingRule) return;
-
-    await prisma.automationRule.update({
-      where: { id: matchingRule.id },
-      data: {
-        executionsCount: { increment: 1 },
-        lastFiredAt: new Date(),
-      },
-    });
-
-    await prisma.automationAuditLog.create({
-      data: {
-        ruleId: matchingRule.id,
-        ruleName: matchingRule.name,
-        target,
-        conditionsMet,
-        actionDispatched,
-        status: AuditStatus.EXECUTED,
-      },
+      data: { isDone: typeof done === 'boolean' ? done : !existing.isDone },
     });
   }
 
   /**
-   * Deterministic evaluation scanner: Checks tenant-scoped database records
-   * against SLA thresholds and generates Priority Action Queue alerts + audit logs.
+   * Mark matching open SLA tasks done when an underlying CRM entity changes state or is removed.
    */
-  async evaluateSlaRadar(tenantId: string) {
-    const generatedTasks = [];
-    const thirtyDaysFromNow = new Date();
-    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-
-    // 1. Scan for Unsourced Open Requirements (0 candidate submissions)
-    const staleReqs = await prisma.requirement.findMany({
+  async resolveTasksForEntity(
+    tenantId: string,
+    relatedEntityType: 'requirement' | 'placement' | 'vendor',
+    relatedEntityId: string,
+    categories?: SlaCategory[]
+  ) {
+    return prisma.slaTask.updateMany({
       where: {
         tenantId,
-        status: 'REQUIREMENT',
-        submissions: { none: {} },
+        relatedEntityType,
+        relatedEntityId,
+        isDone: false,
+        ...(categories && categories.length > 0 ? { category: { in: categories } } : {}),
       },
-      take: 5,
+      data: { isDone: true },
     });
+  }
 
-    for (const r of staleReqs) {
-      const existing = await prisma.slaTask.findFirst({
-        where: { tenantId, relatedEntityId: r.id, isDone: false },
+  private parseThresholdHours(threshold?: string | null, fallbackHours = 0): number {
+    const raw = String(threshold || '').trim().toLowerCase();
+    if (!raw || raw.includes('immediate') || raw === 'today') return 0;
+
+    const hoursMatch = raw.match(/(\d+)\s*(?:hours?|hrs?|h\b)/i);
+    if (hoursMatch) return parseInt(hoursMatch[1], 10);
+
+    const daysMatch = raw.match(/(\d+)\s*(?:days?|d\b)/i);
+    if (daysMatch) return parseInt(daysMatch[1], 10) * 24;
+
+    const numMatch = raw.match(/(\d+)/);
+    if (numMatch) return parseInt(numMatch[1], 10) * 24;
+
+    return fallbackHours;
+  }
+
+  private parseThresholdDays(threshold?: string | null, fallbackDays = 30): number {
+    const raw = String(threshold || '').trim().toLowerCase();
+    if (!raw || raw.includes('immediate')) return fallbackDays;
+    if (raw === 'today') return 1;
+
+    const daysMatch = raw.match(/(\d+)\s*(?:days?|d\b)/i);
+    if (daysMatch) return Math.max(1, parseInt(daysMatch[1], 10));
+
+    const hoursMatch = raw.match(/(\d+)\s*(?:hours?|hrs?|h\b)/i);
+    if (hoursMatch) return Math.max(1, Math.ceil(parseInt(hoursMatch[1], 10) / 24));
+
+    const numMatch = raw.match(/(\d+)/);
+    if (numMatch) return Math.max(1, parseInt(numMatch[1], 10));
+
+    return fallbackDays;
+  }
+
+  private filterMatchingRules(
+    allRules: AutomationRule[],
+    categories: AutomationCategory[],
+    triggerEvents: TriggerEvent[]
+  ): AutomationRule[] {
+    return allRules.filter(
+      (r) =>
+        categories.includes(r.category) || triggerEvents.includes(r.triggerEvent)
+    );
+  }
+
+  private async recordRuleExecutionForMatches(
+    matchingActiveRules: AutomationRule[],
+    target: string,
+    conditionsMet: string,
+    actionDispatched: string
+  ) {
+    for (const rule of matchingActiveRules) {
+      await prisma.automationRule.update({
+        where: { id: rule.id },
+        data: {
+          executionsCount: { increment: 1 },
+          lastFiredAt: new Date(),
+        },
       });
-      if (!existing) {
-        const task = await prisma.slaTask.create({
-          data: {
-            tenantId,
-            category: SlaCategory.STALE_REQUIREMENT,
-            slaRuleTag: 'Zero Submissions',
-            badgeClass: 'bg-rose-50 text-rose-700 border-rose-200',
-            title: `${r.companyName}: ${r.opportunityTitle} Needs Sourcing`,
-            description: `Open job order has 0 submittals. Target skills: ${r.skillsRequired}.`,
-            meta: `Role: ${r.code} • Location: ${r.location}`,
-            actionType: SlaActionType.MATCHER,
-            actionLabel: 'Run Skill Matcher',
-            relatedEntityType: 'requirement',
-            relatedEntityId: r.id,
-          },
-        });
-        generatedTasks.push(task);
-        await this.recordRuleExecution(
-          tenantId,
-          [AutomationCategory.STALE_REQ, AutomationCategory.FEEDBACK],
-          task.title,
-          `Requirement ${r.code} has 0 submissions`,
-          task.description
-        );
+
+      await prisma.automationAuditLog.create({
+        data: {
+          ruleId: rule.id,
+          ruleName: rule.name,
+          target,
+          conditionsMet,
+          actionDispatched,
+          status: AuditStatus.EXECUTED,
+        },
+      });
+    }
+  }
+
+  /**
+   * Auto-resolve open SLA tasks whose underlying entity was deleted or has progressed past the alert condition.
+   */
+  async reconcileOpenTasks(tenantId: string) {
+    const openTasks = await prisma.slaTask.findMany({
+      where: { tenantId, isDone: false },
+    });
+    if (openTasks.length === 0) return 0;
+
+    const reqIds = openTasks
+      .filter((t) => t.relatedEntityType === 'requirement' && t.relatedEntityId)
+      .map((t) => t.relatedEntityId as string);
+    const placementIds = openTasks
+      .filter((t) => t.relatedEntityType === 'placement' && t.relatedEntityId)
+      .map((t) => t.relatedEntityId as string);
+    const vendorIds = openTasks
+      .filter((t) => t.relatedEntityType === 'vendor' && t.relatedEntityId)
+      .map((t) => t.relatedEntityId as string);
+
+    const [reqs, placements, vendors] = await Promise.all([
+      reqIds.length > 0
+        ? prisma.requirement.findMany({
+            where: { id: { in: reqIds }, tenantId },
+            select: { id: true, status: true, _count: { select: { submissions: true } } },
+          })
+        : Promise.resolve([]),
+      placementIds.length > 0
+        ? prisma.placement.findMany({
+            where: { id: { in: placementIds }, tenantId },
+            select: { id: true, status: true, endDate: true },
+          })
+        : Promise.resolve([]),
+      vendorIds.length > 0
+        ? prisma.vendor.findMany({
+            where: { id: { in: vendorIds }, tenantId },
+            select: { id: true, msaSigned: true, coiExpiryDate: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const reqMap = new Map(reqs.map((r) => [r.id, r]));
+    const placementMap = new Map(placements.map((p) => [p.id, p]));
+    const vendorMap = new Map(vendors.map((v) => [v.id, v]));
+    const complianceSafeDate = new Date();
+    complianceSafeDate.setDate(complianceSafeDate.getDate() + 30);
+
+    const tenantContractRules = await prisma.automationRule.findMany({
+      where: {
+        tenantId,
+        active: true,
+        OR: [{ category: AutomationCategory.CONTRACT }, { triggerEvent: TriggerEvent.CONTRACT_ENDING }],
+      },
+    });
+    const maxContractDays =
+      tenantContractRules.length > 0
+        ? Math.max(...tenantContractRules.map((r) => this.parseThresholdDays(r.threshold, 30)))
+        : 30;
+    const contractSafeDate = new Date();
+    contractSafeDate.setDate(contractSafeDate.getDate() + maxContractDays);
+
+    const idsToResolve: string[] = [];
+
+    for (const task of openTasks) {
+      const entityId = task.relatedEntityId;
+      if (!entityId) continue;
+
+      if (task.relatedEntityType === 'requirement') {
+        const req = reqMap.get(entityId);
+        if (!req) {
+          idsToResolve.push(task.id);
+          continue;
+        }
+        if (
+          task.category === SlaCategory.STALE_REQUIREMENT &&
+          (req.status !== 'REQUIREMENT' || req._count.submissions > 0)
+        ) {
+          idsToResolve.push(task.id);
+        } else if (
+          task.category === SlaCategory.AWAITING_FEEDBACK &&
+          req.status !== 'SUBMITTED'
+        ) {
+          idsToResolve.push(task.id);
+        } else if (
+          task.category === SlaCategory.INTERVIEW_TODAY &&
+          req.status !== 'INTERVIEW'
+        ) {
+          idsToResolve.push(task.id);
+        }
+      } else if (task.relatedEntityType === 'placement') {
+        const placement = placementMap.get(entityId);
+        if (!placement) {
+          idsToResolve.push(task.id);
+          continue;
+        }
+        if (
+          placement.status === 'COMPLETED' ||
+          placement.status === 'TERMINATED' ||
+          placement.status === 'EXTENDED' ||
+          new Date(placement.endDate) > contractSafeDate
+        ) {
+          idsToResolve.push(task.id);
+        }
+      } else if (task.relatedEntityType === 'vendor') {
+        const vendor = vendorMap.get(entityId);
+        if (!vendor) {
+          idsToResolve.push(task.id);
+          continue;
+        }
+        const coiOk =
+          !vendor.coiExpiryDate || new Date(vendor.coiExpiryDate) > complianceSafeDate;
+        if (vendor.msaSigned && coiOk) {
+          idsToResolve.push(task.id);
+        }
       }
     }
 
-    // 2. Scan for Submissions Awaiting Client Feedback
-    const submittedReqs = await prisma.requirement.findMany({
-      where: {
-        tenantId,
-        status: 'SUBMITTED',
-      },
-      take: 5,
-    });
-
-    for (const r of submittedReqs) {
-      const existing = await prisma.slaTask.findFirst({
-        where: { tenantId, relatedEntityId: r.id, isDone: false },
+    if (idsToResolve.length > 0) {
+      await prisma.slaTask.updateMany({
+        where: { id: { in: idsToResolve }, tenantId },
+        data: { isDone: true },
       });
-      if (!existing) {
-        const task = await prisma.slaTask.create({
-          data: {
-            tenantId,
-            category: SlaCategory.AWAITING_FEEDBACK,
-            slaRuleTag: 'Awaiting Feedback',
-            badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
-            title: `${r.companyName}: Client Feedback Due (${r.opportunityTitle})`,
-            description: `Requirement ${r.code} is in Submitted stage awaiting client review.`,
-            meta: `Role: ${r.code} • Location: ${r.location}`,
-            actionType: SlaActionType.PITCH,
-            actionLabel: 'Follow Up Client',
-            relatedEntityType: 'requirement',
-            relatedEntityId: r.id,
-          },
-        });
-        generatedTasks.push(task);
-        await this.recordRuleExecution(
-          tenantId,
-          [AutomationCategory.FEEDBACK],
-          task.title,
-          `Requirement ${r.code} is in SUBMITTED stage`,
-          task.description
-        );
-      }
     }
 
-    // 3. Scan for Active Interviews
-    const interviewReqs = await prisma.requirement.findMany({
-      where: {
-        tenantId,
-        status: 'INTERVIEW',
-      },
-      take: 5,
-    });
+    return idsToResolve.length;
+  }
 
-    for (const r of interviewReqs) {
-      const existing = await prisma.slaTask.findFirst({
-        where: { tenantId, relatedEntityId: r.id, isDone: false },
-      });
-      if (!existing) {
-        const task = await prisma.slaTask.create({
-          data: {
-            tenantId,
-            category: SlaCategory.INTERVIEW_TODAY,
-            slaRuleTag: 'Active Interview',
-            badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
-            title: `${r.companyName}: Interview Prep (${r.opportunityTitle})`,
-            description: `Active interview round on ${r.code}. Confirm candidate briefing & debrief check.`,
-            meta: `Role: ${r.code} • Location: ${r.location}`,
-            actionType: SlaActionType.PIPELINE,
-            actionLabel: 'Prep Candidate',
-            relatedEntityType: 'requirement',
-            relatedEntityId: r.id,
-          },
-        });
-        generatedTasks.push(task);
-        await this.recordRuleExecution(
-          tenantId,
-          [AutomationCategory.INTERVIEW],
-          task.title,
-          `Requirement ${r.code} is in INTERVIEW stage`,
-          task.description
-        );
-      }
-    }
+  /**
+   * Evaluate vendor COI & MSA compliance rules for a specific tenant.
+   */
+  async evaluateVendorComplianceForTenant(tenantId: string, fallbackDays = 30) {
+    const tenantRules = await prisma.automationRule.findMany({ where: { tenantId } });
+    const complianceRules = this.filterMatchingRules(
+      tenantRules,
+      [AutomationCategory.COMPLIANCE],
+      [TriggerEvent.VISA_EXPIRING]
+    );
+    const activeComplianceRules = complianceRules.filter((r) => r.active);
+    if (activeComplianceRules.length === 0) return [];
 
-    // 4. Scan for Expiring Billable Placements (< 30 days)
-    const expiringPlacements = await prisma.placement.findMany({
-      where: {
-        tenantId,
-        status: 'ACTIVE',
-        endDate: { lte: thirtyDaysFromNow },
-      },
-      take: 5,
-    });
+    const maxWindowDays = Math.max(
+      ...activeComplianceRules.map((r) => this.parseThresholdDays(r.threshold, fallbackDays))
+    );
+    const windowDate = new Date();
+    windowDate.setDate(windowDate.getDate() + maxWindowDays);
 
-    for (const b of expiringPlacements) {
-      const existing = await prisma.slaTask.findFirst({
-        where: { tenantId, relatedEntityId: b.id, isDone: false },
-      });
-      if (!existing) {
-        const daysRemaining = Math.ceil(
-          (new Date(b.endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-        );
-        const task = await prisma.slaTask.create({
-          data: {
-            tenantId,
-            category: SlaCategory.CONTRACT_EXPIRING,
-            slaRuleTag: 'Contract Notice (<30d)',
-            badgeClass: 'bg-purple-50 text-purple-700 border-purple-200',
-            title: `${b.resourceName}: SOW Contract Ending in ${daysRemaining} Days`,
-            description: `Active deployment at ${b.customer} concludes on ${b.endDate.toISOString().split('T')[0]}. Review renewal SOW.`,
-            meta: `Bill: $${b.billRate}/hr • Spread: +$${b.hourlySpread}/hr`,
-            actionType: SlaActionType.BILLABLE,
-            actionLabel: 'Review Billable',
-            relatedEntityType: 'placement',
-            relatedEntityId: b.id,
-          },
-        });
-        generatedTasks.push(task);
-        await this.recordRuleExecution(
-          tenantId,
-          [AutomationCategory.CONTRACT],
-          task.title,
-          `Placement at ${b.customer} ends in ${daysRemaining} days`,
-          task.description
-        );
-      }
-    }
-
-    // 5. Scan for Vendor Compliance Issues (Unsigned MSA or Expiring COI < 30 days)
     const complianceVendors = await prisma.vendor.findMany({
       where: {
         tenantId,
-        OR: [{ msaSigned: false }, { coiExpiryDate: { lte: thirtyDaysFromNow } }],
+        OR: [{ msaSigned: false }, { coiExpiryDate: { lte: windowDate } }],
       },
-      take: 5,
+      take: 50,
     });
 
+    const createdTasks = [];
     for (const v of complianceVendors) {
+      const triggeredRules = activeComplianceRules.filter((r) => {
+        if (!v.msaSigned) return true;
+        if (!v.coiExpiryDate) return false;
+        const ruleDays = this.parseThresholdDays(r.threshold, fallbackDays);
+        const ruleCutoff = new Date();
+        ruleCutoff.setDate(ruleCutoff.getDate() + ruleDays);
+        return new Date(v.coiExpiryDate) <= ruleCutoff;
+      });
+      if (triggeredRules.length === 0) continue;
+
       const existing = await prisma.slaTask.findFirst({
-        where: { tenantId, relatedEntityId: v.id, isDone: false },
+        where: {
+          tenantId,
+          category: SlaCategory.COMPLIANCE_ALERT,
+          relatedEntityType: 'vendor',
+          relatedEntityId: v.id,
+          isDone: false,
+        },
       });
       if (!existing) {
-        const issueLabel = !v.msaSigned ? 'Unsigned MSA' : 'COI Expiring (<30d)';
+        const minRuleDays = Math.min(
+          ...triggeredRules.map((r) => this.parseThresholdDays(r.threshold, fallbackDays))
+        );
+        const issueLabel = !v.msaSigned ? 'Unsigned MSA' : `COI Expiring (<${minRuleDays}d)`;
         const task = await prisma.slaTask.create({
           data: {
             tenantId,
@@ -261,16 +337,303 @@ export class SlaEngineService {
             relatedEntityId: v.id,
           },
         });
-        generatedTasks.push(task);
-        await this.recordRuleExecution(
-          tenantId,
-          [AutomationCategory.COMPLIANCE],
+        createdTasks.push(task);
+        await this.recordRuleExecutionForMatches(
+          triggeredRules,
           task.title,
           `Vendor ${v.name}: ${issueLabel}`,
           task.description
         );
       }
     }
+
+    return createdTasks;
+  }
+
+  /**
+   * Deterministic evaluation scanner: Reconciles resolved tasks, then checks tenant-scoped
+   * database records against active AutomationRules and their thresholds.
+   */
+  async evaluateSlaRadar(tenantId: string) {
+    await this.reconcileOpenTasks(tenantId);
+
+    const generatedTasks = [];
+    const now = new Date();
+    const tenantRules = await prisma.automationRule.findMany({ where: { tenantId } });
+
+    // 1. Scan for Unsourced Open Requirements (0 candidate submissions)
+    const staleActiveRules = this.filterMatchingRules(
+      tenantRules,
+      [AutomationCategory.STALE_REQ],
+      [TriggerEvent.STALE_REQ]
+    ).filter((r) => r.active);
+
+    if (staleActiveRules.length > 0) {
+      const minStaleHours = Math.min(
+        ...staleActiveRules.map((r) => this.parseThresholdHours(r.threshold, 24))
+      );
+      const staleCutoff = new Date(now.getTime() - minStaleHours * 60 * 60 * 1000);
+
+      const staleReqs = await prisma.requirement.findMany({
+        where: {
+          tenantId,
+          status: 'REQUIREMENT',
+          submissions: { none: {} },
+          ...(minStaleHours > 0 ? { createdAt: { lte: staleCutoff } } : {}),
+        },
+        take: 50,
+      });
+
+      for (const r of staleReqs) {
+        const ageHours = (now.getTime() - new Date(r.createdAt).getTime()) / (1000 * 60 * 60);
+        const triggeredRules = staleActiveRules.filter(
+          (rule) => ageHours >= this.parseThresholdHours(rule.threshold, 24)
+        );
+        if (triggeredRules.length === 0) continue;
+
+        const existing = await prisma.slaTask.findFirst({
+          where: {
+            tenantId,
+            category: SlaCategory.STALE_REQUIREMENT,
+            relatedEntityType: 'requirement',
+            relatedEntityId: r.id,
+            isDone: false,
+          },
+        });
+        if (!existing) {
+          const task = await prisma.slaTask.create({
+            data: {
+              tenantId,
+              category: SlaCategory.STALE_REQUIREMENT,
+              slaRuleTag: 'Zero Submissions',
+              badgeClass: 'bg-rose-50 text-rose-700 border-rose-200',
+              title: `${r.companyName}: ${r.opportunityTitle} Needs Sourcing`,
+              description: `Open job order has 0 submittals. Target skills: ${r.skillsRequired}.`,
+              meta: `Role: ${r.code} • Location: ${r.location}`,
+              actionType: SlaActionType.MATCHER,
+              actionLabel: 'Run Skill Matcher',
+              relatedEntityType: 'requirement',
+              relatedEntityId: r.id,
+            },
+          });
+          generatedTasks.push(task);
+          await this.recordRuleExecutionForMatches(
+            triggeredRules,
+            task.title,
+            `Requirement ${r.code} has 0 submissions (${Math.floor(ageHours)}h open)`,
+            task.description
+          );
+        }
+      }
+    }
+
+    // 2. Scan for Submissions Awaiting Client Feedback
+    const feedbackActiveRules = this.filterMatchingRules(
+      tenantRules,
+      [AutomationCategory.FEEDBACK],
+      [TriggerEvent.FEEDBACK_DELAYED]
+    ).filter((r) => r.active);
+
+    if (feedbackActiveRules.length > 0) {
+      const minFeedbackHours = Math.min(
+        ...feedbackActiveRules.map((r) => this.parseThresholdHours(r.threshold, 48))
+      );
+      const feedbackCutoff = new Date(now.getTime() - minFeedbackHours * 60 * 60 * 1000);
+
+      const submittedReqs = await prisma.requirement.findMany({
+        where: {
+          tenantId,
+          status: 'SUBMITTED',
+          ...(minFeedbackHours > 0 ? { updatedAt: { lte: feedbackCutoff } } : {}),
+        },
+        take: 50,
+      });
+
+      for (const r of submittedReqs) {
+        const ageHours = (now.getTime() - new Date(r.updatedAt).getTime()) / (1000 * 60 * 60);
+        const triggeredRules = feedbackActiveRules.filter(
+          (rule) => ageHours >= this.parseThresholdHours(rule.threshold, 48)
+        );
+        if (triggeredRules.length === 0) continue;
+
+        const existing = await prisma.slaTask.findFirst({
+          where: {
+            tenantId,
+            category: SlaCategory.AWAITING_FEEDBACK,
+            relatedEntityType: 'requirement',
+            relatedEntityId: r.id,
+            isDone: false,
+          },
+        });
+        if (!existing) {
+          const task = await prisma.slaTask.create({
+            data: {
+              tenantId,
+              category: SlaCategory.AWAITING_FEEDBACK,
+              slaRuleTag: 'Awaiting Feedback',
+              badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
+              title: `${r.companyName}: Client Feedback Due (${r.opportunityTitle})`,
+              description: `Requirement ${r.code} is in Submitted stage awaiting client review.`,
+              meta: `Role: ${r.code} • Location: ${r.location}`,
+              actionType: SlaActionType.PITCH,
+              actionLabel: 'Follow Up Client',
+              relatedEntityType: 'requirement',
+              relatedEntityId: r.id,
+            },
+          });
+          generatedTasks.push(task);
+          await this.recordRuleExecutionForMatches(
+            triggeredRules,
+            task.title,
+            `Requirement ${r.code} is in SUBMITTED stage (${Math.floor(ageHours)}h awaiting feedback)`,
+            task.description
+          );
+        }
+      }
+    }
+
+    // 3. Scan for Active Interviews
+    const interviewActiveRules = this.filterMatchingRules(
+      tenantRules,
+      [AutomationCategory.INTERVIEW],
+      [TriggerEvent.INTERVIEW_TODAY]
+    ).filter((r) => r.active);
+
+    if (interviewActiveRules.length > 0) {
+      const minInterviewHours = Math.min(
+        ...interviewActiveRules.map((r) => this.parseThresholdHours(r.threshold, 0))
+      );
+      const interviewCutoff = new Date(now.getTime() - minInterviewHours * 60 * 60 * 1000);
+
+      const interviewReqs = await prisma.requirement.findMany({
+        where: {
+          tenantId,
+          status: 'INTERVIEW',
+          ...(minInterviewHours > 0 ? { updatedAt: { lte: interviewCutoff } } : {}),
+        },
+        take: 50,
+      });
+
+      for (const r of interviewReqs) {
+        const ageHours = (now.getTime() - new Date(r.updatedAt).getTime()) / (1000 * 60 * 60);
+        const triggeredRules = interviewActiveRules.filter(
+          (rule) => ageHours >= this.parseThresholdHours(rule.threshold, 0)
+        );
+        if (triggeredRules.length === 0) continue;
+
+        const existing = await prisma.slaTask.findFirst({
+          where: {
+            tenantId,
+            category: SlaCategory.INTERVIEW_TODAY,
+            relatedEntityType: 'requirement',
+            relatedEntityId: r.id,
+            isDone: false,
+          },
+        });
+        if (!existing) {
+          const task = await prisma.slaTask.create({
+            data: {
+              tenantId,
+              category: SlaCategory.INTERVIEW_TODAY,
+              slaRuleTag: 'Active Interview',
+              badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+              title: `${r.companyName}: Interview Prep (${r.opportunityTitle})`,
+              description: `Active interview round on ${r.code}. Confirm candidate briefing & debrief check.`,
+              meta: `Role: ${r.code} • Location: ${r.location}`,
+              actionType: SlaActionType.PIPELINE,
+              actionLabel: 'Prep Candidate',
+              relatedEntityType: 'requirement',
+              relatedEntityId: r.id,
+            },
+          });
+          generatedTasks.push(task);
+          await this.recordRuleExecutionForMatches(
+            triggeredRules,
+            task.title,
+            `Requirement ${r.code} is in INTERVIEW stage`,
+            task.description
+          );
+        }
+      }
+    }
+
+    // 4. Scan for Expiring Billable Placements
+    const contractActiveRules = this.filterMatchingRules(
+      tenantRules,
+      [AutomationCategory.CONTRACT],
+      [TriggerEvent.CONTRACT_ENDING]
+    ).filter((r) => r.active);
+
+    if (contractActiveRules.length > 0) {
+      const maxContractDays = Math.max(
+        ...contractActiveRules.map((r) => this.parseThresholdDays(r.threshold, 30))
+      );
+      const contractWindowDate = new Date();
+      contractWindowDate.setDate(contractWindowDate.getDate() + maxContractDays);
+
+      const expiringPlacements = await prisma.placement.findMany({
+        where: {
+          tenantId,
+          status: { in: ['ACTIVE', 'EXPIRING_SOON'] },
+          endDate: { lte: contractWindowDate },
+        },
+        take: 50,
+      });
+
+      for (const b of expiringPlacements) {
+        const daysRemaining = Math.ceil(
+          (new Date(b.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        const triggeredRules = contractActiveRules.filter(
+          (rule) => daysRemaining <= this.parseThresholdDays(rule.threshold, 30)
+        );
+        if (triggeredRules.length === 0) continue;
+
+        const existing = await prisma.slaTask.findFirst({
+          where: {
+            tenantId,
+            category: SlaCategory.CONTRACT_EXPIRING,
+            relatedEntityType: 'placement',
+            relatedEntityId: b.id,
+            isDone: false,
+          },
+        });
+        if (!existing) {
+          const minWindowDays = Math.min(
+            ...triggeredRules.map((r) => this.parseThresholdDays(r.threshold, 30))
+          );
+          const task = await prisma.slaTask.create({
+            data: {
+              tenantId,
+              category: SlaCategory.CONTRACT_EXPIRING,
+              slaRuleTag: `Contract Notice (<${minWindowDays}d)`,
+              badgeClass: 'bg-purple-50 text-purple-700 border-purple-200',
+              title:
+                daysRemaining <= 0
+                  ? `${b.resourceName}: SOW Contract Expired (${Math.abs(daysRemaining)}d ago)`
+                  : `${b.resourceName}: SOW Contract Ending in ${daysRemaining} Days`,
+              description: `Active deployment at ${b.customer} concludes on ${b.endDate.toISOString().split('T')[0]}. Review renewal SOW.`,
+              meta: `Bill: $${b.billRate}/hr • Spread: +$${b.hourlySpread}/hr`,
+              actionType: SlaActionType.BILLABLE,
+              actionLabel: 'Review Billable',
+              relatedEntityType: 'placement',
+              relatedEntityId: b.id,
+            },
+          });
+          generatedTasks.push(task);
+          await this.recordRuleExecutionForMatches(
+            triggeredRules,
+            task.title,
+            `Placement at ${b.customer} ends in ${daysRemaining} days`,
+            task.description
+          );
+        }
+      }
+    }
+
+    // 5. Scan for Vendor Compliance Issues (Unsigned MSA or Expiring COI)
+    const vendorTasks = await this.evaluateVendorComplianceForTenant(tenantId, 30);
+    generatedTasks.push(...vendorTasks);
 
     return generatedTasks;
   }

@@ -1,5 +1,7 @@
 import { prisma } from '../config/prisma.config';
-import { RequirementStatus, Prisma, WorkModel } from '@prisma/client';
+import { RequirementStatus, Prisma, WorkModel, AutomationCategory } from '@prisma/client';
+import { slaEngineService } from './slaEngine.service';
+import { automationEngineService } from './automationEngine.service';
 
 export interface RequirementFilterParams {
   tenantId?: string;
@@ -247,7 +249,7 @@ export class RequirementService {
     if (wmSource.includes('HYBRID')) workModel = WorkModel.HYBRID;
     else if (wmSource.includes('ONSITE')) workModel = WorkModel.ONSITE;
 
-    return prisma.requirement.create({
+    const created = await prisma.requirement.create({
       data: {
         tenantId,
         code,
@@ -277,6 +279,14 @@ export class RequirementService {
         }
       }
     });
+
+    try {
+      await slaEngineService.evaluateSlaRadar(tenantId);
+    } catch {
+      // Non-critical initial SLA check
+    }
+
+    return created;
   }
 
   async updateRequirement(id: string, raw: any, tenantId?: string) {
@@ -350,6 +360,12 @@ export class RequirementService {
   }
 
   async updateRequirementStage(id: string, statusInput: string, resourceName?: string, tenantId?: string) {
+    const existingReq = await prisma.requirement.findUnique({ where: { id } });
+    if (!existingReq || (tenantId && existingReq.tenantId !== tenantId)) {
+      throw new Error('Requirement not found or unauthorized');
+    }
+
+    const effectiveTenantId = tenantId || existingReq.tenantId;
     const status = requirementStatusMap[statusInput] || (statusInput as RequirementStatus);
     const updated = await prisma.requirement.update({
       where: { id },
@@ -362,35 +378,65 @@ export class RequirementService {
         where: { resourceName, customer: updated.companyName, tenantId: updated.tenantId }
       });
       if (!existing) {
-        await prisma.placement.create({
+        const billNum = Number(updated.targetBillRate) || 115;
+        const payNum = Number(updated.targetPayRate) || 85;
+        const hourlySpread = billNum - payNum;
+        const marginPct = billNum > 0 ? parseFloat(((hourlySpread / billNum) * 100).toFixed(2)) : 0;
+
+        const placement = await prisma.placement.create({
           data: {
             tenantId: updated.tenantId,
+            requirementId: updated.id,
+            clientId: updated.clientId,
             customer: updated.companyName,
             resourceName,
             skillRole: updated.opportunityTitle,
             startDate: new Date(),
             endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
-            billRate: 115.00,
-            payRate: 85.00,
-            hourlySpread: 30.00,
-            marginPct: 26.08,
+            billRate: billNum,
+            payRate: payNum,
+            hourlySpread,
+            marginPct,
             status: 'ACTIVE'
           }
         });
+
+        try {
+          await automationEngineService.recordLifecycleEvent({
+            tenantId: updated.tenantId,
+            preferredCategories: [AutomationCategory.CONTRACT],
+            ruleName: 'Placement Activation & Margin Lock',
+            target: `${placement.resourceName} @ ${placement.customer}`,
+            conditionsMet: `Bill: $${billNum}/hr | Pay: $${payNum}/hr (Spread: +$${hourlySpread.toFixed(2)}/hr)`,
+            actionDispatched: 'Registered to Billable Ledger & 30d Expiration Radar Scheduled',
+          });
+        } catch {
+          // Non-critical audit failure
+        }
       }
+    }
+
+    try {
+      await slaEngineService.evaluateSlaRadar(effectiveTenantId);
+    } catch {
+      // Non-critical SLA sync
     }
 
     return updated;
   }
 
   async deleteRequirement(id: string, tenantId?: string) {
-    if (tenantId) {
-      const existing = await prisma.requirement.findUnique({ where: { id } });
-      if (!existing || existing.tenantId !== tenantId) {
-        throw new Error('Requirement not found or unauthorized');
-      }
+    const existing = await prisma.requirement.findUnique({ where: { id } });
+    if (!existing || (tenantId && existing.tenantId !== tenantId)) {
+      throw new Error('Requirement not found or unauthorized');
     }
-    return prisma.requirement.delete({ where: { id } });
+    const deleted = await prisma.requirement.delete({ where: { id } });
+    try {
+      await slaEngineService.resolveTasksForEntity(existing.tenantId, 'requirement', id);
+    } catch {
+      // Non-critical
+    }
+    return deleted;
   }
 }
 

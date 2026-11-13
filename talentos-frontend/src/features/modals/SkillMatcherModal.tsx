@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Send, UsersRound, X } from 'lucide-react';
 import { Requirement, Candidate } from '../../types';
 import { useCurrency } from '../../utils/currency';
@@ -8,6 +8,7 @@ interface SkillMatcherModalProps {
   onClose: () => void;
   requirements: Requirement[];
   candidates: Candidate[];
+  initialRequirement?: Requirement | null;
   onSubmitCandidate: (candidate: Candidate, requirement: Requirement) => void;
   showToast: (title: string, message: string, icon?: string) => void;
 }
@@ -17,13 +18,20 @@ export const SkillMatcherModal: React.FC<SkillMatcherModalProps> = ({
   onClose,
   requirements,
   candidates,
+  initialRequirement,
   onSubmitCandidate,
   showToast,
 }) => {
   const { formatRate } = useCurrency();
   const [selectedReqId, setSelectedReqId] = useState<string>(
-    requirements[0]?.id || ''
+    initialRequirement?.id || requirements[0]?.id || ''
   );
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedReqId(initialRequirement?.id || requirements[0]?.id || '');
+    }
+  }, [isOpen, initialRequirement?.id, requirements]);
 
   if (!isOpen) return null;
 

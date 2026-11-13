@@ -35,6 +35,7 @@ interface DashboardViewProps {
   onOpenMatcher: (req: Requirement) => void;
   onOpenPitchWriter: (req: Requirement) => void;
   onOpenSlaDrawer: () => void;
+  onRefreshSla?: () => Promise<void> | void;
   showToast: (title: string, message: string, icon?: string) => void;
 }
 
@@ -52,8 +53,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenMatcher,
   onOpenPitchWriter,
   onOpenSlaDrawer,
+  onRefreshSla,
   showToast,
 }) => {
+  const [isEvaluatingSla, setIsEvaluatingSla] = useState(false);
   const [tableSearch, setTableSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
@@ -493,7 +496,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold text-xs text-slate-900">Today's Priority Action Queue</h3>
                   <span className="text-[9px] bg-emerald-50 text-emerald-700 px-1.5 py-0.2 rounded border border-emerald-200 font-semibold">
-                    {slaTasks.length} Rules
+                    {slaTasks.filter((t) => !t.done).length} Pending
                   </span>
                 </div>
                 <span className="text-[10px] text-slate-400">
@@ -504,18 +507,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="flex items-center gap-2">
               <button
                 onClick={async () => {
+                  if (isEvaluatingSla) return;
+                  setIsEvaluatingSla(true);
                   try {
                     const res = await apiClient.post('/sla-tasks/evaluate');
                     const count = res.data?.data?.createdTasksCount ?? 0;
-                    showToast('Rules Evaluated', `Evaluated SLA criteria across pipeline (${count} alert(s) synced).`);
+                    await onRefreshSla?.();
+                    showToast('Rules Evaluated', `Evaluated SLA criteria across pipeline (${count} new alert(s)).`);
                   } catch {
                     showToast('Evaluation Failed', 'Unable to evaluate SLA rules right now.', 'fa-solid fa-triangle-exclamation text-rose-500');
+                  } finally {
+                    setIsEvaluatingSla(false);
                   }
                 }}
+                disabled={isEvaluatingSla}
                 title="Re-evaluate SLA rules across pipeline"
-                className="w-6 h-6 rounded border border-slate-200 text-slate-600 hover:text-brand-600 hover:bg-slate-50 flex items-center justify-center text-[11px] transition-colors cursor-pointer"
+                className="w-6 h-6 rounded border border-slate-200 text-slate-600 hover:text-brand-600 hover:bg-slate-50 disabled:opacity-60 flex items-center justify-center text-[11px] transition-colors cursor-pointer"
               >
-                <RefreshCw className="w-3 h-3" />
+                <RefreshCw className={`w-3 h-3 ${isEvaluatingSla ? 'animate-spin' : ''}`} />
               </button>
               <button
                 onClick={onOpenSlaDrawer}
@@ -528,59 +537,97 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="space-y-2">
-            {slaTasks.length === 0 ? (
+            {slaTasks.filter((t) => !t.done).length === 0 ? (
               <div className="py-8 text-center text-xs text-slate-400 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
                 No pending SLA priority actions right now.
               </div>
             ) : (
-              slaTasks.slice(0, 3).map((item) => (
-              <div
-                key={item.id}
-                className="p-2.5 bg-slate-50/80 hover:bg-slate-100/70 rounded-lg border border-slate-200/60 flex items-center justify-between text-xs transition-colors"
-              >
-                <div className="space-y-0.5 overflow-hidden pr-2">
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${
-                        item.badgeClass || 'bg-amber-50 text-amber-700 border-amber-200'
-                      }`}
+              slaTasks
+                .filter((t) => !t.done)
+                .slice(0, 3)
+                .map((item) => {
+                  const categoryBadge =
+                    item.slaRuleTag ||
+                    String(item.category || '')
+                      .replace(/_/g, ' ')
+                      .toLowerCase()
+                      .replace(/\b\w/g, (ch) => ch.toUpperCase());
+                  const actionType = String(item.actionType || '').toLowerCase();
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-2.5 bg-slate-50/80 hover:bg-slate-100/70 rounded-lg border border-slate-200/60 flex items-center justify-between text-xs transition-colors"
                     >
-                      {item.category}
-                    </span>
-                    <span className="font-semibold text-slate-800 text-[11px] truncate">{item.title}</span>
-                  </div>
-                  <div className="text-[10px] text-slate-500 truncate">{item.desc}</div>
-                </div>
-                {item.actionType === 'pitch' ? (
-                  <button
-                    onClick={() => {
-                      const r = requirements.find((x) => x.id);
-                      if (r) onOpenPitchWriter(r);
-                    }}
-                    className="flex-shrink-0 px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-medium hover:bg-amber-200 transition-colors"
-                  >
-                    Follow-up
-                  </button>
-                ) : item.actionType === 'matcher' ? (
-                  <button
-                    onClick={() => {
-                      const r = requirements.find((x) => x.id);
-                      if (r) onOpenMatcher(r);
-                    }}
-                    className="flex-shrink-0 px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-medium hover:bg-emerald-200 transition-colors"
-                  >
-                    Match
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => onNavigate('pipeline')}
-                    className="flex-shrink-0 px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-medium hover:bg-blue-200 transition-colors"
-                  >
-                    View
-                  </button>
-                )}
-              </div>
-            ))
+                      <div className="space-y-0.5 overflow-hidden pr-2">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`text-[9px] font-bold px-1.5 py-0.2 rounded border whitespace-nowrap ${
+                              item.badgeClass || 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}
+                          >
+                            {categoryBadge}
+                          </span>
+                          <span className="font-semibold text-slate-800 text-[11px] truncate">{item.title}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-500 truncate">{item.desc}</div>
+                      </div>
+                      {actionType === 'pitch' ? (
+                        <button
+                          onClick={() => {
+                            const r =
+                              (item.relatedEntityId
+                                ? requirements.find((x) => x.id === item.relatedEntityId)
+                                : undefined) || requirements[0];
+                            if (r) onOpenPitchWriter(r);
+                          }}
+                          className="flex-shrink-0 px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-medium hover:bg-amber-200 transition-colors cursor-pointer"
+                        >
+                          Follow-up
+                        </button>
+                      ) : actionType === 'matcher' ? (
+                        <button
+                          onClick={() => {
+                            const r =
+                              (item.relatedEntityId
+                                ? requirements.find((x) => x.id === item.relatedEntityId)
+                                : undefined) || requirements[0];
+                            if (r) onOpenMatcher(r);
+                          }}
+                          className="flex-shrink-0 px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-medium hover:bg-emerald-200 transition-colors cursor-pointer"
+                        >
+                          Match
+                        </button>
+                      ) : actionType === 'billable' ? (
+                        <button
+                          onClick={() => onNavigate('billable')}
+                          className="flex-shrink-0 px-2 py-0.5 rounded bg-purple-100 text-purple-800 text-[10px] font-medium hover:bg-purple-200 transition-colors cursor-pointer"
+                        >
+                          Review
+                        </button>
+                      ) : actionType === 'checklist' ? (
+                        <button
+                          onClick={() => onNavigate('vendors')}
+                          className="flex-shrink-0 px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-medium hover:bg-emerald-200 transition-colors cursor-pointer"
+                        >
+                          Audit
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            const r = item.relatedEntityId
+                              ? requirements.find((x) => x.id === item.relatedEntityId)
+                              : undefined;
+                            if (r) onSelectReq(r);
+                            else onNavigate('pipeline');
+                          }}
+                          className="flex-shrink-0 px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-medium hover:bg-blue-200 transition-colors cursor-pointer"
+                        >
+                          View
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
             )}
           </div>
         </div>

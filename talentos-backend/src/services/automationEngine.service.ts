@@ -170,6 +170,74 @@ export class AutomationEngineService {
     return { rule: updatedRule, auditLog: auditEntry };
   }
 
+  async recordLifecycleEvent(params: {
+    tenantId: string;
+    preferredCategories?: AutomationCategory[];
+    ruleName: string;
+    target: string;
+    conditionsMet: string;
+    actionDispatched: string;
+    status?: AuditStatus;
+    incrementRuleCounter?: boolean;
+    requireActiveRule?: boolean;
+  }) {
+    const {
+      tenantId,
+      preferredCategories = [],
+      ruleName,
+      target,
+      conditionsMet,
+      actionDispatched,
+      status = AuditStatus.EXECUTED,
+      incrementRuleCounter = false,
+      requireActiveRule = false,
+    } = params;
+
+    const matchingActiveRule =
+      preferredCategories.length > 0
+        ? await prisma.automationRule.findFirst({
+            where: {
+              tenantId,
+              active: true,
+              category: { in: preferredCategories },
+            },
+            orderBy: { createdAt: 'asc' },
+          })
+        : null;
+
+    if (requireActiveRule && !matchingActiveRule) {
+      return null;
+    }
+
+    const fallbackRule =
+      matchingActiveRule ||
+      (await prisma.automationRule.findFirst({
+        where: { tenantId },
+        orderBy: { createdAt: 'asc' },
+      }));
+
+    if (matchingActiveRule && incrementRuleCounter) {
+      await prisma.automationRule.update({
+        where: { id: matchingActiveRule.id },
+        data: {
+          executionsCount: { increment: 1 },
+          lastFiredAt: new Date(),
+        },
+      });
+    }
+
+    return prisma.automationAuditLog.create({
+      data: {
+        ruleId: fallbackRule?.id ?? null,
+        ruleName: matchingActiveRule && incrementRuleCounter ? matchingActiveRule.name : ruleName,
+        target,
+        conditionsMet,
+        actionDispatched,
+        status,
+      },
+    });
+  }
+
   async seedDefaultRulesForTenant(tenantId: string, userId?: string) {
     const existing = await prisma.automationRule.findMany({
       where: { tenantId },

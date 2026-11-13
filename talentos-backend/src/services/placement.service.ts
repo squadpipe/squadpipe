@@ -1,5 +1,7 @@
 import { prisma } from '../config/prisma.config';
-import { PlacementStatus, Prisma, DeploymentType, PlacementType } from '@prisma/client';
+import { PlacementStatus, Prisma, DeploymentType, PlacementType, AutomationCategory } from '@prisma/client';
+import { automationEngineService } from './automationEngine.service';
+import { slaEngineService } from './slaEngine.service';
 
 export interface PlacementFilterParams {
   search?: string;
@@ -273,22 +275,23 @@ export class PlacementService {
           where: { id: requirementId },
           data: { status: 'ONBOARDING' },
         });
+        await slaEngineService.resolveTasksForEntity(tenantId, 'requirement', requirementId);
       } catch {
         // Non-critical stage sync failure
       }
     }
 
-    // Automatically record in the Automation Audit Ledger
+    // Automatically record in the Automation Audit Ledger scoped to tenant
     try {
-      await prisma.automationAuditLog.create({
-        data: {
-          ruleName: 'Placement Activation & Margin Lock',
-          target: `${placement.resourceName} @ ${placement.customer}`,
-          conditionsMet: `Bill: $${billNum}/hr | Pay: $${payNum}/hr (Spread: +$${hourlySpread.toFixed(2)}/hr)`,
-          actionDispatched: 'Registered to Billable Ledger & 30d Expiration Radar Scheduled',
-          status: 'EXECUTED'
-        }
+      await automationEngineService.recordLifecycleEvent({
+        tenantId,
+        preferredCategories: [AutomationCategory.CONTRACT],
+        ruleName: 'Placement Activation & Margin Lock',
+        target: `${placement.resourceName} @ ${placement.customer}`,
+        conditionsMet: `Bill: $${billNum}/hr | Pay: $${payNum}/hr (Spread: +$${hourlySpread.toFixed(2)}/hr)`,
+        actionDispatched: 'Registered to Billable Ledger & 30d Expiration Radar Scheduled',
       });
+      await slaEngineService.evaluateSlaRadar(tenantId);
     } catch {
       // Non-critical audit log failure
     }
@@ -405,6 +408,14 @@ export class PlacementService {
       }
     }
 
+    try {
+      const effectiveTenantId = tenantId || existing.tenantId;
+      await slaEngineService.reconcileOpenTasks(effectiveTenantId);
+      await slaEngineService.evaluateSlaRadar(effectiveTenantId);
+    } catch {
+      // Non-critical SLA sync
+    }
+
     return updated;
   }
 
@@ -468,14 +479,15 @@ export class PlacementService {
     });
 
     try {
-      await prisma.automationAuditLog.create({
-        data: {
-          ruleName: 'SOW Extension Protocol',
-          target: `${updated.resourceName} @ ${updated.customer}`,
-          conditionsMet: 'Client Extension Verified',
-          actionDispatched: `Extended SOW through ${updated.endDate.toISOString().split('T')[0]}`,
-          status: 'EXECUTED'
-        }
+      const effectiveTenantId = tenantId || existing.tenantId;
+      await slaEngineService.resolveTasksForEntity(effectiveTenantId, 'placement', updated.id);
+      await automationEngineService.recordLifecycleEvent({
+        tenantId: effectiveTenantId,
+        preferredCategories: [AutomationCategory.CONTRACT],
+        ruleName: 'SOW Extension Protocol',
+        target: `${updated.resourceName} @ ${updated.customer}`,
+        conditionsMet: 'Client Extension Verified',
+        actionDispatched: `Extended SOW through ${updated.endDate.toISOString().split('T')[0]}`,
       });
     } catch {
       // Non-critical
@@ -485,13 +497,17 @@ export class PlacementService {
   }
 
   async deletePlacement(id: string, tenantId?: string) {
-    if (tenantId) {
-      const existing = await prisma.placement.findUnique({ where: { id } });
-      if (!existing || existing.tenantId !== tenantId) {
-        throw new Error('Placement not found or unauthorized');
-      }
+    const existing = await prisma.placement.findUnique({ where: { id } });
+    if (!existing || (tenantId && existing.tenantId !== tenantId)) {
+      throw new Error('Placement not found or unauthorized');
     }
-    return prisma.placement.delete({ where: { id } });
+    const deleted = await prisma.placement.delete({ where: { id } });
+    try {
+      await slaEngineService.resolveTasksForEntity(existing.tenantId, 'placement', id);
+    } catch {
+      // Non-critical
+    }
+    return deleted;
   }
 
   async getFinancialMetrics(tenantId?: string) {

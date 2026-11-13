@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, CheckCheck, CheckCircle2, Circle, X, Zap } from 'lucide-react';
+import { Bell, CheckCheck, CheckCircle2, Circle, RefreshCw, X, Zap } from 'lucide-react';
 import { SlaTask } from '../../types';
 
 interface SlaDrawerProps {
@@ -8,7 +8,18 @@ interface SlaDrawerProps {
   tasks: SlaTask[];
   onTaskAction: (task: SlaTask) => void;
   onToggleTaskDone: (taskId: string) => void;
+  onEvaluateSla?: () => Promise<void> | void;
 }
+
+const SLA_TABS: Array<{ id: string; label: string; categoryKey?: string }> = [
+  { id: 'All', label: 'All' },
+  { id: 'AWAITING_FEEDBACK', label: 'Awaiting Feedback', categoryKey: 'AWAITING_FEEDBACK' },
+  { id: 'INTERVIEW_TODAY', label: 'Interview Today', categoryKey: 'INTERVIEW_TODAY' },
+  { id: 'STALE_REQUIREMENT', label: 'Stale Requirement', categoryKey: 'STALE_REQUIREMENT' },
+  { id: 'CONTRACT_EXPIRING', label: 'Contract Expiring', categoryKey: 'CONTRACT_EXPIRING' },
+  { id: 'COMPLIANCE_ALERT', label: 'Compliance', categoryKey: 'COMPLIANCE_ALERT' },
+  { id: 'Completed', label: 'Completed' },
+];
 
 export const SlaDrawer: React.FC<SlaDrawerProps> = ({
   isOpen,
@@ -16,18 +27,31 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
   tasks,
   onTaskAction,
   onToggleTaskDone,
+  onEvaluateSla,
 }) => {
   const [activeTab, setActiveTab] = useState<string>('All');
+  const [isEvaluating, setIsEvaluating] = useState(false);
 
   if (!isOpen) return null;
 
   const filteredTasks = tasks.filter((t) => {
-    if (activeTab === 'All') return true;
+    const normalizedCat = String(t.category || '').toUpperCase();
+    if (activeTab === 'All') return !t.done;
     if (activeTab === 'Completed') return t.done;
-    return t.category === activeTab;
+    return !t.done && normalizedCat === activeTab;
   });
 
   const pendingCount = tasks.filter((t) => !t.done).length;
+
+  const handleRefresh = async () => {
+    if (!onEvaluateSla || isEvaluating) return;
+    setIsEvaluating(true);
+    try {
+      await onEvaluateSla();
+    } finally {
+      setIsEvaluating(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
@@ -52,32 +76,59 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
                 </p>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              aria-label="Close drawer"
-              className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1.5">
+              {onEvaluateSla && (
+                <button
+                  onClick={handleRefresh}
+                  disabled={isEvaluating}
+                  title="Run SLA scan now"
+                  className="p-1.5 text-slate-500 hover:text-brand-600 rounded-lg hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isEvaluating ? 'animate-spin' : ''}`} />
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                aria-label="Close drawer"
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* Filter Pills */}
           <div className="px-5 py-3 border-b border-slate-100 flex gap-1.5 overflow-x-auto no-scrollbar bg-white">
-            {['All', 'Awaiting Feedback', 'Interview Today', 'Stale Requirement', 'Contract Expiring'].map(
-              (tab) => (
+            {SLA_TABS.map((tab) => {
+              const count =
+                tab.id === 'All'
+                  ? pendingCount
+                  : tab.id === 'Completed'
+                  ? tasks.filter((t) => t.done).length
+                  : tasks.filter((t) => !t.done && String(t.category || '').toUpperCase() === tab.id).length;
+              return (
                 <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all ${
-                    activeTab === tab
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer ${
+                    activeTab === tab.id
                       ? 'bg-slate-800 text-white'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
-                  {tab}
+                  <span>{tab.label}</span>
+                  {count > 0 && (
+                    <span
+                      className={`text-[9px] px-1.5 py-0.2 rounded-full ${
+                        activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  )}
                 </button>
-              )
-            )}
+              );
+            })}
           </div>
 
           {/* Task List */}

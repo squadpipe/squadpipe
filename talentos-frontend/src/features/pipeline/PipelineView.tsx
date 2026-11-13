@@ -3,13 +3,16 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
+  Building2,
   Columns,
   GripVertical,
   List,
   MailOpen,
+  MapPin,
   Pencil,
   Plus,
   Search,
+  Send,
   Trash2,
   User,
   UsersRound,
@@ -117,6 +120,48 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
     'Onboarding',
   ];
 
+  const stageMeta: Record<
+    Requirement['status'],
+    { dotClass: string; headerAccent: string; pillClass: string; tableBadge: string }
+  > = {
+    Requirement: {
+      dotClass: 'bg-slate-400',
+      headerAccent: 'border-t-slate-400',
+      pillClass: 'bg-slate-100 text-slate-700 border-slate-200',
+      tableBadge: 'bg-slate-100 text-slate-700 border-slate-200',
+    },
+    Submitted: {
+      dotClass: 'bg-amber-500',
+      headerAccent: 'border-t-amber-400',
+      pillClass: 'bg-amber-50 text-amber-700 border-amber-200',
+      tableBadge: 'bg-amber-50 text-amber-700 border-amber-200',
+    },
+    Interview: {
+      dotClass: 'bg-blue-500',
+      headerAccent: 'border-t-blue-500',
+      pillClass: 'bg-blue-50 text-blue-700 border-blue-200',
+      tableBadge: 'bg-blue-50 text-blue-700 border-blue-200',
+    },
+    Selected: {
+      dotClass: 'bg-purple-500',
+      headerAccent: 'border-t-purple-500',
+      pillClass: 'bg-purple-50 text-purple-700 border-purple-200',
+      tableBadge: 'bg-purple-50 text-purple-700 border-purple-200',
+    },
+    Onboarding: {
+      dotClass: 'bg-emerald-500',
+      headerAccent: 'border-t-emerald-500',
+      pillClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      tableBadge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    },
+  };
+
+  const getSkillsList = (skillsStr?: string) =>
+    String(skillsStr || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
   const filteredReqs = serverReqs;
 
   const moveStage = (req: Requirement, direction: number) => {
@@ -162,14 +207,14 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
       </div>
 
       {/* Controls Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 card-shadow">
-        <div className="flex items-center gap-3">
-          <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white px-4 py-3 rounded-xl border border-slate-200 card-shadow">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200/80">
             <button
               onClick={() => setDisplayMode('kanban')}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                 displayMode === 'kanban'
-                  ? 'bg-white text-slate-900 shadow-sm'
+                  ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -180,7 +225,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               onClick={() => setDisplayMode('list')}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                 displayMode === 'list'
-                  ? 'bg-white text-slate-900 shadow-sm'
+                  ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -196,192 +241,274 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Filter pipeline orders..."
-              className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs w-64 text-slate-700 outline-none focus:bg-white focus:border-brand-500 transition-all"
+              className="pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs w-64 text-slate-700 outline-none focus:bg-white focus:border-brand-500 transition-all"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                title="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
           </div>
+        </div>
+
+        <div className="flex items-center gap-2 text-[11px] text-slate-500">
+          <span className="px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 font-medium text-slate-700">
+            {totalReqs} {totalReqs === 1 ? 'Requisition' : 'Requisitions'}
+          </span>
+          <span className="hidden md:inline text-slate-400">Drag cards between columns to update stage</span>
         </div>
       </div>
 
       {/* Kanban Mode */}
       {displayMode === 'kanban' ? (
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3.5 items-start">
-          {stageOrder.map((stage) => {
-            const reqsInStage = filteredReqs.filter((r) => r.status === stage);
-            const isDropTarget = dragOverStage === stage;
-            return (
-              <div
-                key={stage}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = 'move';
-                  if (dragOverStage !== stage) setDragOverStage(stage);
-                }}
-                onDragLeave={(e) => {
-                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                    setDragOverStage(null);
-                  }
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const droppedId = e.dataTransfer.getData('text/plain') || draggedReqId;
-                  setDragOverStage(null);
-                  setDraggedReqId(null);
-                  if (!droppedId) return;
-                  const droppedReq = requirements.find((r) => r.id === droppedId);
-                  if (droppedReq && droppedReq.status !== stage) {
-                    onStatusChange(droppedReq, stage);
-                    if (stage === 'Onboarding') {
-                      onOpenPlacementWizard(droppedReq);
+        <div className="overflow-x-auto pb-2 -mx-1 px-1">
+          <div className="grid grid-cols-5 gap-3.5 min-w-[1160px] items-stretch">
+            {stageOrder.map((stage) => {
+              const reqsInStage = filteredReqs.filter((r) => r.status === stage);
+              const isDropTarget = dragOverStage === stage;
+              const meta = stageMeta[stage];
+              return (
+                <div
+                  key={stage}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (dragOverStage !== stage) setDragOverStage(stage);
+                  }}
+                  onDragLeave={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                      setDragOverStage(null);
                     }
-                  }
-                }}
-                className={`p-3 rounded-xl border flex flex-col max-h-[82vh] transition-all ${
-                  isDropTarget
-                    ? 'ring-2 ring-brand-500 bg-brand-50/40 border-brand-300'
-                    : 'bg-slate-100/70 border-slate-200/80'
-                }`}
-              >
-                {/* Column Header */}
-                <div className="flex items-center justify-between pb-2.5 mb-2 border-b border-slate-200">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-xs text-slate-800 tracking-tight">{stage}</span>
-                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-white text-slate-600 border border-slate-200">
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const droppedId = e.dataTransfer.getData('text/plain') || draggedReqId;
+                    setDragOverStage(null);
+                    setDraggedReqId(null);
+                    if (!droppedId) return;
+                    const droppedReq =
+                      requirements.find((r) => r.id === droppedId) ||
+                      serverReqs.find((r) => r.id === droppedId);
+                    if (droppedReq && droppedReq.status !== stage) {
+                      onStatusChange(droppedReq, stage);
+                      if (stage === 'Onboarding') {
+                        onOpenPlacementWizard(droppedReq);
+                      }
+                    }
+                  }}
+                  className={`p-3 rounded-xl border border-t-2 ${meta.headerAccent} flex flex-col min-h-[540px] max-h-[calc(100vh-250px)] transition-all ${
+                    isDropTarget
+                      ? 'ring-2 ring-brand-500 bg-brand-50/40 border-brand-300'
+                      : 'bg-slate-100/75 border-slate-200/80'
+                  }`}
+                >
+                  {/* Column Header */}
+                  <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-slate-200/80">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${meta.dotClass}`} />
+                      <span className="font-bold text-xs text-slate-800 tracking-tight truncate">
+                        {stage}
+                      </span>
+                    </div>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex-shrink-0 ${meta.pillClass}`}
+                    >
                       {reqsInStage.length}
                     </span>
                   </div>
-                </div>
 
-                {/* Cards Container */}
-                <div className="space-y-2.5 overflow-y-auto no-scrollbar flex-1 pr-0.5 min-h-[120px]">
-                  {reqsInStage.length === 0 ? (
-                    <div
-                      className={`py-8 text-center text-[11px] border border-dashed rounded-lg transition-colors ${
-                        isDropTarget
-                          ? 'border-brand-400 bg-brand-50/60 text-brand-700 font-semibold'
-                          : 'border-slate-200 bg-white/40 text-slate-400'
-                      }`}
-                    >
-                      {isDropTarget ? `Drop to move to ${stage}` : `No requisitions in ${stage}`}
-                    </div>
-                  ) : (
-                    reqsInStage.map((req) => (
+                  {/* Cards Container */}
+                  <div className="space-y-2.5 overflow-y-auto no-scrollbar flex-1 flex flex-col">
+                    {reqsInStage.length === 0 ? (
                       <div
-                        key={req.id}
-                        draggable
-                        onDragStart={(e) => {
-                          setDraggedReqId(req.id);
-                          e.dataTransfer.effectAllowed = 'move';
-                          e.dataTransfer.setData('text/plain', req.id);
-                        }}
-                        onDragEnd={() => {
-                          setDraggedReqId(null);
-                          setDragOverStage(null);
-                        }}
-                        className={`bg-white p-3.5 rounded-xl border border-slate-200 card-shadow hover:border-slate-300 transition-all space-y-2 cursor-grab active:cursor-grabbing ${
-                          draggedReqId === req.id ? 'opacity-50 scale-[0.98] ring-2 ring-brand-400' : ''
+                        className={`flex-1 flex flex-col items-center justify-center p-5 text-center text-[11px] border border-dashed rounded-xl transition-colors ${
+                          isDropTarget
+                            ? 'border-brand-400 bg-brand-50/70 text-brand-700 font-semibold'
+                            : 'border-slate-200/90 bg-white/50 text-slate-400'
                         }`}
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <span
-                            onClick={() => onSelectReq && onSelectReq(req)}
-                            className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 cursor-pointer hover:bg-brand-50 hover:text-brand-600 transition-colors inline-flex items-center"
-                          >
-                            <GripVertical className="w-2.5 h-2.5 text-slate-300 mr-1" />
-                            {req.code}
-                          </span>
-                          <span className="text-[10px] text-slate-400">{req.location}</span>
-                        </div>
-
-                        <div>
-                          <h4
-                            onClick={() => onSelectReq && onSelectReq(req)}
-                            className="font-bold text-xs text-slate-900 leading-snug cursor-pointer hover:text-brand-600 transition-colors"
-                          >
-                            {req.opportunityTitle}
-                          </h4>
-                          <div className="text-[11px] font-semibold text-slate-600 mt-0.5">
-                            {req.companyName}
-                          </div>
-                        </div>
-
-                        {req.resourceName ? (
-                          <div className="p-2 rounded-lg bg-emerald-50/60 border border-emerald-100 flex items-center justify-between">
-                            <span className="text-[11px] font-semibold text-emerald-800 flex items-center gap-1.5">
-                              <User className="w-3 h-3 text-emerald-600" />
-                              {req.resourceName}
-                            </span>
-                            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
-                              Assigned
-                            </span>
-                          </div>
-                        ) : (
+                        <Columns className="w-5 h-5 mb-2 text-slate-300" />
+                        <p className="font-medium text-slate-500">
+                          {isDropTarget ? `Drop to move to ${stage}` : `No requisitions in ${stage}`}
+                        </p>
+                        {stage === 'Requirement' && onOpenAddReq && !isDropTarget && (
                           <button
-                            onClick={() => onOpenMatcher(req)}
-                            className="w-full py-1.5 px-2 rounded-lg text-[10px] font-semibold bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                            type="button"
+                            onClick={onOpenAddReq}
+                            className="mt-2.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-slate-200 text-slate-600 hover:text-brand-600 hover:border-brand-200 text-[10px] font-semibold transition-colors cursor-pointer"
                           >
-                            <UsersRound className="w-3.5 h-3.5" />
-                            <span>Match Bench Talent</span>
+                            <Plus className="w-3 h-3" />
+                            <span>Add Requirement</span>
                           </button>
                         )}
-
-                        <div className="text-[10px] text-slate-500 truncate">
-                          {req.skillsRequired}
-                        </div>
-
-                        {/* Card Movement Footer */}
-                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                          <button
-                            disabled={stageOrder.indexOf(req.status) === 0}
-                            onClick={() => moveStage(req, -1)}
-                            className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20 cursor-pointer"
-                            title="Move Backward"
-                          >
-                            <ArrowLeft className="w-3.5 h-3.5" />
-                          </button>
-
-                          <div className="flex gap-1.5 items-center">
-                            <button
-                              onClick={() => onOpenPitchWriter(req)}
-                              className="px-2 py-0.5 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 text-[10px] font-semibold cursor-pointer"
-                            >
-                              Pitch
-                            </button>
-                            {onUpdateReq && (
-                              <button
-                                onClick={() => setEditingReq({ ...req })}
-                                title="Edit requirement"
-                                className="p-1 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer"
-                              >
-                                <Pencil className="w-3 h-3" />
-                              </button>
-                            )}
-                            {onDeleteReq && (
-                              <button
-                                onClick={() => setReqToDelete(req)}
-                                title="Delete requirement"
-                                className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            )}
-                          </div>
-
-                          <button
-                            disabled={stageOrder.indexOf(req.status) === stageOrder.length - 1}
-                            onClick={() => moveStage(req, 1)}
-                            className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20 cursor-pointer"
-                            title="Advance Stage"
-                          >
-                            <ArrowRight className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
                       </div>
-                    ))
-                  )}
+                    ) : (
+                      reqsInStage.map((req) => {
+                        const skills = getSkillsList(req.skillsRequired);
+                        const stageIdx = stageOrder.indexOf(req.status);
+                        return (
+                          <div
+                            key={req.id}
+                            draggable
+                            onDragStart={(e) => {
+                              setDraggedReqId(req.id);
+                              e.dataTransfer.effectAllowed = 'move';
+                              e.dataTransfer.setData('text/plain', req.id);
+                            }}
+                            onDragEnd={() => {
+                              setDraggedReqId(null);
+                              setDragOverStage(null);
+                            }}
+                            className={`bg-white p-3.5 rounded-xl border border-slate-200/90 card-shadow hover:border-slate-300 transition-all space-y-2.5 cursor-grab active:cursor-grabbing ${
+                              draggedReqId === req.id ? 'opacity-50 scale-[0.98] ring-2 ring-brand-400' : ''
+                            }`}
+                          >
+                            {/* Card Top Meta Row */}
+                            <div className="flex items-center justify-between gap-2">
+                              <button
+                                type="button"
+                                onClick={() => onSelectReq && onSelectReq(req)}
+                                className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/70 cursor-pointer hover:bg-brand-50 hover:text-brand-700 hover:border-brand-200 transition-colors inline-flex items-center gap-1 whitespace-nowrap flex-shrink-0"
+                              >
+                                <GripVertical className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" />
+                                <span>{req.code}</span>
+                              </button>
+                              <span
+                                title={req.location}
+                                className="text-[10px] text-slate-400 flex items-center justify-end gap-1 min-w-0 flex-1"
+                              >
+                                <MapPin className="w-2.5 h-2.5 flex-shrink-0 text-slate-300" />
+                                <span className="truncate">{req.location || 'Remote'}</span>
+                              </span>
+                            </div>
+
+                            {/* Role & Company */}
+                            <div>
+                              <h4
+                                onClick={() => onSelectReq && onSelectReq(req)}
+                                title={req.opportunityTitle}
+                                className="font-bold text-[12.5px] text-slate-900 leading-snug line-clamp-2 cursor-pointer hover:text-brand-600 transition-colors"
+                              >
+                                {req.opportunityTitle}
+                              </h4>
+                              <div className="flex items-center gap-1 text-[11px] font-medium text-slate-500 mt-1 min-w-0">
+                                <Building2 className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                                <span className="truncate" title={req.companyName}>
+                                  {req.companyName}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Candidate Status or Bench Matcher */}
+                            {req.resourceName ? (
+                              <div className="px-2.5 py-1.5 rounded-lg bg-emerald-50/75 border border-emerald-200/75 flex items-center justify-between gap-2">
+                                <span className="text-[11px] font-semibold text-emerald-800 flex items-center gap-1.5 min-w-0 flex-1">
+                                  <User className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                                  <span className="truncate" title={req.resourceName}>
+                                    {req.resourceName}
+                                  </span>
+                                </span>
+                                <span className="text-[9px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded whitespace-nowrap flex-shrink-0">
+                                  Assigned
+                                </span>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => onOpenMatcher(req)}
+                                className="w-full py-1.5 px-2.5 rounded-lg text-[11px] font-semibold bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200/80 flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                              >
+                                <UsersRound className="w-3.5 h-3.5 flex-shrink-0" />
+                                <span>Match Bench Talent</span>
+                              </button>
+                            )}
+
+                            {/* Capped Skills Pills */}
+                            {skills.length > 0 && (
+                              <div className="flex items-center gap-1 flex-wrap">
+                                {skills.slice(0, 3).map((sk) => (
+                                  <span
+                                    key={sk}
+                                    title={sk}
+                                    className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-medium max-w-[96px] truncate"
+                                  >
+                                    {sk}
+                                  </span>
+                                ))}
+                                {skills.length > 3 && (
+                                  <span
+                                    title={skills.slice(3).join(', ')}
+                                    className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[10px] font-semibold whitespace-nowrap"
+                                  >
+                                    +{skills.length - 3}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Clean Card Action Footer */}
+                            <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-[11px]">
+                              <div className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50/80 divide-x divide-slate-200 overflow-hidden flex-shrink-0">
+                                <button
+                                  disabled={stageIdx === 0}
+                                  onClick={() => moveStage(req, -1)}
+                                  className="p-1 text-slate-500 hover:bg-white hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                                  title="Move Backward"
+                                >
+                                  <ArrowLeft className="w-3 h-3" />
+                                </button>
+                                <button
+                                  disabled={stageIdx === stageOrder.length - 1}
+                                  onClick={() => moveStage(req, 1)}
+                                  className="p-1 text-slate-500 hover:bg-white hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                                  title="Advance Stage"
+                                >
+                                  <ArrowRight className="w-3 h-3" />
+                                </button>
+                              </div>
+
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <button
+                                  onClick={() => onOpenPitchWriter(req)}
+                                  title="Open submission pitch writer"
+                                  className="px-2 py-1 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/70 text-[10px] font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap"
+                                >
+                                  <Send className="w-2.5 h-2.5" />
+                                  <span>Pitch</span>
+                                </button>
+                                {onUpdateReq && (
+                                  <button
+                                    onClick={() => setEditingReq({ ...req })}
+                                    title="Edit requirement"
+                                    className="p-1 text-slate-400 hover:text-brand-600 rounded-md hover:bg-brand-50 transition-colors cursor-pointer"
+                                  >
+                                    <Pencil className="w-3 h-3" />
+                                  </button>
+                                )}
+                                {onDeleteReq && (
+                                  <button
+                                    onClick={() => setReqToDelete(req)}
+                                    title="Delete requirement"
+                                    className="p-1 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       ) : (
         /* List Mode */
@@ -427,24 +554,34 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                       >
                         {req.opportunityTitle}
                       </span>
-                      <div className="text-[10px] text-slate-400">{req.code}</div>
+                      <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+                        {req.code} &bull; {req.location}
+                      </div>
                     </td>
                     <td className="py-3 px-4 font-semibold text-slate-700">{req.companyName}</td>
                     <td className="py-3 px-4 text-slate-600 text-[11px] max-w-xs truncate">
                       {req.skillsRequired}
                     </td>
                     <td className="py-3 px-4">{req.resourceName || <span className="text-slate-400 italic">Unassigned</span>}</td>
-                    <td className="py-3 px-4 font-semibold text-brand-600">{req.status}</td>
-                    <td className="py-3 px-4 text-right">
+                    <td className="py-3 px-4">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border whitespace-nowrap ${
+                          stageMeta[req.status]?.tableBadge || 'bg-slate-100 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        {req.status}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right whitespace-nowrap">
                       <button
                         onClick={() => onOpenMatcher(req)}
-                        className="px-2 py-1 rounded bg-purple-50 text-purple-700 text-[10px] font-semibold mr-1.5"
+                        className="px-2 py-1 rounded bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200/70 text-[10px] font-semibold mr-1.5 cursor-pointer transition-colors"
                       >
                         Match
                       </button>
                       <button
                         onClick={() => onOpenPitchWriter(req)}
-                        className="px-2 py-1 rounded bg-amber-50 text-amber-700 text-[10px] font-semibold"
+                        className="px-2 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/70 text-[10px] font-semibold cursor-pointer transition-colors"
                       >
                         Pitch
                       </button>

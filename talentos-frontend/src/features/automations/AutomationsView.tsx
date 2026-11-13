@@ -159,6 +159,7 @@ const ACTION_OPTIONS = [
     id: 'sla_task',
     label: 'Create Priority SLA Task',
     summaryPhrase: 'Create Priority SLA Task',
+    keywords: ['sla', 'priority', 'alert', 'checklist', 'renewal', 'queue'],
     pill: { label: 'Priority SLA Task', icon: 'bell', color: 'slate' },
     Icon: Bell,
   },
@@ -166,6 +167,7 @@ const ACTION_OPTIONS = [
     id: 'email_draft',
     label: 'Prepare Follow-Up Email Draft',
     summaryPhrase: 'Prepare Follow-Up Email Draft',
+    keywords: ['email', 'draft'],
     pill: { label: 'Draft Client Email', icon: 'mail', color: 'slate' },
     Icon: Mail,
   },
@@ -173,6 +175,7 @@ const ACTION_OPTIONS = [
     id: 'account_manager',
     label: 'Notify Account Manager',
     summaryPhrase: 'Notify Account Manager',
+    keywords: ['account', 'manager', 'briefing', 'lead', 'sow extension'],
     pill: { label: 'Account Lead Alert', icon: 'user-check', color: 'slate' },
     Icon: UserCheck,
   },
@@ -180,6 +183,7 @@ const ACTION_OPTIONS = [
     id: 'compliance_flag',
     label: 'Flag Compliance Queue',
     summaryPhrase: 'Flag Compliance Queue',
+    keywords: ['compliance', 'coi', 'msa'],
     pill: { label: 'Compliance Queue Flag', icon: 'shield', color: 'slate' },
     Icon: ShieldAlert,
   },
@@ -241,6 +245,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
   const [paginatedLogs, setPaginatedLogs] = useState<AutomationAuditLog[]>(initialLogs || []);
   const [totalLogs, setTotalLogs] = useState(initialLogs?.length || 0);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [logsRefreshKey, setLogsRefreshKey] = useState(0);
 
   const debouncedLogSearch = useDebounce(logSearch, 300);
 
@@ -304,7 +309,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
     return () => {
       active = false;
     };
-  }, [debouncedLogSearch, logPage, logLimit, localLogs]);
+  }, [debouncedLogSearch, logPage, logLimit, localLogs, logsRefreshKey]);
 
   const [newRuleForm, setNewRuleForm] = useState({
     name: '',
@@ -425,6 +430,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
     );
     try {
       await apiClient.patch(`/automations/rules/${rule.id}`, { threshold: newThreshold });
+      if (onRefreshAutomations) onRefreshAutomations();
       showToast('Threshold Updated', `"${rule.name}" threshold set to ${newThreshold}.`);
     } catch (err: any) {
       setActiveRules((prev) =>
@@ -438,6 +444,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
     try {
       await apiClient.delete(`/automations/rules/${rule.id}`);
       setActiveRules((prev) => prev.filter((r) => r.id !== rule.id));
+      setLogsRefreshKey((k) => k + 1);
       if (onRefreshAutomations) onRefreshAutomations();
       showToast('Rule Deleted', `"${rule.name}" has been deleted.`);
     } catch (err: any) {
@@ -448,11 +455,17 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
   const handleTestRun = async (rule: any) => {
     try {
       const res = await apiClient.post(`/automations/rules/${rule.id}/test`);
+      const updatedRule = res.data?.data?.rule;
       const logEntry = res.data?.data?.auditLog || res.data?.data;
       setActiveRules((prev) =>
         prev.map((r) =>
           r.id === rule.id
-            ? { ...r, executionsToday: (r.executionsToday || 0) + 1, lastFired: 'Just now' }
+            ? {
+                ...r,
+                executionsToday:
+                  updatedRule?.executionsCount ?? (Number(r.executionsToday) || 0) + 1,
+                lastFired: 'Just now',
+              }
             : r
         )
       );
@@ -466,11 +479,15 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
           actionDispatched: logEntry.actionDispatched || rule.thenSummary,
           status: 'Executed',
         };
-        setLocalLogs((prev) => [newLog, ...prev]);
+        setLocalLogs((prev) => [newLog, ...prev.filter((l) => l.id !== newLog.id)]);
       }
-      if (onTestTrigger) onTestTrigger(rule);
+      setLogPage(1);
+      setLogsRefreshKey((k) => k + 1);
       if (onRefreshAutomations) onRefreshAutomations();
-      showToast('Rule Triggered', `"${rule.name}" executed and logged.`);
+      showToast(
+        'Rule Triggered',
+        `"${rule.name}" executed and logged.${!rule.active ? ' (Paused rule: manual test only)' : ''}`
+      );
     } catch (err: any) {
       showToast('Test Run Failed', err.response?.data?.message || err.message || 'Unable to execute rule.');
     }
@@ -481,6 +498,8 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
     try {
       const res = await apiClient.post('/sla-tasks/evaluate');
       const count = res.data?.data?.createdTasksCount ?? res.data?.count ?? 0;
+      setLogPage(1);
+      setLogsRefreshKey((k) => k + 1);
       if (onRefreshAutomations) onRefreshAutomations();
       showToast(
         'SLA Check Complete',
@@ -513,11 +532,22 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
         : rawCat === 'COMPLIANCE'
         ? 'Compliance'
         : 'Feedback';
+    const triggerFallbackMap: Record<CategoryType, string> = {
+      Feedback: String(rule.whenText || '').toLowerCase().includes('0 candidate')
+        ? 'STALE_REQ'
+        : 'FEEDBACK_DELAYED',
+      Interview: 'INTERVIEW_TODAY',
+      Contract: 'CONTRACT_ENDING',
+      Compliance: 'VISA_EXPIRING',
+    };
     const isPreset = WHEN_CONDITION_OPTIONS.includes(rule.whenText);
+    const pillLabels = (rule.actionPills || []).map((p: any) => String(p.label || '').toLowerCase());
+    const summaryLower = String(rule.thenSummary || '').toLowerCase();
     const matchedActionIds = ACTION_OPTIONS.filter((opt) =>
-      (rule.actionPills || []).some((p: any) =>
-        String(p.label || '').toLowerCase().includes(opt.pill.label.toLowerCase()) ||
-        String(rule.thenSummary || '').toLowerCase().includes(opt.summaryPhrase.toLowerCase())
+      opt.keywords.some(
+        (kw) =>
+          pillLabels.some((lbl: string) => lbl.includes(kw)) ||
+          summaryLower.includes(kw)
       )
     ).map((opt) => opt.id);
 
@@ -525,7 +555,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
     setNewRuleForm({
       name: rule.name || '',
       category: uiCategory,
-      triggerEvent: rule.triggerEvent || 'CUSTOM',
+      triggerEvent: rule.triggerEvent || triggerFallbackMap[uiCategory] || 'CUSTOM',
       whenPreset: isPreset ? rule.whenText : 'Custom Condition...',
       whenText: rule.whenText || '',
       threshold: rule.threshold || 'Immediate',
@@ -595,7 +625,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
           </span>
           <span className="text-slate-300">&bull;</span>
           <span>
-            <strong className="text-slate-900">{localLogs.length}</strong> logs
+            <strong className="text-slate-900">{totalLogs}</strong> logs
           </span>
         </div>
       </div>
@@ -702,7 +732,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                         onChange={() => handleToggle(rule)}
                         className="sr-only peer"
                       />
-                      <div className="w-8 h-4.5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-600"></div>
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
                     </label>
                     <button
                       onClick={() => openEditModal(rule)}
@@ -809,14 +839,23 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                 className="w-full pl-8 pr-3 py-1 border border-slate-200 rounded-md text-xs bg-white focus:border-brand-600 focus:outline-none transition-colors"
               />
             </div>
-            {localLogs.length > 0 && (
+            {logSearch.trim() && (
               <button
-                onClick={() => setLocalLogs([])}
-                className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                type="button"
+                onClick={() => setLogSearch('')}
+                className="text-[11px] text-slate-500 hover:text-slate-700 transition-colors cursor-pointer"
               >
-                Clear View
+                Clear
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => setLogsRefreshKey((k) => k + 1)}
+              title="Refresh activity log"
+              className="p-1.5 rounded-md border border-slate-200 bg-white text-slate-500 hover:text-brand-600 hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingLogs ? 'animate-spin' : ''}`} />
+            </button>
           </div>
         </div>
 
@@ -995,7 +1034,52 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Category</label>
                   <select
                     value={newRuleForm.category}
-                    onChange={(e) => setNewRuleForm({ ...newRuleForm, category: e.target.value })}
+                    onChange={(e) => {
+                      const nextCategory = e.target.value as CategoryType;
+                      const catDefaults: Record<
+                        CategoryType,
+                        { triggerEvent: string; whenText: string; threshold: string }
+                      > = {
+                        Feedback: {
+                          triggerEvent: 'FEEDBACK_DELAYED',
+                          whenText: 'Candidate is awaiting client feedback for',
+                          threshold: '2 Days (48h)',
+                        },
+                        Interview: {
+                          triggerEvent: 'INTERVIEW_TODAY',
+                          whenText: 'Candidate technical interview is active in stage for',
+                          threshold: 'Today',
+                        },
+                        Contract: {
+                          triggerEvent: 'CONTRACT_ENDING',
+                          whenText: 'Active billable placement contract is within',
+                          threshold: '30 Days to Expiry',
+                        },
+                        Compliance: {
+                          triggerEvent: 'VISA_EXPIRING',
+                          whenText: 'Sub-tier vendor MSA is unsigned or COI expires within',
+                          threshold: '30 Days',
+                        },
+                      };
+                      const def = catDefaults[nextCategory];
+                      setNewRuleForm((prev) => ({
+                        ...prev,
+                        category: nextCategory,
+                        triggerEvent:
+                          nextCategory === 'Feedback' && prev.triggerEvent === 'STALE_REQ'
+                            ? 'STALE_REQ'
+                            : def.triggerEvent,
+                        whenPreset:
+                          !editingRuleId && prev.whenPreset !== 'Custom Condition...'
+                            ? def.whenText
+                            : prev.whenPreset,
+                        whenText:
+                          !editingRuleId && prev.whenPreset !== 'Custom Condition...'
+                            ? def.whenText
+                            : prev.whenText,
+                        threshold: !editingRuleId ? def.threshold : prev.threshold,
+                      }));
+                    }}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
                   >
                     <option value="Feedback">Feedback &amp; Pipeline</option>

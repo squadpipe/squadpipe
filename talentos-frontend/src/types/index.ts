@@ -119,6 +119,8 @@ export interface SlaTask {
   meta: string;
   actionType: 'pitch' | 'pipeline' | 'matcher' | 'billable' | 'checklist';
   actionLabel: string;
+  relatedEntityType?: string;
+  relatedEntityId?: string;
   done: boolean;
 }
 
@@ -127,6 +129,7 @@ export interface AutomationRule {
   tenantId?: string;
   name: string;
   category: string;
+  triggerEvent?: string;
   icon: string;
   color: string;
   active: boolean;

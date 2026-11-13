@@ -8,6 +8,9 @@ import { getTenantSettings, saveGeneralSettings, saveSmtpSettings } from '../con
 import { prisma } from '../config/prisma.config';
 import { authenticateJwt } from '../middlewares/auth.middleware';
 import { rateMaskMiddleware } from '../middlewares/rateMask.middleware';
+import { slaEngineService } from '../services/slaEngine.service';
+import { automationEngineService } from '../services/automationEngine.service';
+import { AutomationCategory, SlaCategory } from '@prisma/client';
 
 import * as authController from '../controllers/auth.controller';
 import * as candidateController from '../controllers/candidate.controller';
@@ -368,6 +371,14 @@ router.post('/submissions', async (req: Request, res: Response) => {
     const recruiterId = req.user?.id;
     const { requirementId, candidateId, pitchEmailSubject, pitchEmailBody, pitchTone } = req.body;
 
+    const [requirement, candidate] = await Promise.all([
+      prisma.requirement.findFirst({ where: { id: requirementId, tenantId } }),
+      prisma.candidate.findFirst({ where: { id: candidateId, tenantId } }),
+    ]);
+    if (!requirement || !candidate) {
+      return res.status(404).json({ success: false, message: 'Requirement or candidate not found for tenant' });
+    }
+
     const submission = await prisma.submission.create({
       data: {
         tenantId,
@@ -392,6 +403,23 @@ router.post('/submissions', async (req: Request, res: Response) => {
       where: { id: requirementId },
       data: { status: 'SUBMITTED' }
     });
+
+    try {
+      await slaEngineService.resolveTasksForEntity(tenantId, 'requirement', requirementId, [
+        SlaCategory.STALE_REQUIREMENT,
+      ]);
+      await automationEngineService.recordLifecycleEvent({
+        tenantId,
+        preferredCategories: [AutomationCategory.FEEDBACK, AutomationCategory.STALE_REQ],
+        ruleName: 'Direct Candidate Submittal',
+        target: `${candidate.fullName} → ${requirement.code} (${requirement.companyName})`,
+        conditionsMet: `Skillset Match: ${candidate.skillset}`,
+        actionDispatched: 'Advanced to Client Review & Cleared Unsourced SLA Alert',
+      });
+      await slaEngineService.evaluateSlaRadar(tenantId);
+    } catch {
+      // Non-critical automation hook
+    }
 
     res.status(201).json({ success: true, data: submission });
   } catch (error: any) {
@@ -954,21 +982,7 @@ router.post('/automations/rules/:id/test', automationController.testTriggerRule)
 router.get('/automations/audit-logs', automationController.getAutomationAuditLogs);
 
 // SLA Tasks
-router.get('/sla-tasks', async (req: Request, res: Response) => {
-  try {
-    const tenantId = req.user?.tenantId || 'talentos-agency';
-    const tasks = await prisma.slaTask.findMany({
-      where: {
-        tenantId,
-        isDone: false
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-    res.json({ success: true, data: tasks });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Failed to fetch SLA tasks' });
-  }
-});
+router.get('/sla-tasks', slaController.getSlaTasks);
 router.post('/sla-tasks/evaluate', slaController.evaluateSlaRadar);
 router.patch('/sla-tasks/:id/complete', slaController.completeSlaTask);
 

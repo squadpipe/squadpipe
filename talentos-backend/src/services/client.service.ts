@@ -1,5 +1,6 @@
 import { prisma } from '../config/prisma.config';
-import { Prisma } from '@prisma/client';
+import { Prisma, SlaCategory } from '@prisma/client';
+import { slaEngineService } from './slaEngine.service';
 
 export interface ListQueryParams {
   search?: string;
@@ -247,7 +248,9 @@ export class ClientService {
     const invoicingTerms = raw.invoicingTerms?.trim() || 'Bi-weekly';
     const msaSigned = raw.msa === 'Yes' || raw.msa === 'Active' || raw.msaSigned === true;
 
-    return prisma.vendor.create({
+    const coiExpiryDate = raw.coiExpiryDate ? new Date(raw.coiExpiryDate) : null;
+
+    const vendor = await prisma.vendor.create({
       data: {
         tenantId,
         name,
@@ -258,20 +261,28 @@ export class ClientService {
         skillSpecialization,
         paymentTerms,
         invoicingTerms,
-        msaSigned
+        msaSigned,
+        ...(coiExpiryDate && !isNaN(coiExpiryDate.getTime()) ? { coiExpiryDate } : {}),
       },
       include: {
         placements: true
       }
     });
+
+    try {
+      await slaEngineService.reconcileOpenTasks(tenantId);
+      await slaEngineService.evaluateVendorComplianceForTenant(tenantId, 30);
+    } catch {
+      // Non-critical
+    }
+
+    return vendor;
   }
 
   async updateVendor(id: string, raw: any, tenantId?: string) {
-    if (tenantId) {
-      const existing = await prisma.vendor.findUnique({ where: { id } });
-      if (!existing || existing.tenantId !== tenantId) {
-        throw new Error('Vendor not found or unauthorized');
-      }
+    const existing = await prisma.vendor.findUnique({ where: { id } });
+    if (!existing || (tenantId && existing.tenantId !== tenantId)) {
+      throw new Error('Vendor not found or unauthorized');
     }
 
     const data: Prisma.VendorUpdateInput = {};
@@ -286,24 +297,46 @@ export class ClientService {
     if (raw.msa !== undefined || raw.msaSigned !== undefined) {
       data.msaSigned = raw.msa === 'Yes' || raw.msa === 'Active' || raw.msaSigned === true;
     }
+    if (raw.coiExpiryDate !== undefined) {
+      if (!raw.coiExpiryDate) {
+        data.coiExpiryDate = null;
+      } else {
+        const parsed = new Date(raw.coiExpiryDate);
+        if (!isNaN(parsed.getTime())) data.coiExpiryDate = parsed;
+      }
+    }
 
-    return prisma.vendor.update({
+    const updated = await prisma.vendor.update({
       where: { id },
       data,
       include: {
         placements: true
       }
     });
+
+    try {
+      const effectiveTenantId = tenantId || existing.tenantId;
+      await slaEngineService.reconcileOpenTasks(effectiveTenantId);
+      await slaEngineService.evaluateVendorComplianceForTenant(effectiveTenantId, 30);
+    } catch {
+      // Non-critical
+    }
+
+    return updated;
   }
 
   async deleteVendor(id: string, tenantId?: string) {
-    if (tenantId) {
-      const existing = await prisma.vendor.findUnique({ where: { id } });
-      if (!existing || existing.tenantId !== tenantId) {
-        throw new Error('Vendor not found or unauthorized');
-      }
+    const existing = await prisma.vendor.findUnique({ where: { id } });
+    if (!existing || (tenantId && existing.tenantId !== tenantId)) {
+      throw new Error('Vendor not found or unauthorized');
     }
-    return prisma.vendor.delete({ where: { id } });
+    const deleted = await prisma.vendor.delete({ where: { id } });
+    try {
+      await slaEngineService.resolveTasksForEntity(existing.tenantId, 'vendor', id, [SlaCategory.COMPLIANCE_ALERT]);
+    } catch {
+      // Non-critical
+    }
+    return deleted;
   }
 }
 

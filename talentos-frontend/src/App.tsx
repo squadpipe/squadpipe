@@ -495,21 +495,30 @@ export const App: React.FC = () => {
 
   const fetchSlaTasks = async () => {
     try {
-      const res = await apiClient.get('/sla-tasks');
+      const res = await apiClient.get('/sla-tasks', { params: { includeCompleted: true } });
       if (res.data?.data) {
         const raw = res.data.data;
-        const mapped = raw.map((s: any) => ({
-          id: s.id,
-          category: s.category || '',
-          slaRuleTag: s.slaRuleTag || '',
-          badgeClass: s.badgeClass || 'bg-blue-50 text-blue-700 border-blue-200',
-          title: s.title || '',
-          desc: s.description || s.desc || '',
-          meta: s.meta || '',
-          actionType: s.actionType || 'pipeline',
-          actionLabel: s.actionLabel || 'Review',
-          done: s.isDone ?? s.done ?? false,
-        }));
+        const mapped = raw.map((s: any) => {
+          const normalizedAction = String(s.actionType || 'pipeline').toLowerCase();
+          return {
+            id: s.id,
+            category: s.category || '',
+            slaRuleTag: s.slaRuleTag || '',
+            badgeClass: s.badgeClass || 'bg-blue-50 text-blue-700 border-blue-200',
+            title: s.title || '',
+            desc: s.description || s.desc || '',
+            meta: s.meta || '',
+            actionType: (
+              ['pitch', 'pipeline', 'matcher', 'billable', 'checklist'].includes(normalizedAction)
+                ? normalizedAction
+                : 'pipeline'
+            ) as SlaTask['actionType'],
+            actionLabel: s.actionLabel || 'Review',
+            relatedEntityType: s.relatedEntityType || undefined,
+            relatedEntityId: s.relatedEntityId || undefined,
+            done: s.isDone ?? s.done ?? false,
+          };
+        });
         setSlaTasks(mapped);
         loadedEntities.current.add('slaTasks');
       }
@@ -540,6 +549,7 @@ export const App: React.FC = () => {
           tenantId: rl.tenantId,
           name: rl.name,
           category: formatCategory(rl.category),
+          triggerEvent: rl.triggerEvent,
           icon: rl.icon || 'fa-solid fa-gear',
           color: rl.color || 'amber',
           active: rl.active ?? rl.isActive ?? true,
@@ -756,6 +766,8 @@ export const App: React.FC = () => {
         resourceName: req.resourceName,
       });
       fetchSidebarCounts();
+      fetchSlaTasks();
+      fetchAutomations();
     } catch (e) {
       console.warn('API status change:', e);
     }
@@ -786,22 +798,12 @@ export const App: React.FC = () => {
         candidateId: candidate.id,
       });
       fetchSidebarCounts();
+      fetchSlaTasks();
+      fetchAutomations();
     } catch (e) {
       console.warn('API assign candidate:', e);
     }
 
-    setAuditLogs((prev) => [
-      {
-        id: 'log_' + Date.now(),
-        timestamp: 'Just now',
-        ruleName: 'Direct Candidate Submittal',
-        target: `${candidate.fullName} → ${req.code} (${req.companyName})`,
-        conditionsMet: `Skillset Match: ${candidate.skillset}`,
-        actionDispatched: 'Advanced to Client Review & Queued Follow-Up SLA',
-        status: 'Executed',
-      },
-      ...prev,
-    ]);
     showToast(
       'Candidate Assigned',
       `${candidate.fullName} submitted to ${req.code}!`,
@@ -817,6 +819,8 @@ export const App: React.FC = () => {
         savedPlacement = normalizePlacement(res.data.data);
       }
       fetchSidebarCounts();
+      fetchSlaTasks();
+      fetchAutomations();
     } catch (e) {
       console.warn('API confirm placement:', e);
     }
@@ -846,22 +850,12 @@ export const App: React.FC = () => {
           status: 'Onboarding',
           resourceName: savedPlacement.resourceName,
         })
+        .then(() => {
+          fetchSlaTasks();
+          fetchAutomations();
+        })
         .catch((e) => console.warn('API update requirement status:', e));
     }
-    setAuditLogs((prev) => [
-      {
-        id: 'log_' + Date.now(),
-        timestamp: 'Just now',
-        ruleName: 'Placement Activation & Margin Lock',
-        target: `${savedPlacement.resourceName} @ ${savedPlacement.customer}`,
-        conditionsMet: `Bill: ${formatRateDisplay(savedPlacement.billing)} | Spread: +${getCurrencySymbol()}${Number(
-          savedPlacement.hourlySpread || 0
-        ).toFixed(2)}/hr`,
-        actionDispatched: 'Registered to Billable Ledger & 30d Expiration Radar Scheduled',
-        status: 'Executed',
-      },
-      ...prev,
-    ]);
     showToast(
       'Placement Activated',
       `Locked in commercial placement for ${savedPlacement.resourceName}!`,
@@ -901,6 +895,8 @@ export const App: React.FC = () => {
       const res = await apiClient.put(`/vendors/${updated.id}`, updated);
       const saved: Vendor = res.data?.data ?? updated;
       setVendors((prev) => prev.map((v) => (v.id === saved.id ? { ...v, ...saved } : v)));
+      fetchSlaTasks();
+      fetchAutomations();
       showToast('Vendor Updated', `${saved.name} details saved.`, 'fa-solid fa-circle-check text-emerald-500');
     } catch (e: any) {
       console.warn('API update vendor failed:', e);
@@ -930,6 +926,8 @@ export const App: React.FC = () => {
           )
         );
       }
+      fetchSlaTasks();
+      fetchAutomations();
       showToast('Placement Updated', `${saved.resourceName} placement saved.`, 'fa-solid fa-circle-check text-emerald-500');
     } catch (e: any) {
       console.warn('API update placement failed:', e);
@@ -968,6 +966,7 @@ export const App: React.FC = () => {
       await apiClient.delete(`/requirements/${req.id}`);
       setRequirements((prev) => prev.filter((r) => r.id !== req.id));
       fetchSidebarCounts();
+      fetchSlaTasks();
       showToast('Requisition Removed', `${req.code} (${req.opportunityTitle}) deleted.`, 'fa-solid fa-trash-can text-slate-500');
     } catch (e) {
       console.warn('API delete requirement:', e);
@@ -992,6 +991,7 @@ export const App: React.FC = () => {
       await apiClient.delete(`/vendors/${vendor.id}`);
       setVendors((prev) => prev.filter((v) => v.id !== vendor.id));
       fetchSidebarCounts();
+      fetchSlaTasks();
       showToast('Vendor Removed', `${vendor.name} deleted.`, 'fa-solid fa-trash-can text-slate-500');
     } catch (e) {
       console.warn('API delete vendor:', e);
@@ -1004,6 +1004,7 @@ export const App: React.FC = () => {
       await apiClient.delete(`/placements/${placement.id}`);
       setPlacements((prev) => prev.filter((p) => p.id !== placement.id));
       fetchSidebarCounts();
+      fetchSlaTasks();
       showToast('Placement Removed', `${placement.resourceName}'s placement removed.`, 'fa-solid fa-trash-can text-slate-500');
     } catch (e) {
       console.warn('API delete placement:', e);
@@ -1035,6 +1036,8 @@ export const App: React.FC = () => {
       if (res.data?.data) {
         updatedPlacement = normalizePlacement(res.data.data);
       }
+      fetchSlaTasks();
+      fetchAutomations();
     } catch (e) {
       console.warn('API placement extension:', e);
     }
@@ -1061,18 +1064,6 @@ export const App: React.FC = () => {
         };
       })
     );
-    setAuditLogs((prev) => [
-      {
-        id: 'log_' + Date.now(),
-        timestamp: 'Just now',
-        ruleName: 'SOW Extension Protocol',
-        target: `${placement.resourceName} @ ${placement.customer}`,
-        conditionsMet: 'Client Extension Verified',
-        actionDispatched: `Extended SOW through ${newEnd}`,
-        status: 'Executed',
-      },
-      ...prev,
-    ]);
     showToast(
       'Contract Extended',
       `SOW for ${placement.resourceName} extended through ${newEnd}!`,
@@ -1080,47 +1071,28 @@ export const App: React.FC = () => {
     );
   };
 
-  const handleTestTriggerRule = async (rule: AutomationRule) => {
-    try {
-      await apiClient.post(`/automations/rules/${rule.id}/test`);
-    } catch (e) {
-      console.warn('API test rule trigger:', e);
-    }
-    setRules((prev) =>
-      prev.map((r) =>
-        r.id === rule.id
-          ? { ...r, executionsToday: r.executionsToday + 1, lastFired: 'Just now' }
-          : r
-      )
-    );
-    setAuditLogs((prev) => [
-      {
-        id: 'log_' + Date.now(),
-        timestamp: 'Just now',
-        ruleName: rule.name,
-        target: 'Manual Verification Probe',
-        conditionsMet: `Threshold verified: ${rule.threshold}`,
-        actionDispatched: rule.thenSummary,
-        status: 'Executed',
-      },
-      ...prev,
-    ]);
-    showToast(
-      'Automation Triggered',
-      `Rule "${rule.name}" fired successfully!`,
-      'fa-solid fa-bolt text-amber-500'
-    );
-  };
-
   const handleTaskAction = (task: SlaTask) => {
-    if (task.actionType === 'pitch') {
+    const action = String(task.actionType || '').toLowerCase();
+    const matchedReq =
+      task.relatedEntityId
+        ? requirements.find((r) => r.id === task.relatedEntityId)
+        : undefined;
+
+    if (action === 'pitch') {
+      setActiveReq(matchedReq || requirements[0] || null);
       setIsPitchModalOpen(true);
-    } else if (task.actionType === 'matcher') {
+    } else if (action === 'matcher') {
+      setActiveReq(matchedReq || requirements[0] || null);
       setIsMatcherModalOpen(true);
-    } else if (task.actionType === 'billable') {
+    } else if (action === 'billable') {
       setCurrentView('billable');
+    } else if (action === 'checklist') {
+      setCurrentView('vendors');
     } else {
       setCurrentView('pipeline');
+      if (matchedReq) {
+        setSelectedReqForDetail(matchedReq);
+      }
     }
     setIsSlaOpen(false);
   };
@@ -1249,7 +1221,9 @@ export const App: React.FC = () => {
     billable: placements.length || sidebarCounts.billable,
     users: users.length || sidebarCounts.users,
     customFields: customFields.length || sidebarCounts.customFields,
-    activeRules: rules.filter((r) => r.active).length || sidebarCounts.activeRules,
+    activeRules: loadedEntities.current.has('automations')
+      ? rules.filter((r) => r.active).length
+      : sidebarCounts.activeRules,
   };
 
   return (
@@ -1319,6 +1293,9 @@ export const App: React.FC = () => {
                 setIsPitchModalOpen(true);
               }}
               onOpenSlaDrawer={() => setIsSlaOpen(true)}
+              onRefreshSla={async () => {
+                await Promise.all([fetchSlaTasks(), fetchAutomations(), fetchSidebarCounts()]);
+              }}
               showToast={showToast}
             />
           )}
@@ -1493,7 +1470,6 @@ export const App: React.FC = () => {
               rules={rules}
               auditLogs={auditLogs}
               tenantId={currentUser?.tenantId || 'talentos-agency'}
-              onTestTrigger={handleTestTriggerRule}
               onToggleRule={(id) => {
                 setRules((prev) =>
                   prev.map((r) => (r.id === id ? { ...r, active: !r.active } : r))
@@ -1535,15 +1511,31 @@ export const App: React.FC = () => {
         onClose={() => setIsSlaOpen(false)}
         tasks={slaTasks}
         onTaskAction={handleTaskAction}
+        onEvaluateSla={async () => {
+          try {
+            const res = await apiClient.post('/sla-tasks/evaluate');
+            const count = res.data?.data?.createdTasksCount ?? 0;
+            await Promise.all([fetchSlaTasks(), fetchAutomations(), fetchSidebarCounts()]);
+            showToast('SLA Scan Complete', `Evaluated workspace rules (${count} new alert(s) queued).`);
+          } catch {
+            showToast('Scan Failed', 'Could not evaluate SLA tasks right now.', 'fa-solid fa-triangle-exclamation text-rose-500');
+          }
+        }}
         onToggleTaskDone={async (id) => {
           try {
-            await apiClient.patch(`/sla-tasks/${id}/complete`);
+            const res = await apiClient.patch(`/sla-tasks/${id}/complete`);
+            const nextDone = res.data?.data?.isDone;
+            setSlaTasks((prev) =>
+              prev.map((t) =>
+                t.id === id ? { ...t, done: typeof nextDone === 'boolean' ? nextDone : !t.done } : t
+              )
+            );
           } catch (e) {
             console.warn('API sla-task complete:', e);
+            setSlaTasks((prev) =>
+              prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
+            );
           }
-          setSlaTasks((prev) =>
-            prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
-          );
         }}
       />
 
@@ -1612,6 +1604,8 @@ export const App: React.FC = () => {
           setRequirements((prev) => [req, ...prev]);
           fetchClients();
           fetchSidebarCounts();
+          fetchSlaTasks();
+          fetchAutomations();
         }}
         showToast={showToast}
       />
@@ -1621,6 +1615,7 @@ export const App: React.FC = () => {
         onClose={() => setIsMatcherModalOpen(false)}
         requirements={requirements}
         candidates={candidates}
+        initialRequirement={activeReq}
         onSubmitCandidate={(candidate, requirement) =>
           handleAssignCandidate(requirement, candidate)
         }
@@ -1686,6 +1681,8 @@ export const App: React.FC = () => {
               };
             }
             fetchSidebarCounts();
+            fetchSlaTasks();
+            fetchAutomations();
           } catch (e) {
             console.warn('API save requirement:', e);
           }
