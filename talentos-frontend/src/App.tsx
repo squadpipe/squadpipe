@@ -95,6 +95,105 @@ const formatUserStatus = (status?: string): User['status'] => {
   return (status && map[status]) || (status as User['status']) || 'Active';
 };
 
+const normalizePlacement = (p: any): BillablePlacement => {
+  const depRaw = String(p.deployment || 'Onshore').toUpperCase();
+  const deployment =
+    depRaw === 'OFFSHORE'
+      ? 'Offshore'
+      : depRaw === 'NEARSHORE'
+      ? 'Nearshore'
+      : depRaw === 'ONSHORE'
+      ? 'Onshore'
+      : p.deployment || 'Onshore';
+
+  const typeRaw = String(p.placementType || 'C2C Subcontractor').toUpperCase();
+  const placementType =
+    typeRaw === 'W2_HOURLY'
+      ? 'W2 Hourly'
+      : typeRaw === 'TEN_NINETY_NINE'
+      ? '1099'
+      : typeRaw === 'FULL_TIME'
+      ? 'Full-Time'
+      : typeRaw === 'C2C_SUBCONTRACTOR'
+      ? 'C2C Subcontractor'
+      : p.placementType || 'C2C Subcontractor';
+
+  const statusRaw = String(p.status || 'Active').toUpperCase().replace(/\s+/g, '_');
+  const statusMap: Record<string, BillablePlacement['status']> = {
+    ACTIVE: 'Active',
+    EXTENDED: 'Extended',
+    EXPIRING_SOON: 'Expiring Soon',
+    COMPLETED: 'Completed',
+    TERMINATED: 'Terminated',
+  };
+  const status = statusMap[statusRaw] || 'Active';
+
+  const parseNum = (val: any): number => {
+    const n = parseFloat(String(val ?? '').replace(/[^0-9.]/g, ''));
+    return isNaN(n) ? 0 : n;
+  };
+
+  let billing = '';
+  if (typeof p.billing === 'string' && p.billing.trim()) {
+    const num = parseNum(p.billing);
+    billing = p.billing.includes('$') ? p.billing.trim() : num > 0 ? `$${num}/hr` : p.billing.trim();
+  } else if (p.billRate !== undefined && p.billRate !== null && p.billRate !== '') {
+    billing = `$${parseNum(p.billRate)}/hr`;
+  }
+
+  let payRate = '';
+  if (typeof p.payRate === 'string' && p.payRate.includes('$')) {
+    payRate = p.payRate.trim();
+  } else if (p.payRate !== undefined && p.payRate !== null && p.payRate !== '') {
+    payRate = `$${parseNum(p.payRate)}/hr`;
+  } else if (p.payRateAmount !== undefined && p.payRateAmount !== null && p.payRateAmount !== '') {
+    payRate = `$${parseNum(p.payRateAmount)}/hr`;
+  }
+
+  const billNum = parseNum(billing || p.billRate);
+  const payNum = parseNum(payRate || p.payRateAmount);
+  const computedSpread = billNum - payNum;
+  const computedMargin = billNum > 0 ? parseFloat(((computedSpread / billNum) * 100).toFixed(2)) : 0;
+
+  return {
+    id: p.id,
+    recruiter:
+      p.recruiter?.fullName ||
+      p.recruiter?.name ||
+      (typeof p.recruiter === 'string' ? p.recruiter : ''),
+    deployment,
+    customer: p.customer || p.client?.name || '',
+    customerContact:
+      p.customerContact?.fullName ||
+      p.customerContact?.name ||
+      (typeof p.customerContact === 'string' ? p.customerContact : ''),
+    resourceName:
+      p.resourceName ||
+      p.candidate?.fullName ||
+      p.candidate?.name ||
+      (typeof p.candidate === 'string' ? p.candidate : ''),
+    phone: p.phone || p.candidate?.phone || '',
+    email: p.email || p.candidate?.email || '',
+    skillRole: p.skillRole || '',
+    startDate: p.startDate ? new Date(p.startDate).toISOString().split('T')[0] : '',
+    endDate: p.endDate ? new Date(p.endDate).toISOString().split('T')[0] : '',
+    billing,
+    payRate,
+    placementType,
+    hourlySpread:
+      p.hourlySpread !== undefined && p.hourlySpread !== null ? Number(p.hourlySpread) : computedSpread,
+    marginPct:
+      p.marginPct !== undefined && p.marginPct !== null ? Number(p.marginPct) : computedMargin,
+    status,
+    purchaseOrderNumber: p.purchaseOrderNumber || '',
+    vendorName: p.vendor?.name || p.vendorName || '',
+    candidateId: p.candidateId || p.candidate?.id || undefined,
+    requirementId: p.requirementId || undefined,
+    clientId: p.clientId || p.client?.id || undefined,
+    vendorId: p.vendorId || p.vendor?.id || undefined,
+  };
+};
+
 export const App: React.FC = () => {
   // Session / Authentication state
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -345,41 +444,7 @@ export const App: React.FC = () => {
     try {
       const res = await apiClient.get('/placements');
       if (res.data?.data) {
-        const raw = res.data.data;
-        const mapped = raw.map((p: any) => ({
-          id: p.id,
-          recruiter:
-            p.recruiter?.fullName ||
-            p.recruiter?.name ||
-            (typeof p.recruiter === 'string' ? p.recruiter : ''),
-          deployment: p.deployment || 'Onshore',
-          customer: p.customer || p.client?.name || '',
-          customerContact:
-            p.customerContact?.fullName ||
-            p.customerContact?.name ||
-            (typeof p.customerContact === 'string' ? p.customerContact : ''),
-          resourceName:
-            p.resourceName ||
-            p.candidate?.fullName ||
-            p.candidate?.name ||
-            (typeof p.candidate === 'string' ? p.candidate : ''),
-          phone: p.phone || p.candidate?.phone || '',
-          email: p.email || p.candidate?.email || '',
-          skillRole: p.skillRole || '',
-          startDate: p.startDate ? new Date(p.startDate).toISOString().split('T')[0] : '',
-          endDate: p.endDate ? new Date(p.endDate).toISOString().split('T')[0] : '',
-          billing: p.billing || (p.billRate ? `$${p.billRate}/hr` : ''),
-          payRate: p.payRate || (p.payRateAmount ? `$${p.payRateAmount}/hr` : ''),
-          placementType: p.placementType || '',
-          hourlySpread:
-            p.hourlySpread !== undefined && p.hourlySpread !== null
-              ? Number(p.hourlySpread)
-              : undefined,
-          marginPct:
-            p.marginPct !== undefined && p.marginPct !== null
-              ? Number(p.marginPct)
-              : undefined,
-        }));
+        const mapped = res.data.data.map(normalizePlacement);
         setPlacements(mapped);
         setSidebarCounts((prev) => ({ ...prev, billable: mapped.length }));
         loadedEntities.current.add('placements');
@@ -584,6 +649,11 @@ export const App: React.FC = () => {
 
       case 'billable':
         if (!loadedEntities.current.has('placements')) fetchPlacements();
+        if (!loadedEntities.current.has('candidates')) fetchCandidates();
+        if (!loadedEntities.current.has('clients')) fetchClients();
+        if (!loadedEntities.current.has('vendors')) fetchVendors();
+        if (!loadedEntities.current.has('requirements')) fetchRequirements();
+        if (!loadedEntities.current.has('users')) fetchUsers();
         break;
 
       case 'user_management':
@@ -610,16 +680,22 @@ export const App: React.FC = () => {
       activeCreateModal === 'requirement' ||
       activeCreateModal === 'placement' ||
       activeCreateModal === 'consultant' ||
-      isEmailModalOpen
+      isEmailModalOpen ||
+      isPlacementWizardOpen
     ) {
       if (!loadedEntities.current.has('clients')) fetchClients();
       if (!loadedEntities.current.has('users')) fetchUsers();
+      if (activeCreateModal === 'placement' || isPlacementWizardOpen) {
+        if (!loadedEntities.current.has('candidates')) fetchCandidates();
+        if (!loadedEntities.current.has('vendors')) fetchVendors();
+        if (!loadedEntities.current.has('requirements')) fetchRequirements();
+      }
     }
     if (isPitchModalOpen) {
       if (!loadedEntities.current.has('candidates')) fetchCandidates();
       if (!loadedEntities.current.has('clients')) fetchClients();
     }
-  }, [activeCreateModal, isPitchModalOpen, isEmailModalOpen, authToken]);
+  }, [activeCreateModal, isPitchModalOpen, isEmailModalOpen, isPlacementWizardOpen, authToken]);
 
   // Financial KPI calculations
   const totalMonthlyGrossProfit = placements.reduce(
@@ -723,24 +799,36 @@ export const App: React.FC = () => {
     let savedPlacement = newPlacement;
     try {
       const res = await apiClient.post('/placements', newPlacement);
-      if (res.data?.data?.id) {
-        savedPlacement = { ...newPlacement, id: res.data.data.id };
+      if (res.data?.data) {
+        savedPlacement = normalizePlacement(res.data.data);
       }
       fetchSidebarCounts();
     } catch (e) {
       console.warn('API confirm placement:', e);
     }
     setPlacements((prev) => [savedPlacement, ...prev]);
-    if (reqId) {
+    if (savedPlacement.candidateId || savedPlacement.resourceName) {
+      const targetName = savedPlacement.resourceName.trim().toLowerCase();
+      setCandidates((prev) =>
+        prev.map((c) =>
+          (savedPlacement.candidateId && c.id === savedPlacement.candidateId) ||
+          c.fullName.trim().toLowerCase() === targetName
+            ? { ...c, pipelineStage: 'Billable' }
+            : c
+        )
+      );
+    }
+    const resolvedReqId = reqId || savedPlacement.requirementId;
+    if (resolvedReqId) {
       setRequirements((prev) =>
         prev.map((r) =>
-          r.id === reqId
+          r.id === resolvedReqId
             ? { ...r, status: 'Onboarding', resourceName: savedPlacement.resourceName || r.resourceName }
             : r
         )
       );
       apiClient
-        .patch(`/requirements/${reqId}/stage`, {
+        .patch(`/requirements/${resolvedReqId}/stage`, {
           status: 'Onboarding',
           resourceName: savedPlacement.resourceName,
         })
@@ -765,6 +853,88 @@ export const App: React.FC = () => {
       `Locked in commercial placement for ${savedPlacement.resourceName}!`,
       'fa-solid fa-file-invoice-dollar text-emerald-400'
     );
+  };
+
+  const handleUpdateCandidate = async (updated: Candidate) => {
+    try {
+      const res = await apiClient.put(`/candidates/${updated.id}`, updated);
+      const saved: Candidate = res.data?.data ?? updated;
+      setCandidates((prev) => prev.map((c) => (c.id === saved.id ? { ...c, ...saved } : c)));
+      showToast('Consultant Updated', `${saved.fullName} details saved.`, 'fa-solid fa-circle-check text-emerald-500');
+    } catch (e: any) {
+      console.warn('API update candidate failed:', e);
+      showToast('Update Failed', e?.response?.data?.error || `Could not update ${updated.fullName}.`, 'fa-solid fa-circle-exclamation text-rose-500');
+      throw e;
+    }
+  };
+
+  const handleUpdateRequirement = async (updated: Requirement) => {
+    try {
+      const res = await apiClient.put(`/requirements/${updated.id}`, updated);
+      const saved: Requirement = res.data?.data ?? updated;
+      setRequirements((prev) => prev.map((r) => (r.id === saved.id ? { ...r, ...saved } : r)));
+      setSelectedReqForDetail((prev) => (prev && prev.id === saved.id ? { ...prev, ...saved } : prev));
+      showToast('Requirement Updated', `${saved.opportunityTitle} saved.`, 'fa-solid fa-circle-check text-emerald-500');
+    } catch (e: any) {
+      console.warn('API update requirement failed:', e);
+      showToast('Update Failed', e?.response?.data?.error || `Could not update ${updated.opportunityTitle}.`, 'fa-solid fa-circle-exclamation text-rose-500');
+      throw e;
+    }
+  };
+
+  const handleUpdateVendor = async (updated: Vendor) => {
+    try {
+      const res = await apiClient.put(`/vendors/${updated.id}`, updated);
+      const saved: Vendor = res.data?.data ?? updated;
+      setVendors((prev) => prev.map((v) => (v.id === saved.id ? { ...v, ...saved } : v)));
+      showToast('Vendor Updated', `${saved.name} details saved.`, 'fa-solid fa-circle-check text-emerald-500');
+    } catch (e: any) {
+      console.warn('API update vendor failed:', e);
+      showToast('Update Failed', e?.response?.data?.error || `Could not update ${updated.name}.`, 'fa-solid fa-circle-exclamation text-rose-500');
+      throw e;
+    }
+  };
+
+  const handleUpdatePlacement = async (updated: BillablePlacement) => {
+    try {
+      const billNum = parseFloat(String(updated.billing || '0').replace(/[^0-9.]/g, '')) || 0;
+      const payNum = parseFloat(String(updated.payRate || '0').replace(/[^0-9.]/g, '')) || 0;
+      const hourlySpread = billNum - payNum;
+      const marginPct = billNum > 0 ? parseFloat(((hourlySpread / billNum) * 100).toFixed(2)) : 0;
+      const payload = { ...updated, hourlySpread, marginPct };
+      const res = await apiClient.put(`/placements/${updated.id}`, payload);
+      const saved: BillablePlacement = res.data?.data ? normalizePlacement(res.data.data) : payload;
+      setPlacements((prev) => prev.map((p) => (p.id === saved.id ? { ...p, ...saved } : p)));
+      if (saved.status === 'Completed' || saved.status === 'Terminated' || saved.status === 'Active' || saved.status === 'Extended') {
+        const nextStage = saved.status === 'Completed' || saved.status === 'Terminated' ? 'Available / Bench' : 'Billable';
+        const targetName = saved.resourceName.trim().toLowerCase();
+        setCandidates((prev) =>
+          prev.map((c) =>
+            (saved.candidateId && c.id === saved.candidateId) || c.fullName.trim().toLowerCase() === targetName
+              ? { ...c, pipelineStage: nextStage }
+              : c
+          )
+        );
+      }
+      showToast('Placement Updated', `${saved.resourceName} placement saved.`, 'fa-solid fa-circle-check text-emerald-500');
+    } catch (e: any) {
+      console.warn('API update placement failed:', e);
+      showToast('Update Failed', e?.response?.data?.error || `Could not update ${updated.resourceName}.`, 'fa-solid fa-circle-exclamation text-rose-500');
+      throw e;
+    }
+  };
+
+  const handleUpdateUser = async (updated: User) => {
+    try {
+      const res = await apiClient.put(`/users/${updated.id}`, updated);
+      const saved: User = res.data?.data ?? updated;
+      setUsers((prev) => prev.map((u) => (u.id === saved.id ? { ...u, ...saved } : u)));
+      showToast('Member Updated', `${saved.name} profile saved.`, 'fa-solid fa-circle-check text-emerald-500');
+    } catch (e: any) {
+      console.warn('API update user failed:', e);
+      showToast('Update Failed', e?.response?.data?.error || `Could not update ${updated.name}.`, 'fa-solid fa-circle-exclamation text-rose-500');
+      throw e;
+    }
   };
 
   const handleDeleteCandidate = async (candidate: Candidate) => {
@@ -827,19 +997,54 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleExtendContract = async (placement: BillablePlacement) => {
+  const handleExtendContract = async (
+    placement: BillablePlacement,
+    extensionData?: { newEndDate: string; billing?: string; payRate?: string; purchaseOrderNumber?: string }
+  ) => {
     const currentEnd = placement.endDate ? new Date(placement.endDate) : new Date();
     currentEnd.setFullYear(currentEnd.getFullYear() + 1);
-    const newEnd = currentEnd.toISOString().split('T')[0];
+    const newEnd = extensionData?.newEndDate || currentEnd.toISOString().split('T')[0];
 
+    const payload = {
+      newEndDate: newEnd,
+      ...(extensionData?.billing ? { billing: extensionData.billing } : {}),
+      ...(extensionData?.payRate ? { payRate: extensionData.payRate } : {}),
+      ...(extensionData?.purchaseOrderNumber !== undefined
+        ? { purchaseOrderNumber: extensionData.purchaseOrderNumber }
+        : {}),
+    };
+
+    let updatedPlacement: BillablePlacement | null = null;
     try {
-      await apiClient.post(`/placements/${placement.id}/extend`, { newEndDate: newEnd });
+      const res = await apiClient.post(`/placements/${placement.id}/extend`, payload);
+      if (res.data?.data) {
+        updatedPlacement = normalizePlacement(res.data.data);
+      }
     } catch (e) {
       console.warn('API placement extension:', e);
     }
 
     setPlacements((prev) =>
-      prev.map((p) => (p.id === placement.id ? { ...p, endDate: newEnd } : p))
+      prev.map((p) => {
+        if (p.id !== placement.id) return p;
+        if (updatedPlacement) return { ...p, ...updatedPlacement };
+        const billing = extensionData?.billing || p.billing;
+        const payRate = extensionData?.payRate || p.payRate || '';
+        const billNum = parseFloat(String(billing).replace(/[^0-9.]/g, '')) || 0;
+        const payNum = parseFloat(String(payRate).replace(/[^0-9.]/g, '')) || 0;
+        const hourlySpread = billNum - payNum;
+        const marginPct = billNum > 0 ? parseFloat(((hourlySpread / billNum) * 100).toFixed(2)) : 0;
+        return {
+          ...p,
+          endDate: newEnd,
+          status: 'Extended',
+          billing,
+          payRate,
+          hourlySpread,
+          marginPct,
+          purchaseOrderNumber: extensionData?.purchaseOrderNumber ?? p.purchaseOrderNumber,
+        };
+      })
     );
     setAuditLogs((prev) => [
       {
@@ -986,7 +1191,7 @@ export const App: React.FC = () => {
         {toast && (
           <div
             style={{ zIndex: 9999 }}
-            className="fixed top-5 right-5 z-[9999] max-w-md bg-white border border-slate-200 shadow-2xl rounded-xl p-4 flex items-center gap-3 animate-fade-in"
+            className="fixed bottom-5 right-5 z-[9999] max-w-md bg-white border border-slate-200 shadow-2xl rounded-xl p-4 flex items-center gap-3 animate-fade-in"
           >
             <i className={`${toast.icon} text-base flex-shrink-0`}></i>
             <div className="min-w-0 flex-1">
@@ -1038,7 +1243,7 @@ export const App: React.FC = () => {
       {toast && (
         <div
           style={{ zIndex: 9999 }}
-          className="fixed top-5 right-5 z-[9999] max-w-md bg-white border border-slate-200 card-shadow rounded-xl p-4 flex items-center gap-3 animate-fade-in"
+          className="fixed bottom-5 right-5 z-[9999] max-w-md bg-white border border-slate-200 card-shadow rounded-xl p-4 flex items-center gap-3 animate-fade-in"
         >
           <i className={`${toast.icon} text-base flex-shrink-0`}></i>
           <div className="min-w-0 flex-1">
@@ -1123,6 +1328,7 @@ export const App: React.FC = () => {
               }}
               onSelectReq={(r) => setSelectedReqForDetail(r)}
               onOpenAddReq={() => setActiveCreateModal('requirement')}
+              onUpdateReq={handleUpdateRequirement}
               onDeleteReq={handleDeleteRequirement}
             />
           )}
@@ -1135,6 +1341,7 @@ export const App: React.FC = () => {
               onPreviewResume={(c) => setSelectedResumeCand(c)}
               onOpenAddConsultant={() => setActiveCreateModal('consultant')}
               onOpenCsvImport={() => setCurrentView('import_data')}
+              onUpdateCandidate={handleUpdateCandidate}
               onDeleteCandidate={handleDeleteCandidate}
             />
           )}
@@ -1159,6 +1366,7 @@ export const App: React.FC = () => {
             <VendorsView
               vendors={vendors}
               onOpenAddVendor={() => setActiveCreateModal('vendor')}
+              onUpdateVendor={handleUpdateVendor}
               onDeleteVendor={handleDeleteVendor}
             />
           )}
@@ -1169,6 +1377,7 @@ export const App: React.FC = () => {
               rateMasked={rateMasked}
               onOpenNewPlacement={() => setActiveCreateModal('placement')}
               onExtendContract={handleExtendContract}
+              onUpdatePlacement={handleUpdatePlacement}
               onDeletePlacement={handleDeletePlacement}
               showToast={showToast}
             />
@@ -1242,6 +1451,7 @@ export const App: React.FC = () => {
                   console.warn('API toggle status failed:', e);
                 }
               }}
+              onUpdateUser={handleUpdateUser}
               onDeleteUser={async (user) => {
                 try {
                   await apiClient.delete(`/users/${user.id}`);
@@ -1352,6 +1562,7 @@ export const App: React.FC = () => {
           setActiveReq(req);
           setIsPlacementWizardOpen(true);
         }}
+        onUpdateReq={handleUpdateRequirement}
       />
 
       {/* Specialized Modals */}
@@ -1406,6 +1617,8 @@ export const App: React.FC = () => {
         isOpen={isPlacementWizardOpen}
         onClose={() => setIsPlacementWizardOpen(false)}
         candidate={activeCandidate}
+        candidates={candidates}
+        vendors={vendors}
         requirement={activeReq}
         onConfirmPlacement={handleConfirmPlacement}
         showToast={showToast}
@@ -1511,18 +1724,41 @@ export const App: React.FC = () => {
         onClose={() => setActiveCreateModal(null)}
         clients={clients}
         users={users}
+        candidates={candidates}
+        vendors={vendors}
+        requirements={requirements}
         onSave={async (p) => {
           let saved = p;
           try {
             const res = await apiClient.post('/placements', p);
-            if (res.data?.data?.id) {
-              saved = { ...p, id: res.data.data.id };
+            if (res.data?.data) {
+              saved = normalizePlacement(res.data.data);
             }
             fetchSidebarCounts();
           } catch (e) {
             console.warn('API save placement:', e);
           }
           setPlacements((prev) => [saved, ...prev]);
+          if (saved.candidateId || saved.resourceName) {
+            const targetName = saved.resourceName.trim().toLowerCase();
+            setCandidates((prev) =>
+              prev.map((c) =>
+                (saved.candidateId && c.id === saved.candidateId) ||
+                c.fullName.trim().toLowerCase() === targetName
+                  ? { ...c, pipelineStage: 'Billable' }
+                  : c
+              )
+            );
+          }
+          if (saved.requirementId) {
+            setRequirements((prev) =>
+              prev.map((r) =>
+                r.id === saved.requirementId
+                  ? { ...r, status: 'Onboarding', resourceName: saved.resourceName || r.resourceName }
+                  : r
+              )
+            );
+          }
         }}
         showToast={showToast}
       />

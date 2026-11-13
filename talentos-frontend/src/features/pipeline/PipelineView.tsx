@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Pencil, X } from 'lucide-react';
 import { Requirement, Candidate } from '../../types';
 
 interface PipelineViewProps {
@@ -11,6 +12,7 @@ interface PipelineViewProps {
   onOpenPlacementWizard: (req: Requirement) => void;
   onSelectReq?: (req: Requirement) => void;
   onOpenAddReq?: () => void;
+  onUpdateReq?: (req: Requirement) => void;
   onDeleteReq?: (req: Requirement) => void;
 }
 
@@ -24,12 +26,14 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
   onOpenPlacementWizard,
   onSelectReq,
   onOpenAddReq,
+  onUpdateReq,
   onDeleteReq,
 }) => {
   const [displayMode, setDisplayMode] = useState<'kanban' | 'list'>('kanban');
   const [search, setSearch] = useState('');
   const [draggedReqId, setDraggedReqId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<Requirement['status'] | null>(null);
+  const [editingReq, setEditingReq] = useState<Requirement | null>(null);
   const [reqToDelete, setReqToDelete] = useState<Requirement | null>(null);
 
   const stageOrder: Requirement['status'][] = [
@@ -274,6 +278,15 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                             >
                               Pitch
                             </button>
+                            {onUpdateReq && (
+                              <button
+                                onClick={() => setEditingReq({ ...req })}
+                                title="Edit requirement"
+                                className="p-1 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                            )}
                             {onDeleteReq && (
                               <button
                                 onClick={() => setReqToDelete(req)}
@@ -347,11 +360,20 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                     >
                       Pitch
                     </button>
+                    {onUpdateReq && (
+                      <button
+                        onClick={() => setEditingReq({ ...req })}
+                        title="Edit requirement"
+                        className="ml-1.5 p-1 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     {onDeleteReq && (
                       <button
                         onClick={() => setReqToDelete(req)}
                         title="Delete requirement"
-                        className="ml-1.5 p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                        className="ml-1 p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
                       >
                         <i className="fa-solid fa-trash-can text-xs"></i>
                       </button>
@@ -361,6 +383,136 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Edit Requisition Modal */}
+      {editingReq && (
+        <div
+          onClick={() => setEditingReq(null)}
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up"
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Edit Requirement</h3>
+                <p className="text-[11px] font-mono text-slate-500 mt-0.5">{editingReq.code}</p>
+              </div>
+              <button
+                onClick={() => setEditingReq(null)}
+                className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (onUpdateReq) onUpdateReq(editingReq);
+                setEditingReq(null);
+              }}
+              className="p-6 space-y-3.5 text-xs"
+            >
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Opportunity Title *</label>
+                <input
+                  type="text"
+                  required
+                  value={editingReq.opportunityTitle}
+                  onChange={(e) => setEditingReq({ ...editingReq, opportunityTitle: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Client Company *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingReq.companyName}
+                    onChange={(e) => setEditingReq({ ...editingReq, companyName: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Client Contact</label>
+                  <input
+                    type="text"
+                    value={editingReq.clientContact || ''}
+                    onChange={(e) => setEditingReq({ ...editingReq, clientContact: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Location</label>
+                  <input
+                    type="text"
+                    value={editingReq.location}
+                    onChange={(e) => setEditingReq({ ...editingReq, location: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Stage</label>
+                  <select
+                    value={editingReq.status}
+                    onChange={(e) => setEditingReq({ ...editingReq, status: e.target.value as Requirement['status'] })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
+                  >
+                    {stageOrder.map((st) => (
+                      <option key={st} value={st}>
+                        {st}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Assigned Recruiter</label>
+                <input
+                  type="text"
+                  value={editingReq.assignedRecruiter || ''}
+                  onChange={(e) => setEditingReq({ ...editingReq, assignedRecruiter: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Required Skills</label>
+                <input
+                  type="text"
+                  value={editingReq.skillsRequired}
+                  onChange={(e) => setEditingReq({ ...editingReq, skillsRequired: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingReq(null)}
+                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

@@ -116,21 +116,30 @@ export class CandidateService {
   }
 
   async updateCandidate(id: string, raw: any, tenantId?: string) {
+    if (tenantId) {
+      const existing = await prisma.candidate.findUnique({ where: { id } });
+      if (!existing || existing.tenantId !== tenantId) {
+        throw new Error('Candidate not found or unauthorized');
+      }
+    }
+
     const data: Prisma.CandidateUpdateInput = {};
-    if (raw.fullName) data.fullName = raw.fullName;
-    if (raw.email) data.email = raw.email.toLowerCase();
+    if (raw.fullName !== undefined) data.fullName = String(raw.fullName).trim();
+    if (raw.email !== undefined) data.email = String(raw.email).trim().toLowerCase();
     if (raw.phone !== undefined) data.phone = raw.phone;
-    if (raw.currentTitle) data.currentTitle = raw.currentTitle;
-    if (raw.workAuth) data.workAuth = raw.workAuth;
-    if (raw.skillset) data.skillset = raw.skillset;
-    if (raw.pipelineStage) {
+    if (raw.currentTitle !== undefined) data.currentTitle = String(raw.currentTitle).trim();
+    if (raw.workAuth !== undefined) data.workAuth = String(raw.workAuth).trim();
+    if (raw.education !== undefined) data.education = raw.education;
+    if (raw.skillset !== undefined) data.skillset = String(raw.skillset).trim();
+    if (raw.relocation !== undefined) data.relocation = String(raw.relocation).trim();
+    if (raw.pipelineStage !== undefined) {
       data.pipelineStage = stageMap[raw.pipelineStage] || raw.pipelineStage;
     }
-    if (raw.hourlyRate || raw.hourlyRateDisplay) {
-      const rateDisplay = raw.hourlyRateDisplay || raw.hourlyRate;
+    if (raw.hourlyRate !== undefined || raw.hourlyRateDisplay !== undefined) {
+      const rateDisplay = String(raw.hourlyRateDisplay || raw.hourlyRate || '');
       data.hourlyRateDisplay = rateDisplay;
-      const rateDigits = parseInt(String(rateDisplay).replace(/\D/g, ''), 10) || 90;
-      const isC2C = String(rateDisplay).toUpperCase().includes('C2C');
+      const rateDigits = parseInt(rateDisplay.replace(/\D/g, ''), 10) || 90;
+      const isC2C = rateDisplay.toUpperCase().includes('C2C');
       data.hourlyRateW2 = isC2C ? null : rateDigits;
       data.hourlyRateC2c = isC2C ? rateDigits : null;
     }

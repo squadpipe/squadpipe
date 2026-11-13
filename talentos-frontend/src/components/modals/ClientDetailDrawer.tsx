@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Pencil } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Client, Requirement, BillablePlacement } from '../../types';
 
@@ -25,6 +26,14 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
   const [activeTab, setActiveTab] = useState<'Overview' | 'Contacts' | 'Requirements' | 'Placements'>('Overview');
   const [showAddContact, setShowAddContact] = useState(false);
   const [isSavingContact, setIsSavingContact] = useState(false);
+  const [isEditingClient, setIsEditingClient] = useState(false);
+  const [isSavingClient, setIsSavingClient] = useState(false);
+  const [clientEditForm, setClientEditForm] = useState({
+    name: client?.name || '',
+    website: client?.website || '',
+    boardNumber: client?.boardNumber || '',
+    location: client?.location || '',
+  });
   const [contactForm, setContactForm] = useState({
     name: '',
     designation: 'Hiring Manager',
@@ -33,7 +42,38 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
     isPrimary: false,
   });
 
+  useEffect(() => {
+    if (client) {
+      setClientEditForm({
+        name: client.name || '',
+        website: client.website || '',
+        boardNumber: client.boardNumber || '',
+        location: client.location || '',
+      });
+    }
+    setIsEditingClient(false);
+  }, [client, isOpen]);
+
   if (!isOpen || !client) return null;
+
+  const handleSaveClientDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingClient(true);
+    try {
+      await apiClient.put(`/clients/${client.id}`, clientEditForm);
+      const updatedClient: Client = {
+        ...client,
+        ...clientEditForm,
+      };
+      if (onClientUpdated) onClientUpdated(updatedClient);
+      setIsEditingClient(false);
+      showToast('Client Updated', `${updatedClient.name} saved.`);
+    } catch (err: any) {
+      showToast('Update Failed', err.response?.data?.message || 'Could not update client.');
+    } finally {
+      setIsSavingClient(false);
+    }
+  };
 
   const handleSaveContact = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,24 +198,102 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
           {/* Tab 1: Overview */}
           {activeTab === 'Overview' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-                    Main Switchboard Phone
-                  </span>
-                  <span className="font-semibold text-slate-800 text-sm mt-0.5 block">
-                    {client.boardNumber || 'Direct Corporate Line'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-                    HQ Location
-                  </span>
-                  <span className="font-semibold text-slate-800 text-sm mt-0.5 block">
-                    {client.location}
-                  </span>
-                </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Account Details
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingClient((prev) => !prev)}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700 cursor-pointer"
+                >
+                  <Pencil className="w-3 h-3" />
+                  <span>{isEditingClient ? 'Cancel Edit' : 'Edit Details'}</span>
+                </button>
               </div>
+
+              {isEditingClient ? (
+                <form
+                  onSubmit={handleSaveClientDetails}
+                  className="bg-slate-50 p-4 rounded-xl border border-brand-200 space-y-3"
+                >
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Company Name</label>
+                      <input
+                        type="text"
+                        required
+                        value={clientEditForm.name}
+                        onChange={(e) => setClientEditForm({ ...clientEditForm, name: e.target.value })}
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Website</label>
+                      <input
+                        type="text"
+                        value={clientEditForm.website}
+                        onChange={(e) => setClientEditForm({ ...clientEditForm, website: e.target.value })}
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Main Switchboard</label>
+                      <input
+                        type="text"
+                        value={clientEditForm.boardNumber}
+                        onChange={(e) => setClientEditForm({ ...clientEditForm, boardNumber: e.target.value })}
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">HQ Location</label>
+                      <input
+                        type="text"
+                        required
+                        value={clientEditForm.location}
+                        onChange={(e) => setClientEditForm({ ...clientEditForm, location: e.target.value })}
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingClient(false)}
+                      className="px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs text-slate-600 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSavingClient}
+                      className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                    >
+                      {isSavingClient ? 'Saving...' : 'Save Client'}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                      Main Switchboard Phone
+                    </span>
+                    <span className="font-semibold text-slate-800 text-sm mt-0.5 block">
+                      {client.boardNumber || 'Direct Corporate Line'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                      HQ Location
+                    </span>
+                    <span className="font-semibold text-slate-800 text-sm mt-0.5 block">
+                      {client.location}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-100 text-slate-700 space-y-1.5 leading-relaxed">
                 <div className="text-[11px] font-bold text-blue-900 flex items-center gap-1.5">

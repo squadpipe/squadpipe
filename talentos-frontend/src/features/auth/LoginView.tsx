@@ -7,36 +7,8 @@ interface LoginViewProps {
   showToast: (title: string, message: string, icon?: string) => void;
 }
 
-const TESTIMONIALS = [
-  {
-    quote:
-      '“The clarity it brings to our pipeline is unmatched. Our recruiters spend less time updating spreadsheets and more time closing billable placements.”',
-    author: 'Michael Torres',
-    role: 'DIRECTOR OF RECRUITING',
-  },
-  {
-    quote:
-      '“From intake email parsing to client submission pitches and SOW expiration alerts, TalentOS runs our entire C2C and W2 desk on autopilot.”',
-    author: 'Elena Vasquez',
-    role: 'VP OF STAFFING OPERATIONS',
-  },
-  {
-    quote:
-      '“Built-in margin masking and tenant isolation let us scale multiple recruiting pods safely without leaking billing rates.”',
-    author: 'David Chen',
-    role: 'MANAGING PARTNER',
-  },
-  {
-    quote:
-      '“Our time-to-submit dropped by half in week one. Match scores and SLA follow-up reminders keep every job order moving forward.”',
-    author: 'Priya Nair',
-    role: 'DELIVERY HEAD',
-  },
-];
-
 export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast }) => {
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'forgot' | 'reset'>('login');
-  const [activeTestimonial, setActiveTestimonial] = useState(1);
 
   // Shared / Login state
   const [email, setEmail] = useState('');
@@ -255,8 +227,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
     },
   }[authMode];
 
-  const activeQuote = TESTIMONIALS[activeTestimonial % TESTIMONIALS.length];
-
   const switchMode = (mode: 'login' | 'signup' | 'forgot' | 'reset') => {
     setErrorMessage('');
     setSuccessMessage('');
@@ -264,10 +234,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
   };
 
   return (
-    <div className="h-full w-full flex flex-col lg:flex-row bg-[#F8F9FA] overflow-y-auto select-none">
-      {/* Left Brand & Testimonial Column */}
+    <div className="h-full w-full flex flex-col lg:flex-row bg-[#FAFAFA] overflow-y-auto select-none">
+      {/* Left Brand Column */}
       <div
-        className="lg:w-[42%] xl:w-[40%] bg-[#0B0D13] text-white relative flex flex-col justify-between p-8 sm:p-12 lg:p-14 flex-shrink-0 overflow-hidden"
+        className="lg:w-[56%] xl:w-[58%] bg-[#0B0F17] text-white relative flex flex-col justify-between p-8 sm:p-12 lg:p-16 flex-shrink-0 overflow-hidden"
         style={{
           backgroundImage: 'radial-gradient(rgba(255,255,255,0.09) 1px, transparent 1px)',
           backgroundSize: '24px 24px',
@@ -282,7 +252,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
         </div>
 
         {/* Center Hero Headline */}
-        <div className="my-10 lg:my-auto py-4 space-y-4 z-10 max-w-md">
+        <div className="my-10 lg:my-auto py-4 space-y-4 z-10 max-w-lg">
           <h1 className="text-3xl sm:text-4xl font-light tracking-tight text-white leading-[1.15]">
             {heroCopy.line1}
             <br />
@@ -293,46 +263,14 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
           </p>
         </div>
 
-        {/* Bottom Testimonial Card */}
-        <div className="space-y-5 z-10 max-w-md">
-          <div className="bg-white/[0.02] border border-white/10 p-6 rounded-sm space-y-4 backdrop-blur-xs">
-            <div className="flex items-center gap-1 text-amber-400 text-[11px]">
-              <i className="fa-solid fa-star"></i>
-              <i className="fa-solid fa-star"></i>
-              <i className="fa-solid fa-star"></i>
-              <i className="fa-solid fa-star"></i>
-              <i className="fa-solid fa-star"></i>
-            </div>
-            <p className="text-[13px] text-slate-300 leading-relaxed font-light">
-              {activeQuote.quote}
-            </p>
-            <div className="pt-2 text-right">
-              <div className="text-xs font-semibold text-white">&mdash; {activeQuote.author}</div>
-              <div className="text-[10px] font-mono tracking-widest text-slate-500 uppercase mt-0.5">
-                {activeQuote.role}
-              </div>
-            </div>
-          </div>
-
-          {/* 4-dot Carousel Indicator */}
-          <div className="flex items-center justify-center gap-2">
-            {TESTIMONIALS.map((t, idx) => (
-              <button
-                key={t.author}
-                type="button"
-                aria-label={`View quote from ${t.author}`}
-                onClick={() => setActiveTestimonial(idx)}
-                className={`h-1.5 transition-all cursor-pointer ${
-                  activeTestimonial === idx ? 'w-3 bg-white' : 'w-1.5 bg-white/25 hover:bg-white/40'
-                }`}
-              />
-            ))}
-          </div>
+        {/* Single-line Footer */}
+        <div className="text-xs text-slate-400 z-10 truncate">
+          Streamlined IT recruitment pipeline, bench rosters, and billable placements in one workspace.
         </div>
       </div>
 
       {/* Right Form Column */}
-      <div className="flex-1 bg-[#F8F9FA] text-slate-900 flex flex-col justify-between p-6 sm:p-10 min-h-full overflow-y-auto">
+      <div className="flex-1 lg:w-[44%] xl:w-[42%] bg-[#FAFAFA] text-slate-800 flex flex-col justify-between p-6 sm:p-8 min-h-full overflow-y-auto">
         {/* Top Support Header */}
         <div className="flex items-center justify-end text-xs text-slate-500 gap-2">
           <span>Need help?</span>
@@ -346,21 +284,21 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
         </div>
 
         {/* Centered White Auth Card */}
-        <div className="max-w-[440px] w-full bg-white border border-slate-200/80 shadow-sm rounded-sm p-8 sm:p-10 my-8 mx-auto space-y-6 animate-fade-in">
+        <div className="max-w-[380px] w-full bg-white border border-slate-200/80 card-shadow rounded-xl p-6 sm:p-8 my-auto mx-auto space-y-5 animate-fade-in">
           <div className="text-center space-y-1">
             <h2 className="text-xl font-bold tracking-tight text-slate-900">{heroCopy.cardTitle}</h2>
             <p className="text-xs text-slate-500">{heroCopy.cardSub}</p>
           </div>
 
           {errorMessage && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-sm text-rose-700 text-xs flex items-center gap-2 animate-fade-in">
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs flex items-center gap-2 animate-fade-in">
               <i className="fa-solid fa-circle-exclamation flex-shrink-0"></i>
               <span>{errorMessage}</span>
             </div>
           )}
 
           {successMessage && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-sm text-emerald-700 text-xs flex items-center gap-2 animate-fade-in">
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-700 text-xs flex items-center gap-2 animate-fade-in">
               <i className="fa-solid fa-circle-check flex-shrink-0"></i>
               <span>{successMessage}</span>
             </div>
@@ -377,7 +315,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@company.com"
                   required
-                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-sm text-slate-900 placeholder-slate-400 text-xs focus:border-slate-900 focus:outline-none transition-colors"
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 text-xs focus:border-brand-600 focus:outline-none transition-colors"
                 />
               </div>
 
@@ -399,7 +337,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••••••"
                     required
-                    className="w-full pl-3.5 pr-10 py-2.5 bg-white border border-slate-200 rounded-sm text-slate-900 placeholder-slate-400 text-xs focus:border-slate-900 focus:outline-none transition-colors"
+                    className="w-full pl-3.5 pr-10 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 text-xs focus:border-brand-600 focus:outline-none transition-colors"
                   />
                   <button
                     type="button"
@@ -417,7 +355,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded-sm border-slate-300 text-slate-900 focus:ring-0"
+                    className="w-3.5 h-3.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
                   />
                   <span>Keep me signed in</span>
                 </label>
@@ -426,7 +364,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-2.5 px-4 bg-[#111318] hover:bg-black disabled:opacity-50 text-white rounded-sm font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-2.5 px-4 bg-[#111318] hover:bg-black disabled:opacity-50 text-white rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isLoading ? (
                   <>
@@ -462,7 +400,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                   onChange={(e) => setSignupFullName(e.target.value)}
                   placeholder="e.g. Rachel Adams"
                   required
-                  className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-sm text-slate-900 placeholder-slate-400 text-xs focus:border-slate-900 focus:outline-none transition-colors"
+                  className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 text-xs focus:border-brand-600 focus:outline-none transition-colors"
                 />
               </div>
 
@@ -474,7 +412,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                   onChange={(e) => setSignupEmail(e.target.value)}
                   placeholder="you@company.com"
                   required
-                  className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-sm text-slate-900 placeholder-slate-400 text-xs focus:border-slate-900 focus:outline-none transition-colors"
+                  className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 text-xs focus:border-brand-600 focus:outline-none transition-colors"
                 />
               </div>
 
@@ -484,7 +422,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                   <select
                     value={signupRole}
                     onChange={(e) => setSignupRole(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-sm text-slate-900 text-xs focus:border-slate-900 focus:outline-none cursor-pointer"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 text-xs focus:border-brand-600 focus:outline-none cursor-pointer transition-colors"
                   >
                     <option value="ADMINISTRATOR">Administrator</option>
                     <option value="SENIOR_RECRUITER">Senior Recruiter</option>
@@ -500,7 +438,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                     value={signupDesk}
                     onChange={(e) => setSignupDesk(e.target.value)}
                     placeholder="US IT Contract"
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-sm text-slate-900 text-xs focus:border-slate-900 focus:outline-none"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 text-xs focus:border-brand-600 focus:outline-none transition-colors"
                   />
                 </div>
               </div>
@@ -514,7 +452,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                     onChange={(e) => setSignupPassword(e.target.value)}
                     placeholder="Min 6 chars"
                     required
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-sm text-slate-900 text-xs focus:border-slate-900 focus:outline-none"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 text-xs focus:border-brand-600 focus:outline-none transition-colors"
                   />
                 </div>
                 <div>
@@ -525,7 +463,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                     onChange={(e) => setSignupConfirmPassword(e.target.value)}
                     placeholder="Re-enter password"
                     required
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-sm text-slate-900 text-xs focus:border-slate-900 focus:outline-none"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 text-xs focus:border-brand-600 focus:outline-none transition-colors"
                   />
                 </div>
               </div>
@@ -533,7 +471,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full mt-2 py-2.5 px-4 bg-[#111318] hover:bg-black disabled:opacity-50 text-white rounded-sm font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full mt-2 py-2.5 px-4 bg-[#111318] hover:bg-black disabled:opacity-50 text-white rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isLoading ? (
                   <>
@@ -569,14 +507,14 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                   onChange={(e) => setForgotEmail(e.target.value)}
                   placeholder="you@company.com"
                   required
-                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-sm text-slate-900 placeholder-slate-400 text-xs focus:border-slate-900 focus:outline-none transition-colors"
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 text-xs focus:border-brand-600 focus:outline-none transition-colors"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-2.5 px-4 bg-[#111318] hover:bg-black disabled:opacity-50 text-white rounded-sm font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-2.5 px-4 bg-[#111318] hover:bg-black disabled:opacity-50 text-white rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isLoading ? (
                   <>
@@ -612,7 +550,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                   onChange={(e) => setResetCode(e.target.value)}
                   placeholder="6-digit reset code"
                   required
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-sm text-slate-900 font-mono text-center text-sm tracking-widest focus:border-slate-900 focus:outline-none"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 font-mono text-center text-sm tracking-widest focus:border-brand-600 focus:outline-none transition-colors"
                 />
               </div>
 
@@ -624,7 +562,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Min 6 chars"
                   required
-                  className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-sm text-slate-900 text-xs focus:border-slate-900 focus:outline-none"
+                  className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 text-xs focus:border-brand-600 focus:outline-none transition-colors"
                 />
               </div>
 
@@ -636,14 +574,14 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                   onChange={(e) => setConfirmNewPassword(e.target.value)}
                   placeholder="Re-enter new password"
                   required
-                  className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-sm text-slate-900 text-xs focus:border-slate-900 focus:outline-none"
+                  className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 text-xs focus:border-brand-600 focus:outline-none transition-colors"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full mt-2 py-2.5 px-4 bg-[#111318] hover:bg-black disabled:opacity-50 text-white rounded-sm font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full mt-2 py-2.5 px-4 bg-[#111318] hover:bg-black disabled:opacity-50 text-white rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isLoading ? (
                   <>

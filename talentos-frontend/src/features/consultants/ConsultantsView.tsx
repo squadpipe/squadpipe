@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Pencil, X } from 'lucide-react';
 import { Candidate } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 
@@ -9,6 +10,7 @@ interface ConsultantsViewProps {
   onPreviewResume: (candidate: Candidate) => void;
   onOpenAddConsultant?: () => void;
   onOpenCsvImport?: () => void;
+  onUpdateCandidate?: (candidate: Candidate) => void;
   onDeleteCandidate?: (candidate: Candidate) => void;
 }
 
@@ -19,10 +21,12 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
   onPreviewResume,
   onOpenAddConsultant,
   onOpenCsvImport,
+  onUpdateCandidate,
   onDeleteCandidate,
 }) => {
   const [search, setSearch] = useState('');
   const [workAuthFilter, setWorkAuthFilter] = useState('All');
+  const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
 
   const filtered = candidates.filter((c) => {
     const matchesSearch =
@@ -137,7 +141,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                 <th className="px-4 py-3">Relocation</th>
                 <th className="px-4 py-3">Resume</th>
                 <th className="px-4 py-3">Stage</th>
-                {onDeleteCandidate && <th className="px-4 py-3 text-right">Actions</th>}
+                {(onUpdateCandidate || onDeleteCandidate) && <th className="px-4 py-3 text-right">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -225,15 +229,28 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                     </span>
                   </td>
 
-                  {onDeleteCandidate && (
+                  {(onUpdateCandidate || onDeleteCandidate) && (
                     <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <button
-                        onClick={() => onDeleteCandidate(c)}
-                        title="Delete consultant"
-                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
-                      >
-                        <i className="fa-solid fa-trash-can text-xs"></i>
-                      </button>
+                      <div className="inline-flex items-center gap-1">
+                        {onUpdateCandidate && (
+                          <button
+                            onClick={() => setEditingCandidate({ ...c })}
+                            title="Edit consultant"
+                            className="p-1.5 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {onDeleteCandidate && (
+                          <button
+                            onClick={() => onDeleteCandidate(c)}
+                            title="Delete consultant"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                          >
+                            <i className="fa-solid fa-trash-can text-xs"></i>
+                          </button>
+                        )}
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -242,6 +259,165 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Edit Consultant Modal */}
+      {editingCandidate && (
+        <div
+          onClick={() => setEditingCandidate(null)}
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up"
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Edit Consultant</h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">{editingCandidate.fullName}</p>
+              </div>
+              <button
+                onClick={() => setEditingCandidate(null)}
+                className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (onUpdateCandidate) onUpdateCandidate(editingCandidate);
+                setEditingCandidate(null);
+              }}
+              className="p-6 space-y-3.5 text-xs"
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Full Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingCandidate.fullName}
+                    onChange={(e) => setEditingCandidate({ ...editingCandidate, fullName: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Current Title *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingCandidate.currentTitle}
+                    onChange={(e) => setEditingCandidate({ ...editingCandidate, currentTitle: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Email *</label>
+                  <input
+                    type="email"
+                    required
+                    value={editingCandidate.email}
+                    onChange={(e) => setEditingCandidate({ ...editingCandidate, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Phone</label>
+                  <input
+                    type="text"
+                    value={editingCandidate.phone}
+                    onChange={(e) => setEditingCandidate({ ...editingCandidate, phone: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Work Auth</label>
+                  <select
+                    value={editingCandidate.workAuth}
+                    onChange={(e) => setEditingCandidate({ ...editingCandidate, workAuth: e.target.value })}
+                    className="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
+                  >
+                    <option value="US Citizen">US Citizen</option>
+                    <option value="Green Card">Green Card</option>
+                    <option value="H-1B">H-1B</option>
+                    <option value="TN Visa">TN Visa</option>
+                    <option value="OPT">OPT / CPT</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Hourly Rate</label>
+                  <input
+                    type="text"
+                    value={editingCandidate.hourlyRate}
+                    onChange={(e) => setEditingCandidate({ ...editingCandidate, hourlyRate: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Relocation</label>
+                  <select
+                    value={editingCandidate.relocation}
+                    onChange={(e) => setEditingCandidate({ ...editingCandidate, relocation: e.target.value })}
+                    className="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
+                  >
+                    <option value="Yes">Open (Yes)</option>
+                    <option value="No">Local Only (No)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Pipeline Stage</label>
+                <select
+                  value={editingCandidate.pipelineStage}
+                  onChange={(e) => setEditingCandidate({ ...editingCandidate, pipelineStage: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
+                >
+                  <option value="Available / Bench">Available / Bench</option>
+                  <option value="Submitted">Submitted</option>
+                  <option value="Interview">Interview</option>
+                  <option value="Selected">Selected</option>
+                  <option value="Onboarding">Onboarding</option>
+                  <option value="Placed">Placed</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Key Skillset</label>
+                <input
+                  type="text"
+                  value={editingCandidate.skillset}
+                  onChange={(e) => setEditingCandidate({ ...editingCandidate, skillset: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingCandidate(null)}
+                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </section>
   );
 };

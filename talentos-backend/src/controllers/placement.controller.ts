@@ -23,12 +23,21 @@ export const createPlacement = async (req: Request, res: Response) => {
   }
 };
 
+export const updatePlacement = async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const updated = await placementService.updatePlacement(req.params.id, req.body, tenantId);
+    res.json({ success: true, data: updated });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'Failed to update placement' });
+  }
+};
+
 export const extendPlacement = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { newEndDate } = req.body;
     const tenantId = req.user?.tenantId || 'talentos-agency';
-    const updated = await placementService.extendPlacement(id, newEndDate, tenantId);
+    const updated = await placementService.extendPlacement(id, req.body, tenantId);
     res.json({ success: true, data: updated });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'Failed to extend placement' });

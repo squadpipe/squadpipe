@@ -28,6 +28,17 @@ export const createRequirement = async (req: Request, res: Response) => {
   }
 };
 
+export const updateRequirement = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const updated = await requirementService.updateRequirement(id, req.body, tenantId);
+    res.json({ success: true, data: updated });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'Failed to update requirement' });
+  }
+};
+
 export const updateRequirementStage = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;

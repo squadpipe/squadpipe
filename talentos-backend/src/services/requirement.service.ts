@@ -188,6 +188,68 @@ export class RequirementService {
     });
   }
 
+  async updateRequirement(id: string, raw: any, tenantId?: string) {
+    const existing = await prisma.requirement.findUnique({ where: { id } });
+    if (!existing || (tenantId && existing.tenantId !== tenantId)) {
+      throw new Error('Requirement not found or unauthorized');
+    }
+
+    const data: Prisma.RequirementUpdateInput = {};
+    if (raw.opportunityTitle !== undefined) data.opportunityTitle = String(raw.opportunityTitle).trim();
+    if (raw.companyName !== undefined) data.companyName = String(raw.companyName).trim();
+    if (raw.location !== undefined) data.location = String(raw.location).trim();
+    if (raw.skillsRequired !== undefined) data.skillsRequired = String(raw.skillsRequired).trim();
+    if (raw.status !== undefined) {
+      data.status = requirementStatusMap[raw.status] || (raw.status as RequirementStatus);
+    }
+    if (raw.workModel !== undefined) {
+      const wm = String(raw.workModel).toUpperCase();
+      data.workModel = wm.includes('HYBRID')
+        ? WorkModel.HYBRID
+        : wm.includes('ONSITE')
+        ? WorkModel.ONSITE
+        : WorkModel.REMOTE;
+    }
+    if (raw.targetBillRate !== undefined) {
+      data.targetBillRate = Number(raw.targetBillRate) || 0;
+    }
+    if (raw.targetPayRate !== undefined) {
+      data.targetPayRate = Number(raw.targetPayRate) || 0;
+    }
+    if (raw.assignedRecruiterId !== undefined) {
+      data.assignedRecruiter = raw.assignedRecruiterId
+        ? { connect: { id: raw.assignedRecruiterId } }
+        : { disconnect: true };
+    } else if (raw.assignedRecruiter !== undefined && typeof raw.assignedRecruiter === 'string' && raw.assignedRecruiter.trim()) {
+      const matchedUser = await prisma.user.findFirst({
+        where: {
+          tenantId: existing.tenantId,
+          fullName: { equals: raw.assignedRecruiter.trim(), mode: 'insensitive' },
+        },
+        select: { id: true },
+      });
+      if (matchedUser) {
+        data.assignedRecruiter = { connect: { id: matchedUser.id } };
+      }
+    }
+
+    return prisma.requirement.update({
+      where: { id },
+      data,
+      include: {
+        client: true,
+        clientContact: true,
+        assignedRecruiter: {
+          select: { id: true, fullName: true, role: true, desk: true }
+        },
+        submissions: {
+          include: { candidate: true },
+          orderBy: { createdAt: 'desc' }
+        }
+      }
+    });
+  }
+
   async updateRequirementStage(id: string, statusInput: string, resourceName?: string, tenantId?: string) {
     const status = requirementStatusMap[statusInput] || (statusInput as RequirementStatus);
     const updated = await prisma.requirement.update({

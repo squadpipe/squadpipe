@@ -95,6 +95,13 @@ export interface BillablePlacement {
   placementType?: string;
   hourlySpread?: number;
   marginPct?: number;
+  status?: 'Active' | 'Extended' | 'Expiring Soon' | 'Completed' | 'Terminated';
+  purchaseOrderNumber?: string;
+  vendorName?: string;
+  candidateId?: string;
+  requirementId?: string;
+  clientId?: string;
+  vendorId?: string;
 }
 
 export interface SlaTask {

@@ -309,7 +309,7 @@ router.post('/generate-pitch', async (req: Request, res: Response) => {
 // Requirements
 router.get('/requirements', requirementController.getRequirements);
 router.post('/requirements', requirementController.createRequirement);
-router.put('/requirements/:id', requirementController.updateRequirementStage);
+router.put('/requirements/:id', requirementController.updateRequirement);
 router.patch('/requirements/:id/stage', requirementController.updateRequirementStage);
 router.delete('/requirements/:id', requirementController.deleteRequirement);
 
@@ -354,6 +354,7 @@ router.post('/submissions', async (req: Request, res: Response) => {
 // Clients & Vendors
 router.get('/clients', clientController.getClients);
 router.post('/clients', clientController.createClient);
+router.put('/clients/:id', clientController.updateClient);
 router.post('/clients/:id/contacts', async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
@@ -380,6 +381,7 @@ router.post('/clients/:id/contacts', async (req: Request, res: Response) => {
 router.delete('/clients/:id', clientController.deleteClient);
 router.get('/vendors', clientController.getVendors);
 router.post('/vendors', clientController.createVendor);
+router.put('/vendors/:id', clientController.updateVendor);
 router.delete('/vendors/:id', clientController.deleteVendor);
 
 // SMTP Email Dispatch
@@ -445,12 +447,71 @@ router.post('/smtp/send', async (req: Request, res: Response) => {
 // Placements
 router.get('/placements', placementController.getPlacements);
 router.post('/placements', placementController.createPlacement);
+router.put('/placements/:id', placementController.updatePlacement);
 router.post('/placements/:id/extend', placementController.extendPlacement);
 router.delete('/placements/:id', placementController.deletePlacement);
 
 // Users & Roles
 router.get('/users', userController.getUsers);
 router.post('/users/invite', userController.inviteUser);
+router.put('/users/:id', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!user || user.tenantId !== tenantId) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    const { name, fullName, email, role, desk, rateMasked, status } = req.body;
+    const roleMap: Record<string, any> = {
+      Administrator: 'ADMINISTRATOR',
+      ADMINISTRATOR: 'ADMINISTRATOR',
+      'Senior Recruiter': 'SENIOR_RECRUITER',
+      SENIOR_RECRUITER: 'SENIOR_RECRUITER',
+      'Technical Recruiter': 'TECHNICAL_RECRUITER',
+      TECHNICAL_RECRUITER: 'TECHNICAL_RECRUITER',
+      'Bench Sales Lead': 'BENCH_SALES_LEAD',
+      BENCH_SALES_LEAD: 'BENCH_SALES_LEAD',
+      'Account Executive': 'ACCOUNT_EXECUTIVE',
+      ACCOUNT_EXECUTIVE: 'ACCOUNT_EXECUTIVE',
+      'Associate Recruiter': 'ASSOCIATE_RECRUITER',
+      ASSOCIATE_RECRUITER: 'ASSOCIATE_RECRUITER',
+    };
+    const statusMap: Record<string, any> = {
+      Active: 'ACTIVE',
+      ACTIVE: 'ACTIVE',
+      Suspended: 'SUSPENDED',
+      SUSPENDED: 'SUSPENDED',
+      Invited: 'INVITED',
+      INVITED: 'INVITED',
+    };
+
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        ...(fullName || name ? { fullName: String(fullName || name).trim() } : {}),
+        ...(email ? { email: String(email).trim().toLowerCase() } : {}),
+        ...(role && roleMap[role] ? { role: roleMap[role] } : {}),
+        ...(desk !== undefined ? { desk: String(desk).trim() } : {}),
+        ...(rateMasked !== undefined ? { rateMasked: Boolean(rateMasked) } : {}),
+        ...(status && statusMap[status] ? { status: statusMap[status] } : {}),
+      },
+      select: {
+        id: true,
+        tenantId: true,
+        fullName: true,
+        email: true,
+        role: true,
+        desk: true,
+        rateMasked: true,
+        workload: true,
+        status: true,
+      },
+    });
+    res.json({ success: true, data: updated });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'Failed to update user' });
+  }
+});
 router.patch('/users/:id/rate-mask', userController.toggleUserRateMask);
 router.patch('/users/:id/status', async (req: Request, res: Response) => {
   try {
@@ -516,6 +577,37 @@ router.post('/custom-fields', async (req: Request, res: Response) => {
     res.status(201).json({ success: true, data: created });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'Failed to create custom field' });
+  }
+});
+router.put('/custom-fields/:id', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const existing = await prisma.customFieldDefinition.findFirst({
+      where: { id: req.params.id, tenantId },
+    });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Custom field not found' });
+    }
+    const { name, entity, type, options, required, active } = req.body;
+    const entityUpper = entity ? String(entity).toUpperCase() : undefined;
+    const typeUpper = type ? String(type).toUpperCase().replace(/[\s\(\$)]/g, '') : undefined;
+
+    const updated = await prisma.customFieldDefinition.update({
+      where: { id: existing.id },
+      data: {
+        ...(name !== undefined ? { name: String(name).trim() } : {}),
+        ...(entityUpper ? { entity: entityUpper as any } : {}),
+        ...(typeUpper
+          ? { type: (['TEXT', 'DROPDOWN', 'DATE', 'NUMBER', 'BOOLEAN'].includes(typeUpper) ? typeUpper : 'TEXT') as any }
+          : {}),
+        ...(options !== undefined ? { options: options ? { values: options } : undefined } : {}),
+        ...(required !== undefined ? { required: Boolean(required) } : {}),
+        ...(active !== undefined ? { active: Boolean(active) } : {}),
+      },
+    });
+    res.json({ success: true, data: updated });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'Failed to update custom field' });
   }
 });
 router.delete('/custom-fields/:id', async (req: Request, res: Response) => {
@@ -604,7 +696,10 @@ router.patch('/automations/rules/:id', async (req: Request, res: Response) => {
     const rule = await prisma.automationRule.findFirst({ where: { id: req.params.id, tenantId } });
     if (!rule) return res.status(404).json({ success: false, message: 'Rule not found' });
 
-    const { threshold, whenText, thenSummary, name, active } = req.body;
+    const { threshold, whenText, thenSummary, name, active, category, triggerEvent, actionPills } = req.body;
+    const catUpper = category ? String(category).toUpperCase() : undefined;
+    const validCategories = ['FEEDBACK', 'INTERVIEW', 'STALE_REQ', 'CONTRACT', 'COMPLIANCE', 'CUSTOM'];
+
     const updated = await prisma.automationRule.update({
       where: { id: rule.id },
       data: {
@@ -613,6 +708,9 @@ router.patch('/automations/rules/:id', async (req: Request, res: Response) => {
         ...(thenSummary !== undefined ? { thenSummary } : {}),
         ...(name !== undefined ? { name } : {}),
         ...(active !== undefined ? { active: Boolean(active) } : {}),
+        ...(catUpper && validCategories.includes(catUpper) ? { category: catUpper as any } : {}),
+        ...(triggerEvent !== undefined ? { triggerEvent: triggerEvent as any } : {}),
+        ...(actionPills !== undefined ? { actions: actionPills } : {}),
       }
     });
     res.json({ success: true, data: updated });

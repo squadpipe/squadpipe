@@ -88,6 +88,35 @@ export class ClientService {
     });
   }
 
+  async updateClient(id: string, raw: any, tenantId?: string) {
+    if (tenantId) {
+      const existing = await prisma.client.findUnique({ where: { id } });
+      if (!existing || existing.tenantId !== tenantId) {
+        throw new Error('Client not found or unauthorized');
+      }
+    }
+
+    const data: Prisma.ClientUpdateInput = {};
+    if (raw.name !== undefined) data.name = String(raw.name).trim();
+    if (raw.website !== undefined) data.website = String(raw.website).trim();
+    if (raw.boardNumber !== undefined) data.boardNumber = String(raw.boardNumber).trim();
+    if (raw.location !== undefined) data.location = String(raw.location).trim();
+
+    return prisma.client.update({
+      where: { id },
+      data,
+      include: {
+        contacts: true,
+        requirements: {
+          select: { id: true, code: true, opportunityTitle: true, status: true }
+        },
+        placements: {
+          select: { id: true, resourceName: true, skillRole: true, status: true, billRate: true }
+        }
+      }
+    });
+  }
+
   async deleteClient(id: string, tenantId?: string) {
     if (tenantId) {
       const existing = await prisma.client.findUnique({ where: { id } });
@@ -137,6 +166,36 @@ export class ClientService {
         invoicingTerms,
         msaSigned
       },
+      include: {
+        placements: true
+      }
+    });
+  }
+
+  async updateVendor(id: string, raw: any, tenantId?: string) {
+    if (tenantId) {
+      const existing = await prisma.vendor.findUnique({ where: { id } });
+      if (!existing || existing.tenantId !== tenantId) {
+        throw new Error('Vendor not found or unauthorized');
+      }
+    }
+
+    const data: Prisma.VendorUpdateInput = {};
+    if (raw.name !== undefined) data.name = String(raw.name).trim();
+    if (raw.contactName !== undefined) data.contactName = String(raw.contactName).trim();
+    if (raw.phone !== undefined) data.phone = String(raw.phone).trim();
+    if (raw.email !== undefined) data.email = String(raw.email).trim();
+    if (raw.location !== undefined) data.location = String(raw.location).trim();
+    if (raw.skillSpecialization !== undefined) data.skillSpecialization = String(raw.skillSpecialization).trim();
+    if (raw.paymentTerms !== undefined) data.paymentTerms = String(raw.paymentTerms).trim();
+    if (raw.invoicingTerms !== undefined) data.invoicingTerms = String(raw.invoicingTerms).trim();
+    if (raw.msa !== undefined || raw.msaSigned !== undefined) {
+      data.msaSigned = raw.msa === 'Yes' || raw.msa === 'Active' || raw.msaSigned === true;
+    }
+
+    return prisma.vendor.update({
+      where: { id },
+      data,
       include: {
         placements: true
       }

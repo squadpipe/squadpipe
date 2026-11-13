@@ -22,6 +22,16 @@ export const createClient = async (req: Request, res: Response) => {
   }
 };
 
+export const updateClient = async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const updated = await clientService.updateClient(req.params.id, req.body, tenantId);
+    res.json({ success: true, data: updated });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'Failed to update client' });
+  }
+};
+
 export const deleteClient = async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
@@ -50,6 +60,16 @@ export const createVendor = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error creating vendor:', error);
     res.status(500).json({ success: false, message: error.message || 'Failed to create vendor' });
+  }
+};
+
+export const updateVendor = async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const updated = await clientService.updateVendor(req.params.id, req.body, tenantId);
+    res.json({ success: true, data: updated });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'Failed to update vendor' });
   }
 };
 

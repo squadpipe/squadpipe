@@ -1,4 +1,24 @@
 import React, { useState, useEffect } from 'react';
+import {
+  Plus,
+  RefreshCw,
+  Play,
+  Trash2,
+  Clock,
+  CheckCircle2,
+  X,
+  ArrowRight,
+  Activity,
+  Bell,
+  Mail,
+  UserCheck,
+  ShieldAlert,
+  FileText,
+  Calendar,
+  MessageSquare,
+  Briefcase,
+  Pencil,
+} from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { AutomationRule, AutomationAuditLog } from '../../types';
 
@@ -12,15 +32,15 @@ interface AutomationsViewProps {
   showToast?: (title: string, message: string, icon?: string) => void;
 }
 
+type CategoryType = 'Feedback' | 'Interview' | 'Contract' | 'Compliance';
+
 interface StarterTemplate {
   key: string;
   chipLabel: string;
   name: string;
-  category: 'Feedback' | 'Interview' | 'Contract' | 'Compliance';
+  category: CategoryType;
   backendCategory: string;
   triggerEvent: string;
-  icon: string;
-  color: string;
   whenText: string;
   threshold: string;
   thenSummary: string;
@@ -36,33 +56,29 @@ const STARTER_TEMPLATES: StarterTemplate[] = [
     category: 'Feedback',
     backendCategory: 'FEEDBACK',
     triggerEvent: 'FEEDBACK_DELAYED',
-    icon: 'fa-solid fa-comments',
-    color: 'amber',
     whenText: 'Candidate is awaiting client feedback for',
     threshold: '2 Days (48h)',
     thenSummary: 'Create recruiter SLA task & prepare client follow-up email draft',
     selectedActions: ['sla_task', 'email_draft'],
     actionPills: [
-      { label: 'Recruiter SLA Task', icon: 'fa-solid fa-bell', color: 'blue' },
-      { label: 'Draft Client Email', icon: 'fa-solid fa-envelope', color: 'emerald' },
+      { label: 'Recruiter SLA Task', icon: 'bell', color: 'slate' },
+      { label: 'Draft Client Email', icon: 'mail', color: 'slate' },
     ],
   },
   {
     key: 'stale_req',
     chipLabel: 'Unsourced Req Alert',
-    name: 'Unsourced Job Order Sentinel',
+    name: 'Unsourced Job Order Alert',
     category: 'Feedback',
     backendCategory: 'STALE_REQ',
     triggerEvent: 'STALE_REQ',
-    icon: 'fa-solid fa-briefcase',
-    color: 'rose',
     whenText: 'Open job requirement has 0 candidate submissions for',
     threshold: '24 Hours',
-    thenSummary: 'Flag requirement in Priority Queue & launch AI Skill Matcher',
+    thenSummary: 'Flag requirement in Priority Queue & launch Skill Matcher',
     selectedActions: ['sla_task'],
     actionPills: [
-      { label: 'Priority SLA Alert', icon: 'fa-solid fa-bell', color: 'rose' },
-      { label: 'Skill Matcher Cue', icon: 'fa-solid fa-wand-magic-sparkles', color: 'amber' },
+      { label: 'Priority SLA Alert', icon: 'bell', color: 'slate' },
+      { label: 'Skill Matcher Cue', icon: 'briefcase', color: 'slate' },
     ],
   },
   {
@@ -72,33 +88,29 @@ const STARTER_TEMPLATES: StarterTemplate[] = [
     category: 'Interview',
     backendCategory: 'INTERVIEW',
     triggerEvent: 'INTERVIEW_TODAY',
-    icon: 'fa-solid fa-calendar-check',
-    color: 'blue',
     whenText: 'Candidate technical interview is active in stage for',
     threshold: 'Today',
     thenSummary: 'Queue candidate interview prep checklist & recruiter briefing',
     selectedActions: ['sla_task', 'account_manager'],
     actionPills: [
-      { label: 'Candidate Prep Checklist', icon: 'fa-solid fa-clipboard-check', color: 'blue' },
-      { label: 'Recruiter Briefing', icon: 'fa-solid fa-bell', color: 'emerald' },
+      { label: 'Candidate Prep Checklist', icon: 'calendar', color: 'slate' },
+      { label: 'Recruiter Briefing', icon: 'bell', color: 'slate' },
     ],
   },
   {
     key: 'contract',
     chipLabel: 'Contract Renewal Notice',
-    name: 'SOW Contract Expiry Sentinel',
+    name: 'SOW Contract Expiry Alert',
     category: 'Contract',
     backendCategory: 'CONTRACT',
     triggerEvent: 'CONTRACT_ENDING',
-    icon: 'fa-solid fa-file-contract',
-    color: 'purple',
     whenText: 'Active billable placement contract is within',
     threshold: '30 Days to Expiry',
     thenSummary: 'Alert account manager & queue SOW extension review',
     selectedActions: ['sla_task', 'account_manager'],
     actionPills: [
-      { label: 'Renewal Sentinel Alert', icon: 'fa-solid fa-bell', color: 'purple' },
-      { label: 'SOW Extension Review', icon: 'fa-solid fa-file-lines', color: 'blue' },
+      { label: 'Renewal Alert', icon: 'bell', color: 'slate' },
+      { label: 'SOW Extension Review', icon: 'file-text', color: 'slate' },
     ],
   },
   {
@@ -108,15 +120,13 @@ const STARTER_TEMPLATES: StarterTemplate[] = [
     category: 'Compliance',
     backendCategory: 'COMPLIANCE',
     triggerEvent: 'VISA_EXPIRING',
-    icon: 'fa-solid fa-shield-halved',
-    color: 'emerald',
     whenText: 'Sub-tier vendor MSA is unsigned or COI expires within',
     threshold: '30 Days',
     thenSummary: 'Flag vendor compliance alert in Priority Action Queue',
     selectedActions: ['compliance_flag', 'account_manager'],
     actionPills: [
-      { label: 'Compliance Queue Flag', icon: 'fa-solid fa-certificate', color: 'emerald' },
-      { label: 'Account Lead Notice', icon: 'fa-solid fa-paper-plane', color: 'blue' },
+      { label: 'Compliance Queue Flag', icon: 'shield', color: 'slate' },
+      { label: 'Account Lead Notice', icon: 'user-check', color: 'slate' },
     ],
   },
 ];
@@ -141,35 +151,36 @@ const THRESHOLD_PILLS = [
   '30 Days to Expiry',
 ];
 
-const ACTION_OPTION_MAP: Record<
-  string,
-  { id: string; label: string; summaryPhrase: string; pill: { label: string; icon: string; color: string } }
-> = {
-  sla_task: {
+const ACTION_OPTIONS = [
+  {
     id: 'sla_task',
     label: 'Create Priority SLA Task',
     summaryPhrase: 'Create Priority SLA Task',
-    pill: { label: 'Priority SLA Task', icon: 'fa-solid fa-bell', color: 'blue' },
+    pill: { label: 'Priority SLA Task', icon: 'bell', color: 'slate' },
+    Icon: Bell,
   },
-  email_draft: {
+  {
     id: 'email_draft',
     label: 'Prepare Follow-Up Email Draft',
     summaryPhrase: 'Prepare Follow-Up Email Draft',
-    pill: { label: 'Draft Client Email', icon: 'fa-solid fa-envelope', color: 'emerald' },
+    pill: { label: 'Draft Client Email', icon: 'mail', color: 'slate' },
+    Icon: Mail,
   },
-  account_manager: {
+  {
     id: 'account_manager',
     label: 'Notify Account Manager',
     summaryPhrase: 'Notify Account Manager',
-    pill: { label: 'Account Lead Alert', icon: 'fa-solid fa-user-tie', color: 'purple' },
+    pill: { label: 'Account Lead Alert', icon: 'user-check', color: 'slate' },
+    Icon: UserCheck,
   },
-  compliance_flag: {
+  {
     id: 'compliance_flag',
     label: 'Flag Compliance Queue',
     summaryPhrase: 'Flag Compliance Queue',
-    pill: { label: 'Compliance Queue Flag', icon: 'fa-solid fa-certificate', color: 'amber' },
+    pill: { label: 'Compliance Queue Flag', icon: 'shield', color: 'slate' },
+    Icon: ShieldAlert,
   },
-};
+];
 
 const getThresholdOptionsForRule = (rule: any): string[] => {
   const cat = String(rule.category || '').toLowerCase();
@@ -184,16 +195,38 @@ const getThresholdOptionsForRule = (rule: any): string[] => {
   return Array.from(new Set([rule.threshold, ...base].filter(Boolean)));
 };
 
+const renderCategoryIcon = (category: string, triggerEvent?: string) => {
+  const cat = String(category || '').toLowerCase();
+  const evt = String(triggerEvent || '').toUpperCase();
+  if (evt === 'STALE_REQ' || cat === 'stale_req') {
+    return <Briefcase className="w-4 h-4" />;
+  }
+  switch (cat) {
+    case 'feedback':
+      return <MessageSquare className="w-4 h-4" />;
+    case 'interview':
+      return <Calendar className="w-4 h-4" />;
+    case 'contract':
+      return <FileText className="w-4 h-4" />;
+    case 'compliance':
+      return <ShieldAlert className="w-4 h-4" />;
+    default:
+      return <Activity className="w-4 h-4" />;
+  }
+};
+
 export const AutomationsView: React.FC<AutomationsViewProps> = ({
   rules: initialRules,
   auditLogs: initialLogs,
   tenantId = 'talentos-agency',
+  onTestTrigger,
   onToggleRule,
   onRefreshAutomations,
   showToast = () => {},
 }) => {
-  const [categoryFilter, setCategoryFilter] = useState<'All' | 'Feedback' | 'Interview' | 'Contract' | 'Compliance'>('All');
+  const [categoryFilter, setCategoryFilter] = useState<'All' | CategoryType>('All');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [isSeeding, setIsSeeding] = useState(false);
   const [isRunningCheck, setIsRunningCheck] = useState(false);
   const [isSubmittingRule, setIsSubmittingRule] = useState(false);
@@ -240,7 +273,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
         ? prev.selectedActions.filter((id) => id !== actionId)
         : [...prev.selectedActions, actionId];
       const builtSummary = nextActions
-        .map((id) => ACTION_OPTION_MAP[id]?.summaryPhrase)
+        .map((id) => ACTION_OPTIONS.find((opt) => opt.id === id)?.summaryPhrase)
         .filter(Boolean)
         .join(' & ');
       return {
@@ -251,30 +284,32 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
     });
   };
 
-  const filteredRules = activeRules.filter(
-    (r) =>
-      categoryFilter === 'All' ||
-      String(r.category || '').toLowerCase() === categoryFilter.toLowerCase()
-  );
+  const filteredRules = activeRules.filter((r) => {
+    if (categoryFilter === 'All') return true;
+    const cat = String(r.category || '').toLowerCase();
+    if (categoryFilter === 'Feedback' && cat === 'stale_req') return true;
+    return cat === categoryFilter.toLowerCase();
+  });
+
+  const activeCount = activeRules.filter((r) => r.active).length;
+  const totalRuns = activeRules.reduce((sum, r) => sum + (Number(r.executionsToday) || 0), 0);
 
   const handleSeedAllDefaults = async () => {
     setIsSeeding(true);
     try {
       const res = await apiClient.post('/automations/rules/seed-defaults');
       const seeded = res.data?.data || [];
-      if (Array.isArray(seeded) && seeded.length > 0) {
-        if (onRefreshAutomations) onRefreshAutomations();
+      if (Array.isArray(seeded) && seeded.length > 0 && onRefreshAutomations) {
+        onRefreshAutomations();
       }
       showToast(
         'Starter Pack Activated',
-        `Enabled ${seeded.length || 5} recommended agency rules for tenant "${tenantId}".`,
-        'fa-solid fa-bolt text-amber-500'
+        `Enabled ${seeded.length || 5} agency rules for tenant "${tenantId}".`
       );
     } catch (err: any) {
       showToast(
         'Activation Failed',
-        err.response?.data?.message || err.message || 'Unable to enable default rules.',
-        'fa-solid fa-triangle-exclamation text-rose-500'
+        err.response?.data?.message || err.message || 'Unable to enable default rules.'
       );
     } finally {
       setIsSeeding(false);
@@ -287,17 +322,17 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
         name: tpl.name,
         category: tpl.backendCategory,
         triggerEvent: tpl.triggerEvent,
-        icon: tpl.icon,
-        color: tpl.color,
+        icon: tpl.key,
+        color: 'slate',
         whenText: tpl.whenText,
         threshold: tpl.threshold,
         thenSummary: tpl.thenSummary,
         actionPills: tpl.actionPills,
       });
       if (onRefreshAutomations) onRefreshAutomations();
-      showToast('Rule Enabled', `"${tpl.name}" is now active for tenant "${tenantId}".`, 'fa-solid fa-circle-check text-emerald-500');
+      showToast('Rule Enabled', `"${tpl.name}" is now active for tenant "${tenantId}".`);
     } catch (err: any) {
-      showToast('Enable Failed', err.response?.data?.message || err.message || 'Failed to enable rule.', 'fa-solid fa-triangle-exclamation text-rose-500');
+      showToast('Enable Failed', err.response?.data?.message || err.message || 'Failed to enable rule.');
     }
   };
 
@@ -310,12 +345,11 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
       if (onToggleRule) onToggleRule(rule.id);
       if (onRefreshAutomations) onRefreshAutomations();
       showToast(
-        !rule.active ? 'Automation Resumed' : 'Automation Paused',
-        `"${rule.name}" is now ${!rule.active ? 'Active' : 'Paused'}.`,
-        'fa-solid fa-toggle-on text-emerald-500'
+        !rule.active ? 'Automation Active' : 'Automation Paused',
+        `"${rule.name}" is now ${!rule.active ? 'Active' : 'Paused'}.`
       );
     } catch (err: any) {
-      showToast('Toggle Failed', err.response?.data?.message || err.message || 'Failed to update rule state.', 'fa-solid fa-triangle-exclamation text-rose-500');
+      showToast('Toggle Failed', err.response?.data?.message || err.message || 'Failed to update rule state.');
     }
   };
 
@@ -326,12 +360,12 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
     );
     try {
       await apiClient.patch(`/automations/rules/${rule.id}`, { threshold: newThreshold });
-      showToast('Threshold Saved', `Updated "${rule.name}" threshold to "${newThreshold}".`, 'fa-solid fa-clock text-brand-600');
+      showToast('Threshold Updated', `"${rule.name}" threshold set to ${newThreshold}.`);
     } catch (err: any) {
       setActiveRules((prev) =>
         prev.map((r) => (r.id === rule.id ? { ...r, threshold: previous } : r))
       );
-      showToast('Update Failed', err.response?.data?.message || 'Could not persist threshold.', 'fa-solid fa-triangle-exclamation text-rose-500');
+      showToast('Update Failed', err.response?.data?.message || 'Could not update threshold.');
     }
   };
 
@@ -340,9 +374,9 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
       await apiClient.delete(`/automations/rules/${rule.id}`);
       setActiveRules((prev) => prev.filter((r) => r.id !== rule.id));
       if (onRefreshAutomations) onRefreshAutomations();
-      showToast('Rule Deleted', `"${rule.name}" was removed from tenant "${tenantId}".`, 'fa-solid fa-trash-can text-slate-500');
+      showToast('Rule Deleted', `"${rule.name}" removed from tenant "${tenantId}".`);
     } catch (err: any) {
-      showToast('Delete Failed', err.response?.data?.message || 'Could not delete rule.', 'fa-solid fa-triangle-exclamation text-rose-500');
+      showToast('Delete Failed', err.response?.data?.message || 'Could not delete rule.');
     }
   };
 
@@ -369,10 +403,11 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
         };
         setLocalLogs((prev) => [newLog, ...prev]);
       }
+      if (onTestTrigger) onTestTrigger(rule);
       if (onRefreshAutomations) onRefreshAutomations();
-      showToast('Automation Triggered', `Rule "${rule.name}" executed & logged!`, 'fa-solid fa-bolt text-amber-500');
+      showToast('Rule Triggered', `"${rule.name}" executed and logged.`);
     } catch (err: any) {
-      showToast('Test Run Failed', err.response?.data?.message || err.message || 'Unable to execute rule.', 'fa-solid fa-triangle-exclamation text-rose-500');
+      showToast('Test Run Failed', err.response?.data?.message || err.message || 'Unable to execute rule.');
     }
   };
 
@@ -383,15 +418,13 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
       const count = res.data?.data?.createdTasksCount ?? res.data?.count ?? 0;
       if (onRefreshAutomations) onRefreshAutomations();
       showToast(
-        'SLA Radar Check Complete',
-        `Scanned tenant "${tenantId}" pipeline, placements & vendors. ${count} new SLA alert(s) queued.`,
-        'fa-solid fa-circle-check text-emerald-500'
+        'SLA Check Complete',
+        `Scanned tenant "${tenantId}". ${count} new SLA alert(s) queued.`
       );
     } catch (err: any) {
       showToast(
         'Engine Scan Failed',
-        err.response?.data?.message || 'Could not complete SLA radar scan.',
-        'fa-solid fa-triangle-exclamation text-rose-500'
+        err.response?.data?.message || 'Could not complete SLA check.'
       );
     } finally {
       setIsRunningCheck(false);
@@ -399,207 +432,131 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
   };
 
   const openBlankCreateModal = () => {
+    setEditingRuleId(null);
     applyTemplateToForm(STARTER_TEMPLATES[0]);
     setNewRuleForm((prev) => ({ ...prev, name: '' }));
     setShowCreateModal(true);
   };
 
+  const openEditModal = (rule: any) => {
+    const rawCat = String(rule.category || '').toUpperCase();
+    const uiCategory: CategoryType =
+      rawCat === 'INTERVIEW'
+        ? 'Interview'
+        : rawCat === 'CONTRACT'
+        ? 'Contract'
+        : rawCat === 'COMPLIANCE'
+        ? 'Compliance'
+        : 'Feedback';
+    const isPreset = WHEN_CONDITION_OPTIONS.includes(rule.whenText);
+    const matchedActionIds = ACTION_OPTIONS.filter((opt) =>
+      (rule.actionPills || []).some((p: any) =>
+        String(p.label || '').toLowerCase().includes(opt.pill.label.toLowerCase()) ||
+        String(rule.thenSummary || '').toLowerCase().includes(opt.summaryPhrase.toLowerCase())
+      )
+    ).map((opt) => opt.id);
+
+    setEditingRuleId(rule.id);
+    setNewRuleForm({
+      name: rule.name || '',
+      category: uiCategory,
+      triggerEvent: rule.triggerEvent || 'CUSTOM',
+      whenPreset: isPreset ? rule.whenText : 'Custom Condition...',
+      whenText: rule.whenText || '',
+      threshold: rule.threshold || 'Immediate',
+      selectedActions: matchedActionIds.length > 0 ? matchedActionIds : ['sla_task'],
+      thenSummary: rule.thenSummary || '',
+    });
+    setShowCreateModal(true);
+  };
+
   return (
-    <section className="max-w-7xl mx-auto space-y-6 animate-fade-in select-none">
-      {/* Header Banner */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg flex-shrink-0 shadow-xs">
-            <i className="fa-solid fa-bolt"></i>
+    <section className="max-w-7xl mx-auto space-y-5 animate-fade-in select-none">
+      {/* Clean Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h2 className="text-lg font-bold text-slate-900 tracking-tight">Workflow Automations</h2>
+            <span className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[11px] font-mono text-slate-600">
+              Tenant: {tenantId}
+            </span>
           </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2 flex-wrap">
-              <span>Workflow Automations</span>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono font-semibold flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                Live Engine
-              </span>
-              <span className="px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[10px] font-mono font-semibold text-slate-600">
-                Tenant: {tenantId}
-              </span>
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Tenant-isolated rules that scan your requisitions, interviews, SOW contracts, and vendor compliance in PostgreSQL.
-            </p>
-          </div>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Automated SLA alerts, interview reminders, and contract expiry rules scoped to your workspace.
+          </p>
         </div>
 
-        <div className="flex items-center gap-2.5 self-start sm:self-auto flex-shrink-0">
+        <div className="flex items-center gap-2.5 flex-shrink-0">
           <button
             onClick={handleRunEngineCheck}
             disabled={isRunningCheck}
-            className="px-3.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-700 font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+            className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-60 text-slate-700 font-medium text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <i className={`fa-solid ${isRunningCheck ? 'fa-spinner fa-spin' : 'fa-rotate'} text-slate-500 text-[11px]`}></i>
-            <span>{isRunningCheck ? 'Scanning...' : 'Run Check Now'}</span>
+            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isRunningCheck ? 'animate-spin' : ''}`} />
+            <span>{isRunningCheck ? 'Scanning...' : 'Run Check'}</span>
           </button>
           <button
             onClick={openBlankCreateModal}
-            className="px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+            className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
           >
-            <i className="fa-solid fa-plus text-[10px]"></i>
-            <span>Create Automation</span>
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Rule</span>
           </button>
         </div>
       </div>
 
-      {/* 4 KPI Metrics Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 text-base flex-shrink-0">
-            <i className="fa-solid fa-toggle-on"></i>
-          </div>
-          <div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">ACTIVE RULES</div>
-            <div className="text-base font-bold text-slate-900 mt-0.5">
-              {activeRules.filter((r) => r.active).length} of {activeRules.length} Running
-            </div>
-            <div className="text-[10px] text-emerald-600 font-medium">Scoped to {tenantId}</div>
-          </div>
-        </div>
-
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 text-base flex-shrink-0">
-            <i className="fa-solid fa-paper-plane"></i>
-          </div>
-          <div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">ACTIONS DISPATCHED</div>
-            <div className="text-base font-bold text-brand-700 mt-0.5">
-              {activeRules.reduce((sum, r) => sum + (Number(r.executionsToday) || 0), 0)} Total
-            </div>
-            <div className="text-[10px] text-slate-500">SLA alerts &amp; test runs</div>
-          </div>
-        </div>
-
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 text-base flex-shrink-0">
-            <i className="fa-solid fa-clock"></i>
-          </div>
-          <div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">EST. TIME SAVED</div>
-            <div className="text-base font-bold text-emerald-700 mt-0.5">
-              ~{(activeRules.reduce((sum, r) => sum + (Number(r.executionsToday) || 0), 0) * 0.15).toFixed(1)} Hours
-            </div>
-            <div className="text-[10px] text-slate-500">Manual recruiter follow-ups</div>
-          </div>
-        </div>
-
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600 text-base flex-shrink-0">
-            <i className="fa-solid fa-shield-check"></i>
-          </div>
-          <div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">AUDIT HISTORY</div>
-            <div className="text-base font-bold text-purple-700 mt-0.5">{localLogs.length} Logged</div>
-            <div className="text-[10px] text-purple-600 font-medium">Automation triggers recorded</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Filter Chips Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-          <button
-            onClick={() => setCategoryFilter('All')}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-              categoryFilter === 'All'
-                ? 'bg-slate-900 text-white shadow-2xs'
-                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            <span>All Automations</span>
-            <span
-              className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
-                categoryFilter === 'All' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+      {/* Compact Toolbar: Category Tabs & Inline Stats */}
+      <div className="bg-white rounded-xl border border-slate-200 card-shadow px-4 py-2.5 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-1 overflow-x-auto">
+          {(['All', 'Feedback', 'Interview', 'Contract', 'Compliance'] as const).map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setCategoryFilter(cat)}
+              className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                categoryFilter === cat
+                  ? 'bg-slate-900 text-white'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >
-              {activeRules.length}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setCategoryFilter('Feedback')}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-              categoryFilter === 'Feedback'
-                ? 'bg-slate-900 text-white shadow-2xs'
-                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            <i className="fa-solid fa-comments text-amber-500 text-[10px]"></i>
-            <span>Pipeline &amp; Feedback</span>
-          </button>
-
-          <button
-            onClick={() => setCategoryFilter('Interview')}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-              categoryFilter === 'Interview'
-                ? 'bg-slate-900 text-white shadow-2xs'
-                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            <i className="fa-solid fa-calendar-check text-blue-500 text-[10px]"></i>
-            <span>Interviews</span>
-          </button>
-
-          <button
-            onClick={() => setCategoryFilter('Contract')}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-              categoryFilter === 'Contract'
-                ? 'bg-slate-900 text-white shadow-2xs'
-                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            <i className="fa-solid fa-file-contract text-purple-500 text-[10px]"></i>
-            <span>Contracts &amp; Extensions</span>
-          </button>
-
-          <button
-            onClick={() => setCategoryFilter('Compliance')}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-              categoryFilter === 'Compliance'
-                ? 'bg-slate-900 text-white shadow-2xs'
-                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            <i className="fa-solid fa-shield-halved text-emerald-500 text-[10px]"></i>
-            <span>Compliance</span>
-          </button>
+              {cat}
+            </button>
+          ))}
         </div>
 
-        <div className="text-xs text-slate-500 flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-          <span>Persisted per agency tenant</span>
+        <div className="flex items-center gap-3 text-[11px] font-mono text-slate-500 flex-shrink-0">
+          <span>
+            <strong className="text-slate-900">{activeCount}</strong> active
+          </span>
+          <span className="text-slate-300">&bull;</span>
+          <span>
+            <strong className="text-slate-900">{totalRuns}</strong> runs
+          </span>
+          <span className="text-slate-300">&bull;</span>
+          <span>
+            <strong className="text-slate-900">{localLogs.length}</strong> logs
+          </span>
         </div>
       </div>
 
-      {/* Empty State: 1-Click Starter Automation Pack */}
+      {/* Empty State: Starter Automation Pack */}
       {activeRules.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+        <div className="bg-white rounded-xl border border-slate-200 card-shadow p-6 space-y-5">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-bold uppercase tracking-wider mb-2">
-                <i className="fa-solid fa-wand-magic-sparkles"></i>
-                <span>1-Click Starter Pack</span>
-              </div>
-              <h3 className="text-base font-bold text-slate-900">
-                No automations enabled yet for <span className="font-mono text-brand-600">{tenantId}</span>
+              <h3 className="text-sm font-bold text-slate-900">
+                No automation rules enabled for <span className="font-mono text-brand-600">{tenantId}</span>
               </h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Turn on all 5 recommended IT staffing rules in one click, or pick individual recipes below.
+              <p className="text-xs text-slate-500 mt-0.5">
+                Activate the 5 default staffing rules at once or enable individual templates below.
               </p>
             </div>
             <button
               onClick={handleSeedAllDefaults}
               disabled={isSeeding}
-              className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-semibold rounded-xl text-xs shadow-sm flex items-center gap-2 transition-colors cursor-pointer flex-shrink-0"
+              className="px-3.5 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-semibold rounded-lg text-xs flex items-center gap-1.5 transition-colors cursor-pointer flex-shrink-0"
             >
-              <i className={`fa-solid ${isSeeding ? 'fa-spinner fa-spin' : 'fa-bolt'}`}></i>
-              <span>{isSeeding ? 'Activating Rules...' : 'Enable All 5 Recommended Agency Rules (1-Click)'}</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${isSeeding ? 'animate-spin' : ''}`} />
+              <span>{isSeeding ? 'Activating...' : 'Activate Default Rules (5)'}</span>
             </button>
           </div>
 
@@ -607,42 +564,29 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
             {STARTER_TEMPLATES.map((tpl) => (
               <div
                 key={tpl.key}
-                className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-white hover:border-amber-300 transition-all flex flex-col justify-between gap-3"
+                className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white transition-colors flex flex-col justify-between gap-3"
               >
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs ${
-                          tpl.color === 'blue'
-                            ? 'bg-blue-600'
-                            : tpl.color === 'rose'
-                            ? 'bg-rose-500'
-                            : tpl.color === 'purple'
-                            ? 'bg-purple-600'
-                            : tpl.color === 'emerald'
-                            ? 'bg-emerald-600'
-                            : 'bg-amber-500'
-                        }`}
-                      >
-                        <i className={tpl.icon}></i>
-                      </div>
-                      <div>
-                        <div className="font-bold text-slate-900 text-xs">{tpl.name}</div>
-                        <div className="text-[10px] font-mono uppercase text-slate-400">{tpl.category}</div>
-                      </div>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-600 flex items-center justify-center flex-shrink-0">
+                      {renderCategoryIcon(tpl.category, tpl.triggerEvent)}
+                    </div>
+                    <div>
+                      <div className="font-semibold text-slate-900 text-xs">{tpl.name}</div>
+                      <div className="text-[10px] font-mono uppercase text-slate-400">{tpl.category}</div>
                     </div>
                   </div>
                   <p className="text-[11px] text-slate-600 leading-relaxed">
-                    <span className="font-semibold text-amber-700">WHEN</span> {tpl.whenText}{' '}
-                    <span className="font-bold text-slate-800">{tpl.threshold}</span> &rarr; {tpl.thenSummary}
+                    <span className="font-semibold text-slate-800">WHEN</span> {tpl.whenText}{' '}
+                    <span className="font-semibold text-slate-900">{tpl.threshold}</span> &rarr; {tpl.thenSummary}
                   </p>
                 </div>
                 <button
                   onClick={() => handleEnableSingleTemplate(tpl)}
-                  className="w-full py-1.5 bg-white hover:bg-amber-50 border border-slate-200 hover:border-amber-300 text-slate-800 font-semibold rounded-lg text-[11px] transition-colors cursor-pointer"
+                  className="w-full py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-medium rounded-lg text-[11px] transition-colors cursor-pointer flex items-center justify-center gap-1"
                 >
-                  + Enable This Rule
+                  <Plus className="w-3 h-3" />
+                  <span>Enable Rule</span>
                 </button>
               </div>
             ))}
@@ -654,45 +598,29 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
           {filteredRules.map((rule) => (
             <div
               key={rule.id}
-              className={`bg-white rounded-xl border p-5 shadow-xs transition-all flex flex-col justify-between space-y-4 hover:shadow-sm ${
-                rule.active ? 'border-slate-200' : 'border-slate-200 bg-slate-50/50 opacity-75'
+              className={`bg-white rounded-xl border border-slate-200 card-shadow p-5 flex flex-col justify-between space-y-4 transition-opacity ${
+                rule.active ? '' : 'opacity-70 bg-slate-50/40'
               }`}
             >
               <div className="space-y-3.5">
-                {/* Top Row: Icon, Name, Category & Controls */}
+                {/* Card Header */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold text-white shadow-2xs flex-shrink-0 ${
-                        rule.color === 'blue'
-                          ? 'bg-blue-600'
-                          : rule.color === 'amber'
-                          ? 'bg-amber-500'
-                          : rule.color === 'rose'
-                          ? 'bg-rose-500'
-                          : rule.color === 'purple'
-                          ? 'bg-purple-600'
-                          : rule.color === 'emerald'
-                          ? 'bg-emerald-600'
-                          : 'bg-cyan-600'
-                      }`}
-                    >
-                      <i className={rule.icon || 'fa-solid fa-bolt'}></i>
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 text-slate-600 flex items-center justify-center flex-shrink-0">
+                      {renderCategoryIcon(rule.category, rule.triggerEvent)}
                     </div>
                     <div>
-                      <h3 className="font-bold text-slate-900 text-sm tracking-tight flex items-center gap-2">
-                        <span>{rule.name}</span>
-                      </h3>
-                      <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider font-mono">
+                      <h3 className="font-semibold text-slate-900 text-sm tracking-tight">{rule.name}</h3>
+                      <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider font-mono">
                         {rule.category}
                       </span>
                     </div>
                   </div>
 
-                  {/* Toggle Switch + Delete */}
-                  <div className="flex items-center gap-2.5 flex-shrink-0">
+                  {/* Status Switch + Edit + Delete */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <span
-                      className={`text-[11px] font-semibold transition-colors ${
+                      className={`text-[11px] font-medium ${
                         rule.active ? 'text-emerald-700' : 'text-slate-400'
                       }`}
                     >
@@ -708,26 +636,33 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                       <div className="w-8 h-4.5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-600"></div>
                     </label>
                     <button
+                      onClick={() => openEditModal(rule)}
+                      title="Edit automation rule"
+                      className="text-slate-400 hover:text-brand-600 p-1 rounded-md hover:bg-brand-50 transition-colors cursor-pointer"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
                       onClick={() => handleDeleteRule(rule)}
                       title="Delete automation rule"
-                      className="text-slate-400 hover:text-rose-600 p-1 rounded transition-colors cursor-pointer"
+                      className="text-slate-400 hover:text-rose-600 p-1 rounded-md hover:bg-rose-50 transition-colors cursor-pointer"
                     >
-                      <i className="fa-solid fa-trash-can text-xs"></i>
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
 
-                {/* Natural Language Recipe Box */}
-                <div className="p-3.5 rounded-xl border border-slate-200/90 bg-slate-50/70 text-xs space-y-2.5">
+                {/* WHEN / THEN Recipe Block */}
+                <div className="p-3.5 rounded-lg border border-slate-200/80 bg-slate-50/70 text-xs space-y-2.5">
                   <div className="flex items-baseline gap-2 flex-wrap">
-                    <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider bg-amber-100/70 px-1.5 py-0.5 rounded font-mono">
+                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider bg-slate-200/70 px-1.5 py-0.5 rounded font-mono">
                       WHEN
                     </span>
-                    <span className="text-slate-700 font-medium">{rule.whenText}</span>
+                    <span className="text-slate-700">{rule.whenText}</span>
                     <select
                       value={rule.threshold}
                       onChange={(e) => handleUpdateThreshold(rule, e.target.value)}
-                      className="px-2 py-0.5 border border-slate-300 rounded-md bg-white text-xs font-bold text-slate-900 shadow-2xs focus:border-amber-500 focus:outline-none cursor-pointer"
+                      className="px-2 py-0.5 border border-slate-300 rounded-md bg-white text-xs font-semibold text-slate-900 focus:border-brand-600 focus:outline-none cursor-pointer"
                     >
                       {getThresholdOptionsForRule(rule).map((opt) => (
                         <option key={opt} value={opt}>
@@ -743,40 +678,27 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                     <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider bg-emerald-100/70 px-1.5 py-0.5 rounded font-mono mt-0.5">
                       THEN
                     </span>
-                    <span className="text-slate-800 font-semibold leading-relaxed">{rule.thenSummary}</span>
+                    <span className="text-slate-800 font-medium leading-relaxed">{rule.thenSummary}</span>
                   </div>
                 </div>
 
-                {/* Action Pills Badges */}
-                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                {/* Plain Text Action Pills */}
+                <div className="flex flex-wrap gap-1.5">
                   {(rule.actionPills || []).map((pill: any, idx: number) => (
                     <span
                       key={`${pill.label}_${idx}`}
-                      className="px-2 py-0.8 rounded-md bg-white border border-slate-200 text-slate-700 text-[10px] font-medium flex items-center gap-1.5 shadow-2xs"
+                      className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-600 text-[11px] font-medium"
                     >
-                      <i
-                        className={`${pill.icon || 'fa-solid fa-bolt'} text-[10px] ${
-                          pill.color === 'blue'
-                            ? 'text-blue-600'
-                            : pill.color === 'emerald'
-                            ? 'text-emerald-600'
-                            : pill.color === 'purple'
-                            ? 'text-purple-600'
-                            : pill.color === 'rose'
-                            ? 'text-rose-600'
-                            : 'text-amber-500'
-                        }`}
-                      ></i>
-                      <span>{pill.label}</span>
+                      {pill.label}
                     </span>
                   ))}
                 </div>
               </div>
 
-              {/* Footer */}
+              {/* Card Footer */}
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
-                  <i className="fa-solid fa-clock-rotate-left text-[10px]"></i>
+                <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-slate-400" />
                   <span>
                     Ran <strong className="text-slate-700">{rule.executionsToday || 0} times</strong>
                   </span>
@@ -785,9 +707,9 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                 </div>
                 <button
                   onClick={() => handleTestRun(rule)}
-                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-semibold text-[11px] flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-medium text-[11px] flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
-                  <i className="fa-solid fa-play text-[9px] text-amber-600"></i>
+                  <Play className="w-3 h-3 text-slate-600" />
                   <span>Test Run</span>
                 </button>
               </div>
@@ -797,55 +719,57 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
       )}
 
       {/* Recent Automation Activity Log */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
+      <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-2">
-            <i className="fa-solid fa-bolt text-amber-500 text-xs"></i>
-            <h3 className="font-bold text-slate-900 text-xs">Recent Automation Activity</h3>
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">
-              {localLogs.length} recent events
+            <Activity className="w-3.5 h-3.5 text-slate-500" />
+            <h3 className="font-semibold text-slate-900 text-xs">Recent Automation Activity</h3>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+              {localLogs.length} events
             </span>
           </div>
-          <button
-            onClick={() => setLocalLogs([])}
-            className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-          >
-            Clear View
-          </button>
+          {localLogs.length > 0 && (
+            <button
+              onClick={() => setLocalLogs([])}
+              className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+            >
+              Clear View
+            </button>
+          )}
         </div>
 
         <div className="divide-y divide-slate-100">
           {localLogs.length === 0 ? (
-            <div className="p-6 text-center text-xs text-slate-400 font-mono">
-              No automated triggers recorded yet for {tenantId}. Click "Test Run" or "Run Check Now" above.
+            <div className="p-6 text-center text-xs text-slate-400">
+              No automation events recorded yet for {tenantId}. Click Test Run or Run Check above.
             </div>
           ) : (
             localLogs.slice(0, 8).map((log) => (
               <div
                 key={log.id}
-                className="p-3.5 hover:bg-slate-50/60 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                className="px-5 py-3 hover:bg-slate-50/60 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
               >
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">
-                    <i className="fa-solid fa-check text-emerald-600"></i>
+                  <div className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200/70 text-emerald-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-slate-900 text-xs">{log.target}</span>
-                      <span className="px-2 py-0.2 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80 text-[10px] font-semibold font-mono">
+                      <span className="font-semibold text-slate-900 text-xs">{log.target}</span>
+                      <span className="px-2 py-0.2 rounded-md bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-mono">
                         {log.ruleName}
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-600 mt-0.5 flex items-center gap-1.5">
-                      <i className="fa-solid fa-arrow-turn-down-right text-slate-400 text-[10px]"></i>
+                    <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5">
+                      <ArrowRight className="w-3 h-3 text-slate-400 flex-shrink-0" />
                       <span>{log.actionDispatched}</span>
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 self-end sm:self-center flex-shrink-0 text-[11px]">
+                <div className="flex items-center gap-2.5 self-end sm:self-center flex-shrink-0 text-[11px]">
                   <span className="text-slate-400 font-mono">{log.timestamp}</span>
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold font-mono">
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-medium">
                     {log.status}
                   </span>
                 </div>
@@ -855,27 +779,27 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
         </div>
       </div>
 
-      {/* Redesigned 3-Step Guided Automation Builder Modal */}
+      {/* Create Automation Rule Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-scale-up max-h-[92vh] flex flex-col">
-            <div className="px-6 py-4 bg-[#0B0F17] text-white flex items-center justify-between border-b border-white/10">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center text-sm">
-                  <i className="fa-solid fa-bolt"></i>
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold tracking-tight">Easy Automation Builder</h3>
-                  <div className="text-[11px] text-slate-400">
-                    Pick a 1-click template or customize WHEN &rarr; THEN for tenant <span className="font-mono text-slate-300">{tenantId}</span>
-                  </div>
-                </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden animate-scale-up max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  {editingRuleId ? 'Edit Automation Rule' : 'Create Automation Rule'}
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Tenant: <span className="font-mono">{tenantId}</span>
+                </p>
               </div>
               <button
-                onClick={() => setShowCreateModal(false)}
-                className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setEditingRuleId(null);
+                }}
+                className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
               >
-                <i className="fa-solid fa-xmark text-sm"></i>
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -886,7 +810,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                 setIsSubmittingRule(true);
                 try {
                   const pills = newRuleForm.selectedActions
-                    .map((id) => ACTION_OPTION_MAP[id]?.pill)
+                    .map((id) => ACTION_OPTIONS.find((opt) => opt.id === id)?.pill)
                     .filter(Boolean);
 
                   const backendCatMap: Record<string, string> = {
@@ -896,7 +820,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                     Compliance: 'COMPLIANCE',
                   };
 
-                  await apiClient.post('/automations/rules', {
+                  const payload = {
                     name: newRuleForm.name,
                     category: backendCatMap[newRuleForm.category] || 'CUSTOM',
                     triggerEvent: newRuleForm.triggerEvent || 'CUSTOM',
@@ -906,46 +830,53 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                     actionPills:
                       pills.length > 0
                         ? pills
-                        : [{ label: 'Automated Event', icon: 'fa-solid fa-bolt', color: 'amber' }],
-                  });
-                  if (onRefreshAutomations) onRefreshAutomations();
-                  setShowCreateModal(false);
-                  showToast(
-                    'Automation Deployed',
-                    `"${newRuleForm.name}" is now active for tenant "${tenantId}"!`,
-                    'fa-solid fa-bolt text-amber-500'
-                  );
+                        : [{ label: 'Automated Event', icon: 'bell', color: 'slate' }],
+                  };
+
+                  if (editingRuleId) {
+                    await apiClient.patch(`/automations/rules/${editingRuleId}`, payload);
+                    setActiveRules((prev) =>
+                      prev.map((r) =>
+                        r.id === editingRuleId ? { ...r, ...payload } : r
+                      )
+                    );
+                    if (onRefreshAutomations) onRefreshAutomations();
+                    setShowCreateModal(false);
+                    setEditingRuleId(null);
+                    showToast('Rule Updated', `"${newRuleForm.name}" updated.`);
+                  } else {
+                    await apiClient.post('/automations/rules', payload);
+                    if (onRefreshAutomations) onRefreshAutomations();
+                    setShowCreateModal(false);
+                    showToast('Rule Created', `"${newRuleForm.name}" is now active.`);
+                  }
                 } catch (err: any) {
                   showToast(
-                    'Rule Creation Error',
-                    err.response?.data?.message || err.message || 'Failed to save automation rule.',
-                    'fa-solid fa-triangle-exclamation text-rose-500'
+                    editingRuleId ? 'Rule Update Error' : 'Rule Creation Error',
+                    err.response?.data?.message || err.message || 'Failed to save automation rule.'
                   );
                 } finally {
                   setIsSubmittingRule(false);
                 }
               }}
-              className="p-6 space-y-5 text-xs overflow-y-auto"
+              className="p-6 space-y-4 text-xs overflow-y-auto"
             >
-              {/* Step 1: 1-Click Quick Templates */}
+              {/* Starter Template Quick-Fill */}
               <div className="space-y-2">
-                <div className="text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 inline-flex items-center justify-center text-[10px] font-bold">1</span>
-                  <span>Quick-Fill from a 1-Click Template (Optional)</span>
-                </div>
+                <div className="text-[11px] font-semibold text-slate-700">Quick-Fill Template</div>
                 <div className="flex flex-wrap gap-1.5">
                   {STARTER_TEMPLATES.map((tpl) => (
                     <button
                       type="button"
                       key={tpl.key}
                       onClick={() => applyTemplateToForm(tpl)}
-                      className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
                         newRuleForm.name === tpl.name
-                          ? 'bg-amber-50 border-amber-400 text-amber-800 shadow-2xs'
+                          ? 'bg-slate-900 border-slate-900 text-white'
                           : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                       }`}
                     >
-                      <i className={`${tpl.icon} text-[10px]`}></i>
+                      {renderCategoryIcon(tpl.category, tpl.triggerEvent)}
                       <span>{tpl.chipLabel}</span>
                     </button>
                   ))}
@@ -954,7 +885,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                     Rule Name <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -963,76 +894,69 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                     placeholder="e.g. Client Feedback Follow-Up"
                     value={newRuleForm.name}
                     onChange={(e) => setNewRuleForm({ ...newRuleForm, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-slate-50 focus:bg-white focus:border-amber-500 focus:outline-none"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Category</label>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Category</label>
                   <select
                     value={newRuleForm.category}
                     onChange={(e) => setNewRuleForm({ ...newRuleForm, category: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-amber-500 focus:outline-none cursor-pointer"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
                   >
-                    <option value="Feedback">Pipeline &amp; Feedback</option>
+                    <option value="Feedback">Feedback &amp; Pipeline</option>
                     <option value="Interview">Interviews</option>
-                    <option value="Contract">Contracts &amp; Extensions</option>
-                    <option value="Compliance">Compliance &amp; Governance</option>
+                    <option value="Contract">Contracts</option>
+                    <option value="Compliance">Compliance</option>
                   </select>
                 </div>
               </div>
 
-              {/* Step 2: Simple IF / WHEN Builder */}
+              {/* WHEN Condition */}
               <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-                <div className="text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 inline-flex items-center justify-center text-[10px] font-bold">2</span>
-                  <span>WHEN Should This Trigger?</span>
+                <div className="text-[11px] font-semibold text-slate-800 uppercase tracking-wider">
+                  When Trigger Condition
                 </div>
 
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Choose Event</label>
-                  <select
-                    value={newRuleForm.whenPreset}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setNewRuleForm((prev) => ({
-                        ...prev,
-                        whenPreset: val,
-                        whenText: val === 'Custom Condition...' ? '' : val,
-                      }));
-                    }}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-amber-500 focus:outline-none cursor-pointer"
-                  >
-                    {WHEN_CONDITION_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <select
+                  value={newRuleForm.whenPreset}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setNewRuleForm((prev) => ({
+                      ...prev,
+                      whenPreset: val,
+                      whenText: val === 'Custom Condition...' ? '' : val,
+                    }));
+                  }}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
+                >
+                  {WHEN_CONDITION_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
 
                 {newRuleForm.whenPreset === 'Custom Condition...' && (
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Custom Condition Text</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Consultant remains on bench without submittal for"
-                      value={newRuleForm.whenText}
-                      onChange={(e) => setNewRuleForm({ ...newRuleForm, whenText: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-amber-500 focus:outline-none"
-                    />
-                  </div>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Consultant remains on bench without submittal for"
+                    value={newRuleForm.whenText}
+                    onChange={(e) => setNewRuleForm({ ...newRuleForm, whenText: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none"
+                  />
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase">Wait Duration / Threshold</label>
+                  <label className="block text-[11px] font-medium text-slate-600">Threshold</label>
                   <div className="flex flex-wrap gap-1.5">
                     {THRESHOLD_PILLS.map((pill) => (
                       <button
                         type="button"
                         key={pill}
                         onClick={() => setNewRuleForm({ ...newRuleForm, threshold: pill })}
-                        className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all cursor-pointer ${
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
                           newRuleForm.threshold === pill
                             ? 'bg-slate-900 text-white border-slate-900'
                             : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
@@ -1042,76 +966,63 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                       </button>
                     ))}
                   </div>
-                  <input
-                    type="text"
-                    required
-                    value={newRuleForm.threshold}
-                    onChange={(e) => setNewRuleForm({ ...newRuleForm, threshold: e.target.value })}
-                    placeholder="Or type custom duration..."
-                    className="mt-1.5 w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:border-amber-500 focus:outline-none"
-                  />
                 </div>
               </div>
 
-              {/* Step 3: Simple THEN Actions */}
-              <div className="p-4 rounded-xl bg-emerald-50/50 border border-emerald-200/80 space-y-3">
-                <div className="text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 inline-flex items-center justify-center text-[10px] font-bold">3</span>
-                  <span>THEN What Actions Should Run?</span>
+              {/* THEN Actions */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                <div className="text-[11px] font-semibold text-slate-800 uppercase tracking-wider">
+                  Then Actions
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {Object.values(ACTION_OPTION_MAP).map((opt) => {
-                    const checked = newRuleForm.selectedActions.includes(opt.id);
+                  {ACTION_OPTIONS.map(({ id, label, Icon }) => {
+                    const checked = newRuleForm.selectedActions.includes(id);
                     return (
                       <label
-                        key={opt.id}
-                        className={`p-2.5 rounded-lg border flex items-center gap-2 cursor-pointer transition-all ${
+                        key={id}
+                        className={`p-2.5 rounded-lg border flex items-center gap-2 cursor-pointer transition-colors ${
                           checked
-                            ? 'bg-white border-emerald-400 shadow-2xs text-slate-900'
+                            ? 'bg-white border-brand-500 text-slate-900'
                             : 'bg-white/60 border-slate-200 text-slate-600 hover:bg-white'
                         }`}
                       >
                         <input
                           type="checkbox"
                           checked={checked}
-                          onChange={() => toggleActionCheckbox(opt.id)}
-                          className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                          onChange={() => toggleActionCheckbox(id)}
+                          className="rounded border-slate-300 text-brand-600 cursor-pointer"
                         />
-                        <i className={`${opt.pill.icon} text-xs text-emerald-600`}></i>
-                        <span className="text-[11px] font-semibold">{opt.label}</span>
+                        <Icon className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                        <span className="text-[11px] font-medium">{label}</span>
                       </label>
                     );
                   })}
                 </div>
 
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Action Summary</label>
-                  <textarea
-                    required
-                    rows={2}
-                    value={newRuleForm.thenSummary}
-                    onChange={(e) => setNewRuleForm({ ...newRuleForm, thenSummary: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
+                <textarea
+                  required
+                  rows={2}
+                  value={newRuleForm.thenSummary}
+                  onChange={(e) => setNewRuleForm({ ...newRuleForm, thenSummary: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none"
+                />
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+              <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-3.5 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 font-semibold rounded-lg text-xs transition-colors cursor-pointer"
+                  className="px-3.5 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium rounded-lg text-xs transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingRule}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-semibold rounded-lg text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-semibold rounded-lg text-xs transition-colors cursor-pointer"
                 >
-                  <i className={`fa-solid ${isSubmittingRule ? 'fa-spinner fa-spin' : 'fa-bolt'} text-[10px]`}></i>
-                  <span>{isSubmittingRule ? 'Deploying...' : 'Deploy Automation'}</span>
+                  {isSubmittingRule ? 'Saving...' : editingRuleId ? 'Save Changes' : 'Create Rule'}
                 </button>
               </div>
             </form>
