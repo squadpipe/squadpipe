@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Requirement, Client, User } from '../../../types';
 import { DynamicCustomFieldsSection, useMasterTaxonomies } from '../../shared/DynamicCustomFieldsSection';
 import { formatRateDisplay, useCurrency } from '../../../utils/currency';
+import { SearchableSelectInput } from '../../shared/SearchableSelectInput';
 
 interface AddRequirementModalProps {
   isOpen: boolean;
@@ -127,12 +128,12 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
               </div>
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Client Company *</label>
-                <input
-                  list="req-client-companies-list"
+                <SearchableSelectInput
                   value={form.companyName}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    const selClient = clients.find((c) => c.name === val);
+                  onChange={(val) => {
+                    const selClient = clients.find(
+                      (c) => c.name.trim().toLowerCase() === val.trim().toLowerCase()
+                    );
                     setForm({
                       ...form,
                       companyName: val,
@@ -140,15 +141,16 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
                       clientContactTitle: selClient?.contacts[0]?.designation || form.clientContactTitle,
                     });
                   }}
+                  options={clients.map((c) => ({
+                    id: c.id,
+                    label: c.name.replace(/\s+Location:\s*.*$/i, '').trim(),
+                    sublabel: c.location,
+                  }))}
                   placeholder="Select or type client company name..."
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600 focus:outline-none"
                   required
+                  wrapperClassName=""
+                  inputClassName="w-full pl-3 pr-7 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600 focus:outline-none"
                 />
-                <datalist id="req-client-companies-list">
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.name} />
-                  ))}
-                </datalist>
               </div>
             </div>
 

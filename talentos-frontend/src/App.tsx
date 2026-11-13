@@ -97,6 +97,14 @@ const formatUserStatus = (status?: string): User['status'] => {
   return (status && map[status]) || (status as User['status']) || 'Active';
 };
 
+const safeIsoDate = (val: any, fallback = ''): string => {
+  if (!val || (typeof val !== 'string' && typeof val !== 'number' && !(val instanceof Date))) {
+    return fallback;
+  }
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? fallback : d.toISOString().split('T')[0];
+};
+
 const normalizePlacement = (p: any): BillablePlacement => {
   const depRaw = String(p.deployment || 'Onshore').toUpperCase();
   const deployment =
@@ -178,8 +186,8 @@ const normalizePlacement = (p: any): BillablePlacement => {
     phone: p.phone || p.candidate?.phone || '',
     email: p.email || p.candidate?.email || '',
     skillRole: p.skillRole || '',
-    startDate: p.startDate ? new Date(p.startDate).toISOString().split('T')[0] : '',
-    endDate: p.endDate ? new Date(p.endDate).toISOString().split('T')[0] : '',
+    startDate: safeIsoDate(p.startDate),
+    endDate: safeIsoDate(p.endDate),
     billing,
     payRate,
     placementType,
@@ -378,7 +386,7 @@ export const App: React.FC = () => {
             (typeof r.assignedRecruiter === 'string' ? r.assignedRecruiter : ''),
           targetBillRate: r.targetBillRate,
           targetPayRate: r.targetPayRate,
-          createdAt: r.createdAt,
+          createdAt: safeIsoDate(r.createdAt, new Date().toISOString().split('T')[0]),
         }));
         setRequirements(mapped);
         setSidebarCounts((prev) => ({ ...prev, requirements: mapped.length }));
@@ -1005,7 +1013,8 @@ export const App: React.FC = () => {
     placement: BillablePlacement,
     extensionData?: { newEndDate: string; billing?: string; payRate?: string; purchaseOrderNumber?: string }
   ) => {
-    const currentEnd = placement.endDate ? new Date(placement.endDate) : new Date();
+    const parsedEnd = placement.endDate ? new Date(placement.endDate) : new Date();
+    const currentEnd = isNaN(parsedEnd.getTime()) ? new Date() : parsedEnd;
     currentEnd.setFullYear(currentEnd.getFullYear() + 1);
     const newEnd = extensionData?.newEndDate || currentEnd.toISOString().split('T')[0];
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DollarSign, Lock, X, UserCheck } from 'lucide-react';
 import { BillablePlacement, Requirement, Candidate, Vendor } from '../../types';
 import { useCurrency } from '../../utils/currency';
+import { SearchableSelectInput } from '../../components/shared/SearchableSelectInput';
 
 interface PlacementWizardModalProps {
   isOpen: boolean;
@@ -311,19 +312,18 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
             {formData.placementType === 'C2C Subcontractor' && (
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Sub-Vendor Partner</label>
-                <input
-                  list="wizard-vendors-list"
-                  type="text"
+                <SearchableSelectInput
                   value={formData.vendorName}
-                  onChange={(e) => setFormData({ ...formData, vendorName: e.target.value })}
+                  onChange={(val) => setFormData({ ...formData, vendorName: val })}
+                  options={vendors.map((v) => ({
+                    id: v.id,
+                    label: v.name,
+                    sublabel: v.location,
+                  }))}
                   placeholder="Select or type sub-vendor..."
-                  className="mt-1 w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800"
+                  wrapperClassName="mt-1"
+                  inputClassName="w-full pl-3 pr-7 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 focus:border-brand-600 focus:outline-none"
                 />
-                <datalist id="wizard-vendors-list">
-                  {vendors.map((v) => (
-                    <option key={v.id} value={v.name} />
-                  ))}
-                </datalist>
               </div>
             )}
             <div className={formData.placementType === 'C2C Subcontractor' ? '' : 'md:col-span-2'}>

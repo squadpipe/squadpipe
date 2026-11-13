@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { apiClient } from '../../config/api.config';
 import { Requirement, Client, User } from '../../types';
 import { useCurrency } from '../../utils/currency';
+import { SearchableSelectInput } from '../../components/shared/SearchableSelectInput';
 
 const cleanField = (val?: any) =>
   String(val || '')
@@ -338,19 +339,34 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase">Target Company *</label>
-                  <input
-                    type="text"
-                    list="email-parser-clients"
+                  <SearchableSelectInput
                     value={extractedReq.companyName}
-                    onChange={(e) => setExtractedReq({ ...extractedReq, companyName: e.target.value })}
+                    onChange={(val) => {
+                      const selClient = clients.find(
+                        (c) => c.name.trim().toLowerCase() === val.trim().toLowerCase()
+                      );
+                      setExtractedReq((prev) => ({
+                        ...prev,
+                        companyName: val,
+                        clientContact:
+                          prev.clientContact || selClient?.contacts?.[0]?.name || '',
+                        clientContactTitle:
+                          prev.clientContactTitle || selClient?.contacts?.[0]?.designation || '',
+                        location:
+                          (!prev.location || prev.location === 'Remote') && selClient?.location
+                            ? selClient.location
+                            : prev.location,
+                      }));
+                    }}
+                    options={clients.map((c) => ({
+                      id: c.id,
+                      label: c.name.replace(/\s+Location:\s*.*$/i, '').trim(),
+                      sublabel: c.location,
+                    }))}
                     placeholder="Select or type client company..."
-                    className="mt-0.5 w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 font-bold focus:border-brand-600 focus:outline-none"
+                    emptyLabel="No saved clients — type company name"
+                    inputClassName="w-full pl-2.5 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 font-bold focus:border-brand-600 focus:outline-none"
                   />
-                  <datalist id="email-parser-clients">
-                    {clients.map((c) => (
-                      <option key={c.id} value={c.name} />
-                    ))}
-                  </datalist>
                 </div>
 
                 <div>
@@ -452,19 +468,18 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase">Assigned Recruiter</label>
-                  <input
-                    type="text"
-                    list="email-parser-recruiters"
+                  <SearchableSelectInput
                     value={extractedReq.assignedRecruiter}
-                    onChange={(e) => setExtractedReq({ ...extractedReq, assignedRecruiter: e.target.value })}
+                    onChange={(val) => setExtractedReq({ ...extractedReq, assignedRecruiter: val })}
+                    options={users.map((u) => ({
+                      id: u.id,
+                      label: u.name,
+                      sublabel: u.desk || u.role,
+                    }))}
                     placeholder="Desk Owner"
-                    className="mt-0.5 w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 focus:border-brand-600 focus:outline-none"
+                    emptyLabel="No recruiters found"
+                    inputClassName="w-full pl-2.5 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 focus:border-brand-600 focus:outline-none"
                   />
-                  <datalist id="email-parser-recruiters">
-                    {users.map((u) => (
-                      <option key={u.id} value={u.name} />
-                    ))}
-                  </datalist>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase">Initial Stage</label>

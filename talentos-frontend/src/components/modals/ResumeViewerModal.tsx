@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Candidate, Requirement } from '../../types';
 import { useCurrency } from '../../utils/currency';
+import { generateCandidateResumePdf } from '../../utils/pdfGenerator';
 
 interface ResumeViewerModalProps {
   isOpen: boolean;
@@ -24,38 +25,20 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
 
   if (!isOpen || !candidate) return null;
 
-  const downloadMockResume = () => {
-    const content = [
-      `CANDIDATE RESUME DOSSIER — ${candidate.fullName}`,
-      `============================================================`,
-      `Title:              ${candidate.currentTitle}`,
-      `Email:              ${candidate.email}`,
-      `Phone:              ${candidate.phone}`,
-      `Work Authorization: ${candidate.workAuth}`,
-      `Target Rate:        ${formatRate(candidate.hourlyRate)}`,
-      `Relocation:         ${candidate.relocation}`,
-      `Education:          ${candidate.education || 'Verified Degree'}`,
-      `Key Skillset:       ${candidate.skillset}`,
-      ``,
-      `PARSED RESUME CONTENT / SUMMARY:`,
-      `------------------------------------------------------------`,
-      candidate.rawSnippet ||
-        `Results-driven ${candidate.currentTitle} with verified expertise in ${candidate.skillset}.`,
-    ].join('\n');
-
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const downloadFormattedResumePdf = () => {
+    const blob = generateCandidateResumePdf(candidate, formatRate(candidate.hourlyRate));
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${candidate.fullName.replace(/\s+/g, '_')}_Resume_Dossier.txt`;
+    link.download = `${(candidate.fullName || 'Consultant').replace(/\s+/g, '_')}_Resume_Profile.pdf`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
     showToast(
-      'Resume Downloaded',
-      `Exported unbranded dossier for ${candidate.fullName}`,
+      'PDF Downloaded',
+      `Exported formatted PDF profile for ${candidate.fullName}`,
       'fa-solid fa-file-arrow-down text-emerald-500'
     );
   };
@@ -80,27 +63,27 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
         {/* Obsidian Modal Header */}
         <div className="px-6 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-rose-600 flex items-center justify-center text-xs shadow-xs">
-              <i className="fa-solid fa-file-pdf"></i>
+            <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-xs shadow-xs">
+              <i className="fa-solid fa-file-lines"></i>
             </div>
             <div>
-              <div className="text-xs font-bold leading-tight">{candidate.resumeName || `${candidate.fullName}_Resume.pdf`}</div>
+              <div className="text-xs font-bold leading-tight">{candidate.fullName} &mdash; Extracted Resume Profile</div>
               <div className="text-[10px] text-slate-400">
-                {candidate.fullName} &bull; {candidate.workAuth} &bull; {candidate.currentTitle}
+                {candidate.workAuth} &bull; {candidate.currentTitle}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={downloadMockResume}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 flex items-center gap-1.5 transition-colors"
+              onClick={downloadFormattedResumePdf}
+              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <i className="fa-solid fa-download text-[10px]"></i>
-              <span>Download</span>
+              <span>Download PDF</span>
             </button>
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center transition-colors"
+              className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center transition-colors cursor-pointer"
             >
               <i className="fa-solid fa-xmark"></i>
             </button>
@@ -164,7 +147,7 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
                     </div>
                     <div className="text-[11px] text-slate-600 italic">Enterprise Staffing & Consulting</div>
                     <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
-                      Specializing in {candidate.skillset}. Full unbranded resume file ({candidate.resumeName || 'Resume.pdf'}) attached on candidate record.
+                      Specializing in {candidate.skillset}. Structured extracted resume profile ready for client submission or formatted PDF export.
                     </p>
                   </div>
                 </div>

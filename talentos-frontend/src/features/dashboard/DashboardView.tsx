@@ -315,9 +315,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       : String(req.clientContactTitle || '');
 
                   const rawDate = (req as any).createdAt;
-                  const dateStr = rawDate
-                    ? new Date(rawDate).toISOString().split('T')[0]
-                    : new Date().toISOString().split('T')[0];
+                  const parsedDate =
+                    rawDate && (typeof rawDate === 'string' || typeof rawDate === 'number' || rawDate instanceof Date)
+                      ? new Date(rawDate)
+                      : null;
+                  const dateStr =
+                    parsedDate && !isNaN(parsedDate.getTime())
+                      ? parsedDate.toISOString().split('T')[0]
+                      : new Date().toISOString().split('T')[0];
 
                   return (
                     <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">

@@ -192,16 +192,29 @@ router.post('/parse-email', async (req: Request, res: Response) => {
   const extractEmailHeuristics = (rawText: string) => {
     const text = rawText.replace(/\*\*/g, '').replace(/__/g, '');
     const lines = text.split(/\r?\n/).map((l) => cleanField(l));
+    const cleanCompany = (val?: string) =>
+      cleanField(val)
+        .replace(/\s+(?:Location|Position|Job\s*Title|Role|Work\s*Model)\s*:[\s\S]*$/i, '')
+        .replace(/[.,;]+$/, '')
+        .trim();
+
     const companyLine = text.match(/(?:Target\s*Company|Company(?:\s*Name)?|Client(?:\s*Company)?|Organization)\s*:\s*([^\n\r]+)/i);
-    const atCompany = text.match(/\bat\s+([A-Z][A-Za-z0-9&\s.-]{1,40}?)(?:\s*\(|,|\s+for\b|\s+in\b|\.|\n|$)/);
+    const managerFromCompany = text.match(/(?:hiring\s*manager|contact)\s+is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+(?:from|at|with)\s+([A-Z][A-Za-z0-9&\s.-]{1,50}?)(?:\.|,|\n|$)/i);
+    const atCompany = text.match(/(?:\bat|\bfrom)\s+([A-Z][A-Za-z0-9&\s.-]{1,40}?)(?:\s*\(|,|\s+for\b|\s+in\b|\s+is\b|\s+He\b|\s+She\b|\.|\n|$)/);
     const contactLine = text.match(/(?:From|Hiring\s*Manager|Contact(?:\s*Name)?)\s*:\s*([^<\n\r]+?)(?:<|$)/i);
     const emailMatch = text.match(/<([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})>/) || text.match(/\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/);
     const subjectLine = text.match(/Subject:\s*(?:Urgent:|Contract:|Open Req:|Requisition:)?\s*([^\n\r]+)/i);
     const jobTitleLine = text.match(/(?:Job\s*Title|Position(?:\s*Title)?|Opportunity(?:\s*Title)?|Role(?:\s*Title)?|Opening)\s*:\s*([^\n\r]+)/i);
+    const conversationalRole = text.match(/(?:join\s+(?:their|our|the)\s+team\s+as\s+(?:a|an)\s+|looking\s+for\s+(?:a|an)\s+|seeking\s+(?:a|an)\s+|hiring\s+(?:a|an)\s+)([A-Za-z][A-Za-z0-9\s/&+-]{2,50}?)(?:\.|,|\n|\s+(?:in|at|with|who)\b|$)/i);
     const forRole = text.match(/(?:for|seeking|hiring)\s+(?:a|an)\s+([A-Z][A-Za-z0-9\s/&+-]{3,60}?)(?:\s+at\b|\s+for\b|\s+in\b|\.|\n|$)/i);
     const locationLine = text.match(/(?:Work\s*Location|Location)\s*:\s*([^\n\r]+)/i);
+    const basedInLocation = text.match(/(?:based\s+in|located\s+in)\s+([A-Z][A-Za-z.\s,]{2,40}?)(?:\s+but\b|\s+and\b|\.|,|\n|$)/i);
     const cityState = text.match(/\b([A-Z][a-zA-Z\s]{2,25},\s*[A-Z]{2}(?:\s*\([^)\n]+\))?)/);
     const contactTitleLine = text.match(/(?:Contact\s*Title|Designation|Hiring\s*Manager\s*Title|(?:^|\n)\s*Title)\s*:\s*([^\n\r]+)/i);
+    const sentenceContactTitle = text.match(/(?:He|She|They)\s+(?:is|are)\s+(?:the|a|an)\s+([A-Za-z][A-Za-z\s/&,-]{2,50}?)(?:\.|,|\n|$)/i);
+
+    const toTitleCase = (s: string) =>
+      s.replace(/\b([a-z])([a-z]*)/g, (_, a, b) => a.toUpperCase() + b);
 
     // Signature extraction (Best regards / Thanks / Sincerely)
     let sigName = '';
@@ -215,9 +228,13 @@ router.post('/parse-email', async (req: Request, res: Response) => {
       if (afterSig[2] && !/@|\d{3}[-.\s]\d{3}/.test(afterSig[2])) sigCompany = afterSig[2];
     }
 
-    const billRateMatch = text.match(/(?:max(?:imum)?\s*bill\s*rate|bill\s*rate|target\s*rate|rate)[^$\d\n\r]{0,20}\$?(\d{2,3})\s*(?:\/hr|per\s*hour|hr\b|hourly)?/i)
+    const billRangeMatch = text.match(/(?:budget|bill(?:ing)?(?:\s*rate)?)[^.\n\r]{0,35}\$\d{2,3}\s*(?:to|-|–)\s*\$?(\d{2,3})/i);
+    const billRateMatch = billRangeMatch
+      || text.match(/(?:max(?:imum)?\s*bill\s*rate|bill\s*rate|target\s*rate|budget)[^$\d\n\r]{0,30}\$?(\d{2,3})\s*(?:\/hr|per\s*hour|hr\b|hourly)?/i)
       || text.match(/\$(\d{2,3})\s*(?:\/hr|per\s*hour|hr\b|hourly)/i);
-    const payRateMatch = text.match(/(?:candidate\s*pay\s*rate|pay\s*rate|w2\s*rate|c2c\s*rate)[^$\d\n\r]{0,20}\$?(\d{2,3})/i);
+    const payRangeMatch = text.match(/(?:pay(?:\s+(?:the\s+\w+\s+)*candidate)?|pay\s*rate|w2\s*rate|c2c\s*rate)[^.\n\r]{0,40}\$\d{2,3}\s*(?:to|-|–)\s*\$?(\d{2,3})/i);
+    const payRateMatch = payRangeMatch
+      || text.match(/(?:candidate\s*pay\s*rate|pay\s*rate|w2\s*rate|c2c\s*rate|pay[^.\n\r]{0,20})[^$\d\n\r]{0,20}\$(\d{2,3})/i);
 
     const parsedBillRate = billRateMatch ? parseInt(billRateMatch[1], 10) : 0;
     const parsedPayRate = payRateMatch
@@ -229,10 +246,11 @@ router.post('/parse-email', async (req: Request, res: Response) => {
     let workModel: 'Remote' | 'Hybrid' | 'Onsite' = 'Remote';
     if (/\bhybrid\b/i.test(text)) workModel = 'Hybrid';
     else if (/\bonsite\b|\bon-site\b|\bin[- ]office\b/i.test(text)) workModel = 'Onsite';
+    else if (/\bbased in\b/i.test(text) && !/\bremote\b/i.test(text)) workModel = 'Onsite';
 
     const commonSkills = [
       'Java', 'Spring Boot', 'Kafka', 'AWS', 'Kubernetes', 'Docker', 'Python', 'React', 'TypeScript',
-      'Node.js', 'Snowflake', 'PySpark', 'Databricks', 'Terraform', 'Splunk', 'EDR', 'SIEM', 'SQL', 'Angular',
+      'Node.js', 'Express', 'MongoDB', 'Snowflake', 'PySpark', 'Databricks', 'Terraform', 'Splunk', 'EDR', 'SIEM', 'SQL', 'Angular',
       'Go', 'Azure', 'GCP', 'dbt', 'Airflow', 'Microservices', 'PostgreSQL', 'GraphQL', 'REST API'
     ];
     const matchedSkills = commonSkills.filter((skill) =>
@@ -244,13 +262,27 @@ router.post('/parse-email', async (req: Request, res: Response) => {
     if (!parsedBillRate) missingParts.push('target bill rate');
     if (!payRateMatch) missingParts.push('explicit pay rate');
 
+    const rawOppTitle = cleanField(
+      jobTitleLine?.[1]
+      || subjectLine?.[1]
+      || (conversationalRole?.[1] ? toTitleCase(conversationalRole[1].trim()) : '')
+      || forRole?.[1]
+    );
+
+    const rawLocation = cleanField(
+      locationLine?.[1]
+      || (basedInLocation?.[1] ? (/\bremote\b/i.test(text) ? `${basedInLocation[1].trim()} / Remote` : basedInLocation[1].trim()) : '')
+      || cityState?.[1]
+      || (workModel === 'Remote' ? 'Remote' : workModel)
+    );
+
     return {
-      companyName: cleanField(companyLine?.[1] || sigCompany || atCompany?.[1]),
-      opportunityTitle: cleanField(jobTitleLine?.[1] || subjectLine?.[1] || forRole?.[1]),
-      clientContact: cleanField(contactLine?.[1] || sigName),
+      companyName: cleanCompany(companyLine?.[1] || managerFromCompany?.[2] || sigCompany || atCompany?.[1]),
+      opportunityTitle: rawOppTitle,
+      clientContact: cleanField(contactLine?.[1] || managerFromCompany?.[1] || sigName),
       clientContactEmail: cleanField(emailMatch?.[1]),
-      clientContactTitle: cleanField(contactTitleLine?.[1] || sigTitle),
-      location: cleanField(locationLine?.[1] || cityState?.[1] || (workModel === 'Remote' ? 'Remote' : workModel)),
+      clientContactTitle: cleanField(contactTitleLine?.[1] || sentenceContactTitle?.[1] || sigTitle),
+      location: rawLocation,
       workModel,
       targetBillRate: parsedBillRate,
       targetPayRate: parsedPayRate,
@@ -276,11 +308,14 @@ router.post('/parse-email', async (req: Request, res: Response) => {
       parsed.payRate || parsed.targetPayRate || fallback.targetPayRate || (billRate > 0 ? Math.round(billRate * 0.75) : 0)
     );
 
+    const parsedCompany = cleanField(parsed.companyName || parsed.clientName)
+      .replace(/\s+(?:Location|Position|Job\s*Title|Role|Work\s*Model)\s*:[\s\S]*$/i, '')
+      .trim();
     const parsedLocation = cleanField(parsed.location);
     const enriched = {
       ...parsed,
-      companyName: cleanField(parsed.companyName || parsed.clientName) || fallback.companyName,
-      opportunityTitle: cleanField(parsed.opportunityTitle || parsed.jobTitle) || fallback.opportunityTitle,
+      companyName: (parsedCompany && parsedCompany !== 'Not Specified' ? parsedCompany : '') || fallback.companyName,
+      opportunityTitle: (cleanField(parsed.opportunityTitle || parsed.jobTitle) || fallback.opportunityTitle),
       clientContact: cleanField(parsed.clientContact || parsed.contactName) || fallback.clientContact,
       clientContactEmail: cleanField(parsed.clientContactEmail) || fallback.clientContactEmail,
       clientContactTitle: cleanField(parsed.clientContactTitle || parsed.contactTitle) || fallback.clientContactTitle,

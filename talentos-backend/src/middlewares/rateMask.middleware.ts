@@ -3,11 +3,20 @@ import { Request, Response, NextFunction } from 'express';
 export const maskFinancialRecord = (record: any): any => {
   if (!record || typeof record !== 'object') return record;
 
+  if (record instanceof Date) {
+    return isNaN(record.getTime()) ? null : record.toISOString();
+  }
+
   if (Array.isArray(record)) {
     return record.map(maskFinancialRecord);
   }
 
-  const masked = { ...record };
+  // Preserve custom class instances (such as Prisma Decimal) via toJSON()
+  if (record.constructor && record.constructor.name !== 'Object' && typeof record.toJSON === 'function') {
+    return record.toJSON();
+  }
+
+  const masked: Record<string, any> = { ...record };
 
   if ('hourlyRateW2' in masked) masked.hourlyRateW2 = null;
   if ('hourlyRateC2c' in masked) masked.hourlyRateC2c = null;
@@ -15,14 +24,20 @@ export const maskFinancialRecord = (record: any): any => {
   if ('hourlyRate' in masked) masked.hourlyRate = '••••••';
   if ('billRate' in masked) masked.billRate = 0;
   if ('payRate' in masked) masked.payRate = 0;
+  if ('targetBillRate' in masked) masked.targetBillRate = 0;
+  if ('targetPayRate' in masked) masked.targetPayRate = 0;
+  if ('maxBillRate' in masked) masked.maxBillRate = 0;
   if ('hourlySpread' in masked) masked.hourlySpread = 0;
   if ('marginPct' in masked) masked.marginPct = 0;
   if ('billing' in masked) masked.billing = '••••••';
 
   // Recursively process nested relations
   for (const key of Object.keys(masked)) {
-    if (typeof masked[key] === 'object' && masked[key] !== null) {
-      masked[key] = maskFinancialRecord(masked[key]);
+    const val = masked[key];
+    if (val instanceof Date) {
+      masked[key] = isNaN(val.getTime()) ? null : val.toISOString();
+    } else if (typeof val === 'object' && val !== null) {
+      masked[key] = maskFinancialRecord(val);
     }
   }
 

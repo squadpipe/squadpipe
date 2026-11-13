@@ -3,6 +3,7 @@ import { DollarSign, X, Check, UserCheck, Briefcase, TrendingUp } from 'lucide-r
 import { BillablePlacement, Candidate, Client, Requirement, User, Vendor } from '../../../types';
 import { DynamicCustomFieldsSection } from '../../shared/DynamicCustomFieldsSection';
 import { useCurrency } from '../../../utils/currency';
+import { SearchableSelectInput } from '../../shared/SearchableSelectInput';
 
 interface AddPlacementModalProps {
   isOpen: boolean;
@@ -311,27 +312,28 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
               </div>
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Client Customer Company *</label>
-                <input
-                  list="placement-clients-list"
+                <SearchableSelectInput
                   value={form.customer}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    const selClient = clients.find((c) => c.name === val);
+                  onChange={(val) => {
+                    const selClient = clients.find(
+                      (c) => c.name.trim().toLowerCase() === val.trim().toLowerCase()
+                    );
                     setForm({
                       ...form,
                       customer: val,
                       customerContact: selClient?.contacts[0]?.name || form.customerContact,
                     });
                   }}
+                  options={clients.map((c) => ({
+                    id: c.id,
+                    label: c.name.replace(/\s+Location:\s*.*$/i, '').trim(),
+                    sublabel: c.location,
+                  }))}
                   placeholder="Select or type client company name..."
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-semibold focus:border-brand-600 focus:outline-none"
                   required
+                  wrapperClassName=""
+                  inputClassName="w-full pl-3 pr-7 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-semibold focus:border-brand-600 focus:outline-none"
                 />
-                <datalist id="placement-clients-list">
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.name} />
-                  ))}
-                </datalist>
               </div>
             </div>
 
@@ -428,18 +430,18 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
               {form.placementType === 'C2C Subcontractor' && (
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Sub-Vendor Partner</label>
-                  <input
-                    list="placement-vendors-list"
+                  <SearchableSelectInput
                     value={form.vendorName}
-                    onChange={(e) => setForm({ ...form, vendorName: e.target.value })}
+                    onChange={(val) => setForm({ ...form, vendorName: val })}
+                    options={vendors.map((v) => ({
+                      id: v.id,
+                      label: v.name,
+                      sublabel: v.location,
+                    }))}
                     placeholder="Select or type sub-vendor..."
-                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600 focus:outline-none"
+                    wrapperClassName=""
+                    inputClassName="w-full pl-3 pr-7 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600 focus:outline-none"
                   />
-                  <datalist id="placement-vendors-list">
-                    {vendors.map((v) => (
-                      <option key={v.id} value={v.name} />
-                    ))}
-                  </datalist>
                 </div>
               )}
               <div>
