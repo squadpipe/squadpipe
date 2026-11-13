@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { apiClient } from '../../config/api.config';
 import { Requirement, Client, User } from '../../types';
+import { useCurrency } from '../../utils/currency';
 
 interface EmailParserModalProps {
   isOpen: boolean;
@@ -35,6 +36,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
   onApprove,
   showToast,
 }) => {
+  const { symbol: currencySymbol } = useCurrency();
   const [isParsing, setIsParsing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [rawEmailText, setRawEmailText] = useState<string>('');
@@ -286,7 +288,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                 </div>
                 {marginSpread > 0 && (
                   <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold">
-                    Est. Spread: +${marginSpread}/hr
+                    Est. Spread: +{currencySymbol}{marginSpread}/hr
                   </span>
                 )}
               </div>
@@ -378,7 +380,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">Bill Rate ($/hr)</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Bill Rate ({currencySymbol}/hr)</label>
                   <input
                     type="number"
                     min={0}
@@ -396,7 +398,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">Pay Rate ($/hr)</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Pay Rate ({currencySymbol}/hr)</label>
                   <input
                     type="number"
                     min={0}

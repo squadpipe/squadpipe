@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Candidate, Requirement } from '../../types';
+import { useCurrency } from '../../utils/currency';
 
 interface ResumeViewerModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
   onSubmitToReq,
   showToast,
 }) => {
+  const { formatRate } = useCurrency();
   const [showQuickSubmitDropdown, setShowQuickSubmitDropdown] = useState(false);
 
   if (!isOpen || !candidate) return null;
@@ -30,7 +32,7 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
       `Email:              ${candidate.email}`,
       `Phone:              ${candidate.phone}`,
       `Work Authorization: ${candidate.workAuth}`,
-      `Target Rate:        ${candidate.hourlyRate}`,
+      `Target Rate:        ${formatRate(candidate.hourlyRate)}`,
       `Relocation:         ${candidate.relocation}`,
       `Education:          ${candidate.education || 'Verified Degree'}`,
       `Key Skillset:       ${candidate.skillset}`,

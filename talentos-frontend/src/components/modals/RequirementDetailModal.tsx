@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Pencil } from 'lucide-react';
 import { Requirement, Candidate } from '../../types';
+import { useCurrency } from '../../utils/currency';
 
 interface RequirementDetailModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
   onOpenPlacementWizard,
   onUpdateReq,
 }) => {
+  const { formatRate } = useCurrency();
   const [showBenchPicker, setShowBenchPicker] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Requirement | null>(requirement);
@@ -324,7 +326,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                           <span className="text-[9px] font-normal text-slate-400">({con.workAuth})</span>
                         </div>
                         <div className="text-[10px] text-slate-500 mt-0.5">
-                          {con.currentTitle} &bull; {con.hourlyRate}
+                          {con.currentTitle} &bull; {formatRate(con.hourlyRate)}
                         </div>
                       </div>
                       <button className="px-2.5 py-1 rounded bg-brand-600 text-white text-[10px] font-semibold group-hover:bg-brand-700 transition-colors shadow-2xs">

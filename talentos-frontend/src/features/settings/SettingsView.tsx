@@ -16,6 +16,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
+import { CURRENCY_OPTIONS, setWorkspaceCurrency } from '../../utils/currency';
 
 interface GeneralSettings {
   agencyName: string;
@@ -124,7 +125,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       .then((res) => {
         if (!active) return;
         const data = res.data?.data;
-        if (data?.general) setGeneral({ ...DEFAULT_GENERAL, ...data.general });
+        if (data?.general) {
+          setGeneral({ ...DEFAULT_GENERAL, ...data.general });
+          if (data.general.currency) setWorkspaceCurrency(data.general.currency);
+        }
         if (data?.smtp) setSmtp({ ...DEFAULT_SMTP, ...data.smtp });
         if (Array.isArray(data?.emailLogs)) setEmailLogs(data.emailLogs);
       })
@@ -148,7 +152,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setSavingGeneral(true);
     try {
       const res = await apiClient.put('/settings/general', general);
-      if (res.data?.data) setGeneral(res.data.data);
+      if (res.data?.data) {
+        setGeneral(res.data.data);
+        setWorkspaceCurrency(res.data.data.currency || general.currency);
+      } else {
+        setWorkspaceCurrency(general.currency);
+      }
       showToast('Settings Saved', 'General organization settings updated.', 'fa-solid fa-circle-check text-emerald-500');
     } catch (err: any) {
       showToast('Save Failed', err.response?.data?.message || err.message || 'Could not update general settings.', 'fa-solid fa-triangle-exclamation text-rose-500');
@@ -376,10 +385,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       onChange={(e) => setGeneral({ ...general, currency: e.target.value })}
                       className="w-full py-2 border border-slate-200 rounded-lg text-xs text-slate-800 bg-white"
                     >
-                      <option value="USD ($)">USD ($)</option>
-                      <option value="CAD ($)">CAD ($)</option>
-                      <option value="GBP (£)">GBP (£)</option>
-                      <option value="EUR (€)">EUR (€)</option>
+                      {CURRENCY_OPTIONS.map((curr) => (
+                        <option key={curr} value={curr}>
+                          {curr}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>

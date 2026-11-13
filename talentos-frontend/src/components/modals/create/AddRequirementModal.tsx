@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Requirement, Client, User } from '../../../types';
 import { DynamicCustomFieldsSection, useMasterTaxonomies } from '../../shared/DynamicCustomFieldsSection';
+import { formatRateDisplay, useCurrency } from '../../../utils/currency';
 
 interface AddRequirementModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
   users = [],
   showToast,
 }) => {
+  const { symbol: currencySymbol } = useCurrency();
   const taxonomies = useMasterTaxonomies(isOpen);
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
@@ -27,12 +29,19 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
     clientContact: clients[0]?.contacts[0]?.name || '',
     clientContactTitle: clients[0]?.contacts[0]?.designation || '',
     location: 'Remote',
-    targetRate: '$115/hr',
+    targetRate: `${currencySymbol}115/hr`,
     skillsRequired: '',
     assignedRecruiter: users[0]?.name || '',
     status: 'Requirement' as Requirement['status'],
     remarks: '',
   });
+
+  useEffect(() => {
+    setForm((prev) => ({
+      ...prev,
+      targetRate: prev.targetRate ? formatRateDisplay(prev.targetRate, currencySymbol) : `${currencySymbol}115/hr`,
+    }));
+  }, [currencySymbol, isOpen]);
 
   if (!isOpen) return null;
 
@@ -179,7 +188,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
                 <input
                   value={form.targetRate}
                   onChange={(e) => setForm({ ...form, targetRate: e.target.value })}
-                  placeholder="e.g. $115/hr"
+                  placeholder={`e.g. ${currencySymbol}115/hr`}
                   className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs focus:border-brand-600 focus:outline-none"
                   required
                 />

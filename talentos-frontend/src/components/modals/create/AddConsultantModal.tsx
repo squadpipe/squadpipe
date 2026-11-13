@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Candidate, User } from '../../../types';
 import { DynamicCustomFieldsSection, useMasterTaxonomies } from '../../shared/DynamicCustomFieldsSection';
+import { useCurrency } from '../../../utils/currency';
 
 interface AddConsultantModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
   users = [],
   showToast,
 }) => {
+  const { symbol: currencySymbol } = useCurrency();
   const taxonomies = useMasterTaxonomies(isOpen);
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
@@ -47,7 +49,7 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
       fullName: form.fullName.trim(),
       currentTitle: form.currentTitle.trim() || 'Software Engineer',
       workAuth: form.workAuth,
-      hourlyRate: form.hourlyRate.trim() || '$95/hr (W2)',
+      hourlyRate: form.hourlyRate.trim() || `${currencySymbol}95/hr (W2)`,
       email: form.email.trim(),
       phone: form.phone.trim() || '+1 (555) 000-0000',
       relocation: form.relocation,
@@ -144,7 +146,7 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
                 <input
                   value={form.hourlyRate}
                   onChange={(e) => setForm({ ...form, hourlyRate: e.target.value })}
-                  placeholder="e.g. $95/hr (W2) or $110/hr (C2C)"
+                  placeholder={`e.g. ${currencySymbol}95/hr (W2) or ${currencySymbol}110/hr (C2C)`}
                   className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs focus:border-brand-600 focus:outline-none"
                 />
               </div>

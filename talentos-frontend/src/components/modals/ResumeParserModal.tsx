@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { apiClient } from '../../config/api.config';
 import { Candidate } from '../../types';
+import { formatRateDisplay, useCurrency } from '../../utils/currency';
 
 interface ResumeParserModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
   onSwitchToCsvImport,
   showToast,
 }) => {
+  const { symbol: currencySymbol } = useCurrency();
   const [isParsing, setIsParsing] = useState<boolean>(false);
   const [parseProgress, setParseProgress] = useState<number>(0);
   const [hasParsedFile, setHasParsedFile] = useState<boolean>(false);
@@ -73,7 +75,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
         currentTitle:
           parsed.current_title || parsed.currentTitle || 'Senior Software Engineer',
         skillset: skillsText,
-        hourlyRate: parsed.hourly_rate || parsed.hourlyRate || '$90/hr (W2)',
+        hourlyRate: parsed.hourly_rate || parsed.hourlyRate ? formatRateDisplay(parsed.hourly_rate || parsed.hourlyRate, currencySymbol) : `${currencySymbol}90/hr (W2)`,
         relocation: parsed.relocation || 'Yes',
         recruiter: 'Assigned Recruiter',
         fileName: file.name,
@@ -101,7 +103,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
         education: "Master's Degree",
         currentTitle: 'Senior IT Consultant',
         skillset: 'AWS, Python, Kubernetes, CI/CD, SQL',
-        hourlyRate: '$90/hr (W2)',
+        hourlyRate: `${currencySymbol}90/hr (W2)`,
         relocation: 'Yes',
         recruiter: 'Assigned Recruiter',
         fileName: file.name,

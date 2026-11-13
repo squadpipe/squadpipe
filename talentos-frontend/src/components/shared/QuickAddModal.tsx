@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Candidate, Requirement, Client, Vendor, BillablePlacement } from '../../types';
+import { formatRateDisplay, useCurrency } from '../../utils/currency';
 
 interface QuickAddModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
   onSavePlacement,
   showToast,
 }) => {
+  const { symbol: currencySymbol } = useCurrency();
   const [activeTab, setActiveTab] = useState<'consultant' | 'requirement' | 'client' | 'vendor' | 'placement'>('consultant');
 
   useEffect(() => {
@@ -41,7 +43,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
     education: "Master's Degree (MS/MBA)",
     currentTitle: '',
     skillset: '',
-    hourlyRate: '$90/hr (W2)',
+    hourlyRate: `${currencySymbol}90/hr (W2)`,
     relocation: 'Yes',
   });
 
@@ -90,11 +92,23 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
     skillRole: '',
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
-    billing: '$115/hr',
-    payRate: '$80/hr',
+    billing: `${currencySymbol}115/hr`,
+    payRate: `${currencySymbol}80/hr`,
     recruiter: '',
     deployment: 'Onshore',
   });
+
+  useEffect(() => {
+    setConForm((prev) => ({
+      ...prev,
+      hourlyRate: prev.hourlyRate ? formatRateDisplay(prev.hourlyRate, currencySymbol) : `${currencySymbol}90/hr (W2)`,
+    }));
+    setPlaceForm((prev) => ({
+      ...prev,
+      billing: prev.billing ? formatRateDisplay(prev.billing, currencySymbol) : `${currencySymbol}115/hr`,
+      payRate: prev.payRate ? formatRateDisplay(prev.payRate, currencySymbol) : `${currencySymbol}80/hr`,
+    }));
+  }, [currencySymbol, isOpen]);
 
   if (!isOpen) return null;
 

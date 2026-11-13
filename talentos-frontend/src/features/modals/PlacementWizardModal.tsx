@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DollarSign, Lock, X, UserCheck } from 'lucide-react';
 import { BillablePlacement, Requirement, Candidate, Vendor } from '../../types';
+import { useCurrency } from '../../utils/currency';
 
 interface PlacementWizardModalProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
   onConfirmPlacement,
   showToast,
 }) => {
+  const { symbol: currencySymbol } = useCurrency();
   const getContactStr = (c: any) => (typeof c === 'object' && c !== null ? c.fullName || c.name || '' : String(c || ''));
   const getRecruiterStr = (r: any) => (typeof r === 'object' && r !== null ? r.fullName || r.name || '' : String(r || ''));
   const parseNum = (val: any, fallback = 0) => {
@@ -139,8 +141,8 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
       skillRole: formData.skillRole,
       startDate: formData.startDate,
       endDate: formData.endDate,
-      billing: `$${bill}/hr`,
-      payRate: `$${pay}/hr`,
+      billing: `${currencySymbol}${bill}/hr`,
+      payRate: `${currencySymbol}${pay}/hr`,
       placementType: formData.placementType,
       hourlySpread: spread,
       marginPct: parseFloat(marginPct),
@@ -209,14 +211,14 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
             <div>
               <div className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Gross Profit Margin Spread</div>
               <div className="text-xl font-extrabold text-emerald-700 mt-0.5">
-                {spread >= 0 ? `+$${spread.toFixed(2)}/hr` : `-$${Math.abs(spread).toFixed(2)}/hr`}{' '}
+                {spread >= 0 ? `+${currencySymbol}${spread.toFixed(2)}/hr` : `-${currencySymbol}${Math.abs(spread).toFixed(2)}/hr`}{' '}
                 <span className="text-xs font-semibold text-emerald-600">({marginPct}%)</span>
               </div>
             </div>
             <div className="text-right">
               <div className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Est. Monthly Gross Profit</div>
               <div className="text-xl font-extrabold text-emerald-700 mt-0.5">
-                ${monthlyGrossProfit}/mo
+                {currencySymbol}{monthlyGrossProfit}/mo
               </div>
             </div>
           </div>
@@ -262,7 +264,7 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
             </div>
 
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Client Bill Rate ($/hr)</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">Client Bill Rate ({currencySymbol}/hr)</label>
               <input
                 type="number"
                 value={formData.billRate}
@@ -271,7 +273,7 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
               />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Candidate Pay Rate ($/hr)</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">Candidate Pay Rate ({currencySymbol}/hr)</label>
               <input
                 type="number"
                 value={formData.payRate}

@@ -21,6 +21,7 @@ import {
 import { apiClient } from '../../config/api.config';
 import { CustomField } from '../../types';
 import { invalidateSchemaCaches } from '../../components/shared/DynamicCustomFieldsSection';
+import { useCurrency } from '../../utils/currency';
 
 interface CustomFieldsViewProps {
   customFields?: CustomField[];
@@ -79,6 +80,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
   onAddCustomField,
   showToast,
 }) => {
+  const { symbol: currencySymbol } = useCurrency();
   const [activeSection, setActiveSection] = useState<'fields' | 'dropdowns'>('fields');
   const [scope, setScope] = useState<'all' | 'consultant' | 'requirement' | 'client' | 'vendor' | 'placement'>('all');
   const [activeTaxonomy, setActiveTaxonomy] = useState<TaxonomyKey>('workAuth');
@@ -135,7 +137,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
             name: f.name,
             entity: (f.entity || 'consultant').toLowerCase(),
             entityLabel: (f.entity || 'Consultant').charAt(0).toUpperCase() + (f.entity || 'Consultant').slice(1).toLowerCase(),
-            type: f.type === 'NUMBER' ? 'Currency ($)' : f.type === 'DROPDOWN' ? 'Dropdown' : f.type === 'DATE' ? 'Date' : 'Text',
+            type: f.type === 'NUMBER' ? `Currency (${currencySymbol})` : f.type === 'DROPDOWN' ? 'Dropdown' : f.type === 'DATE' ? 'Date' : 'Text',
             options: Array.isArray(f.options)
               ? f.options.join(', ')
               : typeof f.options === 'object' && f.options?.values
@@ -414,14 +416,16 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                         <span className="inline-flex items-center gap-1.5 font-medium">
                           {field.type === 'Dropdown' ? (
                             <ListChecks className="w-3.5 h-3.5 text-slate-400" />
-                          ) : field.type === 'Currency ($)' ? (
+                          ) : String(field.type).startsWith('Currency') ? (
                             <DollarSign className="w-3.5 h-3.5 text-slate-400" />
                           ) : field.type === 'Date' ? (
                             <Calendar className="w-3.5 h-3.5 text-slate-400" />
                           ) : (
                             <Type className="w-3.5 h-3.5 text-slate-400" />
                           )}
-                          <span>{field.type}</span>
+                          <span>
+                            {String(field.type).startsWith('Currency') ? `Currency (${currencySymbol})` : field.type}
+                          </span>
                         </span>
                       </td>
 
@@ -739,7 +743,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                   >
                     <option value="Dropdown">Dropdown (Select Option)</option>
                     <option value="Text">Text (Single Line)</option>
-                    <option value="Currency ($)">Currency ($ Amount)</option>
+                    <option value="Currency ($)">Currency ({currencySymbol} Amount)</option>
                     <option value="Date">Date (Calendar Picker)</option>
                   </select>
                 </div>
@@ -887,7 +891,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                   >
                     <option value="Dropdown">Dropdown (Select Option)</option>
                     <option value="Text">Text (Single Line)</option>
-                    <option value="Currency ($)">Currency ($ Amount)</option>
+                    <option value="Currency ($)">Currency ({currencySymbol} Amount)</option>
                     <option value="Date">Date (Calendar Picker)</option>
                   </select>
                 </div>

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { BillablePlacement } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
+import { useCurrency } from '../../utils/currency';
 
 interface ExtensionData {
   newEndDate: string;
@@ -61,6 +62,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
   onDeletePlacement,
   showToast,
 }) => {
+  const { symbol: currencySymbol, formatRate } = useCurrency();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Expiring Soon' | 'Extended' | 'Ended'>('All');
   const [modelFilter, setModelFilter] = useState<'All' | 'W2 Hourly' | 'C2C Subcontractor' | '1099' | 'Full-Time'>('All');
@@ -134,7 +136,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
   const formatSpread = (val: any) => {
     if (val === undefined || val === null || val === '') return '-';
     const n = Number(val);
-    return isNaN(n) ? '-' : `${n >= 0 ? '+' : '-'}$${Math.abs(n).toFixed(2)}/hr`;
+    return isNaN(n) ? '-' : `${n >= 0 ? '+' : '-'}${currencySymbol}${Math.abs(n).toFixed(2)}/hr`;
   };
 
   const formatMargin = (val: any) => {
@@ -177,8 +179,8 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
       `"${p.deployment}"`,
       `"${p.placementType || 'C2C Subcontractor'}"`,
       `"${getEffectiveStatus(p)}"`,
-      `"${rateMasked ? '••••' : p.payRate || '-'}"`,
-      `"${rateMasked ? '••••' : p.billing}"`,
+      `"${rateMasked ? '••••' : formatRate(p.payRate) || '-'}"`,
+      `"${rateMasked ? '••••' : formatRate(p.billing)}"`,
       `"${rateMasked ? '••••' : formatSpread(p.hourlySpread)}"`,
       `"${rateMasked ? '••••' : formatMargin(p.marginPct)}"`,
       `"${p.startDate}"`,
@@ -299,7 +301,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
           <div>
             <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Avg. Hourly Spread</div>
             <div className="text-lg font-bold text-blue-700">
-              <MaskedValue value={`+$${avgHourlySpread}/hr`} isMasked={rateMasked} />
+              <MaskedValue value={`+${currencySymbol}${avgHourlySpread}/hr`} isMasked={rateMasked} />
             </div>
             <div className="text-[10px] text-slate-500 mt-0.5">
               <MaskedValue value={`${avgMarginPercent}% Gross Profit Margin`} isMasked={rateMasked} />
@@ -314,10 +316,10 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
           <div>
             <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Monthly Gross Profit</div>
             <div className="text-lg font-bold text-emerald-800">
-              <MaskedValue value={`$${totalMonthlyGrossProfit.toLocaleString()}/mo`} isMasked={rateMasked} />
+              <MaskedValue value={`${currencySymbol}${totalMonthlyGrossProfit.toLocaleString()}/mo`} isMasked={rateMasked} />
             </div>
             <div className="text-[10px] text-slate-500 mt-0.5">
-              <MaskedValue value={`$${Math.round(totalMonthlyGrossProfit * 12).toLocaleString()} Annual Run-Rate`} isMasked={rateMasked} />
+              <MaskedValue value={`${currencySymbol}${Math.round(totalMonthlyGrossProfit * 12).toLocaleString()} Annual Run-Rate`} isMasked={rateMasked} />
             </div>
           </div>
         </div>
@@ -618,7 +620,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
               <div className="bg-emerald-50/70 border border-emerald-200 rounded-lg px-3.5 py-2.5 flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-emerald-800">Revised Spread Preview</span>
                 <span className="font-bold text-emerald-700">
-                  {extSpread >= 0 ? `+$${extSpread.toFixed(2)}/hr` : `-$${Math.abs(extSpread).toFixed(2)}/hr`} ({extMargin}%)
+                  {extSpread >= 0 ? `+${currencySymbol}${extSpread.toFixed(2)}/hr` : `-${currencySymbol}${Math.abs(extSpread).toFixed(2)}/hr`} ({extMargin}%)
                 </span>
               </div>
 
@@ -629,7 +631,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                     type="text"
                     value={extendForm.billing || ''}
                     onChange={(e) => setExtendForm({ ...extendForm, billing: e.target.value })}
-                    placeholder="$115/hr"
+                    placeholder={`${currencySymbol}115/hr`}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
                   />
                 </div>
@@ -639,7 +641,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                     type="text"
                     value={extendForm.payRate || ''}
                     onChange={(e) => setExtendForm({ ...extendForm, payRate: e.target.value })}
-                    placeholder="$85/hr"
+                    placeholder={`${currencySymbol}85/hr`}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
                   />
                 </div>
@@ -712,7 +714,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
               <div className="bg-emerald-50/70 border border-emerald-200 rounded-lg px-3.5 py-2.5 flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-emerald-800">Hourly Margin Spread</span>
                 <span className="font-bold text-emerald-700">
-                  {editSpread >= 0 ? `+$${editSpread.toFixed(2)}/hr` : `-$${Math.abs(editSpread).toFixed(2)}/hr`} ({editMargin}%)
+                  {editSpread >= 0 ? `+${currencySymbol}${editSpread.toFixed(2)}/hr` : `-${currencySymbol}${Math.abs(editSpread).toFixed(2)}/hr`} ({editMargin}%)
                 </span>
               </div>
 
@@ -809,7 +811,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                     type="text"
                     value={editingPlacement.payRate || ''}
                     onChange={(e) => setEditingPlacement({ ...editingPlacement, payRate: e.target.value })}
-                    placeholder="$85/hr"
+                    placeholder={`${currencySymbol}85/hr`}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
                   />
                 </div>
@@ -819,7 +821,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                     type="text"
                     value={editingPlacement.billing}
                     onChange={(e) => setEditingPlacement({ ...editingPlacement, billing: e.target.value })}
-                    placeholder="$115/hr"
+                    placeholder={`${currencySymbol}115/hr`}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
                   />
                 </div>

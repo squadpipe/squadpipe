@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiClient } from './config/api.config';
+import { formatRateDisplay, getCurrencySymbol, initWorkspaceCurrency } from './utils/currency';
 
 import { Sidebar } from './components/layout/Sidebar';
 import { Topbar } from './components/layout/Topbar';
@@ -134,21 +135,22 @@ const normalizePlacement = (p: any): BillablePlacement => {
     return isNaN(n) ? 0 : n;
   };
 
+  const sym = getCurrencySymbol();
   let billing = '';
   if (typeof p.billing === 'string' && p.billing.trim()) {
     const num = parseNum(p.billing);
-    billing = p.billing.includes('$') ? p.billing.trim() : num > 0 ? `$${num}/hr` : p.billing.trim();
+    billing = /(?:A\$|S\$|[$£€₹])/.test(p.billing) ? formatRateDisplay(p.billing.trim(), sym) : num > 0 ? `${sym}${num}/hr` : p.billing.trim();
   } else if (p.billRate !== undefined && p.billRate !== null && p.billRate !== '') {
-    billing = `$${parseNum(p.billRate)}/hr`;
+    billing = `${sym}${parseNum(p.billRate)}/hr`;
   }
 
   let payRate = '';
-  if (typeof p.payRate === 'string' && p.payRate.includes('$')) {
-    payRate = p.payRate.trim();
+  if (typeof p.payRate === 'string' && /(?:A\$|S\$|[$£€₹])/.test(p.payRate)) {
+    payRate = formatRateDisplay(p.payRate.trim(), sym);
   } else if (p.payRate !== undefined && p.payRate !== null && p.payRate !== '') {
-    payRate = `$${parseNum(p.payRate)}/hr`;
+    payRate = `${sym}${parseNum(p.payRate)}/hr`;
   } else if (p.payRateAmount !== undefined && p.payRateAmount !== null && p.payRateAmount !== '') {
-    payRate = `$${parseNum(p.payRateAmount)}/hr`;
+    payRate = `${sym}${parseNum(p.payRateAmount)}/hr`;
   }
 
   const billNum = parseNum(billing || p.billRate);
@@ -332,7 +334,7 @@ export const App: React.FC = () => {
           education: c.education || '',
           currentTitle: c.currentTitle || '',
           skillset: c.skillset || '',
-          hourlyRate: c.hourlyRateDisplay || (c.hourlyRateW2 ? `$${c.hourlyRateW2}/hr (W2)` : ''),
+          hourlyRate: formatRateDisplay(c.hourlyRateDisplay || (c.hourlyRateW2 ? `${getCurrencySymbol()}${c.hourlyRateW2}/hr (W2)` : '')),
           relocation: c.relocation || 'Yes',
           resumeName: c.resumeFileName || '',
           resumeFormat: c.resumeFormat || 'PDF',
@@ -585,7 +587,7 @@ export const App: React.FC = () => {
             (f.entity || 'Consultant').slice(1).toLowerCase(),
           type:
             f.type === 'NUMBER'
-              ? 'Currency ($)'
+              ? `Currency (${getCurrencySymbol()})`
               : f.type === 'DROPDOWN'
               ? 'Dropdown'
               : f.type === 'DATE'
@@ -610,10 +612,11 @@ export const App: React.FC = () => {
     }
   };
 
-  // 1. Fetch lightweight navigation counts once on authentication
+  // 1. Fetch lightweight navigation counts and workspace currency once on authentication
   useEffect(() => {
     if (!authToken && !currentUser) return;
     fetchSidebarCounts();
+    initWorkspaceCurrency();
   }, [authToken]);
 
   // 2. ON-DEMAND / VIEW-SCOPED FETCHING: Only call APIs for the active view when opened!
@@ -841,7 +844,7 @@ export const App: React.FC = () => {
         timestamp: 'Just now',
         ruleName: 'Placement Activation & Margin Lock',
         target: `${savedPlacement.resourceName} @ ${savedPlacement.customer}`,
-        conditionsMet: `Bill: ${savedPlacement.billing} | Spread: +$${Number(
+        conditionsMet: `Bill: ${formatRateDisplay(savedPlacement.billing)} | Spread: +${getCurrencySymbol()}${Number(
           savedPlacement.hourlySpread || 0
         ).toFixed(2)}/hr`,
         actionDispatched: 'Registered to Billable Ledger & 30d Expiration Radar Scheduled',

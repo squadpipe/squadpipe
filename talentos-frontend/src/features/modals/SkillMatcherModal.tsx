@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Requirement, Candidate } from '../../types';
+import { useCurrency } from '../../utils/currency';
 
 interface SkillMatcherModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export const SkillMatcherModal: React.FC<SkillMatcherModalProps> = ({
   onSubmitCandidate,
   showToast,
 }) => {
+  const { formatRate } = useCurrency();
   const [selectedReqId, setSelectedReqId] = useState<string>(
     requirements[0]?.id || ''
   );
@@ -120,7 +122,7 @@ export const SkillMatcherModal: React.FC<SkillMatcherModalProps> = ({
                     <span className="px-2 py-0.5 rounded text-[10px] bg-slate-100 text-slate-600 border border-slate-200">
                       {m.candidate.workAuth}
                     </span>
-                    <span className="text-[10px] text-slate-400">{m.candidate.hourlyRate}</span>
+                    <span className="text-[10px] text-slate-400">{formatRate(m.candidate.hourlyRate)}</span>
                   </div>
                   <div className="text-[11px] text-slate-500 mt-0.5">{m.candidate.currentTitle}</div>
 

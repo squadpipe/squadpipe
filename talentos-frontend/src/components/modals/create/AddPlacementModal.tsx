@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DollarSign, X, Check, UserCheck, Briefcase, TrendingUp } from 'lucide-react';
 import { BillablePlacement, Candidate, Client, Requirement, User, Vendor } from '../../../types';
 import { DynamicCustomFieldsSection } from '../../shared/DynamicCustomFieldsSection';
+import { useCurrency } from '../../../utils/currency';
 
 interface AddPlacementModalProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
   requirements = [],
   showToast,
 }) => {
+  const { symbol: currencySymbol } = useCurrency();
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     candidateId: '',
@@ -43,8 +45,8 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
     placementType: 'C2C Subcontractor',
     vendorName: '',
     purchaseOrderNumber: '',
-    billing: '$115/hr',
-    payRate: '$85/hr',
+    billing: `${currencySymbol}115/hr`,
+    payRate: `${currencySymbol}85/hr`,
     recruiter: users[0]?.name || '',
     ...getDefaultDates(),
     phone: '',
@@ -64,8 +66,8 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
         placementType: 'C2C Subcontractor',
         vendorName: '',
         purchaseOrderNumber: '',
-        billing: '$115/hr',
-        payRate: '$85/hr',
+        billing: `${currencySymbol}115/hr`,
+        payRate: `${currencySymbol}85/hr`,
         recruiter: users[0]?.name || '',
         ...getDefaultDates(),
         phone: '',
@@ -73,7 +75,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
       });
       setCustomValues({});
     }
-  }, [isOpen]);
+  }, [isOpen, currencySymbol]);
 
   if (!isOpen) return null;
 
@@ -107,7 +109,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
       candidateId: c.id,
       resourceName: c.fullName,
       skillRole: prev.skillRole || c.currentTitle || '',
-      payRate: parsedPay > 0 ? `$${parsedPay}/hr` : prev.payRate,
+      payRate: parsedPay > 0 ? `${currencySymbol}${parsedPay}/hr` : prev.payRate,
       phone: c.phone || prev.phone,
       email: c.email || prev.email,
       recruiter: c.assignedRecruiter || prev.recruiter,
@@ -127,15 +129,15 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
       customer: r.companyName || prev.customer,
       customerContact: r.clientContact || matchedClient?.contacts[0]?.name || prev.customerContact,
       skillRole: r.opportunityTitle || prev.skillRole,
-      billing: r.targetBillRate ? `$${r.targetBillRate}/hr` : prev.billing,
-      payRate: r.targetPayRate ? `$${r.targetPayRate}/hr` : prev.payRate,
+      billing: r.targetBillRate ? `${currencySymbol}${r.targetBillRate}/hr` : prev.billing,
+      payRate: r.targetPayRate ? `${currencySymbol}${r.targetPayRate}/hr` : prev.payRate,
       recruiter: r.assignedRecruiter || prev.recruiter,
     }));
   };
 
   const formatRateStr = (val: string, fallback: number) => {
     const n = parseRateNum(val, fallback);
-    return `$${n}/hr`;
+    return `${currencySymbol}${n}/hr`;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -280,7 +282,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
                   <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Hourly Margin Spread</div>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-base font-extrabold text-emerald-700">
-                      {spread >= 0 ? `+$${spread.toFixed(2)}/hr` : `-$${Math.abs(spread).toFixed(2)}/hr`}
+                      {spread >= 0 ? `+${currencySymbol}${spread.toFixed(2)}/hr` : `-${currencySymbol}${Math.abs(spread).toFixed(2)}/hr`}
                     </span>
                     <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${marginBadgeClass}`}>
                       {marginPct}% margin
@@ -291,7 +293,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
               <div className="text-right">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Est. Monthly Gross Profit</div>
                 <div className="text-base font-extrabold text-emerald-700 mt-0.5">
-                  ${monthlyGrossProfit.toLocaleString()}/mo
+                  {currencySymbol}{monthlyGrossProfit.toLocaleString()}/mo
                 </div>
               </div>
             </div>
@@ -362,7 +364,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
                 <input
                   value={form.billing}
                   onChange={(e) => setForm({ ...form, billing: e.target.value })}
-                  placeholder="$115/hr"
+                  placeholder={`${currencySymbol}115/hr`}
                   className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-bold text-emerald-700 focus:border-brand-600 focus:outline-none"
                   required
                 />
@@ -372,7 +374,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
                 <input
                   value={form.payRate}
                   onChange={(e) => setForm({ ...form, payRate: e.target.value })}
-                  placeholder="$85/hr"
+                  placeholder={`${currencySymbol}85/hr`}
                   className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 focus:border-brand-600 focus:outline-none"
                   required
                 />
