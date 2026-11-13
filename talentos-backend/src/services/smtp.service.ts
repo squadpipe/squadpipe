@@ -8,17 +8,19 @@ export interface SendMailOptions {
   subject: string;
   html: string;
   text?: string;
+  tenantId?: string;
 }
 
 export class SmtpService {
   async sendMail(options: SendMailOptions) {
-    const { to, recipientName, subject, html, text } = options;
+    const { to, recipientName, subject, html, text, tenantId } = options;
     const fromName = process.env.SMTP_FROM_NAME || 'TalentOS Recruitment Desk';
     const fromEmail = process.env.SMTP_FROM_EMAIL || 'notifications@talentos-agency.com';
 
     // Create log record as PENDING
     const log = await prisma.emailLog.create({
       data: {
+        tenantId: tenantId || 'talentos-agency',
         recipientEmail: to,
         recipientName: recipientName || to,
         subject,

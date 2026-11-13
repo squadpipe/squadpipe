@@ -20,13 +20,13 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
     fullName: '',
     currentTitle: '',
     workAuth: 'US Citizen',
-    hourlyRate: '$95/hr (W2)',
+    hourlyRate: '',
     email: '',
     phone: '',
     relocation: 'Yes',
-    education: "Master's Degree",
-    skillset: 'AWS, Kubernetes, Python',
-    recruiter: 'Marcus Brody',
+    education: '',
+    skillset: '',
+    recruiter: users[0]?.name || '',
     pipelineStage: 'Available / Bench',
   });
 
@@ -215,19 +215,12 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
                   onChange={(e) => setForm({ ...form, recruiter: e.target.value })}
                   className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600"
                 >
-                  {users.length > 0 ? (
-                    users.map((u) => (
-                      <option key={u.id} value={u.name}>
-                        {u.name}
-                      </option>
-                    ))
-                  ) : (
-                    <>
-                      <option value="Marcus Brody">Marcus Brody</option>
-                      <option value="Sarah Jenkins">Sarah Jenkins</option>
-                      <option value="Elena Rostova">Elena Rostova</option>
-                    </>
-                  )}
+                  <option value="">Recruitment Desk</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.name}>
+                      {u.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>

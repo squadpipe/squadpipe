@@ -7,6 +7,8 @@ interface ClientsViewProps {
   requirements: Requirement[];
   placements: BillablePlacement[];
   onOpenAddClient: () => void;
+  onDeleteClient?: (client: Client) => void;
+  onClientUpdated?: (updatedClient: Client) => void;
   showToast?: (title: string, message: string, icon?: string) => void;
 }
 
@@ -15,6 +17,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   requirements,
   placements,
   onOpenAddClient,
+  onDeleteClient,
+  onClientUpdated,
   showToast = () => {},
 }) => {
   const [search, setSearch] = useState('');
@@ -83,8 +87,22 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                       {client.website}
                     </span>
                   </div>
-                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 text-xs">
-                    <i className="fa-solid fa-building"></i>
+                  <div className="flex items-center gap-1.5">
+                    {onDeleteClient && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteClient(client);
+                        }}
+                        title="Delete client"
+                        className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-rose-50 flex items-center justify-center text-slate-400 hover:text-rose-600 text-xs transition-colors cursor-pointer"
+                      >
+                        <i className="fa-solid fa-trash-can"></i>
+                      </button>
+                    )}
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 text-xs">
+                      <i className="fa-solid fa-building"></i>
+                    </div>
                   </div>
                 </div>
 
@@ -145,6 +163,10 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
         client={selectedClient}
         requirements={requirements}
         placements={placements}
+        onClientUpdated={(updated) => {
+          setSelectedClient(updated);
+          if (onClientUpdated) onClientUpdated(updated);
+        }}
         showToast={showToast}
       />
     </section>

@@ -7,6 +7,7 @@ interface BillablePlacementsViewProps {
   rateMasked: boolean;
   onOpenNewPlacement: () => void;
   onExtendContract: (placement: BillablePlacement) => void;
+  onDeletePlacement?: (placement: BillablePlacement) => void;
   showToast?: (title: string, message: string, icon?: string) => void;
 }
 
@@ -15,6 +16,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
   rateMasked,
   onOpenNewPlacement,
   onExtendContract,
+  onDeletePlacement,
   showToast,
 }) => {
   const [search, setSearch] = useState('');
@@ -28,7 +30,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
   );
 
   const isExpiringSoon = (endDateStr: string) => {
-    const diff = (new Date(endDateStr).getTime() - new Date('2026-10-29').getTime()) / (1000 * 60 * 60 * 24);
+    const diff = (new Date(endDateStr).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24);
     return diff > 0 && diff <= 30;
   };
 
@@ -280,13 +282,22 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                     </td>
 
                     {/* Actions */}
-                    <td className="px-3.5 py-3 text-right">
+                    <td className="px-3.5 py-3 text-right whitespace-nowrap">
                       <button
                         onClick={() => onExtendContract(p)}
                         className="px-2.5 py-1 rounded bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-semibold transition-colors cursor-pointer"
                       >
                         Extend SOW
                       </button>
+                      {onDeletePlacement && (
+                        <button
+                          onClick={() => onDeletePlacement(p)}
+                          title="Delete placement"
+                          className="ml-1.5 p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                        >
+                          <i className="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );

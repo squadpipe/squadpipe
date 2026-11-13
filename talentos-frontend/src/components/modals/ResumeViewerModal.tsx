@@ -23,9 +23,37 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
   if (!isOpen || !candidate) return null;
 
   const downloadMockResume = () => {
+    const content = [
+      `CANDIDATE RESUME DOSSIER — ${candidate.fullName}`,
+      `============================================================`,
+      `Title:              ${candidate.currentTitle}`,
+      `Email:              ${candidate.email}`,
+      `Phone:              ${candidate.phone}`,
+      `Work Authorization: ${candidate.workAuth}`,
+      `Target Rate:        ${candidate.hourlyRate}`,
+      `Relocation:         ${candidate.relocation}`,
+      `Education:          ${candidate.education || 'Verified Degree'}`,
+      `Key Skillset:       ${candidate.skillset}`,
+      ``,
+      `PARSED RESUME CONTENT / SUMMARY:`,
+      `------------------------------------------------------------`,
+      candidate.rawSnippet ||
+        `Results-driven ${candidate.currentTitle} with verified expertise in ${candidate.skillset}.`,
+    ].join('\n');
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${candidate.fullName.replace(/\s+/g, '_')}_Resume_Dossier.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
     showToast(
       'Resume Downloaded',
-      `Exported unbranded profile for ${candidate.fullName}`,
+      `Exported unbranded dossier for ${candidate.fullName}`,
       'fa-solid fa-file-arrow-down text-emerald-500'
     );
   };
@@ -116,25 +144,29 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
               </div>
             </div>
 
-            {/* Professional Experience */}
+            {/* Professional Experience / Parsed Resume Content */}
             <div>
               <h2 className="text-xs font-bold uppercase tracking-wider text-brand-700 border-b border-brand-100 pb-1 mb-2">
-                Professional Experience
+                {candidate.rawSnippet ? 'Extracted Resume Content & Experience' : 'Professional Experience'}
               </h2>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex justify-between font-bold text-slate-900 text-xs">
-                    <span>{candidate.currentTitle} — Senior Consultant</span>
-                    <span className="font-mono text-[11px] text-slate-500">2023 – Present</span>
+              {candidate.rawSnippet ? (
+                <pre className="whitespace-pre-wrap font-sans text-[11px] text-slate-700 leading-relaxed bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+                  {candidate.rawSnippet}
+                </pre>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between font-bold text-slate-900 text-xs">
+                      <span>{candidate.currentTitle} — Senior Consultant</span>
+                      <span className="font-mono text-[11px] text-slate-500">Current</span>
+                    </div>
+                    <div className="text-[11px] text-slate-600 italic">Enterprise Staffing & Consulting</div>
+                    <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                      Specializing in {candidate.skillset}. Full unbranded resume file ({candidate.resumeName || 'Resume.pdf'}) attached on candidate record.
+                    </p>
                   </div>
-                  <div className="text-[11px] text-slate-600 italic">Enterprise Staffing Placement (US Financial / Tech)</div>
-                  <ul className="list-disc list-inside text-[11px] text-slate-600 mt-1 space-y-1">
-                    <li>Architected scalable production workloads with automated CI/CD and zero-downtime deployments.</li>
-                    <li>Collaborated with distributed engineering teams to streamline sprint cycles and cloud compliance.</li>
-                    <li>Implemented automated testing regimes and observability pipelines reducing error rates.</li>
-                  </ul>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Education & Credentials */}

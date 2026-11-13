@@ -49,6 +49,10 @@ export class RequirementService {
         clientContact: true,
         assignedRecruiter: {
           select: { id: true, fullName: true, role: true, desk: true }
+        },
+        submissions: {
+          include: { candidate: true },
+          orderBy: { createdAt: 'desc' }
         }
       },
       orderBy: { createdAt: 'desc' }
@@ -76,37 +80,81 @@ export class RequirementService {
     const count = await prisma.requirement.count({ where: { tenantId } });
     const code = raw.code || `REQ-${1000 + count + 1}`;
 
-    const billRateNum = typeof raw.targetBillRate === 'number'
+    const billRateNum = typeof raw.targetBillRate === 'number' && raw.targetBillRate > 0
       ? raw.targetBillRate
       : parseInt(String(raw.targetRate || raw.targetBillRate || '115').replace(/\D/g, ''), 10) || 115;
-    const payRateNum = typeof raw.targetPayRate === 'number'
+    const payRateNum = typeof raw.targetPayRate === 'number' && raw.targetPayRate > 0
       ? raw.targetPayRate
       : Math.round(billRateNum * 0.75);
 
     const mappedStatus = requirementStatusMap[raw.status] || RequirementStatus.REQUIREMENT;
 
-    // Handle Client relationship or matching
+    // Handle Client relationship or auto-create new client & hiring contact
     let resolvedClientId = raw.clientId || null;
     let resolvedContactId = raw.clientContactId || null;
 
-    if (!resolvedClientId && raw.companyName) {
-      const existingClient = await prisma.client.findFirst({
-        where: { name: raw.companyName.trim(), tenantId },
+    if (!resolvedClientId && raw.companyName && raw.companyName.trim()) {
+      const companyTrimmed = raw.companyName.trim();
+      let existingClient = await prisma.client.findFirst({
+        where: { name: { equals: companyTrimmed, mode: 'insensitive' }, tenantId },
         include: { contacts: true }
       });
-      if (existingClient) {
-        resolvedClientId = existingClient.id;
-        if (existingClient.contacts.length > 0) {
-          resolvedContactId = existingClient.contacts[0].id;
+
+      if (!existingClient) {
+        existingClient = await prisma.client.create({
+          data: {
+            tenantId,
+            name: companyTrimmed,
+            location: raw.location?.trim() || 'Remote',
+            clientType: 'End Client',
+            msaStatus: true,
+          },
+          include: { contacts: true }
+        });
+      }
+
+      resolvedClientId = existingClient.id;
+
+      if (raw.clientContact && typeof raw.clientContact === 'string' && raw.clientContact.trim()) {
+        const contactNameTrimmed = raw.clientContact.trim();
+        const existingContact = existingClient.contacts.find(
+          (c) => c.fullName.toLowerCase() === contactNameTrimmed.toLowerCase()
+        );
+        if (existingContact) {
+          resolvedContactId = existingContact.id;
+        } else {
+          const createdContact = await prisma.clientContact.create({
+            data: {
+              clientId: existingClient.id,
+              fullName: contactNameTrimmed,
+              designation: raw.clientContactTitle?.trim() || 'Hiring Lead',
+              email: raw.clientContactEmail?.trim().toLowerCase() || '',
+              isPrimary: existingClient.contacts.length === 0,
+            }
+          });
+          resolvedContactId = createdContact.id;
         }
+      } else if (existingClient.contacts.length > 0) {
+        resolvedContactId = existingClient.contacts[0].id;
       }
     }
 
+    // Resolve assigned recruiter by name if passed
+    let resolvedRecruiterId = raw.assignedRecruiterId || null;
+    if (!resolvedRecruiterId && raw.assignedRecruiter && typeof raw.assignedRecruiter === 'string' && raw.assignedRecruiter.trim()) {
+      const matchedUser = await prisma.user.findFirst({
+        where: { tenantId, fullName: { equals: raw.assignedRecruiter.trim(), mode: 'insensitive' } },
+        select: { id: true }
+      });
+      if (matchedUser) resolvedRecruiterId = matchedUser.id;
+    }
+    if (!resolvedRecruiterId) resolvedRecruiterId = recruiterId || null;
+
     // Map work model
     let workModel: WorkModel = WorkModel.REMOTE;
-    const loc = String(raw.location || '').toUpperCase();
-    if (loc.includes('HYBRID')) workModel = WorkModel.HYBRID;
-    else if (loc.includes('ONSITE')) workModel = WorkModel.ONSITE;
+    const wmSource = String(raw.workModel || raw.location || '').toUpperCase();
+    if (wmSource.includes('HYBRID')) workModel = WorkModel.HYBRID;
+    else if (wmSource.includes('ONSITE')) workModel = WorkModel.ONSITE;
 
     return prisma.requirement.create({
       data: {
@@ -122,13 +170,19 @@ export class RequirementService {
         targetBillRate: billRateNum,
         targetPayRate: payRateNum,
         status: mappedStatus,
-        assignedRecruiterId: recruiterId || raw.assignedRecruiterId || null
+        rawEmailText: raw.rawEmailText || null,
+        missingNotes: raw.missingNotes || null,
+        assignedRecruiterId: resolvedRecruiterId
       },
       include: {
         client: true,
         clientContact: true,
         assignedRecruiter: {
           select: { id: true, fullName: true, role: true, desk: true }
+        },
+        submissions: {
+          include: { candidate: true },
+          orderBy: { createdAt: 'desc' }
         }
       }
     });

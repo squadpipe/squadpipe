@@ -26,7 +26,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
     deployment: 'Onshore',
     billing: '$115/hr',
     payRate: '$85/hr',
-    recruiter: 'Marcus Brody',
+    recruiter: users[0]?.name || '',
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
     phone: '',
@@ -121,24 +121,27 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
               </div>
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Client Customer Company *</label>
-                <select
+                <input
+                  list="placement-clients-list"
                   value={form.customer}
                   onChange={(e) => {
-                    const selClient = clients.find((c) => c.name === e.target.value);
+                    const val = e.target.value;
+                    const selClient = clients.find((c) => c.name === val);
                     setForm({
                       ...form,
-                      customer: e.target.value,
-                      customerContact: selClient?.contacts[0]?.name || '',
+                      customer: val,
+                      customerContact: selClient?.contacts[0]?.name || form.customerContact,
                     });
                   }}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-semibold focus:border-brand-600"
-                >
+                  placeholder="Select or type client company name..."
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-semibold focus:border-brand-600 focus:outline-none"
+                  required
+                />
+                <datalist id="placement-clients-list">
                   {clients.map((c) => (
-                    <option key={c.id} value={c.name}>
-                      {c.name}
-                    </option>
+                    <option key={c.id} value={c.name} />
                   ))}
-                </select>
+                </datalist>
               </div>
             </div>
 
@@ -194,19 +197,12 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
                   onChange={(e) => setForm({ ...form, recruiter: e.target.value })}
                   className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600"
                 >
-                  {users.length > 0 ? (
-                    users.map((u) => (
-                      <option key={u.id} value={u.name}>
-                        {u.name}
-                      </option>
-                    ))
-                  ) : (
-                    <>
-                      <option value="Marcus Brody">Marcus Brody</option>
-                      <option value="Sarah Jenkins">Sarah Jenkins</option>
-                      <option value="Elena Rostova">Elena Rostova</option>
-                    </>
-                  )}
+                  <option value="">Recruitment Desk</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.name}>
+                      {u.name}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

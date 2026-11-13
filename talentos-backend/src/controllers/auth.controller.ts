@@ -32,8 +32,10 @@ export const login = async (req: Request, res: Response) => {
     });
   }
 
-  // Password verification (supports prototype demo password or seeded hash)
-  const isMatch = password === 'talentos2026' || user.passwordHash === password || user.passwordHash?.length > 0;
+  // Password verification (supports bcrypt hashed passwords or legacy direct match)
+  const isMatch = user.passwordHash?.startsWith('$2')
+    ? await bcrypt.compare(password, user.passwordHash)
+    : user.passwordHash === password;
   if (!isMatch) {
     return res.status(401).json({
       success: false,
@@ -118,6 +120,43 @@ export const logout = async (req: Request, res: Response) => {
     success: true,
     message: 'Signed out successfully'
   });
+};
+
+export const updateProfile = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Unauthenticated' });
+    }
+    const { name, fullName, email, desk, agencyName } = req.body;
+    const updated = await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        ...(fullName || name ? { fullName: String(fullName || name).trim() } : {}),
+        ...(email ? { email: String(email).trim().toLowerCase() } : {}),
+        ...(desk ? { desk: String(desk).trim() } : {}),
+        ...(agencyName ? { agencyName: String(agencyName).trim() } : {})
+      }
+    });
+    res.json({
+      success: true,
+      data: {
+        id: updated.id,
+        name: updated.fullName,
+        email: updated.email,
+        agencyName: updated.agencyName,
+        tenantId: updated.tenantId,
+        role: updated.role,
+        desk: updated.desk,
+        rateMasked: updated.rateMasked,
+        workload: updated.workload,
+        status: updated.status,
+        isCurrentUser: true,
+        lastActive: 'Active Now'
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'Failed to update profile' });
+  }
 };
 
 export const signup = async (req: Request, res: Response) => {
@@ -254,13 +293,34 @@ export const forgotPassword = async (req: Request, res: Response) => {
       });
     }
 
-    // Generate a 6-digit verification security code
+    // Generate a 6-digit verification security code and persist it
     const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const tokenKey = `reset_${normalizedEmail}_${resetCode}`;
+
+    await prisma.refreshToken.create({
+      data: {
+        token: tokenKey,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+      }
+    });
+
+    await prisma.emailLog.create({
+      data: {
+        tenantId: user.tenantId || 'talentos-agency',
+        recipientEmail: normalizedEmail,
+        recipientName: user.fullName,
+        subject: 'TalentOS Password Reset Verification Code',
+        bodyHtml: `<p>Your TalentOS password reset verification code is: <strong>${resetCode}</strong> (valid for 15 minutes).</p>`,
+        status: 'SENT',
+        sentAt: new Date()
+      }
+    });
 
     res.json({
       success: true,
       message: `Password reset verification code dispatched to ${normalizedEmail}.`,
-      resetCode // returned for frictionless demo verification
+      resetCode // returned for convenience when SMTP is unconfigured
     });
   } catch (error: any) {
     console.error('Forgot password error:', error);
@@ -273,12 +333,13 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
 export const resetPassword = async (req: Request, res: Response) => {
   try {
-    const { email, resetCode, newPassword } = req.body;
+    const { email, resetCode, code, newPassword } = req.body;
+    const suppliedCode = String(resetCode || code || '').trim();
 
-    if (!email || !newPassword) {
+    if (!email || !newPassword || !suppliedCode) {
       return res.status(400).json({
         success: false,
-        message: 'Email and new password are required.'
+        message: 'Email, verification code, and new password are required.'
       });
     }
 
@@ -301,12 +362,34 @@ export const resetPassword = async (req: Request, res: Response) => {
       });
     }
 
+    const tokenRecord = await prisma.refreshToken.findFirst({
+      where: {
+        userId: user.id,
+        token: `reset_${normalizedEmail}_${suppliedCode}`,
+        revokedAt: null,
+        expiresAt: { gt: new Date() }
+      }
+    });
+
+    if (!tokenRecord) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset verification code.'
+      });
+    }
+
     const passwordHash = await bcrypt.hash(newPassword, 10);
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { passwordHash }
-    });
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash }
+      }),
+      prisma.refreshToken.update({
+        where: { id: tokenRecord.id },
+        data: { revokedAt: new Date() }
+      })
+    ]);
 
     res.json({
       success: true,

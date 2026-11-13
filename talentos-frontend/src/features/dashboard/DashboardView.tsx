@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiClient } from '../../config/api.config';
 import { Requirement, Candidate, BillablePlacement, SlaTask } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 
@@ -144,7 +145,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="text-2xl font-bold text-slate-900 font-mono">{activeReqsCount}</div>
           <div className="text-[10px] text-slate-400 mt-1">
-            <span className="text-emerald-600 font-medium">+3 new</span> this week
+            <span className="text-emerald-600 font-medium">Open pipeline</span> orders
           </div>
         </div>
 
@@ -178,7 +179,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="text-2xl font-bold text-slate-900 font-mono">{interviewsCount}</div>
           <div className="text-[10px] text-slate-400 mt-1">
-            <span className="text-amber-600 font-medium">4 today</span>
+            <span className="text-amber-600 font-medium">Active rounds</span>
           </div>
         </div>
 
@@ -298,7 +299,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     ? (req.clientContactTitle as any).designation || ''
                     : String(req.clientContactTitle || '');
 
-                const dateStr = `2026-10-${24 + (idx % 6)}`;
+                const rawDate = (req as any).createdAt;
+                const dateStr = rawDate
+                  ? new Date(rawDate).toISOString().split('T')[0]
+                  : new Date().toISOString().split('T')[0];
 
                 return (
                   <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">
@@ -403,7 +407,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => showToast('Rules Evaluated', 'Re-evaluated all SLA criteria across pipeline')}
+                onClick={async () => {
+                  try {
+                    const res = await apiClient.post('/sla-tasks/evaluate');
+                    const count = res.data?.data?.createdTasksCount ?? 0;
+                    showToast('Rules Evaluated', `Evaluated SLA criteria across pipeline (${count} alert(s) synced).`);
+                  } catch {
+                    showToast('Evaluation Failed', 'Unable to evaluate SLA rules right now.', 'fa-solid fa-triangle-exclamation text-rose-500');
+                  }
+                }}
                 title="Re-evaluate SLA rules across pipeline"
                 className="w-6 h-6 rounded border border-slate-200 text-slate-600 hover:text-brand-600 hover:bg-slate-50 flex items-center justify-center text-[11px] transition-colors cursor-pointer"
               >

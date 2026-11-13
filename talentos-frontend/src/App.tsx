@@ -49,6 +49,52 @@ import {
   CustomField,
 } from './types';
 
+const formatCandidateStage = (stage?: string): string => {
+  const map: Record<string, string> = {
+    AVAILABLE_BENCH: 'Available / Bench',
+    SUBMITTED: 'Submitted',
+    INTERVIEW: 'Interview',
+    SELECTED: 'Selected',
+    ONBOARDING: 'Onboarding',
+    BILLABLE: 'Billable',
+    ARCHIVED: 'Archived',
+  };
+  return (stage && map[stage]) || stage || 'Available / Bench';
+};
+
+const formatRequirementStatus = (status?: string): Requirement['status'] => {
+  const map: Record<string, Requirement['status']> = {
+    REQUIREMENT: 'Requirement',
+    SUBMITTED: 'Submitted',
+    INTERVIEW: 'Interview',
+    SELECTED: 'Selected',
+    ONBOARDING: 'Onboarding',
+    CLOSED: 'Onboarding',
+  };
+  return (status && map[status]) || (status as Requirement['status']) || 'Requirement';
+};
+
+const formatUserRole = (role?: string): string => {
+  const map: Record<string, string> = {
+    ADMINISTRATOR: 'Administrator',
+    SENIOR_RECRUITER: 'Senior Recruiter',
+    TECHNICAL_RECRUITER: 'Technical Recruiter',
+    BENCH_SALES_LEAD: 'Bench Sales Lead',
+    ACCOUNT_EXECUTIVE: 'Account Executive',
+    ASSOCIATE_RECRUITER: 'Associate Recruiter',
+  };
+  return (role && map[role]) || role || 'Technical Recruiter';
+};
+
+const formatUserStatus = (status?: string): User['status'] => {
+  const map: Record<string, User['status']> = {
+    ACTIVE: 'Active',
+    SUSPENDED: 'Suspended',
+    INVITED: 'Invited',
+  };
+  return (status && map[status]) || (status as User['status']) || 'Active';
+};
+
 export const App: React.FC = () => {
   // Session / Authentication state
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -136,6 +182,30 @@ export const App: React.FC = () => {
   // Track loaded entities to support view-scoped lazy loading without duplicate requests
   const loadedEntities = React.useRef<Set<string>>(new Set());
 
+  const resetWorkspaceState = () => {
+    loadedEntities.current.clear();
+    setCandidates([]);
+    setRequirements([]);
+    setClients([]);
+    setVendors([]);
+    setPlacements([]);
+    setUsers([]);
+    setSlaTasks([]);
+    setRules([]);
+    setAuditLogs([]);
+    setCustomFields([]);
+    setSidebarCounts({
+      requirements: 0,
+      consultants: 0,
+      clients: 0,
+      vendors: 0,
+      billable: 0,
+      users: 0,
+      customFields: 0,
+      activeRules: 0,
+    });
+  };
+
   // Dedicated, view-scoped fetch functions
   const fetchSidebarCounts = async () => {
     try {
@@ -167,7 +237,7 @@ export const App: React.FC = () => {
           resumeName: c.resumeFileName || '',
           resumeFormat: c.resumeFormat || 'PDF',
           assignedRecruiter: c.assignedRecruiter?.fullName || c.assignedRecruiter || '',
-          pipelineStage: c.pipelineStage || 'Available / Bench',
+          pipelineStage: formatCandidateStage(c.pipelineStage),
           rawSnippet: c.rawSnippet || '',
         }));
         setCandidates(mapped);
@@ -198,14 +268,15 @@ export const App: React.FC = () => {
             r.clientContact?.designation ||
             (typeof r.clientContactTitle === 'string' ? r.clientContactTitle : ''),
           skillsRequired: r.skillsRequired || '',
-          status: r.status || 'Requirement',
-          resourceName: r.resourceName || '',
+          status: formatRequirementStatus(r.status),
+          resourceName: r.resourceName || r.submissions?.[0]?.candidate?.fullName || '',
           assignedRecruiter:
             r.assignedRecruiter?.fullName ||
             r.assignedRecruiter?.name ||
             (typeof r.assignedRecruiter === 'string' ? r.assignedRecruiter : ''),
           targetBillRate: r.targetBillRate,
           targetPayRate: r.targetPayRate,
+          createdAt: r.createdAt,
         }));
         setRequirements(mapped);
         setSidebarCounts((prev) => ({ ...prev, requirements: mapped.length }));
@@ -327,11 +398,11 @@ export const App: React.FC = () => {
           id: u.id,
           name: u.fullName || u.name || '',
           email: u.email || '',
-          role: u.role || 'Associate Recruiter',
+          role: formatUserRole(u.role),
           desk: u.desk || '',
           rateMasked: u.rateMasked ?? true,
           workload: u.workload || '',
-          status: u.status || 'Active',
+          status: formatUserStatus(u.status),
           isCurrentUser: u.isCurrentUser ?? false,
           lastActive: u.lastActive || 'Active Now',
         }));
@@ -378,19 +449,30 @@ export const App: React.FC = () => {
 
       if (ruleRes.status === 'fulfilled' && ruleRes.value.data?.data) {
         const raw = ruleRes.value.data.data;
+        const formatCategory = (cat?: string) => {
+          const upper = String(cat || '').toUpperCase();
+          if (upper === 'FEEDBACK' || upper === 'STALE_REQ' || upper === 'CUSTOM') return 'Feedback';
+          if (upper === 'INTERVIEW') return 'Interview';
+          if (upper === 'CONTRACT') return 'Contract';
+          if (upper === 'COMPLIANCE') return 'Compliance';
+          return cat || 'Feedback';
+        };
         const mappedRules = raw.map((rl: any) => ({
           id: rl.id,
+          tenantId: rl.tenantId,
           name: rl.name,
-          category: rl.category || '',
+          category: formatCategory(rl.category),
           icon: rl.icon || 'fa-solid fa-gear',
-          color: rl.color || 'blue',
+          color: rl.color || 'amber',
           active: rl.active ?? rl.isActive ?? true,
           whenText: rl.whenText || '',
           threshold: rl.threshold || '',
           thenSummary: rl.thenSummary || '',
-          actionPills: rl.actionPills || [],
-          executionsToday: rl.executionsToday || 0,
-          lastFired: rl.lastFired || 'Active',
+          actionPills: rl.actionPills || (Array.isArray(rl.actions) ? rl.actions : []),
+          executionsToday: rl.executionsToday ?? rl.executionsCount ?? 0,
+          lastFired: rl.lastFiredAt
+            ? new Date(rl.lastFiredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : rl.lastFired || 'Ready',
         }));
         setRules(mappedRules);
         setSidebarCounts((prev) => ({
@@ -521,6 +603,24 @@ export const App: React.FC = () => {
     }
   }, [currentView, authToken]);
 
+  // Ensure clients, users, and candidates are available when opening create or pitch modals
+  useEffect(() => {
+    if (!authToken && !currentUser) return;
+    if (
+      activeCreateModal === 'requirement' ||
+      activeCreateModal === 'placement' ||
+      activeCreateModal === 'consultant' ||
+      isEmailModalOpen
+    ) {
+      if (!loadedEntities.current.has('clients')) fetchClients();
+      if (!loadedEntities.current.has('users')) fetchUsers();
+    }
+    if (isPitchModalOpen) {
+      if (!loadedEntities.current.has('candidates')) fetchCandidates();
+      if (!loadedEntities.current.has('clients')) fetchClients();
+    }
+  }, [activeCreateModal, isPitchModalOpen, isEmailModalOpen, authToken]);
+
   // Financial KPI calculations
   const totalMonthlyGrossProfit = placements.reduce(
     (sum, p) => sum + (Number(p.hourlySpread) || 0) * 160,
@@ -556,13 +656,19 @@ export const App: React.FC = () => {
   };
 
   // Handlers
-  const handleStatusChange = (req: Requirement, newStatus: any) => {
+  const handleStatusChange = async (req: Requirement, newStatus: any) => {
     setRequirements((prev) =>
       prev.map((r) => (r.id === req.id ? { ...r, status: newStatus } : r))
     );
-    apiClient
-      .put(`/requirements/${req.id}`, { status: newStatus })
-      .catch((e) => console.warn('API status change:', e));
+    try {
+      await apiClient.patch(`/requirements/${req.id}/stage`, {
+        status: newStatus,
+        resourceName: req.resourceName,
+      });
+      fetchSidebarCounts();
+    } catch (e) {
+      console.warn('API status change:', e);
+    }
 
     showToast(
       'Stage Updated',
@@ -571,7 +677,7 @@ export const App: React.FC = () => {
     );
   };
 
-  const handleAssignCandidate = (req: Requirement, candidate: Candidate) => {
+  const handleAssignCandidate = async (req: Requirement, candidate: Candidate) => {
     setRequirements((prev) =>
       prev.map((r) =>
         r.id === req.id
@@ -579,12 +685,20 @@ export const App: React.FC = () => {
           : r
       )
     );
-    apiClient
-      .put(`/requirements/${req.id}`, {
-        resourceName: candidate.fullName,
-        status: 'Submitted',
-      })
-      .catch((e) => console.warn('API assign candidate:', e));
+    setCandidates((prev) =>
+      prev.map((c) =>
+        c.id === candidate.id ? { ...c, pipelineStage: 'Submitted' } : c
+      )
+    );
+    try {
+      await apiClient.post('/submissions', {
+        requirementId: req.id,
+        candidateId: candidate.id,
+      });
+      fetchSidebarCounts();
+    } catch (e) {
+      console.warn('API assign candidate:', e);
+    }
 
     setAuditLogs((prev) => [
       {
@@ -606,18 +720,30 @@ export const App: React.FC = () => {
   };
 
   const handleConfirmPlacement = async (newPlacement: BillablePlacement, reqId?: string) => {
+    let savedPlacement = newPlacement;
     try {
-      await apiClient.post('/placements', newPlacement);
+      const res = await apiClient.post('/placements', newPlacement);
+      if (res.data?.data?.id) {
+        savedPlacement = { ...newPlacement, id: res.data.data.id };
+      }
+      fetchSidebarCounts();
     } catch (e) {
       console.warn('API confirm placement:', e);
     }
-    setPlacements((prev) => [newPlacement, ...prev]);
+    setPlacements((prev) => [savedPlacement, ...prev]);
     if (reqId) {
       setRequirements((prev) =>
-        prev.map((r) => (r.id === reqId ? { ...r, status: 'Onboarding' } : r))
+        prev.map((r) =>
+          r.id === reqId
+            ? { ...r, status: 'Onboarding', resourceName: savedPlacement.resourceName || r.resourceName }
+            : r
+        )
       );
       apiClient
-        .put(`/requirements/${reqId}`, { status: 'Onboarding' })
+        .patch(`/requirements/${reqId}/stage`, {
+          status: 'Onboarding',
+          resourceName: savedPlacement.resourceName,
+        })
         .catch((e) => console.warn('API update requirement status:', e));
     }
     setAuditLogs((prev) => [
@@ -625,9 +751,9 @@ export const App: React.FC = () => {
         id: 'log_' + Date.now(),
         timestamp: 'Just now',
         ruleName: 'Placement Activation & Margin Lock',
-        target: `${newPlacement.resourceName} @ ${newPlacement.customer}`,
-        conditionsMet: `Bill: ${newPlacement.billing} | Spread: +$${Number(
-          newPlacement.hourlySpread || 0
+        target: `${savedPlacement.resourceName} @ ${savedPlacement.customer}`,
+        conditionsMet: `Bill: ${savedPlacement.billing} | Spread: +$${Number(
+          savedPlacement.hourlySpread || 0
         ).toFixed(2)}/hr`,
         actionDispatched: 'Registered to Billable Ledger & 30d Expiration Radar Scheduled',
         status: 'Executed',
@@ -636,9 +762,69 @@ export const App: React.FC = () => {
     ]);
     showToast(
       'Placement Activated',
-      `Locked in commercial placement for ${newPlacement.resourceName}!`,
+      `Locked in commercial placement for ${savedPlacement.resourceName}!`,
       'fa-solid fa-file-invoice-dollar text-emerald-400'
     );
+  };
+
+  const handleDeleteCandidate = async (candidate: Candidate) => {
+    try {
+      await apiClient.delete(`/candidates/${candidate.id}`);
+      setCandidates((prev) => prev.filter((c) => c.id !== candidate.id));
+      fetchSidebarCounts();
+      showToast('Consultant Removed', `${candidate.fullName} removed from roster.`, 'fa-solid fa-trash-can text-slate-500');
+    } catch (e) {
+      console.warn('API delete candidate:', e);
+      showToast('Delete Failed', `Could not delete ${candidate.fullName}.`, 'fa-solid fa-circle-exclamation text-rose-500');
+    }
+  };
+
+  const handleDeleteRequirement = async (req: Requirement) => {
+    try {
+      await apiClient.delete(`/requirements/${req.id}`);
+      setRequirements((prev) => prev.filter((r) => r.id !== req.id));
+      fetchSidebarCounts();
+      showToast('Requisition Removed', `${req.code} (${req.opportunityTitle}) deleted.`, 'fa-solid fa-trash-can text-slate-500');
+    } catch (e) {
+      console.warn('API delete requirement:', e);
+      showToast('Delete Failed', `Could not delete ${req.code}.`, 'fa-solid fa-circle-exclamation text-rose-500');
+    }
+  };
+
+  const handleDeleteClient = async (client: Client) => {
+    try {
+      await apiClient.delete(`/clients/${client.id}`);
+      setClients((prev) => prev.filter((cl) => cl.id !== client.id));
+      fetchSidebarCounts();
+      showToast('Client Removed', `${client.name} deleted.`, 'fa-solid fa-trash-can text-slate-500');
+    } catch (e) {
+      console.warn('API delete client:', e);
+      showToast('Delete Failed', `Could not delete ${client.name}.`, 'fa-solid fa-circle-exclamation text-rose-500');
+    }
+  };
+
+  const handleDeleteVendor = async (vendor: Vendor) => {
+    try {
+      await apiClient.delete(`/vendors/${vendor.id}`);
+      setVendors((prev) => prev.filter((v) => v.id !== vendor.id));
+      fetchSidebarCounts();
+      showToast('Vendor Removed', `${vendor.name} deleted.`, 'fa-solid fa-trash-can text-slate-500');
+    } catch (e) {
+      console.warn('API delete vendor:', e);
+      showToast('Delete Failed', `Could not delete ${vendor.name}.`, 'fa-solid fa-circle-exclamation text-rose-500');
+    }
+  };
+
+  const handleDeletePlacement = async (placement: BillablePlacement) => {
+    try {
+      await apiClient.delete(`/placements/${placement.id}`);
+      setPlacements((prev) => prev.filter((p) => p.id !== placement.id));
+      fetchSidebarCounts();
+      showToast('Placement Removed', `${placement.resourceName}'s placement removed.`, 'fa-solid fa-trash-can text-slate-500');
+    } catch (e) {
+      console.warn('API delete placement:', e);
+      showToast('Delete Failed', `Could not delete placement.`, 'fa-solid fa-circle-exclamation text-rose-500');
+    }
   };
 
   const handleExtendContract = async (placement: BillablePlacement) => {
@@ -724,6 +910,7 @@ export const App: React.FC = () => {
     localStorage.removeItem('talentos_current_user');
     sessionStorage.removeItem('talentos_access_token');
     sessionStorage.removeItem('talentos_current_user');
+    resetWorkspaceState();
     setCurrentUser(null);
     setAuthToken(null);
     setShowSignOutModal(false);
@@ -762,15 +949,33 @@ export const App: React.FC = () => {
     );
   };
 
-  const handleUpdateProfile = (updated: User) => {
-    setCurrentUser(updated);
-    localStorage.setItem('talentos_current_user', JSON.stringify(updated));
-    setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
-    showToast(
-      'Profile Updated',
-      'Your profile details have been updated.',
-      'fa-solid fa-circle-check text-emerald-500'
-    );
+  const handleUpdateProfile = async (updated: User) => {
+    let savedUser = updated;
+    try {
+      const res = await apiClient.patch('/auth/profile', {
+        name: updated.name,
+        email: updated.email,
+        desk: updated.desk,
+      });
+      if (res.data?.data) {
+        savedUser = {
+          ...updated,
+          ...res.data.data,
+          role: formatUserRole(res.data.data.role || updated.role),
+          status: formatUserStatus(res.data.data.status || updated.status),
+        };
+      }
+    } catch (e) {
+      console.warn('API update profile:', e);
+    }
+    setCurrentUser(savedUser);
+    if (localStorage.getItem('talentos_current_user')) {
+      localStorage.setItem('talentos_current_user', JSON.stringify(savedUser));
+    }
+    if (sessionStorage.getItem('talentos_current_user')) {
+      sessionStorage.setItem('talentos_current_user', JSON.stringify(savedUser));
+    }
+    setUsers((prev) => prev.map((u) => (u.id === savedUser.id ? savedUser : u)));
   };
 
   // If unauthenticated, render the full-screen Obsidian SaaS Login View
@@ -779,20 +984,36 @@ export const App: React.FC = () => {
       <div className="flex h-screen w-screen overflow-hidden bg-[#0B0F17]">
         {/* Global Toast Banner */}
         {toast && (
-          <div className="fixed top-5 right-5 z-50 bg-white border border-slate-200 shadow-2xl rounded-xl p-4 flex items-center gap-3 animate-fade-in">
-            <i className={`${toast.icon} text-base`}></i>
-            <div>
+          <div
+            style={{ zIndex: 9999 }}
+            className="fixed top-5 right-5 z-[9999] max-w-md bg-white border border-slate-200 shadow-2xl rounded-xl p-4 flex items-center gap-3 animate-fade-in"
+          >
+            <i className={`${toast.icon} text-base flex-shrink-0`}></i>
+            <div className="min-w-0 flex-1">
               <div className="text-xs font-bold text-slate-900">{toast.title}</div>
-              <div className="text-[11px] text-slate-500">{toast.message}</div>
+              <div className="text-[11px] text-slate-500 break-words">{toast.message}</div>
             </div>
+            <button
+              onClick={() => setToast(null)}
+              aria-label="Dismiss notification"
+              className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer flex-shrink-0"
+            >
+              <i className="fa-solid fa-xmark text-xs"></i>
+            </button>
           </div>
         )}
 
         <LoginView
           onLoginSuccess={(user, token) => {
-            setCurrentUser(user);
+            resetWorkspaceState();
+            const normalizedUser: User = {
+              ...user,
+              role: formatUserRole(user.role),
+              status: formatUserStatus(user.status),
+            };
+            setCurrentUser(normalizedUser);
             setAuthToken(token);
-            setRateMasked(user.rateMasked ?? false);
+            setRateMasked(normalizedUser.rateMasked ?? false);
           }}
           showToast={showToast}
         />
@@ -815,12 +1036,22 @@ export const App: React.FC = () => {
     <div className="h-screen w-full flex overflow-hidden text-slate-800 bg-[#FAFAFA]">
       {/* Toast Banner */}
       {toast && (
-        <div className="fixed top-5 right-5 z-50 bg-white border border-slate-200 card-shadow rounded-xl p-4 flex items-center gap-3 animate-fade-in">
-          <i className={`${toast.icon} text-base`}></i>
-          <div>
+        <div
+          style={{ zIndex: 9999 }}
+          className="fixed top-5 right-5 z-[9999] max-w-md bg-white border border-slate-200 card-shadow rounded-xl p-4 flex items-center gap-3 animate-fade-in"
+        >
+          <i className={`${toast.icon} text-base flex-shrink-0`}></i>
+          <div className="min-w-0 flex-1">
             <div className="text-xs font-bold text-slate-900">{toast.title}</div>
-            <div className="text-[11px] text-slate-500">{toast.message}</div>
+            <div className="text-[11px] text-slate-500 break-words">{toast.message}</div>
           </div>
+          <button
+            onClick={() => setToast(null)}
+            aria-label="Dismiss notification"
+            className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer flex-shrink-0"
+          >
+            <i className="fa-solid fa-xmark text-xs"></i>
+          </button>
         </div>
       )}
 
@@ -892,6 +1123,7 @@ export const App: React.FC = () => {
               }}
               onSelectReq={(r) => setSelectedReqForDetail(r)}
               onOpenAddReq={() => setActiveCreateModal('requirement')}
+              onDeleteReq={handleDeleteRequirement}
             />
           )}
 
@@ -903,6 +1135,7 @@ export const App: React.FC = () => {
               onPreviewResume={(c) => setSelectedResumeCand(c)}
               onOpenAddConsultant={() => setActiveCreateModal('consultant')}
               onOpenCsvImport={() => setCurrentView('import_data')}
+              onDeleteCandidate={handleDeleteCandidate}
             />
           )}
 
@@ -912,6 +1145,12 @@ export const App: React.FC = () => {
               requirements={requirements}
               placements={placements}
               onOpenAddClient={() => setActiveCreateModal('client')}
+              onDeleteClient={handleDeleteClient}
+              onClientUpdated={(updatedClient) =>
+                setClients((prev) =>
+                  prev.map((c) => (c.id === updatedClient.id ? updatedClient : c))
+                )
+              }
               showToast={showToast}
             />
           )}
@@ -920,6 +1159,7 @@ export const App: React.FC = () => {
             <VendorsView
               vendors={vendors}
               onOpenAddVendor={() => setActiveCreateModal('vendor')}
+              onDeleteVendor={handleDeleteVendor}
             />
           )}
 
@@ -929,6 +1169,7 @@ export const App: React.FC = () => {
               rateMasked={rateMasked}
               onOpenNewPlacement={() => setActiveCreateModal('placement')}
               onExtendContract={handleExtendContract}
+              onDeletePlacement={handleDeletePlacement}
               showToast={showToast}
             />
           )}
@@ -956,22 +1197,37 @@ export const App: React.FC = () => {
                 if (!newUser.name || !newUser.email) return;
                 const name: string = newUser.name;
                 const email: string = newUser.email;
-                try {
-                  await apiClient.post('/users/invite', newUser);
-                } catch (e) {
-                  console.warn('API invite user failed:', e);
-                }
-                const invitedUser: User = {
+                let invitedUser: User = {
                   id: 'usr_' + Date.now(),
                   name,
                   email,
-                  role: newUser.role || '',
-                  desk: newUser.desk || '',
+                  role: newUser.role || 'Technical Recruiter',
+                  desk: newUser.desk || 'US IT Contract (C2C & W2)',
                   rateMasked: newUser.rateMasked ?? true,
                   workload: '0 Requisitions • 0 Submissions',
-                  status: 'Active',
+                  status: 'Invited',
                   lastActive: 'Active Now',
                 };
+                try {
+                  const res = await apiClient.post('/users/invite', newUser);
+                  if (res.data?.data) {
+                    const u = res.data.data;
+                    invitedUser = {
+                      id: u.id,
+                      name: u.fullName || name,
+                      email: u.email || email,
+                      role: formatUserRole(u.role),
+                      desk: u.desk || invitedUser.desk,
+                      rateMasked: u.rateMasked ?? invitedUser.rateMasked,
+                      workload: u.workload || invitedUser.workload,
+                      status: formatUserStatus(u.status),
+                      lastActive: 'Invited',
+                    };
+                  }
+                  fetchSidebarCounts();
+                } catch (e) {
+                  console.warn('API invite user failed:', e);
+                }
                 setUsers((prev) => [...prev, invitedUser]);
               }}
               onToggleUserStatus={async (user) => {
@@ -1011,11 +1267,17 @@ export const App: React.FC = () => {
             <AutomationsView
               rules={rules}
               auditLogs={auditLogs}
+              tenantId={currentUser?.tenantId || 'talentos-agency'}
               onTestTrigger={handleTestTriggerRule}
               onToggleRule={(id) => {
                 setRules((prev) =>
                   prev.map((r) => (r.id === id ? { ...r, active: !r.active } : r))
                 );
+              }}
+              onRefreshAutomations={() => {
+                fetchAutomations();
+                fetchSlaTasks();
+                fetchSidebarCounts();
               }}
               showToast={showToast}
             />
@@ -1096,7 +1358,10 @@ export const App: React.FC = () => {
       <ResumeParserModal
         isOpen={isResumeModalOpen}
         onClose={() => setIsResumeModalOpen(false)}
-        onApprove={(c) => setCandidates((prev) => [c, ...prev])}
+        onApprove={(c) => {
+          setCandidates((prev) => [c, ...prev]);
+          fetchSidebarCounts();
+        }}
         onSwitchToCsvImport={() => {
           setIsResumeModalOpen(false);
           setCurrentView('import_data');
@@ -1107,7 +1372,13 @@ export const App: React.FC = () => {
       <EmailParserModal
         isOpen={isEmailModalOpen}
         onClose={() => setIsEmailModalOpen(false)}
-        onApprove={(req) => setRequirements((prev) => [req, ...prev])}
+        clients={clients}
+        users={users}
+        onApprove={(req) => {
+          setRequirements((prev) => [req, ...prev]);
+          fetchClients();
+          fetchSidebarCounts();
+        }}
         showToast={showToast}
       />
 
@@ -1126,6 +1397,7 @@ export const App: React.FC = () => {
         isOpen={isPitchModalOpen}
         onClose={() => setIsPitchModalOpen(false)}
         candidate={activeCandidate}
+        candidates={candidates}
         requirement={activeReq}
         showToast={showToast}
       />
@@ -1144,9 +1416,18 @@ export const App: React.FC = () => {
         isOpen={activeCreateModal === 'consultant'}
         onClose={() => setActiveCreateModal(null)}
         users={users}
-        onSave={(c) => {
-          setCandidates((prev) => [c, ...prev]);
-          apiClient.post('/candidates', c).catch((e) => console.warn('API save candidate:', e));
+        onSave={async (c) => {
+          let saved = c;
+          try {
+            const res = await apiClient.post('/candidates', c);
+            if (res.data?.data?.id) {
+              saved = { ...c, id: res.data.data.id };
+            }
+            fetchSidebarCounts();
+          } catch (e) {
+            console.warn('API save candidate:', e);
+          }
+          setCandidates((prev) => [saved, ...prev]);
         }}
         showToast={showToast}
       />
@@ -1156,9 +1437,23 @@ export const App: React.FC = () => {
         onClose={() => setActiveCreateModal(null)}
         clients={clients}
         users={users}
-        onSave={(r) => {
-          setRequirements((prev) => [r, ...prev]);
-          apiClient.post('/requirements', r).catch((e) => console.warn('API save requirement:', e));
+        onSave={async (r) => {
+          let saved = r;
+          try {
+            const res = await apiClient.post('/requirements', r);
+            if (res.data?.data) {
+              saved = {
+                ...r,
+                id: res.data.data.id || r.id,
+                code: res.data.data.code || r.code,
+                status: formatRequirementStatus(res.data.data.status || r.status),
+              };
+            }
+            fetchSidebarCounts();
+          } catch (e) {
+            console.warn('API save requirement:', e);
+          }
+          setRequirements((prev) => [saved, ...prev]);
         }}
         showToast={showToast}
       />
@@ -1166,9 +1461,28 @@ export const App: React.FC = () => {
       <AddClientModal
         isOpen={activeCreateModal === 'client'}
         onClose={() => setActiveCreateModal(null)}
-        onSave={(cl) => {
-          setClients((prev) => [cl, ...prev]);
-          apiClient.post('/clients', cl).catch((e) => console.warn('API save client:', e));
+        onSave={async (cl) => {
+          let saved = cl;
+          try {
+            const res = await apiClient.post('/clients', cl);
+            if (res.data?.data?.id) {
+              saved = {
+                ...cl,
+                id: res.data.data.id,
+                contacts: (res.data.data.contacts || cl.contacts || []).map((cnt: any) => ({
+                  name: cnt.fullName || cnt.name || '',
+                  designation: cnt.designation || '',
+                  phone: cnt.phone || '',
+                  email: cnt.email || '',
+                  isPrimary: cnt.isPrimary ?? false,
+                })),
+              };
+            }
+            fetchSidebarCounts();
+          } catch (e) {
+            console.warn('API save client:', e);
+          }
+          setClients((prev) => [saved, ...prev]);
         }}
         showToast={showToast}
       />
@@ -1176,9 +1490,18 @@ export const App: React.FC = () => {
       <AddVendorModal
         isOpen={activeCreateModal === 'vendor'}
         onClose={() => setActiveCreateModal(null)}
-        onSave={(v) => {
-          setVendors((prev) => [v, ...prev]);
-          apiClient.post('/vendors', v).catch((e) => console.warn('API save vendor:', e));
+        onSave={async (v) => {
+          let saved = v;
+          try {
+            const res = await apiClient.post('/vendors', v);
+            if (res.data?.data?.id) {
+              saved = { ...v, id: res.data.data.id };
+            }
+            fetchSidebarCounts();
+          } catch (e) {
+            console.warn('API save vendor:', e);
+          }
+          setVendors((prev) => [saved, ...prev]);
         }}
         showToast={showToast}
       />
@@ -1188,9 +1511,18 @@ export const App: React.FC = () => {
         onClose={() => setActiveCreateModal(null)}
         clients={clients}
         users={users}
-        onSave={(p) => {
-          setPlacements((prev) => [p, ...prev]);
-          apiClient.post('/placements', p).catch((e) => console.warn('API save placement:', e));
+        onSave={async (p) => {
+          let saved = p;
+          try {
+            const res = await apiClient.post('/placements', p);
+            if (res.data?.data?.id) {
+              saved = { ...p, id: res.data.data.id };
+            }
+            fetchSidebarCounts();
+          } catch (e) {
+            console.warn('API save placement:', e);
+          }
+          setPlacements((prev) => [saved, ...prev]);
         }}
         showToast={showToast}
       />

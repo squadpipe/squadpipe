@@ -26,7 +26,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
     location: 'Remote',
     targetRate: '$115/hr',
     skillsRequired: '',
-    assignedRecruiter: 'Marcus Brody',
+    assignedRecruiter: users[0]?.name || '',
     status: 'Requirement' as Requirement['status'],
     remarks: '',
   });
@@ -114,25 +114,28 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
               </div>
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Client Company *</label>
-                <select
+                <input
+                  list="req-client-companies-list"
                   value={form.companyName}
                   onChange={(e) => {
-                    const selClient = clients.find((c) => c.name === e.target.value);
+                    const val = e.target.value;
+                    const selClient = clients.find((c) => c.name === val);
                     setForm({
                       ...form,
-                      companyName: e.target.value,
-                      clientContact: selClient?.contacts[0]?.name || '',
-                      clientContactTitle: selClient?.contacts[0]?.designation || '',
+                      companyName: val,
+                      clientContact: selClient?.contacts[0]?.name || form.clientContact,
+                      clientContactTitle: selClient?.contacts[0]?.designation || form.clientContactTitle,
                     });
                   }}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600"
-                >
+                  placeholder="Select or type client company name..."
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600 focus:outline-none"
+                  required
+                />
+                <datalist id="req-client-companies-list">
                   {clients.map((c) => (
-                    <option key={c.id} value={c.name}>
-                      {c.name}
-                    </option>
+                    <option key={c.id} value={c.name} />
                   ))}
-                </select>
+                </datalist>
               </div>
             </div>
 
@@ -200,19 +203,12 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
                   onChange={(e) => setForm({ ...form, assignedRecruiter: e.target.value })}
                   className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600"
                 >
-                  {users.length > 0 ? (
-                    users.map((u) => (
-                      <option key={u.id} value={u.name}>
-                        {u.name}
-                      </option>
-                    ))
-                  ) : (
-                    <>
-                      <option value="Marcus Brody">Marcus Brody</option>
-                      <option value="Sarah Jenkins">Sarah Jenkins</option>
-                      <option value="Elena Rostova">Elena Rostova</option>
-                    </>
-                  )}
+                  <option value="">Unassigned / Desk Queue</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.name}>
+                      {u.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>

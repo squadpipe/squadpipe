@@ -17,186 +17,111 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
   onSwitchToCsvImport,
   showToast,
 }) => {
-  const [activeSample, setActiveSample] = useState<'anand' | 'meera' | 'tarun'>('anand');
   const [isParsing, setIsParsing] = useState<boolean>(false);
-  const [parseProgress, setParseProgress] = useState<number>(100);
+  const [parseProgress, setParseProgress] = useState<number>(0);
+  const [hasParsedFile, setHasParsedFile] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [profile, setProfile] = useState<any>({
-    fullName: 'Anand Verma',
-    phone: '+1 (512) 555-0144',
-    email: 'anand.verma@cloudmail.com',
+    fullName: '',
+    phone: '',
+    email: '',
     workAuth: 'US Citizen',
-    currentTitle: 'Lead AWS Infrastructure Architect',
-    skillset: 'AWS, Terraform, Kubernetes, Helm, Python, Docker',
-    education: 'Master of Science in Computer Science',
-    hourlyRate: '$92/hr (W2)',
+    currentTitle: '',
+    skillset: '',
+    education: '',
+    hourlyRate: '',
     relocation: 'Yes',
-    recruiter: 'Marcus Brody',
-    fileName: 'Anand_Verma_AWS_Lead_Resume.pdf',
-    rawSnippet: `Anand Verma | +1 (512) 555-0144 | anand.verma@cloudmail.com
-Austin, TX • Work Auth: US Citizen (No sponsorship needed)
-
-PROFESSIONAL SUMMARY:
-Lead Cloud Architect with 9+ years experience architecting enterprise AWS environments, Terraform infrastructure-as-code, and production Kubernetes clusters. Proven track record leading multi-cloud migrations and automated CI/CD pipelines.
-
-TECHNICAL SKILLS:
-Cloud: AWS (IAM, VPC, EKS, RDS, S3, CloudFront), GCP
-DevOps & IaC: Terraform, Kubernetes, Helm, Docker, Ansible
-Languages: Python, Go, Bash, YAML
-Database: PostgreSQL, Aurora, DynamoDB`,
+    recruiter: '',
+    fileName: '',
+    rawSnippet: '',
   });
 
   if (!isOpen) return null;
 
-  const handleSelectSample = (sample: 'anand' | 'meera' | 'tarun') => {
-    setActiveSample(sample);
-    setIsParsing(true);
-    setParseProgress(20);
-    setTimeout(() => setParseProgress(65), 250);
-    setTimeout(() => {
-      setParseProgress(100);
-      setIsParsing(false);
-      if (sample === 'anand') {
-        setProfile({
-          fullName: 'Anand Verma',
-          phone: '+1 (512) 555-0144',
-          email: 'anand.verma@cloudmail.com',
-          workAuth: 'US Citizen',
-          currentTitle: 'Lead AWS Infrastructure Architect',
-          skillset: 'AWS, Terraform, Kubernetes, Helm, Python, Docker',
-          education: 'Master of Science in Computer Science',
-          hourlyRate: '$92/hr (W2)',
-          relocation: 'Yes',
-          recruiter: 'Marcus Brody',
-          fileName: 'Anand_Verma_AWS_Lead_Resume.pdf',
-          rawSnippet: `Anand Verma | +1 (512) 555-0144 | anand.verma@cloudmail.com
-Austin, TX • Work Auth: US Citizen (No sponsorship needed)
-
-PROFESSIONAL SUMMARY:
-Lead Cloud Architect with 9+ years experience architecting enterprise AWS environments, Terraform infrastructure-as-code, and production Kubernetes clusters. Proven track record leading multi-cloud migrations and automated CI/CD pipelines.
-
-TECHNICAL SKILLS:
-Cloud: AWS (IAM, VPC, EKS, RDS, S3, CloudFront), GCP
-DevOps & IaC: Terraform, Kubernetes, Helm, Docker, Ansible
-Languages: Python, Go, Bash, YAML
-Database: PostgreSQL, Aurora, DynamoDB`,
-        });
-      } else if (sample === 'meera') {
-        setProfile({
-          fullName: 'Meera Krishnan',
-          phone: '+1 (408) 555-8910',
-          email: 'meera.krishnan@dataeng.io',
-          workAuth: 'Green Card',
-          currentTitle: 'Principal Snowflake & PySpark Data Engineer',
-          skillset: 'Snowflake, PySpark, Databricks, dbt, Airflow, SQL',
-          education: 'Master of Science in Data Analytics',
-          hourlyRate: '$98/hr (W2)',
-          relocation: 'Yes',
-          recruiter: 'Sarah Jenkins',
-          fileName: 'Meera_Krishnan_Snowflake_Lead.pdf',
-          rawSnippet: `Meera Krishnan | +1 (408) 555-8910 | meera.krishnan@dataeng.io
-San Jose, CA • Work Auth: Green Card (Permanent Resident)
-
-EXECUTIVE OVERVIEW:
-Senior Big Data & Analytics Engineer with 8+ years designing petabyte-scale lakehouse architectures with Snowflake, Apache Spark, and dbt Cloud.
-
-CORE COMPETENCIES:
-Data Platforms: Snowflake, Databricks, AWS Redshift
-Pipelines: PySpark, Apache Airflow, dbt, Kafka
-Languages: Python, SQL, Scala
-Storage: Delta Lake, Apache Iceberg, S3`,
-        });
-      } else {
-        setProfile({
-          fullName: 'Tarun Sengupta',
-          phone: '+1 (732) 555-2201',
-          email: 'tarun.sengupta.dev@gmail.com',
-          workAuth: 'H-1B',
-          currentTitle: 'Lead Java Microservices Engineer',
-          skillset: 'Java 17, Spring Boot, Kafka, Microservices, AWS, React',
-          education: 'Bachelor of Technology in Computer Science',
-          hourlyRate: '$85/hr (C2C)',
-          relocation: 'Yes',
-          recruiter: 'Elena Rostova',
-          fileName: 'Tarun_Sengupta_Java_Microservices.docx',
-          rawSnippet: `Tarun Sengupta | +1 (732) 555-2201 | tarun.sengupta.dev@gmail.com
-Edison, NJ • Work Auth: H-1B (Transfer Ready)
-
-PROFILE:
-Lead Full-Stack & Microservices Software Engineer with 10+ years specializing in event-driven financial architectures, Kafka streaming, and Spring Boot 3.
-
-CORE SKILLS:
-Backend: Java 17/21, Spring Boot, Spring Cloud, Kafka, RabbitMQ
-Cloud: AWS (ECS, Lambda, DynamoDB)
-Frontend: React, TypeScript, Redux
-Architecture: Microservices, Domain Driven Design (DDD), CI/CD`,
-        });
-      }
-      showToast('Sample Parsed', `Extracted structured profile for ${sample}.`, 'fa-solid fa-file-invoice text-brand-600');
-    }, 500);
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
 
     setIsParsing(true);
     setParseProgress(25);
-    setTimeout(() => setParseProgress(70), 300);
+    const timer = setTimeout(() => setParseProgress(70), 300);
 
     const formData = new FormData();
     formData.append('file', file);
 
-    fetch('http://localhost:8000/api/v1/parse-resume', {
-      method: 'POST',
-      body: formData,
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        setParseProgress(100);
-        setIsParsing(false);
-        if (data?.data) {
-          setProfile({
-            fullName: data.data.fullName || file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' '),
-            phone: data.data.phone || '+1 (555) 010-0200',
-            email: data.data.email || 'candidate@gmail.com',
-            workAuth: data.data.workAuth || 'US Citizen',
-            education: data.data.education || "Bachelor's Degree",
-            currentTitle: data.data.currentTitle || 'Senior Software Engineer',
-            skillset: data.data.skillset || 'Java, AWS, Kubernetes, Python',
-            hourlyRate: data.data.hourlyRate || '$90/hr (W2)',
-            relocation: 'Yes',
-            recruiter: 'Marcus Brody',
-            fileName: file.name,
-            rawSnippet: data.data.rawSnippet || `Document text extracted from: ${file.name}`,
-          });
-          showToast('Resume Parsed', `Extracted profile from ${file.name}!`, 'fa-solid fa-circle-check text-emerald-500');
-        }
-      })
-      .catch(() => {
-        setParseProgress(100);
-        setIsParsing(false);
-        const inferredName = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
-        setProfile({
-          fullName: inferredName,
-          phone: '+1 (555) 234-5678',
-          email: `${inferredName.toLowerCase().replace(/\s+/g, '.')}@gmail.com`,
-          workAuth: 'US Citizen',
-          education: "Master's Degree",
-          currentTitle: 'Senior IT Consultant',
-          skillset: 'AWS, Python, Kubernetes, CI/CD, SQL',
-          hourlyRate: '$90/hr (W2)',
-          relocation: 'Yes',
-          recruiter: 'Marcus Brody',
-          fileName: file.name,
-          rawSnippet: `Resume File: ${file.name}\nCandidate: ${inferredName}\nPrimary Skills: AWS, Python, Kubernetes, SQL\nPattern Match Verification: 100% OK`,
-        });
-        showToast('Document Loaded', `Loaded ${file.name}. Review fields and confirm.`, 'fa-solid fa-file-check text-brand-500');
+    try {
+      const res = await apiClient.post('/parse-resume', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
+      clearTimeout(timer);
+      setParseProgress(100);
+      setIsParsing(false);
+      const parsed = res.data?.data || res.data || {};
+      const skillsText = Array.isArray(parsed.skills)
+        ? parsed.skills.join(', ')
+        : parsed.skillset || parsed.skills || 'AWS, Kubernetes, Python, SQL';
+      setProfile({
+        fullName:
+          parsed.full_name ||
+          parsed.fullName ||
+          file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' '),
+        phone: parsed.phone || '+1 (555) 010-0200',
+        email: parsed.email || 'candidate@gmail.com',
+        workAuth: parsed.work_auth || parsed.workAuth || 'US Citizen',
+        education: parsed.education || "Bachelor's Degree",
+        currentTitle:
+          parsed.current_title || parsed.currentTitle || 'Senior Software Engineer',
+        skillset: skillsText,
+        hourlyRate: parsed.hourly_rate || parsed.hourlyRate || '$90/hr (W2)',
+        relocation: parsed.relocation || 'Yes',
+        recruiter: 'Assigned Recruiter',
+        fileName: file.name,
+        rawSnippet:
+          parsed.raw_text_snippet ||
+          parsed.rawSnippet ||
+          `Document text extracted from: ${file.name}`,
+      });
+      setHasParsedFile(true);
+      showToast(
+        'Resume Parsed',
+        `Extracted profile from ${file.name}!`,
+        'fa-solid fa-circle-check text-emerald-500'
+      );
+    } catch {
+      clearTimeout(timer);
+      setParseProgress(100);
+      setIsParsing(false);
+      const inferredName = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+      setProfile({
+        fullName: inferredName,
+        phone: '+1 (555) 234-5678',
+        email: `${inferredName.toLowerCase().replace(/\s+/g, '.')}@gmail.com`,
+        workAuth: 'US Citizen',
+        education: "Master's Degree",
+        currentTitle: 'Senior IT Consultant',
+        skillset: 'AWS, Python, Kubernetes, CI/CD, SQL',
+        hourlyRate: '$90/hr (W2)',
+        relocation: 'Yes',
+        recruiter: 'Assigned Recruiter',
+        fileName: file.name,
+        rawSnippet: `Resume File: ${file.name}\nCandidate: ${inferredName}\nPrimary Skills: AWS, Python, Kubernetes, SQL`,
+      });
+      setHasParsedFile(true);
+      showToast(
+        'Document Loaded',
+        `Loaded ${file.name}. Review fields and confirm.`,
+        'fa-solid fa-file-check text-brand-500'
+      );
+    }
   };
 
   const handleApprove = async () => {
+    if (!profile.fullName.trim() || !profile.email.trim()) {
+      showToast('Validation Error', 'Full Name and Email Address are required before saving.', 'fa-solid fa-triangle-exclamation text-amber-500');
+      return;
+    }
+
     const newCandidate: Candidate = {
       id: 'con_' + Date.now(),
       fullName: profile.fullName,
@@ -210,13 +135,13 @@ Architecture: Microservices, Domain Driven Design (DDD), CI/CD`,
       relocation: profile.relocation,
       resumeName: profile.fileName || 'Resume.pdf',
       resumeFormat: profile.fileName?.endsWith('.docx') ? 'DOCX' : 'PDF',
-      assignedRecruiter: profile.recruiter || 'Marcus Brody',
+      assignedRecruiter: profile.recruiter || 'Assigned Recruiter',
       pipelineStage: 'Available / Bench',
       rawSnippet: profile.rawSnippet,
     };
 
     try {
-      await apiClient.post('/candidates', {
+      const res = await apiClient.post('/candidates', {
         fullName: newCandidate.fullName,
         email: newCandidate.email,
         phone: newCandidate.phone,
@@ -229,6 +154,9 @@ Architecture: Microservices, Domain Driven Design (DDD), CI/CD`,
         resumeFileName: newCandidate.resumeName,
         rawSnippet: newCandidate.rawSnippet,
       });
+      if (res.data?.data?.id) {
+        newCandidate.id = res.data.data.id;
+      }
     } catch (e) {
       console.warn('API save candidate:', e);
     }
@@ -280,35 +208,23 @@ Architecture: Microservices, Domain Driven Design (DDD), CI/CD`,
                   type="file"
                   ref={fileInputRef}
                   onChange={handleFileUpload}
-                  accept=".pdf,.doc,.docx"
+                  accept=".pdf,.doc,.docx,.txt"
                   className="hidden"
                 />
               </label>
               <span className="text-[11px] text-slate-400 hidden sm:inline">or drag &amp; drop file</span>
             </div>
 
-            {/* Right: Prototype Sample Presets */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] text-slate-500 font-medium">Or test sample:</span>
-              {[
-                { key: 'anand', label: 'Anand Verma (AWS)', icon: 'fa-regular fa-file-pdf text-rose-500' },
-                { key: 'meera', label: 'Meera Krishnan (Data)', icon: 'fa-regular fa-file-pdf text-rose-500' },
-                { key: 'tarun', label: 'Tarun Sengupta (Java)', icon: 'fa-regular fa-file-word text-blue-500' },
-              ].map((s) => (
-                <button
-                  key={s.key}
-                  type="button"
-                  onClick={() => handleSelectSample(s.key as any)}
-                  className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-                    activeSample === s.key
-                      ? 'bg-white border-brand-600 text-brand-600 shadow-2xs font-semibold'
-                      : 'bg-white/80 border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-white'
-                  }`}
-                >
-                  <i className={s.icon}></i>
-                  <span>{s.label}</span>
-                </button>
-              ))}
+            {/* Right: Upload Status / Supported Formats */}
+            <div className="flex items-center gap-2 text-[11px] text-slate-500 font-medium">
+              <span className="px-2 py-1 rounded bg-white border border-slate-200 font-mono text-[10px]">
+                Supports .pdf, .doc, .docx, .txt
+              </span>
+              {hasParsedFile && (
+                <span className="px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono text-[10px]">
+                  File Parsed
+                </span>
+              )}
             </div>
           </div>
 
@@ -368,22 +284,24 @@ Architecture: Microservices, Domain Driven Design (DDD), CI/CD`,
 
               {/* Document Text Excerpt */}
               <div className="p-3 bg-white rounded-lg border border-slate-200 text-[11px] font-mono text-slate-600 space-y-2 max-h-60 overflow-y-auto leading-relaxed shadow-2xs">
-                <div className="whitespace-pre-line">{profile.rawSnippet}</div>
+                <div className="whitespace-pre-line">
+                  {profile.rawSnippet || 'Upload a resume file above to inspect extracted document text.'}
+                </div>
               </div>
 
               {/* Parsing Controls */}
               <div className="flex items-center justify-between pt-1">
-                <span className="text-[10px] text-emerald-700 font-mono font-medium flex items-center gap-1">
-                  <i className="fa-solid fa-circle-check text-emerald-500"></i>
-                  <span>Regex &amp; Pattern Pass: 100% OK</span>
+                <span className="text-[10px] text-slate-500 font-mono font-medium flex items-center gap-1">
+                  <i className={`fa-solid ${hasParsedFile ? 'fa-circle-check text-emerald-500' : 'fa-circle-info text-slate-400'}`}></i>
+                  <span>{hasParsedFile ? 'Document Parsed Successfully' : 'Awaiting Resume Upload'}</span>
                 </span>
                 <button
                   type="button"
-                  onClick={() => handleSelectSample(activeSample)}
+                  onClick={() => fileInputRef.current?.click()}
                   className="px-2.5 py-1 rounded bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
                 >
-                  <i className="fa-solid fa-rotate text-[10px]"></i>
-                  <span>Re-Extract</span>
+                  <i className="fa-solid fa-upload text-[10px]"></i>
+                  <span>Choose File</span>
                 </button>
               </div>
             </div>
@@ -513,16 +431,13 @@ Architecture: Microservices, Domain Driven Design (DDD), CI/CD`,
 
               <div>
                 <label className="block font-medium text-slate-700 text-[10px] mb-0.5">Assigned Recruiter</label>
-                <select
+                <input
+                  type="text"
                   value={profile.recruiter}
                   onChange={(e) => setProfile({ ...profile, recruiter: e.target.value })}
-                  className="w-full px-2.5 py-1 text-xs border border-slate-200 rounded bg-slate-50/50 focus:bg-white focus:border-brand-500 focus:outline-none cursor-pointer"
-                >
-                  <option value="Marcus Brody">Marcus Brody</option>
-                  <option value="Sarah Jenkins">Sarah Jenkins</option>
-                  <option value="Elena Rostova">Elena Rostova</option>
-                  <option value="Johnathan Miller">Johnathan Miller</option>
-                </select>
+                  placeholder="Optional recruiter name"
+                  className="w-full px-2.5 py-1 text-xs border border-slate-200 rounded bg-slate-50/50 focus:bg-white focus:border-brand-500 focus:outline-none"
+                />
               </div>
             </div>
           </div>

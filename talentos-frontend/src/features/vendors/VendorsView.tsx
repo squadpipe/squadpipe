@@ -4,9 +4,10 @@ import { Vendor } from '../../types';
 interface VendorsViewProps {
   vendors: Vendor[];
   onOpenAddVendor: () => void;
+  onDeleteVendor?: (vendor: Vendor) => void;
 }
 
-export const VendorsView: React.FC<VendorsViewProps> = ({ vendors, onOpenAddVendor }) => {
+export const VendorsView: React.FC<VendorsViewProps> = ({ vendors, onOpenAddVendor, onDeleteVendor }) => {
   const [search, setSearch] = useState('');
 
   const filtered = vendors.filter(
@@ -68,34 +69,49 @@ export const VendorsView: React.FC<VendorsViewProps> = ({ vendors, onOpenAddVend
                 <th className="px-4 py-3">Payment Terms</th>
                 <th className="px-4 py-3">Invoicing</th>
                 <th className="px-4 py-3">MSA Status</th>
+                {onDeleteVendor && <th className="px-4 py-3 text-right">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
-              {filtered.map((v) => (
-                <tr key={v.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="px-4 py-3 font-semibold text-slate-900">{v.name}</td>
-                  <td className="px-4 py-3 text-slate-800">{v.contactName}</td>
-                  <td className="px-4 py-3 font-mono text-[11px] text-slate-500">
-                    {v.phone} <br />
-                    {v.email}
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">{v.location}</td>
-                  <td className="px-4 py-3 font-mono text-[10px]">{v.skillSpecialization}</td>
-                  <td className="px-4 py-3 font-mono font-medium">{v.paymentTerms}</td>
-                  <td className="px-4 py-3 font-mono text-slate-600">{v.invoicingTerms}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <span
-                      className={`text-[10px] font-mono px-2 py-0.5 rounded font-semibold border ${
-                        v.msa === 'Yes'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : 'bg-amber-50 text-amber-700 border-amber-200'
-                      }`}
-                    >
-                      {v.msa === 'Yes' ? 'MSA Executed' : 'Pending Review'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((v) => {
+                const isMsaExecuted = v.msa === 'Yes' || v.msa === 'Active';
+                return (
+                  <tr key={v.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-4 py-3 font-semibold text-slate-900">{v.name}</td>
+                    <td className="px-4 py-3 text-slate-800">{v.contactName}</td>
+                    <td className="px-4 py-3 font-mono text-[11px] text-slate-500">
+                      {v.phone} <br />
+                      {v.email}
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">{v.location}</td>
+                    <td className="px-4 py-3 font-mono text-[10px]">{v.skillSpecialization}</td>
+                    <td className="px-4 py-3 font-mono font-medium">{v.paymentTerms}</td>
+                    <td className="px-4 py-3 font-mono text-slate-600">{v.invoicingTerms}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span
+                        className={`text-[10px] font-mono px-2 py-0.5 rounded font-semibold border ${
+                          isMsaExecuted
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}
+                      >
+                        {isMsaExecuted ? 'MSA Executed' : 'Pending Review'}
+                      </span>
+                    </td>
+                    {onDeleteVendor && (
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => onDeleteVendor(v)}
+                          title="Delete vendor"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                        >
+                          <i className="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

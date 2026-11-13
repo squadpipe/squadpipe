@@ -1,5 +1,6 @@
 export interface User {
   id: string;
+  tenantId?: string;
   name: string;
   email: string;
   role: string;
@@ -111,6 +112,7 @@ export interface SlaTask {
 
 export interface AutomationRule {
   id: string;
+  tenantId?: string;
   name: string;
   category: string;
   icon: string;

@@ -18,47 +18,21 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
   const [showMigrationModal, setShowMigrationModal] = useState(false);
   const [migrationStep, setMigrationStep] = useState<1 | 2 | 3>(1);
   const [showCsvImportModal, setShowCsvImportModal] = useState(false);
-  const [uploadedFileName, setUploadedFileName] = useState<string>('Legacy_Consultants_2026.xlsx');
+  const [uploadedFileName, setUploadedFileName] = useState<string>('');
   const [parsedRows, setParsedRows] = useState<any[]>([]);
   const [isImporting, setIsImporting] = useState<boolean>(false);
 
+  const sampleRow = parsedRows[0] || {};
   const columnMappings = [
-    { source: 'Candidate_Name', sample: 'Tarun Sengupta', target: 'fullName' },
-    { source: 'Designation_Title', sample: 'Lead Java Cloud Architect', target: 'currentTitle' },
-    { source: 'Visa_Status', sample: 'US Citizen', target: 'workAuth' },
-    { source: 'Email_Address', sample: 'tarun.sengupta@gmail.com', target: 'email' },
-    { source: 'Phone_Cell', sample: '+1 (512) 555-0199', target: 'phone' },
-    { source: 'Rate_Expectation', sample: '$95/hr (W2)', target: 'hourlyRate' },
-    { source: 'Relocation_Pref', sample: 'Yes', target: 'relocation' },
-    { source: 'Primary_Skillset', sample: 'AWS, Kubernetes, Java, Spring', target: 'skillset' },
-    { source: 'Desk_Owner', sample: 'Marcus Brody', target: 'assignedRecruiter' },
-  ];
-
-  const defaultSampleRows = [
-    {
-      fullName: 'Tarun Sengupta',
-      currentTitle: 'Lead Java Cloud Architect',
-      workAuth: 'US Citizen',
-      education: "Master's Degree",
-      email: 'tarun.sengupta@gmail.com',
-      phone: '+1 (512) 555-0199',
-      hourlyRateDisplay: '$95/hr (W2)',
-      relocation: 'Yes',
-      skillset: 'AWS, Kubernetes, Java, Spring Boot, Microservices',
-      assignedRecruiter: 'Marcus Brody',
-    },
-    {
-      fullName: 'Deepika Rao',
-      currentTitle: 'Senior Snowflake Data Engineer',
-      workAuth: 'Green Card',
-      education: "Master's Degree",
-      email: 'deepika.rao@dataops.io',
-      phone: '+1 (408) 555-0144',
-      hourlyRateDisplay: '$92/hr (W2)',
-      relocation: 'No',
-      skillset: 'Snowflake, PySpark, Databricks, dbt, SQL, Airflow',
-      assignedRecruiter: 'Sarah Jenkins',
-    },
+    { source: 'Candidate_Name', sample: sampleRow.fullName || '—', target: 'fullName' },
+    { source: 'Designation_Title', sample: sampleRow.currentTitle || '—', target: 'currentTitle' },
+    { source: 'Visa_Status', sample: sampleRow.workAuth || '—', target: 'workAuth' },
+    { source: 'Email_Address', sample: sampleRow.email || '—', target: 'email' },
+    { source: 'Phone_Cell', sample: sampleRow.phone || '—', target: 'phone' },
+    { source: 'Rate_Expectation', sample: sampleRow.hourlyRateDisplay || '—', target: 'hourlyRate' },
+    { source: 'Relocation_Pref', sample: sampleRow.relocation || '—', target: 'relocation' },
+    { source: 'Primary_Skillset', sample: sampleRow.skillset || '—', target: 'skillset' },
+    { source: 'Desk_Owner', sample: sampleRow.assignedRecruiter || '—', target: 'assignedRecruiter' },
   ];
 
   const handleFileDrop = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -89,45 +63,56 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
           return row;
         }).filter((r) => r.fullName && r.email);
 
+        setParsedRows(rows);
         if (rows.length > 0) {
-          setParsedRows(rows);
+          if (showMigrationModal) setMigrationStep(2);
+        } else {
+          showToast('No Valid Rows Found', 'Ensure your CSV includes columns for Name and Email.', 'fa-solid fa-triangle-exclamation text-amber-500');
         }
+      } else {
+        setParsedRows([]);
+        showToast('Invalid CSV File', 'The selected file has no data rows.', 'fa-solid fa-triangle-exclamation text-amber-500');
       }
     };
     reader.readAsText(file);
-    setMigrationStep(2);
   };
 
   const handleRunMigration = async () => {
+    if (parsedRows.length === 0) {
+      showToast('No File Loaded', 'Please select a valid CSV file with Name and Email columns first.', 'fa-solid fa-triangle-exclamation text-amber-500');
+      return;
+    }
+
     setIsImporting(true);
-    const rowsToImport = parsedRows.length > 0 ? parsedRows : defaultSampleRows;
 
     try {
-      const res = await apiClient.post('/candidates/csv-import', rowsToImport);
-      const count = res.data?.count || rowsToImport.length;
+      const res = await apiClient.post('/candidates/csv-import', parsedRows);
+      const count = res.data?.count || parsedRows.length;
+      const returnedRows = Array.isArray(res.data?.data) ? res.data.data : parsedRows;
 
       if (onImportCandidates) {
         onImportCandidates(
-          rowsToImport.map((r, i) => ({
-            id: 'con_mig_' + (Date.now() + i),
+          returnedRows.map((r: any, i: number) => ({
+            id: r.id || 'con_mig_' + (Date.now() + i),
             fullName: r.fullName,
             currentTitle: r.currentTitle || 'Consultant',
             workAuth: r.workAuth || 'US Citizen',
-            education: r.education || "Bachelor's Degree",
+            education: r.education || '',
             email: r.email,
-            phone: r.phone || '+1 (555) 000-0000',
-            hourlyRate: r.hourlyRateDisplay || '$90/hr (W2)',
-            relocation: r.relocation || 'Yes',
-            skillset: r.skillset || 'Technical Skills',
-            assignedRecruiter: r.assignedRecruiter || 'Recruitment Desk',
+            phone: r.phone || '',
+            hourlyRate: r.hourlyRateDisplay || r.hourlyRate || '',
+            relocation: r.relocation || 'Open',
+            skillset: r.skillset || '',
+            assignedRecruiter: r.assignedRecruiter || '',
             pipelineStage: 'Available / Bench',
-            resumeName: `${r.fullName.replace(/\s+/g, '_')}_Resume.pdf`,
+            resumeName: r.resumeName || `${String(r.fullName || 'Candidate').replace(/\s+/g, '_')}_Resume.pdf`,
             resumeFormat: 'PDF',
           }))
         );
       }
 
       setMigrationStep(3);
+      setShowCsvImportModal(false);
       showToast(
         'Migration Executed',
         `Successfully mapped and imported ${count} candidates into central PostgreSQL bench roster!`,
@@ -249,20 +234,25 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
                       className="hidden"
                     />
                     <i className="fa-solid fa-cloud-arrow-up text-3xl text-brand-600 mb-2"></i>
-                    <div className="font-bold text-slate-800 text-sm">Loaded: {uploadedFileName}</div>
+                    <div className="font-bold text-slate-800 text-sm">
+                      {uploadedFileName ? `Loaded: ${uploadedFileName}` : 'No File Selected'}
+                    </div>
                     <div className="text-[11px] text-slate-500 mt-1">
-                      {parsedRows.length > 0 ? `${parsedRows.length} parsed candidate rows detected` : '48 candidate rows detected across 9 spreadsheet columns'}
+                      {parsedRows.length > 0
+                        ? `${parsedRows.length} parsed candidate rows detected`
+                        : 'Select a UTF-8 CSV file with header columns (Name, Email, Title, Skills, etc.)'}
                     </div>
                     <div className="mt-4 inline-block px-3 py-1 bg-white border border-slate-200 rounded text-brand-600 font-medium">
-                      Select or Drop CSV / Excel File &rarr;
+                      Select or Drop CSV File &rarr;
                     </div>
                   </label>
                   <div className="flex justify-end">
                     <button
                       onClick={() => setMigrationStep(2)}
-                      className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded text-xs cursor-pointer shadow-xs"
+                      disabled={parsedRows.length === 0}
+                      className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold rounded text-xs cursor-pointer shadow-xs"
                     >
-                      Continue with File ({parsedRows.length > 0 ? parsedRows.length : 48} Rows) &rarr;
+                      Continue with File ({parsedRows.length} Rows) &rarr;
                     </button>
                   </div>
                 </div>
@@ -322,7 +312,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
                         </>
                       ) : (
                         <>
-                          <span>Execute Import ({parsedRows.length > 0 ? parsedRows.length : 48} Rows)</span> &rarr;
+                          <span>Execute Import ({parsedRows.length} Rows)</span> &rarr;
                         </>
                       )}
                     </button>
@@ -338,7 +328,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
                   </div>
                   <h3 className="font-bold text-slate-900 text-sm">Data Migration Complete!</h3>
                   <p className="text-slate-500 text-xs">
-                    48 candidates imported successfully into your central roster. Zero duplicates detected.
+                    {parsedRows.length} candidates imported successfully into your central roster.
                   </p>
                   <button
                     onClick={() => {
@@ -377,11 +367,19 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
             </div>
 
             <div className="p-6 space-y-4 text-xs">
-              <div className="border-2 border-dashed border-emerald-300 rounded-xl p-6 text-center bg-emerald-50/30">
+              <label className="border-2 border-dashed border-emerald-300 rounded-xl p-6 text-center bg-emerald-50/30 hover:border-emerald-500 transition-colors cursor-pointer block">
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileDrop}
+                  className="hidden"
+                />
                 <i className="fa-solid fa-file-arrow-up text-2xl text-emerald-600 mb-1"></i>
-                <div className="font-semibold text-slate-800">Drop CSV Roster File Here</div>
+                <div className="font-semibold text-slate-800">
+                  {uploadedFileName ? `${uploadedFileName} (${parsedRows.length} rows parsed)` : 'Click to Select CSV Roster File'}
+                </div>
                 <div className="text-[11px] text-slate-500 mt-1">Accepts UTF-8 comma-separated spreadsheets</div>
-              </div>
+              </label>
 
               <div className="pt-2 flex justify-end gap-2">
                 <button
@@ -391,13 +389,11 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
                   Cancel
                 </button>
                 <button
-                  onClick={() => {
-                    handleRunMigration();
-                    setShowCsvImportModal(false);
-                  }}
-                  className="px-3.5 py-1.5 bg-emerald-600 text-white font-semibold rounded text-xs cursor-pointer"
+                  onClick={handleRunMigration}
+                  disabled={isImporting || parsedRows.length === 0}
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded text-xs cursor-pointer"
                 >
-                  Upload &amp; Ingest
+                  {isImporting ? 'Uploading...' : `Upload & Ingest (${parsedRows.length})`}
                 </button>
               </div>
             </div>

@@ -9,6 +9,7 @@ interface ConsultantsViewProps {
   onPreviewResume: (candidate: Candidate) => void;
   onOpenAddConsultant?: () => void;
   onOpenCsvImport?: () => void;
+  onDeleteCandidate?: (candidate: Candidate) => void;
 }
 
 export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
@@ -18,6 +19,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
   onPreviewResume,
   onOpenAddConsultant,
   onOpenCsvImport,
+  onDeleteCandidate,
 }) => {
   const [search, setSearch] = useState('');
   const [workAuthFilter, setWorkAuthFilter] = useState('All');
@@ -135,6 +137,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                 <th className="px-4 py-3">Relocation</th>
                 <th className="px-4 py-3">Resume</th>
                 <th className="px-4 py-3">Stage</th>
+                {onDeleteCandidate && <th className="px-4 py-3 text-right">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -221,6 +224,18 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                       {c.pipelineStage}
                     </span>
                   </td>
+
+                  {onDeleteCandidate && (
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <button
+                        onClick={() => onDeleteCandidate(c)}
+                        title="Delete consultant"
+                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                      >
+                        <i className="fa-solid fa-trash-can text-xs"></i>
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

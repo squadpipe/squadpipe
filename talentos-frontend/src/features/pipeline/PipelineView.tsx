@@ -11,6 +11,7 @@ interface PipelineViewProps {
   onOpenPlacementWizard: (req: Requirement) => void;
   onSelectReq?: (req: Requirement) => void;
   onOpenAddReq?: () => void;
+  onDeleteReq?: (req: Requirement) => void;
 }
 
 export const PipelineView: React.FC<PipelineViewProps> = ({
@@ -23,9 +24,13 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
   onOpenPlacementWizard,
   onSelectReq,
   onOpenAddReq,
+  onDeleteReq,
 }) => {
   const [displayMode, setDisplayMode] = useState<'kanban' | 'list'>('kanban');
   const [search, setSearch] = useState('');
+  const [draggedReqId, setDraggedReqId] = useState<string | null>(null);
+  const [dragOverStage, setDragOverStage] = useState<Requirement['status'] | null>(null);
+  const [reqToDelete, setReqToDelete] = useState<Requirement | null>(null);
 
   const stageOrder: Requirement['status'][] = [
     'Requirement',
@@ -130,10 +135,39 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3.5 items-start">
           {stageOrder.map((stage) => {
             const reqsInStage = filteredReqs.filter((r) => r.status === stage);
+            const isDropTarget = dragOverStage === stage;
             return (
               <div
                 key={stage}
-                className="bg-slate-100/70 p-3 rounded-xl border border-slate-200/80 flex flex-col max-h-[82vh]"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  if (dragOverStage !== stage) setDragOverStage(stage);
+                }}
+                onDragLeave={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    setDragOverStage(null);
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const droppedId = e.dataTransfer.getData('text/plain') || draggedReqId;
+                  setDragOverStage(null);
+                  setDraggedReqId(null);
+                  if (!droppedId) return;
+                  const droppedReq = requirements.find((r) => r.id === droppedId);
+                  if (droppedReq && droppedReq.status !== stage) {
+                    onStatusChange(droppedReq, stage);
+                    if (stage === 'Onboarding') {
+                      onOpenPlacementWizard(droppedReq);
+                    }
+                  }
+                }}
+                className={`p-3 rounded-xl border flex flex-col max-h-[82vh] transition-all ${
+                  isDropTarget
+                    ? 'ring-2 ring-brand-500 bg-brand-50/40 border-brand-300'
+                    : 'bg-slate-100/70 border-slate-200/80'
+                }`}
               >
                 {/* Column Header */}
                 <div className="flex items-center justify-between pb-2.5 mb-2 border-b border-slate-200">
@@ -146,22 +180,41 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                 </div>
 
                 {/* Cards Container */}
-                <div className="space-y-2.5 overflow-y-auto no-scrollbar flex-1 pr-0.5">
+                <div className="space-y-2.5 overflow-y-auto no-scrollbar flex-1 pr-0.5 min-h-[120px]">
                   {reqsInStage.length === 0 ? (
-                    <div className="py-8 text-center text-slate-400 text-[11px] border border-dashed border-slate-200 rounded-lg bg-white/40">
-                      No requisitions in {stage}
+                    <div
+                      className={`py-8 text-center text-[11px] border border-dashed rounded-lg transition-colors ${
+                        isDropTarget
+                          ? 'border-brand-400 bg-brand-50/60 text-brand-700 font-semibold'
+                          : 'border-slate-200 bg-white/40 text-slate-400'
+                      }`}
+                    >
+                      {isDropTarget ? `Drop to move to ${stage}` : `No requisitions in ${stage}`}
                     </div>
                   ) : (
                     reqsInStage.map((req) => (
                       <div
                         key={req.id}
-                        className="bg-white p-3.5 rounded-xl border border-slate-200 card-shadow hover:border-slate-300 transition-all space-y-2"
+                        draggable
+                        onDragStart={(e) => {
+                          setDraggedReqId(req.id);
+                          e.dataTransfer.effectAllowed = 'move';
+                          e.dataTransfer.setData('text/plain', req.id);
+                        }}
+                        onDragEnd={() => {
+                          setDraggedReqId(null);
+                          setDragOverStage(null);
+                        }}
+                        className={`bg-white p-3.5 rounded-xl border border-slate-200 card-shadow hover:border-slate-300 transition-all space-y-2 cursor-grab active:cursor-grabbing ${
+                          draggedReqId === req.id ? 'opacity-50 scale-[0.98] ring-2 ring-brand-400' : ''
+                        }`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <span
                             onClick={() => onSelectReq && onSelectReq(req)}
-                            className="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 cursor-pointer hover:bg-brand-50 hover:text-brand-600 transition-colors"
+                            className="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 cursor-pointer hover:bg-brand-50 hover:text-brand-600 transition-colors inline-flex items-center"
                           >
+                            <i className="fa-solid fa-grip-vertical text-[9px] text-slate-300 mr-1"></i>
                             {req.code}
                           </span>
                           <span className="text-[10px] text-slate-400">{req.location}</span>
@@ -214,13 +267,22 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                             <i className="fa-solid fa-arrow-left"></i>
                           </button>
 
-                          <div className="flex gap-1.5">
+                          <div className="flex gap-1.5 items-center">
                             <button
                               onClick={() => onOpenPitchWriter(req)}
-                              className="px-2 py-0.5 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 text-[10px] font-semibold"
+                              className="px-2 py-0.5 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 text-[10px] font-semibold cursor-pointer"
                             >
                               Pitch
                             </button>
+                            {onDeleteReq && (
+                              <button
+                                onClick={() => setReqToDelete(req)}
+                                title="Delete requirement"
+                                className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                              >
+                                <i className="fa-solid fa-trash-can text-[10px]"></i>
+                              </button>
+                            )}
                           </div>
 
                           <button
@@ -285,11 +347,74 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                     >
                       Pitch
                     </button>
+                    {onDeleteReq && (
+                      <button
+                        onClick={() => setReqToDelete(req)}
+                        title="Delete requirement"
+                        className="ml-1.5 p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                      >
+                        <i className="fa-solid fa-trash-can text-xs"></i>
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Delete Requisition Confirmation Modal */}
+      {reqToDelete && (
+        <div
+          onClick={() => setReqToDelete(null)}
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up"
+          >
+            <div className="p-6 space-y-4">
+              <div className="flex items-start gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center flex-shrink-0">
+                  <i className="fa-solid fa-triangle-exclamation text-base"></i>
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-slate-900">Delete Requirement?</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Are you sure you want to permanently remove{' '}
+                    <span className="font-mono font-bold text-slate-800">{reqToDelete.code}</span> —{' '}
+                    <span className="font-semibold text-slate-800">{reqToDelete.opportunityTitle}</span> at{' '}
+                    <span className="font-semibold text-slate-800">{reqToDelete.companyName}</span>?
+                  </p>
+                  <p className="text-[11px] text-rose-600 font-medium pt-0.5">
+                    This action cannot be undone and removes linked submission records.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setReqToDelete(null)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onDeleteReq) onDeleteReq(reqToDelete);
+                    setReqToDelete(null);
+                  }}
+                  className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <i className="fa-solid fa-trash-can text-[11px]"></i>
+                  <span>Delete Requisition</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

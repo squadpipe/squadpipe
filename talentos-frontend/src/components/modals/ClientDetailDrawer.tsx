@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiClient } from '../../config/api.config';
 import { Client, Requirement, BillablePlacement } from '../../types';
 
 interface ClientDetailDrawerProps {
@@ -8,6 +9,7 @@ interface ClientDetailDrawerProps {
   requirements: Requirement[];
   placements: BillablePlacement[];
   onOpenAddContact?: () => void;
+  onClientUpdated?: (updatedClient: Client) => void;
   showToast: (title: string, message: string, icon?: string) => void;
 }
 
@@ -17,11 +19,59 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
   client,
   requirements,
   placements,
+  onClientUpdated,
   showToast,
 }) => {
   const [activeTab, setActiveTab] = useState<'Overview' | 'Contacts' | 'Requirements' | 'Placements'>('Overview');
+  const [showAddContact, setShowAddContact] = useState(false);
+  const [isSavingContact, setIsSavingContact] = useState(false);
+  const [contactForm, setContactForm] = useState({
+    name: '',
+    designation: 'Hiring Manager',
+    email: '',
+    phone: '',
+    isPrimary: false,
+  });
 
   if (!isOpen || !client) return null;
+
+  const handleSaveContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contactForm.name.trim() || !contactForm.email.trim()) {
+      showToast('Missing Fields', 'Contact name and email are required.', 'fa-solid fa-circle-exclamation text-rose-500');
+      return;
+    }
+    setIsSavingContact(true);
+    try {
+      const res = await apiClient.post(`/clients/${client.id}/contacts`, {
+        fullName: contactForm.name.trim(),
+        designation: contactForm.designation.trim(),
+        email: contactForm.email.trim(),
+        phone: contactForm.phone.trim(),
+        isPrimary: contactForm.isPrimary,
+      });
+      const created = res.data?.data;
+      const newContact = {
+        name: created?.fullName || contactForm.name.trim(),
+        designation: created?.designation || contactForm.designation.trim(),
+        email: created?.email || contactForm.email.trim(),
+        phone: created?.phone || contactForm.phone.trim(),
+        isPrimary: created?.isPrimary ?? contactForm.isPrimary,
+      };
+      const updatedClient: Client = {
+        ...client,
+        contacts: [...client.contacts, newContact],
+      };
+      if (onClientUpdated) onClientUpdated(updatedClient);
+      setContactForm({ name: '', designation: 'Hiring Manager', email: '', phone: '', isPrimary: false });
+      setShowAddContact(false);
+      showToast('Contact Added', `${newContact.name} saved to ${client.name}.`, 'fa-solid fa-circle-check text-emerald-500');
+    } catch (err: any) {
+      showToast('Save Failed', err.response?.data?.message || 'Could not add contact.', 'fa-solid fa-circle-exclamation text-rose-500');
+    } finally {
+      setIsSavingContact(false);
+    }
+  };
 
   const clientReqs = requirements.filter(
     (r) => r.companyName.toLowerCase() === client.name.toLowerCase()
@@ -160,19 +210,85 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
               <div className="flex items-center justify-between">
                 <span className="font-bold text-slate-800">Client Contact Persons ({client.contacts.length})</span>
                 <button
-                  onClick={() =>
-                    showToast(
-                      'Contact Added',
-                      'New point of contact logged to client directory.',
-                      'fa-solid fa-circle-check text-emerald-500'
-                    )
-                  }
-                  className="text-brand-600 font-semibold hover:underline text-xs flex items-center gap-1"
+                  onClick={() => setShowAddContact((prev) => !prev)}
+                  className="text-brand-600 font-semibold hover:underline text-xs flex items-center gap-1 cursor-pointer"
                 >
-                  <i className="fa-solid fa-plus text-[10px]"></i>
-                  <span>Add Contact</span>
+                  <i className={`fa-solid ${showAddContact ? 'fa-xmark' : 'fa-plus'} text-[10px]`}></i>
+                  <span>{showAddContact ? 'Cancel' : 'Add Contact'}</span>
                 </button>
               </div>
+
+              {showAddContact && (
+                <form
+                  onSubmit={handleSaveContact}
+                  className="p-3.5 bg-slate-50 rounded-xl border border-brand-200 space-y-2.5 animate-fade-in"
+                >
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-slate-500">Full Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={contactForm.name}
+                        onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
+                        placeholder="e.g., Sarah Connor"
+                        className="mt-0.5 w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-slate-500">Designation</label>
+                      <input
+                        type="text"
+                        value={contactForm.designation}
+                        onChange={(e) => setContactForm({ ...contactForm, designation: e.target.value })}
+                        placeholder="VP Engineering"
+                        className="mt-0.5 w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-slate-500">Email *</label>
+                      <input
+                        type="email"
+                        required
+                        value={contactForm.email}
+                        onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                        placeholder="sarah@client.com"
+                        className="mt-0.5 w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-slate-500">Phone</label>
+                      <input
+                        type="text"
+                        value={contactForm.phone}
+                        onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
+                        placeholder="+1 (555) 234-5678"
+                        className="mt-0.5 w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    <label className="flex items-center gap-1.5 text-[11px] font-medium text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={contactForm.isPrimary}
+                        onChange={(e) => setContactForm({ ...contactForm, isPrimary: e.target.checked })}
+                        className="rounded border-slate-300"
+                      />
+                      <span>Mark as Primary Hiring Lead</span>
+                    </label>
+                    <button
+                      type="submit"
+                      disabled={isSavingContact}
+                      className="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-semibold cursor-pointer"
+                    >
+                      {isSavingContact ? 'Saving...' : 'Save Contact'}
+                    </button>
+                  </div>
+                </form>
+              )}
 
               <div className="space-y-2.5">
                 {client.contacts.map((cnt, idx) => (
