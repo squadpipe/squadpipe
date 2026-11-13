@@ -1,15 +1,35 @@
 import { prisma } from '../config/prisma.config';
-import { RequirementStatus, Prisma } from '@prisma/client';
+import { RequirementStatus, Prisma, WorkModel } from '@prisma/client';
 
 export interface RequirementFilterParams {
+  tenantId?: string;
   search?: string;
   status?: string;
 }
 
+export const requirementStatusMap: Record<string, RequirementStatus> = {
+  'Requirement': RequirementStatus.REQUIREMENT,
+  'REQUIREMENT': RequirementStatus.REQUIREMENT,
+  'Submitted': RequirementStatus.SUBMITTED,
+  'SUBMITTED': RequirementStatus.SUBMITTED,
+  'Interview': RequirementStatus.INTERVIEW,
+  'INTERVIEW': RequirementStatus.INTERVIEW,
+  'Selected': RequirementStatus.SELECTED,
+  'SELECTED': RequirementStatus.SELECTED,
+  'Onboarding': RequirementStatus.ONBOARDING,
+  'ONBOARDING': RequirementStatus.ONBOARDING,
+  'Closed': RequirementStatus.CLOSED,
+  'CLOSED': RequirementStatus.CLOSED,
+};
+
 export class RequirementService {
   async getRequirements(params: RequirementFilterParams) {
-    const { search, status } = params;
+    const { search, status, tenantId } = params;
     const where: Prisma.RequirementWhereInput = {};
+
+    if (tenantId) {
+      where.tenantId = tenantId;
+    }
 
     if (search) {
       where.OR = [
@@ -18,8 +38,8 @@ export class RequirementService {
         { skillsRequired: { contains: String(search), mode: 'insensitive' } }
       ];
     }
-    if (status && status !== 'all') {
-      where.status = status as RequirementStatus;
+    if (status && status !== 'all' && status !== 'ALL') {
+      where.status = requirementStatusMap[status] || (status as RequirementStatus);
     }
 
     return prisma.requirement.findMany({
@@ -35,8 +55,8 @@ export class RequirementService {
     });
   }
 
-  async getRequirementById(id: string) {
-    return prisma.requirement.findUnique({
+  async getRequirementById(id: string, tenantId?: string) {
+    const req = await prisma.requirement.findUnique({
       where: { id },
       include: {
         client: true,
@@ -45,21 +65,77 @@ export class RequirementService {
         submissions: { include: { candidate: true } }
       }
     });
+
+    if (req && tenantId && req.tenantId !== tenantId) {
+      return null;
+    }
+    return req;
   }
 
-  async createRequirement(data: any) {
-    const count = await prisma.requirement.count();
-    const code = `REQ-${1000 + count + 1}`;
-    
+  async createRequirement(raw: any, tenantId: string = 'talentos-agency', recruiterId?: string) {
+    const count = await prisma.requirement.count({ where: { tenantId } });
+    const code = raw.code || `REQ-${1000 + count + 1}`;
+
+    const billRateNum = typeof raw.targetBillRate === 'number'
+      ? raw.targetBillRate
+      : parseInt(String(raw.targetRate || raw.targetBillRate || '115').replace(/\D/g, ''), 10) || 115;
+    const payRateNum = typeof raw.targetPayRate === 'number'
+      ? raw.targetPayRate
+      : Math.round(billRateNum * 0.75);
+
+    const mappedStatus = requirementStatusMap[raw.status] || RequirementStatus.REQUIREMENT;
+
+    // Handle Client relationship or matching
+    let resolvedClientId = raw.clientId || null;
+    let resolvedContactId = raw.clientContactId || null;
+
+    if (!resolvedClientId && raw.companyName) {
+      const existingClient = await prisma.client.findFirst({
+        where: { name: raw.companyName.trim(), tenantId },
+        include: { contacts: true }
+      });
+      if (existingClient) {
+        resolvedClientId = existingClient.id;
+        if (existingClient.contacts.length > 0) {
+          resolvedContactId = existingClient.contacts[0].id;
+        }
+      }
+    }
+
+    // Map work model
+    let workModel: WorkModel = WorkModel.REMOTE;
+    const loc = String(raw.location || '').toUpperCase();
+    if (loc.includes('HYBRID')) workModel = WorkModel.HYBRID;
+    else if (loc.includes('ONSITE')) workModel = WorkModel.ONSITE;
+
     return prisma.requirement.create({
       data: {
+        tenantId,
         code,
-        ...data
+        opportunityTitle: raw.opportunityTitle?.trim() || 'Software Engineer Requisition',
+        companyName: raw.companyName?.trim() || 'Partner Enterprise',
+        clientId: resolvedClientId,
+        clientContactId: resolvedContactId,
+        skillsRequired: raw.skillsRequired?.trim() || 'Software Engineering',
+        location: raw.location?.trim() || 'Remote',
+        workModel,
+        targetBillRate: billRateNum,
+        targetPayRate: payRateNum,
+        status: mappedStatus,
+        assignedRecruiterId: recruiterId || raw.assignedRecruiterId || null
+      },
+      include: {
+        client: true,
+        clientContact: true,
+        assignedRecruiter: {
+          select: { id: true, fullName: true, role: true, desk: true }
+        }
       }
     });
   }
 
-  async updateRequirementStage(id: string, status: RequirementStatus, resourceName?: string) {
+  async updateRequirementStage(id: string, statusInput: string, resourceName?: string, tenantId?: string) {
+    const status = requirementStatusMap[statusInput] || (statusInput as RequirementStatus);
     const updated = await prisma.requirement.update({
       where: { id },
       data: { status }
@@ -68,11 +144,12 @@ export class RequirementService {
     // Automated placement creation when moving to ONBOARDING
     if (status === RequirementStatus.ONBOARDING && resourceName) {
       const existing = await prisma.placement.findFirst({
-        where: { resourceName, customer: updated.companyName }
+        where: { resourceName, customer: updated.companyName, tenantId: updated.tenantId }
       });
       if (!existing) {
         await prisma.placement.create({
           data: {
+            tenantId: updated.tenantId,
             customer: updated.companyName,
             resourceName,
             skillRole: updated.opportunityTitle,
@@ -89,6 +166,16 @@ export class RequirementService {
     }
 
     return updated;
+  }
+
+  async deleteRequirement(id: string, tenantId?: string) {
+    if (tenantId) {
+      const existing = await prisma.requirement.findUnique({ where: { id } });
+      if (!existing || existing.tenantId !== tenantId) {
+        throw new Error('Requirement not found or unauthorized');
+      }
+    }
+    return prisma.requirement.delete({ where: { id } });
   }
 }
 

@@ -37,38 +37,44 @@ router.post('/auth/logout', authController.logout);
 
 // Dashboard metrics
 router.get('/dashboard/metrics', async (req: Request, res: Response) => {
-  const [
-    activeReqsCount,
-    submittedCount,
-    interviewsCount,
-    selectedCount,
-    onboardingCount,
-    financials
-  ] = await Promise.all([
-    prisma.requirement.count(),
-    prisma.requirement.count({ where: { status: 'SUBMITTED' } }),
-    prisma.requirement.count({ where: { status: 'INTERVIEW' } }),
-    prisma.requirement.count({ where: { status: 'SELECTED' } }),
-    prisma.requirement.count({ where: { status: 'ONBOARDING' } }),
-    placementService.getFinancialMetrics()
-  ]);
-
-  res.json({
-    success: true,
-    data: {
+  try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const [
       activeReqsCount,
       submittedCount,
       interviewsCount,
       selectedCount,
       onboardingCount,
-      ...financials
-    }
-  });
+      financials
+    ] = await Promise.all([
+      prisma.requirement.count({ where: { tenantId } }),
+      prisma.requirement.count({ where: { tenantId, status: 'SUBMITTED' } }),
+      prisma.requirement.count({ where: { tenantId, status: 'INTERVIEW' } }),
+      prisma.requirement.count({ where: { tenantId, status: 'SELECTED' } }),
+      prisma.requirement.count({ where: { tenantId, status: 'ONBOARDING' } }),
+      placementService.getFinancialMetrics(tenantId)
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        activeReqsCount,
+        submittedCount,
+        interviewsCount,
+        selectedCount,
+        onboardingCount,
+        ...financials
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'Failed to fetch dashboard metrics' });
+  }
 });
 
 // Sidebar navigation counts (fast, lightweight aggregate query)
 router.get('/sidebar/counts', async (req: Request, res: Response) => {
   try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
     const [
       requirements,
       consultants,
@@ -79,14 +85,14 @@ router.get('/sidebar/counts', async (req: Request, res: Response) => {
       customFields,
       activeRules
     ] = await Promise.all([
-      prisma.requirement.count(),
-      prisma.candidate.count(),
-      prisma.client.count(),
-      prisma.vendor.count(),
-      prisma.placement.count(),
-      prisma.user.count(),
-      prisma.customFieldDefinition.count(),
-      prisma.automationRule.count({ where: { active: true } })
+      prisma.requirement.count({ where: { tenantId } }),
+      prisma.candidate.count({ where: { tenantId } }),
+      prisma.client.count({ where: { tenantId } }),
+      prisma.vendor.count({ where: { tenantId } }),
+      prisma.placement.count({ where: { tenantId } }),
+      prisma.user.count({ where: { tenantId } }),
+      prisma.customFieldDefinition.count({ where: { OR: [{ tenantId }, { tenantId: 'talentos-agency' }] } }),
+      prisma.automationRule.count({ where: { active: true, OR: [{ tenantId }, { tenantId: 'talentos-agency' }] } })
     ]);
 
     res.json({
@@ -111,10 +117,15 @@ router.get('/sidebar/counts', async (req: Request, res: Response) => {
 router.get('/candidates', candidateController.getCandidates);
 router.post('/candidates', candidateController.createCandidate);
 router.get('/candidates/:id', candidateController.getCandidateById);
+router.put('/candidates/:id', candidateController.updateCandidate);
+router.patch('/candidates/:id/stage', candidateController.updateCandidate);
+router.delete('/candidates/:id', candidateController.deleteCandidate);
 router.post('/candidates/csv-import', async (req: Request, res: Response) => {
   try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const recruiterId = req.user?.id;
     const rows = Array.isArray(req.body) ? req.body : req.body.rows || [];
-    const results = await csvImporterService.importCandidates(rows);
+    const results = await csvImporterService.importCandidates(rows, tenantId, recruiterId);
     res.json({ success: true, count: results.length, data: results });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'CSV Import failed' });
@@ -155,17 +166,59 @@ router.post('/generate-pitch', async (req: Request, res: Response) => {
 router.get('/requirements', requirementController.getRequirements);
 router.post('/requirements', requirementController.createRequirement);
 router.patch('/requirements/:id/stage', requirementController.updateRequirementStage);
+router.delete('/requirements/:id', requirementController.deleteRequirement);
+
+// Submissions (Candidate to Requirement)
+router.post('/submissions', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const recruiterId = req.user?.id;
+    const { requirementId, candidateId, pitchEmailSubject, pitchEmailBody, pitchTone } = req.body;
+
+    const submission = await prisma.submission.create({
+      data: {
+        tenantId,
+        requirementId,
+        candidateId,
+        recruiterId,
+        pitchEmailSubject,
+        pitchEmailBody,
+        pitchTone: pitchTone || 'PROFESSIONAL',
+        stage: 'SUBMITTED'
+      }
+    });
+
+    // Update candidate pipeline stage
+    await prisma.candidate.update({
+      where: { id: candidateId },
+      data: { pipelineStage: 'SUBMITTED' }
+    });
+
+    // Update requirement status
+    await prisma.requirement.update({
+      where: { id: requirementId },
+      data: { status: 'SUBMITTED' }
+    });
+
+    res.status(201).json({ success: true, data: submission });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'Submission failed' });
+  }
+});
 
 // Clients & Vendors
 router.get('/clients', clientController.getClients);
 router.post('/clients', clientController.createClient);
+router.delete('/clients/:id', clientController.deleteClient);
 router.get('/vendors', clientController.getVendors);
 router.post('/vendors', clientController.createVendor);
+router.delete('/vendors/:id', clientController.deleteVendor);
 
 // Placements
 router.get('/placements', placementController.getPlacements);
 router.post('/placements', placementController.createPlacement);
 router.post('/placements/:id/extend', placementController.extendPlacement);
+router.delete('/placements/:id', placementController.deletePlacement);
 
 // Users & Roles
 router.get('/users', userController.getUsers);
@@ -173,8 +226,9 @@ router.post('/users/invite', userController.inviteUser);
 router.patch('/users/:id/rate-mask', userController.toggleUserRateMask);
 router.patch('/users/:id/status', async (req: Request, res: Response) => {
   try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
     const user = await prisma.user.findUnique({ where: { id: req.params.id } });
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (!user || user.tenantId !== tenantId) return res.status(404).json({ success: false, message: 'User not found' });
     const nextStatus = user.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
     const updated = await prisma.user.update({
       where: { id: req.params.id },
@@ -188,6 +242,9 @@ router.patch('/users/:id/status', async (req: Request, res: Response) => {
 });
 router.delete('/users/:id', async (req: Request, res: Response) => {
   try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!user || user.tenantId !== tenantId) return res.status(404).json({ success: false, message: 'User not found' });
     await prisma.user.delete({ where: { id: req.params.id } });
     res.json({ success: true, message: 'User removed successfully' });
   } catch (error: any) {
@@ -198,7 +255,11 @@ router.delete('/users/:id', async (req: Request, res: Response) => {
 // Custom Fields
 router.get('/custom-fields', async (req: Request, res: Response) => {
   try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
     const fields = await prisma.customFieldDefinition.findMany({
+      where: {
+        OR: [{ tenantId }, { tenantId: 'talentos-agency' }]
+      },
       orderBy: { createdAt: 'asc' }
     });
     res.json({ success: true, data: fields });
@@ -208,6 +269,7 @@ router.get('/custom-fields', async (req: Request, res: Response) => {
 });
 router.post('/custom-fields', async (req: Request, res: Response) => {
   try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
     const { name, entity, type, options, required } = req.body;
     const key = name.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Date.now();
     const entityUpper = (entity || 'CONSULTANT').toUpperCase();
@@ -215,6 +277,7 @@ router.post('/custom-fields', async (req: Request, res: Response) => {
 
     const created = await prisma.customFieldDefinition.create({
       data: {
+        tenantId,
         name,
         key,
         entity: (entityUpper as any),
@@ -239,12 +302,27 @@ router.delete('/custom-fields/:id', async (req: Request, res: Response) => {
 });
 
 // Automations & Audits
-router.get('/automations/rules', automationController.getAutomationRules);
+router.get('/automations/rules', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const rules = await prisma.automationRule.findMany({
+      where: {
+        OR: [{ tenantId }, { tenantId: 'talentos-agency' }]
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json({ success: true, data: rules });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Failed to fetch rules' });
+  }
+});
 router.post('/automations/rules', async (req: Request, res: Response) => {
   try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
     const { name, category, whenText, threshold, thenSummary, actionPills } = req.body;
     const rule = await prisma.automationRule.create({
       data: {
+        tenantId,
         name,
         category: (category?.toUpperCase() || 'CUSTOM') as any,
         triggerEvent: 'CUSTOM',
@@ -252,6 +330,7 @@ router.post('/automations/rules', async (req: Request, res: Response) => {
         threshold: threshold || 'Immediate',
         thenSummary: thenSummary || '',
         actions: actionPills || [],
+        createdById: req.user?.id,
         active: true
       }
     });
@@ -277,7 +356,21 @@ router.post('/automations/rules/:id/test', automationController.testTriggerRule)
 router.get('/automations/audit-logs', automationController.getAutomationAuditLogs);
 
 // SLA Tasks
-router.get('/sla-tasks', slaController.getSlaTasks);
+router.get('/sla-tasks', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const tasks = await prisma.slaTask.findMany({
+      where: {
+        tenantId,
+        isDone: false
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json({ success: true, data: tasks });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Failed to fetch SLA tasks' });
+  }
+});
 router.post('/sla-tasks/evaluate', slaController.evaluateSlaRadar);
 router.patch('/sla-tasks/:id/complete', slaController.completeSlaTask);
 

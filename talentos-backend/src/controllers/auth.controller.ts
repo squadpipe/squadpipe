@@ -46,6 +46,8 @@ export const login = async (req: Request, res: Response) => {
     id: user.id,
     email: user.email,
     fullName: user.fullName,
+    agencyName: user.agencyName || 'TalentOS Staffing',
+    tenantId: user.tenantId || (user.email.endsWith('@talentos-agency.com') ? 'talentos-agency' : `tenant_${user.id}`),
     role: user.role,
     rateMasked: user.rateMasked
   };
@@ -66,6 +68,8 @@ export const login = async (req: Request, res: Response) => {
       id: user.id,
       name: user.fullName,
       email: user.email,
+      agencyName: user.agencyName || 'TalentOS Staffing',
+      tenantId: authPayload.tenantId,
       role: user.role,
       desk: user.desk,
       rateMasked: user.rateMasked,
@@ -96,6 +100,8 @@ export const me = async (req: Request, res: Response) => {
       id: user.id,
       name: user.fullName,
       email: user.email,
+      agencyName: user.agencyName || 'TalentOS Staffing',
+      tenantId: user.tenantId || req.user.tenantId,
       role: user.role,
       desk: user.desk,
       rateMasked: user.rateMasked,
@@ -116,7 +122,7 @@ export const logout = async (req: Request, res: Response) => {
 
 export const signup = async (req: Request, res: Response) => {
   try {
-    const { fullName, email, password, role, desk } = req.body;
+    const { fullName, email, password, role, desk, agencyName } = req.body;
 
     if (!fullName || !email || !password) {
       return res.status(400).json({
@@ -150,7 +156,7 @@ export const signup = async (req: Request, res: Response) => {
     const passwordHash = await bcrypt.hash(password, 10);
 
     // Map role string to UserRole enum
-    let assignedRole: UserRole = UserRole.TECHNICAL_RECRUITER;
+    let assignedRole: UserRole = UserRole.ADMINISTRATOR; // Default new registrant as Admin of their tenant
     if (role) {
       const upper = String(role).toUpperCase().replace(/[\s-]/g, '_');
       if (Object.values(UserRole).includes(upper as UserRole)) {
@@ -159,7 +165,14 @@ export const signup = async (req: Request, res: Response) => {
     }
 
     const assignedDesk = desk?.trim() || 'US IT Contract (C2C & W2)';
-    const rateMasked = assignedRole !== UserRole.ADMINISTRATOR;
+    const rateMasked = false; // Owner/Admin of new tenant has unmasked rate view
+
+    // Determine Tenant ID & Agency Name
+    const isDemoDomain = normalizedEmail.endsWith('@talentos-agency.com');
+    const tenantId = isDemoDomain
+      ? 'talentos-agency'
+      : `tenant_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+    const resolvedAgencyName = agencyName?.trim() || (isDemoDomain ? 'TalentOS Staffing' : `${fullName.trim()} Agency`);
 
     // Create user in database
     const user = await prisma.user.create({
@@ -167,6 +180,8 @@ export const signup = async (req: Request, res: Response) => {
         fullName: fullName.trim(),
         email: normalizedEmail,
         passwordHash,
+        agencyName: resolvedAgencyName,
+        tenantId,
         role: assignedRole,
         desk: assignedDesk,
         rateMasked,
@@ -180,6 +195,8 @@ export const signup = async (req: Request, res: Response) => {
       id: user.id,
       email: user.email,
       fullName: user.fullName,
+      agencyName: user.agencyName,
+      tenantId: user.tenantId,
       role: user.role,
       rateMasked: user.rateMasked
     };
@@ -194,6 +211,8 @@ export const signup = async (req: Request, res: Response) => {
         id: user.id,
         name: user.fullName,
         email: user.email,
+        agencyName: user.agencyName,
+        tenantId: user.tenantId,
         role: user.role,
         desk: user.desk,
         rateMasked: user.rateMasked,

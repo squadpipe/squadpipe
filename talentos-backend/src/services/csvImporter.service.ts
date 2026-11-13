@@ -15,32 +15,39 @@ export interface CsvCandidateRow {
 }
 
 export class CsvImporterService {
-  async importCandidates(rows: CsvCandidateRow[]) {
+  async importCandidates(rows: CsvCandidateRow[], tenantId: string = 'talentos-agency', recruiterId?: string) {
     const results = [];
 
     for (const row of rows) {
       if (!row.fullName || !row.email) continue;
+      const normalizedEmail = row.email.trim().toLowerCase();
 
       const created = await prisma.candidate.upsert({
-        where: { email: row.email },
+        where: {
+          tenantId_email: {
+            tenantId,
+            email: normalizedEmail
+          }
+        },
         update: {
           currentTitle: row.currentTitle || '',
           skillset: row.skillset || '',
-          workAuth: row.workAuth || '',
-          hourlyRateDisplay: row.hourlyRateDisplay || '',
+          workAuth: row.workAuth || 'US Citizen',
+          hourlyRateDisplay: row.hourlyRateDisplay || '$90/hr (W2)',
         },
         create: {
-          fullName: row.fullName,
-          email: row.email,
+          tenantId,
+          fullName: row.fullName.trim(),
+          email: normalizedEmail,
           phone: row.phone || '',
-          workAuth: row.workAuth || '',
-          education: row.education || '',
-          currentTitle: row.currentTitle || '',
-          skillset: row.skillset || '',
-          hourlyRateDisplay: row.hourlyRateDisplay || '',
-          relocation: row.relocation || '',
+          workAuth: row.workAuth || 'US Citizen',
+          education: row.education || "Master's Degree",
+          currentTitle: row.currentTitle || 'Software Engineer',
+          skillset: row.skillset || 'Technical Skills',
+          hourlyRateDisplay: row.hourlyRateDisplay || '$90/hr (W2)',
+          relocation: row.relocation || 'Yes',
           pipelineStage: CandidatePipelineStage.AVAILABLE_BENCH,
-          assignedRecruiterId: row.assignedRecruiterId,
+          assignedRecruiterId: recruiterId || row.assignedRecruiterId || null,
         },
       });
 

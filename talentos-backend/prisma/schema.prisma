@@ -150,6 +150,8 @@ model User {
   email           String         @unique
   passwordHash    String
   fullName        String
+  agencyName      String         @default("TalentOS Staffing")
+  tenantId        String         @default("talentos-agency")
   role            UserRole       @default(TECHNICAL_RECRUITER)
   desk            String         @default("US IT Contract (C2C & W2)")
   rateMasked      Boolean        @default(true)
@@ -169,6 +171,7 @@ model User {
 
   @@index([email])
   @@index([role])
+  @@index([tenantId])
 }
 
 model RefreshToken {
@@ -186,8 +189,9 @@ model RefreshToken {
 
 model Candidate {
   id                 String                 @id @default(uuid())
+  tenantId           String                 @default("talentos-agency")
   fullName           String
-  email              String                 @unique
+  email              String
   phone              String?
   currentTitle       String
   workAuth           String
@@ -211,15 +215,18 @@ model Candidate {
   submissions        Submission[]
   placements         Placement[]
 
+  @@unique([tenantId, email])
   @@index([fullName])
   @@index([email])
   @@index([pipelineStage])
   @@index([assignedRecruiterId])
+  @@index([tenantId])
 }
 
 model Client {
   id                 String          @id @default(uuid())
-  name               String          @unique
+  tenantId           String          @default("talentos-agency")
+  name               String
   website            String?
   boardNumber        String?
   location           String
@@ -234,7 +241,9 @@ model Client {
   requirements       Requirement[]
   placements         Placement[]
 
+  @@unique([tenantId, name])
   @@index([name])
+  @@index([tenantId])
 }
 
 model ClientContact {
@@ -258,7 +267,8 @@ model ClientContact {
 
 model Vendor {
   id                  String      @id @default(uuid())
-  name                String      @unique
+  tenantId            String      @default("talentos-agency")
+  name                String
   contactName         String
   phone               String?
   email               String
@@ -274,12 +284,15 @@ model Vendor {
 
   placements          Placement[]
 
+  @@unique([tenantId, name])
   @@index([name])
+  @@index([tenantId])
 }
 
 model Requirement {
   id                  String             @id @default(uuid())
-  code                String             @unique
+  tenantId            String             @default("talentos-agency")
+  code                String
   companyName         String
   clientId            String?
   client              Client?            @relation(fields: [clientId], references: [id], onDelete: SetNull)
@@ -305,14 +318,17 @@ model Requirement {
   submissions         Submission[]
   placements          Placement[]
 
+  @@unique([tenantId, code])
   @@index([code])
   @@index([companyName])
   @@index([status])
   @@index([assignedRecruiterId])
+  @@index([tenantId])
 }
 
 model Submission {
   id                     String            @id @default(uuid())
+  tenantId               String            @default("talentos-agency")
   requirementId          String
   requirement            Requirement       @relation(fields: [requirementId], references: [id], onDelete: Cascade)
   candidateId            String
@@ -333,10 +349,12 @@ model Submission {
   @@index([requirementId])
   @@index([candidateId])
   @@index([stage])
+  @@index([tenantId])
 }
 
 model Placement {
   id                  String          @id @default(uuid())
+  tenantId            String          @default("talentos-agency")
   recruiterId         String?
   recruiter           User?           @relation("RecruiterPlacements", fields: [recruiterId], references: [id], onDelete: SetNull)
   candidateId         String?
@@ -371,10 +389,12 @@ model Placement {
   @@index([resourceName])
   @@index([endDate])
   @@index([status])
+  @@index([tenantId])
 }
 
 model AutomationRule {
   id              String             @id @default(uuid())
+  tenantId        String             @default("talentos-agency")
   name            String
   category        AutomationCategory @default(FEEDBACK)
   icon            String             @default("fa-solid fa-bolt")
@@ -397,6 +417,7 @@ model AutomationRule {
 
   @@index([category])
   @@index([active])
+  @@index([tenantId])
 }
 
 model AutomationAuditLog {
@@ -417,6 +438,7 @@ model AutomationAuditLog {
 
 model SlaTask {
   id                String        @id @default(uuid())
+  tenantId          String        @default("talentos-agency")
   category          SlaCategory
   slaRuleTag        String
   badgeClass        String?
@@ -437,12 +459,14 @@ model SlaTask {
   @@index([category])
   @@index([isDone])
   @@index([assignedUserId])
+  @@index([tenantId])
 }
 
 model CustomFieldDefinition {
   id        String                @id @default(uuid())
+  tenantId  String                @default("talentos-agency")
   name      String
-  key       String                @unique
+  key       String
   entity    CustomFieldEntityType
   type      CustomFieldType       @default(TEXT)
   options   Json?
@@ -451,8 +475,10 @@ model CustomFieldDefinition {
   createdAt DateTime              @default(now())
   updatedAt DateTime              @updatedAt
 
+  @@unique([tenantId, key])
   @@index([entity])
   @@index([active])
+  @@index([tenantId])
 }
 
 model MasterTaxonomy {
@@ -470,6 +496,7 @@ model MasterTaxonomy {
 
 model EmailLog {
   id             String      @id @default(uuid())
+  tenantId       String      @default("talentos-agency")
   recipientEmail String
   recipientName  String?
   subject        String
@@ -482,5 +509,6 @@ model EmailLog {
 
   @@index([recipientEmail])
   @@index([status])
+  @@index([tenantId])
 }
 

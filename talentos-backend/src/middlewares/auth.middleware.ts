@@ -7,6 +7,8 @@ export interface AuthenticatedUser {
   email: string;
   role: UserRole;
   fullName: string;
+  agencyName?: string;
+  tenantId: string;
   rateMasked: boolean;
 }
 
@@ -28,6 +30,8 @@ export const authenticateJwt = (req: Request, res: Response, next: NextFunction)
         email: 'j.miller@talentos-agency.com',
         role: UserRole.ADMINISTRATOR,
         fullName: 'Johnathan Miller',
+        agencyName: 'TalentOS Staffing',
+        tenantId: 'talentos-agency',
         rateMasked: false
       };
       return next();
@@ -40,6 +44,10 @@ export const authenticateJwt = (req: Request, res: Response, next: NextFunction)
 
   try {
     const decoded = jwt.verify(token, secret) as AuthenticatedUser;
+    // Fallback tenantId if missing in older tokens
+    if (!decoded.tenantId) {
+      decoded.tenantId = decoded.email?.endsWith('@talentos-agency.com') ? 'talentos-agency' : `tenant_${decoded.id}`;
+    }
     req.user = decoded;
     next();
   } catch (err) {
