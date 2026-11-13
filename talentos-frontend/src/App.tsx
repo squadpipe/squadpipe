@@ -1599,6 +1599,7 @@ export const App: React.FC = () => {
         onClose={() => setSelectedResumeCand(null)}
         candidate={selectedResumeCand}
         requirements={requirements}
+        rateMasked={rateMasked}
         onSubmitToReq={(candidate, req) => {
           handleAssignCandidate(req, candidate);
           showToast(
