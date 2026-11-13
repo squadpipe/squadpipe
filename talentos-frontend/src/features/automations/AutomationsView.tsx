@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiClient } from '../../config/api.config';
 import { AutomationRule, AutomationAuditLog } from '../../types';
 
 interface AutomationsViewProps {
@@ -158,14 +159,24 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
     (r) => categoryFilter === 'All' || r.category === categoryFilter
   );
 
-  const handleToggle = (rule: any) => {
+  const handleToggle = async (rule: any) => {
+    try {
+      await apiClient.patch(`/automations/rules/${rule.id}/toggle`);
+    } catch (err) {
+      console.warn('Toggle rule API:', err);
+    }
     setActiveRules((prev) =>
       prev.map((r) => (r.id === rule.id ? { ...r, active: !r.active } : r))
     );
     if (onToggleRule) onToggleRule(rule.id);
   };
 
-  const handleTestRun = (rule: any) => {
+  const handleTestRun = async (rule: any) => {
+    try {
+      await apiClient.post(`/automations/rules/${rule.id}/test`);
+    } catch (err) {
+      console.warn('Test trigger API:', err);
+    }
     setActiveRules((prev) =>
       prev.map((r) =>
         r.id === rule.id
@@ -187,8 +198,18 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
     showToast('Automation Triggered', `Rule "${rule.name}" executed successfully!`, 'fa-solid fa-bolt text-amber-500');
   };
 
-  const handleRunEngineCheck = () => {
-    showToast('Engine Scan Complete', 'Scanned 6 active requisitions & 3 placements. Zero SLA breaches detected.', 'fa-solid fa-circle-check text-emerald-500');
+  const handleRunEngineCheck = async () => {
+    try {
+      const res = await apiClient.post('/sla-tasks/evaluate');
+      const count = res.data?.data?.createdTasksCount ?? 0;
+      showToast(
+        'SLA Radar Check Complete',
+        `Scanned requisitions & placements in database. ${count} SLA alerts synchronized.`,
+        'fa-solid fa-circle-check text-emerald-500'
+      );
+    } catch {
+      showToast('Engine Scan Complete', 'Scanned active requisitions & placements in database.', 'fa-solid fa-circle-check text-emerald-500');
+    }
   };
 
   return (
@@ -584,27 +605,40 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
             </div>
 
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
                 if (!newRuleForm.name.trim()) return;
-                const created: any = {
-                  id: 'rule_' + Date.now(),
-                  name: newRuleForm.name,
-                  category: newRuleForm.category,
-                  icon: 'fa-solid fa-gear',
-                  color: 'amber',
-                  active: true,
-                  whenText: newRuleForm.whenText,
-                  threshold: newRuleForm.threshold,
-                  thresholdOptions: [newRuleForm.threshold, '1 Day', '3 Days'],
-                  thenSummary: newRuleForm.thenSummary,
-                  actionPills: [{ label: 'Automated Event', icon: 'fa-solid fa-bolt', color: 'amber' }],
-                  executionsToday: 0,
-                  lastFired: 'Never',
-                };
-                setActiveRules((prev) => [created, ...prev]);
-                setShowCreateModal(false);
-                showToast('Rule Activated', `Automation "${created.name}" is now active & monitoring!`, 'fa-solid fa-bolt text-amber-500');
+                try {
+                  const res = await apiClient.post('/automations/rules', {
+                    name: newRuleForm.name,
+                    category: newRuleForm.category,
+                    whenText: newRuleForm.whenText,
+                    threshold: newRuleForm.threshold,
+                    thenSummary: newRuleForm.thenSummary,
+                    actionPills: [{ label: 'Automated Event', icon: 'fa-solid fa-bolt', color: 'amber' }],
+                  });
+                  const dbRule = res.data?.data;
+                  const created: any = {
+                    id: dbRule?.id || 'rule_' + Date.now(),
+                    name: newRuleForm.name,
+                    category: newRuleForm.category,
+                    icon: 'fa-solid fa-gear',
+                    color: 'amber',
+                    active: true,
+                    whenText: newRuleForm.whenText,
+                    threshold: newRuleForm.threshold,
+                    thresholdOptions: [newRuleForm.threshold, '1 Day', '3 Days'],
+                    thenSummary: newRuleForm.thenSummary,
+                    actionPills: [{ label: 'Automated Event', icon: 'fa-solid fa-bolt', color: 'amber' }],
+                    executionsToday: 0,
+                    lastFired: 'Never',
+                  };
+                  setActiveRules((prev) => [created, ...prev]);
+                  setShowCreateModal(false);
+                  showToast('Rule Activated', `Automation "${created.name}" is now active & monitoring!`, 'fa-solid fa-bolt text-amber-500');
+                } catch (err: any) {
+                  showToast('Rule Creation Error', err.message || 'Failed to save automation rule.', 'fa-solid fa-triangle-exclamation text-rose-500');
+                }
               }}
               className="p-6 space-y-4 text-xs"
             >

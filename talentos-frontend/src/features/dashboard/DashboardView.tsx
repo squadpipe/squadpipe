@@ -76,7 +76,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   };
 
   const handleExport = (type: 'Excel' | 'PDF') => {
-    showToast(`Export ${type}`, `Generating ${type} export for active requirements pipeline...`, 'fa-solid fa-file-arrow-down text-emerald-500');
+    if (type === 'Excel') {
+      const headers = ['Req Code', 'Opportunity Title', 'Client Company', 'Client Contact', 'Location', 'Skills Required', 'Assigned Resource', 'Status'];
+      const rows = filteredRequirements.map((r) => [
+        `"${r.code}"`,
+        `"${r.opportunityTitle}"`,
+        `"${r.companyName}"`,
+        `"${r.clientContact}"`,
+        `"${r.location}"`,
+        `"${r.skillsRequired.replace(/"/g, '""')}"`,
+        `"${r.resourceName || '-'}"`,
+        `"${r.status}"`,
+      ]);
+      const csv = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `TalentOS_Requirements_Pipeline_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      showToast('Export Complete', 'Downloaded TalentOS Requirements Pipeline spreadsheet.', 'fa-regular fa-file-excel text-emerald-600');
+    } else {
+      window.print();
+    }
   };
 
   return (

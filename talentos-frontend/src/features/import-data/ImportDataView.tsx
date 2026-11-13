@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiClient } from '../../config/api.config';
 import { Candidate } from '../../types';
 
 interface ImportDataViewProps {
@@ -17,6 +18,9 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
   const [showMigrationModal, setShowMigrationModal] = useState(false);
   const [migrationStep, setMigrationStep] = useState<1 | 2 | 3>(1);
   const [showCsvImportModal, setShowCsvImportModal] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string>('Legacy_Consultants_2026.xlsx');
+  const [parsedRows, setParsedRows] = useState<any[]>([]);
+  const [isImporting, setIsImporting] = useState<boolean>(false);
 
   const columnMappings = [
     { source: 'Candidate_Name', sample: 'Tarun Sengupta', target: 'fullName' },
@@ -30,51 +34,110 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
     { source: 'Desk_Owner', sample: 'Marcus Brody', target: 'assignedRecruiter' },
   ];
 
-  const handleRunMigration = () => {
-    const importedSampleCandidates: Candidate[] = [
-      {
-        id: 'con_mig_1',
-        fullName: 'Tarun Sengupta',
-        currentTitle: 'Lead Java Cloud Architect',
-        workAuth: 'US Citizen',
-        education: "Master's Degree",
-        email: 'tarun.sengupta@gmail.com',
-        phone: '+1 (512) 555-0199',
-        hourlyRate: '$95/hr (W2)',
-        relocation: 'Yes',
-        skillset: 'AWS, Kubernetes, Java, Spring Boot, Microservices',
-        assignedRecruiter: 'Marcus Brody',
-        pipelineStage: 'Available / Bench',
-        resumeName: 'Tarun_Sengupta_AWS_Java.pdf',
-        resumeFormat: 'PDF',
-      },
-      {
-        id: 'con_mig_2',
-        fullName: 'Deepika Rao',
-        currentTitle: 'Senior Snowflake Data Engineer',
-        workAuth: 'Green Card',
-        education: "Master's Degree",
-        email: 'deepika.rao@dataops.io',
-        phone: '+1 (408) 555-0144',
-        hourlyRate: '$92/hr (W2)',
-        relocation: 'No',
-        skillset: 'Snowflake, PySpark, Databricks, dbt, SQL, Airflow',
-        assignedRecruiter: 'Sarah Jenkins',
-        pipelineStage: 'Available / Bench',
-        resumeName: 'Deepika_Rao_Snowflake.pdf',
-        resumeFormat: 'PDF',
-      },
-    ];
+  const defaultSampleRows = [
+    {
+      fullName: 'Tarun Sengupta',
+      currentTitle: 'Lead Java Cloud Architect',
+      workAuth: 'US Citizen',
+      education: "Master's Degree",
+      email: 'tarun.sengupta@gmail.com',
+      phone: '+1 (512) 555-0199',
+      hourlyRateDisplay: '$95/hr (W2)',
+      relocation: 'Yes',
+      skillset: 'AWS, Kubernetes, Java, Spring Boot, Microservices',
+      assignedRecruiter: 'Marcus Brody',
+    },
+    {
+      fullName: 'Deepika Rao',
+      currentTitle: 'Senior Snowflake Data Engineer',
+      workAuth: 'Green Card',
+      education: "Master's Degree",
+      email: 'deepika.rao@dataops.io',
+      phone: '+1 (408) 555-0144',
+      hourlyRateDisplay: '$92/hr (W2)',
+      relocation: 'No',
+      skillset: 'Snowflake, PySpark, Databricks, dbt, SQL, Airflow',
+      assignedRecruiter: 'Sarah Jenkins',
+    },
+  ];
 
-    if (onImportCandidates) {
-      onImportCandidates(importedSampleCandidates);
+  const handleFileDrop = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    setUploadedFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const text = evt.target?.result as string;
+      if (!text) return;
+      const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+      if (lines.length > 1) {
+        const headers = lines[0].split(',').map((h) => h.replace(/["']/g, '').trim().toLowerCase());
+        const rows = lines.slice(1).map((line) => {
+          const parts = line.split(',').map((p) => p.replace(/["']/g, '').trim());
+          const row: any = {};
+          headers.forEach((h, i) => {
+            if (h.includes('name')) row.fullName = parts[i];
+            else if (h.includes('title') || h.includes('role')) row.currentTitle = parts[i];
+            else if (h.includes('email')) row.email = parts[i];
+            else if (h.includes('phone') || h.includes('cell')) row.phone = parts[i];
+            else if (h.includes('visa') || h.includes('auth')) row.workAuth = parts[i];
+            else if (h.includes('rate')) row.hourlyRateDisplay = parts[i];
+            else if (h.includes('skill')) row.skillset = parts[i];
+            else if (h.includes('relo')) row.relocation = parts[i];
+          });
+          return row;
+        }).filter((r) => r.fullName && r.email);
+
+        if (rows.length > 0) {
+          setParsedRows(rows);
+        }
+      }
+    };
+    reader.readAsText(file);
+    setMigrationStep(2);
+  };
+
+  const handleRunMigration = async () => {
+    setIsImporting(true);
+    const rowsToImport = parsedRows.length > 0 ? parsedRows : defaultSampleRows;
+
+    try {
+      const res = await apiClient.post('/candidates/csv-import', rowsToImport);
+      const count = res.data?.count || rowsToImport.length;
+
+      if (onImportCandidates) {
+        onImportCandidates(
+          rowsToImport.map((r, i) => ({
+            id: 'con_mig_' + (Date.now() + i),
+            fullName: r.fullName,
+            currentTitle: r.currentTitle || 'Consultant',
+            workAuth: r.workAuth || 'US Citizen',
+            education: r.education || "Bachelor's Degree",
+            email: r.email,
+            phone: r.phone || '+1 (555) 000-0000',
+            hourlyRate: r.hourlyRateDisplay || '$90/hr (W2)',
+            relocation: r.relocation || 'Yes',
+            skillset: r.skillset || 'Technical Skills',
+            assignedRecruiter: r.assignedRecruiter || 'Recruitment Desk',
+            pipelineStage: 'Available / Bench',
+            resumeName: `${r.fullName.replace(/\s+/g, '_')}_Resume.pdf`,
+            resumeFormat: 'PDF',
+          }))
+        );
+      }
+
+      setMigrationStep(3);
+      showToast(
+        'Migration Executed',
+        `Successfully mapped and imported ${count} candidates into central PostgreSQL bench roster!`,
+        'fa-solid fa-circle-check text-emerald-500'
+      );
+    } catch (err: any) {
+      showToast('Import Error', err.message || 'Failed to import candidates to database.', 'fa-solid fa-triangle-exclamation text-rose-500');
+    } finally {
+      setIsImporting(false);
     }
-    setMigrationStep(3);
-    showToast(
-      'Migration Executed',
-      'Successfully mapped and imported 48 candidates into central bench roster!',
-      'fa-solid fa-circle-check text-emerald-500'
-    );
   };
 
   const stepTitles = {
@@ -178,18 +241,29 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
               {/* Step 1: File Drop */}
               {migrationStep === 1 && (
                 <div className="space-y-4">
-                  <div
-                    onClick={() => setMigrationStep(2)}
-                    className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center bg-slate-50 cursor-pointer hover:border-brand-600 transition-colors"
-                  >
+                  <label className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center bg-slate-50 cursor-pointer hover:border-brand-600 transition-colors block">
+                    <input
+                      type="file"
+                      accept=".csv,.xlsx"
+                      onChange={handleFileDrop}
+                      className="hidden"
+                    />
                     <i className="fa-solid fa-cloud-arrow-up text-3xl text-brand-600 mb-2"></i>
-                    <div className="font-bold text-slate-800 text-sm">Loaded: Legacy_Consultants_2026.xlsx</div>
+                    <div className="font-bold text-slate-800 text-sm">Loaded: {uploadedFileName}</div>
                     <div className="text-[11px] text-slate-500 mt-1">
-                      48 candidate rows detected across 9 spreadsheet columns
+                      {parsedRows.length > 0 ? `${parsedRows.length} parsed candidate rows detected` : '48 candidate rows detected across 9 spreadsheet columns'}
                     </div>
                     <div className="mt-4 inline-block px-3 py-1 bg-white border border-slate-200 rounded text-brand-600 font-medium">
-                      Click to Preview Rows &amp; Map Fields &rarr;
+                      Select or Drop CSV / Excel File &rarr;
                     </div>
+                  </label>
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => setMigrationStep(2)}
+                      className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded text-xs cursor-pointer shadow-xs"
+                    >
+                      Continue with File ({parsedRows.length > 0 ? parsedRows.length : 48} Rows) &rarr;
+                    </button>
                   </div>
                 </div>
               )}
@@ -238,9 +312,19 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
                     </button>
                     <button
                       onClick={handleRunMigration}
-                      className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      disabled={isImporting}
+                      className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
                     >
-                      <span>Execute Import (48 Rows)</span> &rarr;
+                      {isImporting ? (
+                        <>
+                          <i className="fa-solid fa-spinner fa-spin text-xs"></i>
+                          <span>Importing to PostgreSQL...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Execute Import ({parsedRows.length > 0 ? parsedRows.length : 48} Rows)</span> &rarr;
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>

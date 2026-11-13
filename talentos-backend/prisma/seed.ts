@@ -534,7 +534,89 @@ async function main() {
     });
   }
 
-  // 10. Seed SLA Reminders
+  // 10. Seed Custom Field Definitions
+  const defaultCustomFields = [
+    {
+      name: 'Security Clearance Level',
+      key: 'security_clearance_level',
+      entity: CustomFieldEntityType.CONSULTANT,
+      type: CustomFieldType.DROPDOWN,
+      options: ['None', 'Secret', 'Top Secret', 'TS/SCI'],
+      required: false,
+    },
+    {
+      name: 'Notice Period / Availability',
+      key: 'notice_period_availability',
+      entity: CustomFieldEntityType.CONSULTANT,
+      type: CustomFieldType.DROPDOWN,
+      options: ['Immediate', '1 Week', '2 Weeks', '1 Month'],
+      required: true,
+    },
+    {
+      name: 'Target Pay Margin Minimum',
+      key: 'target_pay_margin_minimum',
+      entity: CustomFieldEntityType.REQUIREMENT,
+      type: CustomFieldType.NUMBER,
+      options: ['Min $20/hr Spread'],
+      required: false,
+    },
+    {
+      name: 'Client VMS Requisition ID',
+      key: 'client_vms_requisition_id',
+      entity: CustomFieldEntityType.REQUIREMENT,
+      type: CustomFieldType.TEXT,
+      options: ['e.g. BEEL-9941'],
+      required: false,
+    },
+    {
+      name: 'Direct Client or Tier-1 Vendor',
+      key: 'direct_client_tier1_vendor',
+      entity: CustomFieldEntityType.CLIENT,
+      type: CustomFieldType.DROPDOWN,
+      options: ['End Client', 'Tier-1 Prime', 'Implementation Partner'],
+      required: true,
+    },
+    {
+      name: 'Standard Payment Terms',
+      key: 'standard_payment_terms',
+      entity: CustomFieldEntityType.VENDOR,
+      type: CustomFieldType.DROPDOWN,
+      options: ['Net 30', 'Net 45', 'Net 60', 'Bi-weekly'],
+      required: true,
+    },
+    {
+      name: 'SOW Extension Sentinel Notice',
+      key: 'sow_extension_sentinel_notice',
+      entity: CustomFieldEntityType.PLACEMENT,
+      type: CustomFieldType.DROPDOWN,
+      options: ['15 Days', '30 Days', '45 Days'],
+      required: false,
+    },
+    {
+      name: 'Background Check Cleared',
+      key: 'background_check_cleared',
+      entity: CustomFieldEntityType.PLACEMENT,
+      type: CustomFieldType.BOOLEAN,
+      options: ['Pending', 'Verified / Cleared'],
+      required: true,
+    },
+  ];
+
+  for (const cf of defaultCustomFields) {
+    await prisma.customFieldDefinition.create({
+      data: {
+        name: cf.name,
+        key: cf.key,
+        entity: cf.entity,
+        type: cf.type,
+        options: cf.options,
+        required: cf.required,
+        active: true,
+      },
+    });
+  }
+
+  // 11. Seed SLA Reminders
   await prisma.slaTask.create({
     data: {
       category: SlaCategory.AWAITING_FEEDBACK,

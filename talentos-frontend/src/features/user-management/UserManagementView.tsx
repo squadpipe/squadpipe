@@ -5,6 +5,8 @@ interface UserManagementViewProps {
   users: User[];
   onToggleRateMask: (user: User) => void;
   onInviteUser: (user: Partial<User>) => void;
+  onToggleUserStatus?: (user: User) => void;
+  onDeleteUser?: (user: User) => void;
   showToast: (title: string, message: string, icon?: string) => void;
 }
 
@@ -12,6 +14,8 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   users,
   onToggleRateMask,
   onInviteUser,
+  onToggleUserStatus,
+  onDeleteUser,
   showToast,
 }) => {
   const [search, setSearch] = useState('');
@@ -369,13 +373,28 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
-                          onClick={() => onToggleRateMask(u)}
-                          title={u.status === 'Active' ? 'Account Active' : 'Account Suspended'}
-                          className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                          onClick={() => {
+                            if (onToggleUserStatus) {
+                              onToggleUserStatus(u);
+                            } else {
+                              showToast('Status Updated', `${u.name} status toggled.`);
+                            }
+                          }}
+                          title={u.status === 'Active' ? 'Click to Suspend Account' : 'Click to Activate Account'}
+                          className={`p-1.5 rounded transition-colors cursor-pointer ${
+                            u.status === 'Active'
+                              ? 'hover:bg-amber-50 text-slate-400 hover:text-amber-600'
+                              : 'hover:bg-emerald-50 text-amber-500 hover:text-emerald-600'
+                          }`}
                         >
-                          <i className="fa-solid fa-pause text-xs"></i>
+                          <i className={`fa-solid ${u.status === 'Active' ? 'fa-pause' : 'fa-play'} text-xs`}></i>
                         </button>
                         <button
+                          onClick={() => {
+                            if (confirm(`Are you sure you want to remove team member ${u.name}?`)) {
+                              if (onDeleteUser) onDeleteUser(u);
+                            }
+                          }}
                           title="Delete Member"
                           className="p-1.5 rounded hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
                         >

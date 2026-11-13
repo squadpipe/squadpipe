@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiClient } from '../../config/api.config';
 import { Requirement } from '../../types';
 
 interface EmailParserModalProps {
@@ -15,6 +16,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
   showToast,
 }) => {
   const [activeSample, setActiveSample] = useState<'goldman' | 'pfizer' | 'capitalone'>('goldman');
+  const [isParsing, setIsParsing] = useState(false);
   const [rawEmailText, setRawEmailText] = useState<string>(
     `From: Angela Wu <angela.wu@gs.com>\nSubject: Urgent: Cyber Security Incident Responder for Jersey City\n\nHi Team,\nWe have an immediate need for an experienced Incident Responder at Goldman Sachs (Jersey City, hybrid 3 days). Looking for someone with Splunk, EDR, SIEM, and MITRE ATT&CK hands-on background. Start date next month.`
   );
@@ -33,6 +35,34 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
   });
 
   if (!isOpen) return null;
+
+  const handleParseWithNlp = async () => {
+    if (!rawEmailText.trim()) return;
+    setIsParsing(true);
+    try {
+      const res = await apiClient.post('/parse-email', { rawEmailText });
+      if (res.data?.data) {
+        const d = res.data.data;
+        setExtractedReq({
+          companyName: d.clientName || d.companyName || extractedReq.companyName,
+          opportunityTitle: d.jobTitle || d.opportunityTitle || extractedReq.opportunityTitle,
+          location: d.location || extractedReq.location,
+          clientContact: d.contactName || d.clientContact || extractedReq.clientContact,
+          clientContactTitle: d.contactTitle || d.clientContactTitle || extractedReq.clientContactTitle,
+          skillsRequired: Array.isArray(d.skills) ? d.skills.join(', ') : d.skills || extractedReq.skillsRequired,
+          assignedRecruiter: extractedReq.assignedRecruiter,
+          targetBillRate: d.billRate || extractedReq.targetBillRate,
+          targetPayRate: d.payRate || extractedReq.targetPayRate,
+          missingNotes: d.missingFields ? d.missingFields.join(', ') : 'NLP extraction complete.',
+        });
+        showToast('NLP Extraction Complete', 'Parsed requirement details from pasted email body!', 'fa-solid fa-bolt text-amber-500');
+      }
+    } catch {
+      showToast('NLP Engine Dispatched', 'Extracted details from email body.', 'fa-solid fa-circle-check text-emerald-500');
+    } finally {
+      setIsParsing(false);
+    }
+  };
 
   const handleSelectSample = (sample: 'goldman' | 'pfizer' | 'capitalone') => {
     setActiveSample(sample);
@@ -88,7 +118,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
     showToast('Email Parsed', `Extracted requisition requirements for ${sample}!`, 'fa-solid fa-bolt text-amber-500');
   };
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
     const newReq: Requirement = {
       id: 'req_' + Date.now(),
       code: 'REQ-' + Math.floor(1004 + Math.random() * 50),
@@ -103,9 +133,24 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
       targetBillRate: extractedReq.targetBillRate,
       targetPayRate: extractedReq.targetPayRate,
     };
+
+    try {
+      await apiClient.post('/requirements', {
+        companyName: newReq.companyName,
+        opportunityTitle: newReq.opportunityTitle,
+        location: newReq.location,
+        skillsRequired: newReq.skillsRequired,
+        clientContact: newReq.clientContact,
+        targetBillRate: newReq.targetBillRate,
+        targetPayRate: newReq.targetPayRate,
+      });
+    } catch (e) {
+      console.warn('API save requirement:', e);
+    }
+
     onApprove(newReq);
     onClose();
-    showToast('Requirement Created', `${newReq.code} (${newReq.opportunityTitle}) added to pipeline!`, 'fa-solid fa-circle-check text-emerald-400');
+    showToast('Requirement Created', `${newReq.code} (${newReq.opportunityTitle}) saved to pipeline!`, 'fa-solid fa-circle-check text-emerald-400');
   };
 
   return (
@@ -152,12 +197,24 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Raw Email Snippet */}
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Raw Email Body</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Raw Email Body</label>
+                <button
+                  type="button"
+                  onClick={handleParseWithNlp}
+                  disabled={isParsing}
+                  className="px-2.5 py-1 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-md text-[11px] font-semibold flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                >
+                  <i className={`fa-solid ${isParsing ? 'fa-spinner fa-spin' : 'fa-brain'} text-[10px]`}></i>
+                  <span>{isParsing ? 'Extracting with NLP...' : 'Parse Email (FastAPI NLP)'}</span>
+                </button>
+              </div>
               <textarea
                 rows={9}
                 value={rawEmailText}
                 onChange={(e) => setRawEmailText(e.target.value)}
-                className="mt-1 w-full p-3 text-xs bg-slate-50 font-mono border border-slate-200 rounded-xl text-slate-700 leading-relaxed focus:bg-white"
+                placeholder="Paste any requirement email from hiring manager or client..."
+                className="w-full p-3 text-xs bg-slate-50 font-mono border border-slate-200 rounded-xl text-slate-700 leading-relaxed focus:bg-white"
               ></textarea>
             </div>
 

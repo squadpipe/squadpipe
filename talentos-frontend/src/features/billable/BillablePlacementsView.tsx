@@ -57,8 +57,29 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
   };
 
   const handleExport = () => {
+    const headers = ['Placed Resource', 'Client Customer', 'Skill / Role', 'Deployment', 'Placement Model', 'Pay Rate', 'Bill Rate', 'Hourly Spread', 'Margin %', 'Start Date', 'End Date'];
+    const rows = filtered.map((p) => [
+      `"${p.resourceName}"`,
+      `"${p.customer}"`,
+      `"${p.skillRole}"`,
+      `"${p.deployment}"`,
+      `"${p.placementType || 'C2C'}"`,
+      `"${rateMasked ? '••••' : (p.payRate || '-')}"`,
+      `"${rateMasked ? '••••' : p.billing}"`,
+      `"${rateMasked ? '••••' : formatSpread(p.hourlySpread)}"`,
+      `"${rateMasked ? '••••' : formatMargin(p.marginPct)}"`,
+      `"${p.startDate}"`,
+      `"${p.endDate}"`,
+    ]);
+    const csv = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `TalentOS_Billable_Placements_Ledger_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
     if (showToast) {
-      showToast('Export Generated', 'Billable ledger exported to Excel workbook.', 'fa-regular fa-file-excel text-emerald-600');
+      showToast('Export Generated', 'Billable placements ledger exported to CSV file.', 'fa-regular fa-file-excel text-emerald-600');
     }
   };
 

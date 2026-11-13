@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { apiClient } from '../../config/api.config';
 import { CustomField } from '../../types';
 
 interface CustomFieldsViewProps {
@@ -14,90 +15,31 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
 }) => {
   const [scope, setScope] = useState<'all' | 'consultant' | 'requirement' | 'client' | 'vendor' | 'placement'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [fieldsList, setFieldsList] = useState<any[]>(propCustomFields || []);
 
-  // Default prototype fields
-  const [fieldsList, setFieldsList] = useState<any[]>([
-    {
-      id: 'cf_1',
-      name: 'Security Clearance Level',
-      entity: 'consultant',
-      entityLabel: 'Consultant',
-      type: 'Dropdown',
-      options: 'None, Secret, Top Secret, TS/SCI',
-      required: false,
-      active: true,
-    },
-    {
-      id: 'cf_2',
-      name: 'Notice Period / Availability',
-      entity: 'consultant',
-      entityLabel: 'Consultant',
-      type: 'Dropdown',
-      options: 'Immediate, 1 Week, 2 Weeks, 1 Month',
-      required: true,
-      active: true,
-    },
-    {
-      id: 'cf_3',
-      name: 'Target Pay Margin Minimum',
-      entity: 'requirement',
-      entityLabel: 'Requirement',
-      type: 'Currency ($)',
-      options: 'Min $20/hr Spread',
-      required: false,
-      active: true,
-    },
-    {
-      id: 'cf_4',
-      name: 'Client VMS Requisition ID',
-      entity: 'requirement',
-      entityLabel: 'Requirement',
-      type: 'Text',
-      options: 'e.g. BEEL-9941',
-      required: false,
-      active: true,
-    },
-    {
-      id: 'cf_5',
-      name: 'Direct Client or Tier-1 Vendor',
-      entity: 'client',
-      entityLabel: 'Client',
-      type: 'Dropdown',
-      options: 'End Client, Tier-1 Prime, Implementation Partner',
-      required: true,
-      active: true,
-    },
-    {
-      id: 'cf_6',
-      name: 'Certificate of Insurance (COI) Expiry',
-      entity: 'vendor',
-      entityLabel: 'Vendor',
-      type: 'Date',
-      options: 'YYYY-MM-DD Sentinel Date',
-      required: true,
-      active: true,
-    },
-    {
-      id: 'cf_7',
-      name: 'Purchase Order / SOW Tracking #',
-      entity: 'placement',
-      entityLabel: 'Placement',
-      type: 'Text',
-      options: 'PO-XXXX-XXXX Format',
-      required: false,
-      active: true,
-    },
-    {
-      id: 'cf_8',
-      name: 'Client Background Check Protocol',
-      entity: 'placement',
-      entityLabel: 'Placement',
-      type: 'Dropdown',
-      options: 'Standard 7-Year, Financial 10-Year, Drug Screen 10-Panel',
-      required: true,
-      active: true,
-    },
-  ]);
+  useEffect(() => {
+    if (propCustomFields && propCustomFields.length) {
+      setFieldsList(propCustomFields);
+      return;
+    }
+    apiClient.get('/custom-fields')
+      .then((res) => {
+        if (res.data?.success && Array.isArray(res.data.data)) {
+          const mapped = res.data.data.map((f: any) => ({
+            id: f.id,
+            name: f.name,
+            entity: (f.entity || 'consultant').toLowerCase(),
+            entityLabel: (f.entity || 'Consultant').charAt(0).toUpperCase() + (f.entity || 'Consultant').slice(1).toLowerCase(),
+            type: f.type === 'NUMBER' ? 'Currency ($)' : f.type === 'DROPDOWN' ? 'Dropdown' : f.type === 'DATE' ? 'Date' : 'Text',
+            options: Array.isArray(f.options) ? f.options.join(', ') : (typeof f.options === 'object' && f.options?.values ? f.options.values : (typeof f.options === 'string' ? f.options : 'Standard Format')),
+            required: !!f.required,
+            active: f.active ?? true,
+          }));
+          setFieldsList(mapped);
+        }
+      })
+      .catch((err) => console.warn('Fetch custom fields error:', err));
+  }, [propCustomFields]);
 
   const [masterTaxonomies, setMasterTaxonomies] = useState({
     workAuth: ['US Citizen', 'Green Card (Permanent Resident)', 'H-1B Specialty Occupation', 'TN Visa (NAFTA)', 'OPT / CPT EAD'],
@@ -118,7 +60,12 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
     (f) => scope === 'all' || f.entity === scope
   );
 
-  const handleDeleteField = (id: string) => {
+  const handleDeleteField = async (id: string) => {
+    try {
+      await apiClient.delete(`/custom-fields/${id}`);
+    } catch (err) {
+      console.warn('Delete custom field API:', err);
+    }
     setFieldsList((prev) => prev.filter((f) => f.id !== id));
     showToast('Field Removed', 'Custom field removed from registry.', 'fa-solid fa-trash-can text-slate-500');
   };
@@ -129,7 +76,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
     );
   };
 
-  const handleCreateField = (e: React.FormEvent) => {
+  const handleCreateField = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newField.name.trim()) return;
 
@@ -141,40 +88,37 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
       placement: 'Placement',
     };
 
-    const created = {
-      id: 'cf_' + Date.now(),
-      name: newField.name,
-      entity: newField.entity,
-      entityLabel: entityLabelMap[newField.entity] || 'Custom',
-      type: newField.type,
-      options: newField.options || 'Standard Format',
-      required: newField.required,
-      active: true,
-    };
+    try {
+      const res = await apiClient.post('/custom-fields', newField);
+      const createdData = res.data?.data;
+      const created = {
+        id: createdData?.id || 'cf_' + Date.now(),
+        name: newField.name,
+        entity: newField.entity,
+        entityLabel: entityLabelMap[newField.entity] || 'Custom',
+        type: newField.type,
+        options: newField.options || 'Standard Format',
+        required: newField.required,
+        active: true,
+      };
 
-    setFieldsList((prev) => [...prev, created]);
-    if (onAddCustomField) {
-      onAddCustomField({
-        id: created.id,
-        name: created.name,
-        entity: created.entity as any,
-        entityLabel: created.entityLabel,
-        type: created.type as any,
-        options: created.options || '',
-        required: created.required,
-        active: created.active,
+      setFieldsList((prev) => [...prev, created]);
+      if (onAddCustomField) {
+        onAddCustomField(created as any);
+      }
+
+      setShowAddModal(false);
+      showToast('Field Registered', `Added "${created.name}" to ${created.entityLabel} registry!`, 'fa-solid fa-circle-check text-indigo-500');
+      setNewField({
+        name: '',
+        entity: 'consultant',
+        type: 'Dropdown',
+        options: '',
+        required: false,
       });
+    } catch (err: any) {
+      showToast('Failed to Save', err.message || 'Error saving custom field to database.', 'fa-solid fa-triangle-exclamation text-rose-500');
     }
-
-    setShowAddModal(false);
-    showToast('Field Registered', `Added "${created.name}" to ${created.entityLabel} registry!`, 'fa-solid fa-circle-check text-indigo-500');
-    setNewField({
-      name: '',
-      entity: 'consultant',
-      type: 'Dropdown',
-      options: '',
-      required: false,
-    });
   };
 
   return (

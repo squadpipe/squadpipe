@@ -123,14 +123,14 @@ export const App: React.FC = () => {
 
   // Sidebar counts (lightweight navigation metadata)
   const [sidebarCounts, setSidebarCounts] = useState({
-    requirements: 6,
-    consultants: 6,
-    clients: 3,
-    vendors: 2,
-    billable: 3,
-    users: 6,
-    customFields: 8,
-    activeRules: 6,
+    requirements: 0,
+    consultants: 0,
+    clients: 0,
+    vendors: 0,
+    billable: 0,
+    users: 0,
+    customFields: 0,
+    activeRules: 0,
   });
 
   // Track loaded entities to support view-scoped lazy loading without duplicate requests
@@ -424,6 +424,44 @@ export const App: React.FC = () => {
     }
   };
 
+  const fetchCustomFields = async () => {
+    try {
+      const res = await apiClient.get('/custom-fields');
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        const mapped = res.data.data.map((f: any) => ({
+          id: f.id,
+          name: f.name,
+          entity: (f.entity || 'consultant').toLowerCase(),
+          entityLabel:
+            (f.entity || 'Consultant').charAt(0).toUpperCase() +
+            (f.entity || 'Consultant').slice(1).toLowerCase(),
+          type:
+            f.type === 'NUMBER'
+              ? 'Currency ($)'
+              : f.type === 'DROPDOWN'
+              ? 'Dropdown'
+              : f.type === 'DATE'
+              ? 'Date'
+              : 'Text',
+          options: Array.isArray(f.options)
+            ? f.options.join(', ')
+            : typeof f.options === 'object' && f.options?.values
+            ? f.options.values
+            : typeof f.options === 'string'
+            ? f.options
+            : 'Standard Format',
+          required: !!f.required,
+          active: f.active ?? true,
+        }));
+        setCustomFields(mapped);
+        setSidebarCounts((prev) => ({ ...prev, customFields: mapped.length }));
+        loadedEntities.current.add('custom_fields');
+      }
+    } catch (e) {
+      console.warn('API fetch custom fields:', e);
+    }
+  };
+
   // 1. Fetch lightweight navigation counts once on authentication
   useEffect(() => {
     if (!authToken && !currentUser) return;
@@ -472,6 +510,10 @@ export const App: React.FC = () => {
 
       case 'automation':
         if (!loadedEntities.current.has('automations')) fetchAutomations();
+        break;
+
+      case 'custom_fields':
+        if (!loadedEntities.current.has('custom_fields')) fetchCustomFields();
         break;
 
       default:
@@ -932,6 +974,27 @@ export const App: React.FC = () => {
                 };
                 setUsers((prev) => [...prev, invitedUser]);
               }}
+              onToggleUserStatus={async (user) => {
+                try {
+                  const res = await apiClient.patch(`/users/${user.id}/status`);
+                  const newStatus = res.data?.data?.status === 'SUSPENDED' ? 'Suspended' : 'Active';
+                  setUsers((prev) =>
+                    prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u))
+                  );
+                  showToast('Status Updated', `${user.name} is now ${newStatus}.`, 'fa-solid fa-user-shield text-indigo-500');
+                } catch (e) {
+                  console.warn('API toggle status failed:', e);
+                }
+              }}
+              onDeleteUser={async (user) => {
+                try {
+                  await apiClient.delete(`/users/${user.id}`);
+                  setUsers((prev) => prev.filter((u) => u.id !== user.id));
+                  showToast('Member Removed', `${user.name} has been removed from agency roster.`, 'fa-solid fa-trash-can text-slate-500');
+                } catch (e) {
+                  console.warn('API delete user failed:', e);
+                }
+              }}
               showToast={showToast}
             />
           )}
@@ -1034,6 +1097,10 @@ export const App: React.FC = () => {
         isOpen={isResumeModalOpen}
         onClose={() => setIsResumeModalOpen(false)}
         onApprove={(c) => setCandidates((prev) => [c, ...prev])}
+        onSwitchToCsvImport={() => {
+          setIsResumeModalOpen(false);
+          setCurrentView('import_data');
+        }}
         showToast={showToast}
       />
 
