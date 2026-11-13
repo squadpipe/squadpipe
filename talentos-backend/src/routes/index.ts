@@ -619,6 +619,129 @@ router.delete('/custom-fields/:id', async (req: Request, res: Response) => {
   }
 });
 
+// Master Dropdown Taxonomies (Add, Edit, Remove)
+const mapTaxonomyCategory = (category?: string): 'WORK_AUTH' | 'PAYMENT_TERMS' | 'EDUCATION' | 'STAGES' | null => {
+  const map: Record<string, 'WORK_AUTH' | 'PAYMENT_TERMS' | 'EDUCATION' | 'STAGES'> = {
+    workAuth: 'WORK_AUTH',
+    WORK_AUTH: 'WORK_AUTH',
+    paymentTerms: 'PAYMENT_TERMS',
+    PAYMENT_TERMS: 'PAYMENT_TERMS',
+    education: 'EDUCATION',
+    EDUCATION: 'EDUCATION',
+    stages: 'STAGES',
+    STAGES: 'STAGES',
+  };
+  return (category && map[category]) || null;
+};
+
+const DEFAULT_TAXONOMIES: Array<{ category: 'WORK_AUTH' | 'PAYMENT_TERMS' | 'EDUCATION' | 'STAGES'; optionValue: string; sortOrder: number }> = [
+  ...['US Citizen', 'Green Card (Permanent Resident)', 'H-1B Specialty Occupation', 'TN Visa (NAFTA)', 'OPT / CPT EAD'].map((v, i) => ({
+    category: 'WORK_AUTH' as const,
+    optionValue: v,
+    sortOrder: i,
+  })),
+  ...['Net 30 Days', 'Net 45 Days', 'Net 60 Days', 'Net 15 Days', 'Due on Receipt'].map((v, i) => ({
+    category: 'PAYMENT_TERMS' as const,
+    optionValue: v,
+    sortOrder: i,
+  })),
+  ...["Master's Degree (MS/MBA)", "Bachelor's Degree (BS/B.Tech)", 'Doctorate / Ph.D.', 'Associate Degree'].map((v, i) => ({
+    category: 'EDUCATION' as const,
+    optionValue: v,
+    sortOrder: i,
+  })),
+  ...['Requirement', 'Submitted', 'Interview', 'Selected', 'Onboarding'].map((v, i) => ({
+    category: 'STAGES' as const,
+    optionValue: v,
+    sortOrder: i,
+  })),
+];
+
+router.get('/taxonomies', async (_req: Request, res: Response) => {
+  try {
+    let rows = await prisma.masterTaxonomy.findMany({
+      where: { active: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+
+    if (rows.length === 0) {
+      await prisma.masterTaxonomy.createMany({
+        data: DEFAULT_TAXONOMIES,
+        skipDuplicates: true,
+      });
+      rows = await prisma.masterTaxonomy.findMany({
+        where: { active: true },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      });
+    }
+
+    const grouped = {
+      workAuth: rows.filter((r) => r.category === 'WORK_AUTH').map((r) => r.optionValue),
+      paymentTerms: rows.filter((r) => r.category === 'PAYMENT_TERMS').map((r) => r.optionValue),
+      education: rows.filter((r) => r.category === 'EDUCATION').map((r) => r.optionValue),
+      stages: rows.filter((r) => r.category === 'STAGES').map((r) => r.optionValue),
+    };
+
+    res.json({ success: true, data: grouped, items: rows });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'Failed to fetch taxonomies' });
+  }
+});
+
+router.post('/taxonomies', async (req: Request, res: Response) => {
+  try {
+    const mappedCat = mapTaxonomyCategory(req.body.category);
+    const trimmed = String(req.body.optionValue || '').trim();
+    if (!mappedCat || !trimmed) {
+      return res.status(400).json({ success: false, message: 'Valid category and optionValue are required' });
+    }
+    const item = await prisma.masterTaxonomy.upsert({
+      where: { category_optionValue: { category: mappedCat, optionValue: trimmed } },
+      update: { active: true },
+      create: { category: mappedCat, optionValue: trimmed, active: true },
+    });
+    res.status(201).json({ success: true, data: item });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'Failed to add taxonomy option' });
+  }
+});
+
+router.put('/taxonomies', async (req: Request, res: Response) => {
+  try {
+    const mappedCat = mapTaxonomyCategory(req.body.category);
+    const oldValue = String(req.body.oldValue || '').trim();
+    const newValue = String(req.body.newValue || '').trim();
+    if (!mappedCat || !oldValue || !newValue) {
+      return res.status(400).json({ success: false, message: 'Valid category, oldValue, and newValue are required' });
+    }
+    await prisma.masterTaxonomy.updateMany({
+      where: { category: mappedCat, optionValue: oldValue },
+      data: { optionValue: newValue },
+    });
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'Failed to update taxonomy option' });
+  }
+});
+
+router.delete('/taxonomies', async (req: Request, res: Response) => {
+  try {
+    const category = (req.body?.category ?? req.query?.category) as string | undefined;
+    const optionValue = (req.body?.optionValue ?? req.query?.optionValue) as string | undefined;
+    const mappedCat = mapTaxonomyCategory(category);
+    const trimmed = String(optionValue || '').trim();
+    if (!mappedCat || !trimmed) {
+      return res.status(400).json({ success: false, message: 'Valid category and optionValue are required' });
+    }
+    await prisma.masterTaxonomy.deleteMany({
+      where: { category: mappedCat, optionValue: trimmed },
+    });
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'Failed to delete taxonomy option' });
+  }
+});
+
 // Automations & Audits
 router.get('/automations/rules', automationController.getAutomationRules);
 router.post('/automations/rules/seed-defaults', automationController.seedDefaultAutomationRules);

@@ -1,5 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Pencil, X } from 'lucide-react';
+import {
+  Pencil,
+  X,
+  Plus,
+  Check,
+  Trash2,
+  Tags,
+  Columns,
+  Layers,
+  GripVertical,
+  ListChecks,
+  DollarSign,
+  Calendar,
+  Type,
+  ShieldCheck,
+  CreditCard,
+  GraduationCap,
+  GitBranch,
+} from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { CustomField } from '../../types';
 
@@ -8,6 +26,47 @@ interface CustomFieldsViewProps {
   onAddCustomField?: (field: CustomField) => void;
   showToast: (title: string, message: string, icon?: string) => void;
 }
+
+type TaxonomyKey = 'workAuth' | 'paymentTerms' | 'education' | 'stages';
+
+const DEFAULT_TAXONOMIES: Record<TaxonomyKey, string[]> = {
+  workAuth: ['US Citizen', 'Green Card (Permanent Resident)', 'H-1B Specialty Occupation', 'TN Visa (NAFTA)', 'OPT / CPT EAD'],
+  paymentTerms: ['Net 30 Days', 'Net 45 Days', 'Net 60 Days', 'Net 15 Days', 'Due on Receipt'],
+  education: ["Master's Degree (MS/MBA)", "Bachelor's Degree (BS/B.Tech)", 'Doctorate / Ph.D.', 'Associate Degree'],
+  stages: ['Requirement', 'Submitted', 'Interview', 'Selected', 'Onboarding'],
+};
+
+const TAXONOMY_META: Array<{
+  key: TaxonomyKey;
+  title: string;
+  placeholder: string;
+  icon: React.ReactNode;
+}> = [
+  {
+    key: 'workAuth',
+    title: 'Work Authorizations',
+    placeholder: 'Add visa / work auth...',
+    icon: <ShieldCheck className="w-4 h-4 text-blue-600" />,
+  },
+  {
+    key: 'paymentTerms',
+    title: 'Payment Terms',
+    placeholder: 'Add payment term...',
+    icon: <CreditCard className="w-4 h-4 text-emerald-600" />,
+  },
+  {
+    key: 'education',
+    title: 'Education Degrees',
+    placeholder: 'Add degree level...',
+    icon: <GraduationCap className="w-4 h-4 text-indigo-600" />,
+  },
+  {
+    key: 'stages',
+    title: 'Pipeline Stages',
+    placeholder: 'Add stage label...',
+    icon: <GitBranch className="w-4 h-4 text-purple-600" />,
+  },
+];
 
 export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
   customFields: propCustomFields,
@@ -19,12 +78,42 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
   const [editingField, setEditingField] = useState<any | null>(null);
   const [fieldsList, setFieldsList] = useState<any[]>(propCustomFields || []);
 
+  const [masterTaxonomies, setMasterTaxonomies] = useState<Record<TaxonomyKey, string[]>>(DEFAULT_TAXONOMIES);
+  const [newTaxInput, setNewTaxInput] = useState<Record<TaxonomyKey, string>>({
+    workAuth: '',
+    paymentTerms: '',
+    education: '',
+    stages: '',
+  });
+  const [editingTax, setEditingTax] = useState<{
+    category: TaxonomyKey;
+    index: number;
+    value: string;
+  } | null>(null);
+
+  useEffect(() => {
+    apiClient
+      .get('/taxonomies')
+      .then((res) => {
+        if (res.data?.success && res.data.data) {
+          setMasterTaxonomies({
+            workAuth: Array.isArray(res.data.data.workAuth) ? res.data.data.workAuth : DEFAULT_TAXONOMIES.workAuth,
+            paymentTerms: Array.isArray(res.data.data.paymentTerms) ? res.data.data.paymentTerms : DEFAULT_TAXONOMIES.paymentTerms,
+            education: Array.isArray(res.data.data.education) ? res.data.data.education : DEFAULT_TAXONOMIES.education,
+            stages: Array.isArray(res.data.data.stages) ? res.data.data.stages : DEFAULT_TAXONOMIES.stages,
+          });
+        }
+      })
+      .catch((err) => console.warn('Fetch taxonomies error:', err));
+  }, []);
+
   useEffect(() => {
     if (propCustomFields && propCustomFields.length) {
       setFieldsList(propCustomFields);
       return;
     }
-    apiClient.get('/custom-fields')
+    apiClient
+      .get('/custom-fields')
       .then((res) => {
         if (res.data?.success && Array.isArray(res.data.data)) {
           const mapped = res.data.data.map((f: any) => ({
@@ -33,7 +122,13 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
             entity: (f.entity || 'consultant').toLowerCase(),
             entityLabel: (f.entity || 'Consultant').charAt(0).toUpperCase() + (f.entity || 'Consultant').slice(1).toLowerCase(),
             type: f.type === 'NUMBER' ? 'Currency ($)' : f.type === 'DROPDOWN' ? 'Dropdown' : f.type === 'DATE' ? 'Date' : 'Text',
-            options: Array.isArray(f.options) ? f.options.join(', ') : (typeof f.options === 'object' && f.options?.values ? f.options.values : (typeof f.options === 'string' ? f.options : 'Standard Format')),
+            options: Array.isArray(f.options)
+              ? f.options.join(', ')
+              : typeof f.options === 'object' && f.options?.values
+              ? f.options.values
+              : typeof f.options === 'string'
+              ? f.options
+              : 'Standard Format',
             required: !!f.required,
             active: f.active ?? true,
           }));
@@ -43,13 +138,6 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
       .catch((err) => console.warn('Fetch custom fields error:', err));
   }, [propCustomFields]);
 
-  const [masterTaxonomies, setMasterTaxonomies] = useState({
-    workAuth: ['US Citizen', 'Green Card (Permanent Resident)', 'H-1B Specialty Occupation', 'TN Visa (NAFTA)', 'OPT / CPT EAD'],
-    paymentTerms: ['Net 30 Days', 'Net 45 Days', 'Net 60 Days', 'Net 15 Days', 'Due on Receipt'],
-    education: ["Master's Degree (MS/MBA)", "Bachelor's Degree (BS/B.Tech)", "Doctorate / Ph.D.", "Associate Degree"],
-    stages: ['Requirement', 'Submitted', 'Interview', 'Selected', 'Onboarding'],
-  });
-
   const [newField, setNewField] = useState({
     name: '',
     entity: 'consultant',
@@ -58,9 +146,66 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
     required: false,
   });
 
-  const filteredFields = fieldsList.filter(
-    (f) => scope === 'all' || f.entity === scope
-  );
+  const filteredFields = fieldsList.filter((f) => scope === 'all' || f.entity === scope);
+
+  const handleAddTaxonomyOption = async (category: TaxonomyKey) => {
+    const val = (newTaxInput[category] || '').trim();
+    if (!val) return;
+    if (masterTaxonomies[category].some((item) => item.toLowerCase() === val.toLowerCase())) {
+      showToast('Already Exists', `"${val}" is already in this list.`, 'fa-solid fa-circle-info text-amber-500');
+      return;
+    }
+    try {
+      await apiClient.post('/taxonomies', { category, optionValue: val });
+    } catch (err) {
+      console.warn('Add taxonomy API:', err);
+    }
+    setMasterTaxonomies((prev) => ({ ...prev, [category]: [...prev[category], val] }));
+    setNewTaxInput((prev) => ({ ...prev, [category]: '' }));
+    showToast('Option Added', `Added "${val}" to master dropdown.`, 'fa-solid fa-circle-check text-emerald-500');
+  };
+
+  const handleSaveEditTaxonomy = async () => {
+    if (!editingTax) return;
+    const { category, index, value } = editingTax;
+    const trimmed = value.trim();
+    const oldValue = masterTaxonomies[category][index];
+    if (!trimmed) {
+      setEditingTax(null);
+      return;
+    }
+    if (trimmed === oldValue) {
+      setEditingTax(null);
+      return;
+    }
+    try {
+      await apiClient.put('/taxonomies', { category, oldValue, newValue: trimmed });
+    } catch (err) {
+      console.warn('Update taxonomy API:', err);
+    }
+    setMasterTaxonomies((prev) => ({
+      ...prev,
+      [category]: prev[category].map((item, idx) => (idx === index ? trimmed : item)),
+    }));
+    setEditingTax(null);
+    showToast('Option Updated', `Updated "${oldValue}" to "${trimmed}".`, 'fa-solid fa-circle-check text-emerald-500');
+  };
+
+  const handleRemoveTaxonomyOption = async (category: TaxonomyKey, optionValue: string) => {
+    try {
+      await apiClient.delete('/taxonomies', { data: { category, optionValue } });
+    } catch (err) {
+      console.warn('Delete taxonomy API:', err);
+    }
+    setMasterTaxonomies((prev) => ({
+      ...prev,
+      [category]: prev[category].filter((item) => item !== optionValue),
+    }));
+    if (editingTax && editingTax.category === category && masterTaxonomies[category][editingTax.index] === optionValue) {
+      setEditingTax(null);
+    }
+    showToast('Option Removed', `Removed "${optionValue}" from master dropdown.`, 'fa-solid fa-trash-can text-slate-500');
+  };
 
   const handleDeleteField = async (id: string) => {
     try {
@@ -73,9 +218,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
   };
 
   const handleToggleFieldActive = (id: string) => {
-    setFieldsList((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, active: !f.active } : f))
-    );
+    setFieldsList((prev) => prev.map((f) => (f.id === id ? { ...f, active: !f.active } : f)));
   };
 
   const handleCreateField = async (e: React.FormEvent) => {
@@ -129,20 +272,20 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <span className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs shadow-xs">
-              <i className="fa-solid fa-tags"></i>
+            <span className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+              <Tags className="w-3.5 h-3.5" />
             </span>
-            <span>Custom Fields & Master Taxonomy</span>
+            <span>Custom Fields &amp; Master Taxonomy</span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Extend recruitment entity data models and maintain standardized dropdown selection lists.
+            Extend recruitment entity data models and manage standardized dropdown selection lists.
           </p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
           className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-xs flex items-center gap-1.5 shadow-2xs transition-colors self-start sm:self-auto cursor-pointer"
         >
-          <i className="fa-solid fa-plus text-[10px]"></i>
+          <Plus className="w-3.5 h-3.5" />
           <span>Add Custom Field</span>
         </button>
       </div>
@@ -152,7 +295,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
         <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
           <div>
             <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-              <i className="fa-solid fa-table-columns text-brand-600 text-xs"></i>
+              <Columns className="w-4 h-4 text-brand-600" />
               <span>Entity Custom Fields Registry</span>
             </h3>
             <p className="text-[11px] text-slate-500 mt-0.5">
@@ -169,54 +312,26 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
           <span className="text-[11px] font-semibold text-slate-400 mr-1 uppercase tracking-wider">
             Filter Entity:
           </span>
-          <button
-            onClick={() => setScope('all')}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
-              scope === 'all' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            All ({fieldsList.length})
-          </button>
-          <button
-            onClick={() => setScope('consultant')}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
-              scope === 'consultant' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Consultants
-          </button>
-          <button
-            onClick={() => setScope('requirement')}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
-              scope === 'requirement' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Requirements
-          </button>
-          <button
-            onClick={() => setScope('client')}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
-              scope === 'client' ? 'bg-purple-600 text-white' : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Clients
-          </button>
-          <button
-            onClick={() => setScope('vendor')}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
-              scope === 'vendor' ? 'bg-amber-600 text-white' : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Vendors
-          </button>
-          <button
-            onClick={() => setScope('placement')}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
-              scope === 'placement' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Placements
-          </button>
+          {(
+            [
+              { key: 'all', label: `All (${fieldsList.length})`, activeClass: 'bg-slate-900 text-white' },
+              { key: 'consultant', label: 'Consultants', activeClass: 'bg-indigo-600 text-white' },
+              { key: 'requirement', label: 'Requirements', activeClass: 'bg-blue-600 text-white' },
+              { key: 'client', label: 'Clients', activeClass: 'bg-purple-600 text-white' },
+              { key: 'vendor', label: 'Vendors', activeClass: 'bg-amber-600 text-white' },
+              { key: 'placement', label: 'Placements', activeClass: 'bg-emerald-600 text-white' },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setScope(tab.key)}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
+                scope === tab.key ? tab.activeClass : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* Custom Fields Table */}
@@ -236,13 +351,11 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
             <tbody className="divide-y divide-slate-100">
               {filteredFields.map((field) => (
                 <tr key={field.id} className="hover:bg-slate-50/50 transition-colors">
-                  {/* Field Label with Grip Icon */}
                   <td className="py-3 px-5 font-semibold text-slate-800 flex items-center gap-2">
-                    <i className="fa-solid fa-grip-vertical text-slate-300 text-[10px]"></i>
+                    <GripVertical className="w-3.5 h-3.5 text-slate-300" />
                     <span>{field.name}</span>
                   </td>
 
-                  {/* Target Entity Badge */}
                   <td className="py-3 px-4">
                     <span
                       className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${
@@ -261,28 +374,23 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                     </span>
                   </td>
 
-                  {/* Data Type Badge with Icon */}
                   <td className="py-3 px-4 text-[11px] text-slate-600">
                     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-100 border border-slate-200">
                       {field.type === 'Dropdown' ? (
-                        <i className="fa-solid fa-list-check text-slate-500 text-[10px]"></i>
+                        <ListChecks className="w-3 h-3 text-slate-500" />
                       ) : field.type === 'Currency ($)' ? (
-                        <i className="fa-solid fa-dollar-sign text-emerald-500 text-[10px]"></i>
+                        <DollarSign className="w-3 h-3 text-emerald-500" />
                       ) : field.type === 'Date' ? (
-                        <i className="fa-solid fa-calendar text-blue-500 text-[10px]"></i>
+                        <Calendar className="w-3 h-3 text-blue-500" />
                       ) : (
-                        <i className="fa-solid fa-font text-slate-500 text-[10px]"></i>
+                        <Type className="w-3 h-3 text-slate-500" />
                       )}
                       <span>{field.type}</span>
                     </span>
                   </td>
 
-                  {/* Options / Format */}
-                  <td className="py-3 px-4 text-slate-500 text-[11px] max-w-xs truncate">
-                    {field.options}
-                  </td>
+                  <td className="py-3 px-4 text-slate-500 text-[11px] max-w-xs truncate">{field.options}</td>
 
-                  {/* Mandatory vs Optional */}
                   <td className="py-3 px-4">
                     {field.required ? (
                       <span className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
@@ -293,28 +401,15 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                     )}
                   </td>
 
-                  {/* Status Toggle */}
                   <td className="py-3 px-4">
-                    <button
-                      onClick={() => handleToggleFieldActive(field.id)}
-                      className="flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <span
-                        className={`w-2 h-2 rounded-full ${
-                          field.active ? 'bg-emerald-500' : 'bg-slate-300'
-                        }`}
-                      ></span>
-                      <span
-                        className={`text-[11px] font-medium ${
-                          field.active ? 'text-emerald-700 font-semibold' : 'text-slate-400'
-                        }`}
-                      >
+                    <button onClick={() => handleToggleFieldActive(field.id)} className="flex items-center gap-1.5 cursor-pointer">
+                      <span className={`w-2 h-2 rounded-full ${field.active ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
+                      <span className={`text-[11px] font-medium ${field.active ? 'text-emerald-700 font-semibold' : 'text-slate-400'}`}>
                         {field.active ? 'Active' : 'Disabled'}
                       </span>
                     </button>
                   </td>
 
-                  {/* Actions */}
                   <td className="py-3 px-5 text-right whitespace-nowrap">
                     <button
                       onClick={() => setEditingField({ ...field })}
@@ -328,7 +423,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                       title="Delete Custom Field"
                       className="text-slate-400 hover:text-rose-600 w-7 h-7 rounded hover:bg-rose-50 inline-flex items-center justify-center transition-colors cursor-pointer"
                     >
-                      <i className="fa-solid fa-trash-can text-xs"></i>
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </td>
                 </tr>
@@ -343,87 +438,128 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
           <div>
             <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-              <i className="fa-solid fa-layer-group text-indigo-600 text-xs"></i>
-              <span>Configurable Master Dropdowns & Taxonomies</span>
+              <Layers className="w-4 h-4 text-indigo-600" />
+              <span>Configurable Master Dropdowns &amp; Taxonomies</span>
             </h3>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              Standardized selection lists used throughout intake forms, pipelines, and search filters.
+              Click any option to rename it, remove items with X, or add new dropdown values below each list.
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-          {/* 1. Work Authorization */}
-          <div className="p-3.5 bg-slate-50/70 rounded-xl border border-slate-200 space-y-2">
-            <div className="font-bold text-slate-800 flex items-center gap-1.5">
-              <i className="fa-solid fa-passport text-blue-600"></i>
-              <span>Work Authorizations</span>
-            </div>
-            <div className="flex flex-wrap gap-1">
-              {masterTaxonomies.workAuth.map((item) => (
-                <span
-                  key={item}
-                  className="px-2 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-medium text-slate-700 shadow-2xs"
-                >
-                  {item}
-                </span>
-              ))}
-            </div>
-          </div>
+          {TAXONOMY_META.map((cat) => (
+            <div key={cat.key} className="p-3.5 bg-slate-50/70 rounded-xl border border-slate-200 flex flex-col justify-between gap-3">
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                    {cat.icon}
+                    <span>{cat.title}</span>
+                  </div>
+                  <span className="text-[10px] font-medium text-slate-400">{masterTaxonomies[cat.key].length}</span>
+                </div>
 
-          {/* 2. Payment Terms */}
-          <div className="p-3.5 bg-slate-50/70 rounded-xl border border-slate-200 space-y-2">
-            <div className="font-bold text-slate-800 flex items-center gap-1.5">
-              <i className="fa-solid fa-credit-card text-emerald-600"></i>
-              <span>Payment Terms</span>
-            </div>
-            <div className="flex flex-wrap gap-1">
-              {masterTaxonomies.paymentTerms.map((item) => (
-                <span
-                  key={item}
-                  className="px-2 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-medium text-slate-700 shadow-2xs"
-                >
-                  {item}
-                </span>
-              ))}
-            </div>
-          </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {masterTaxonomies[cat.key].map((item, idx) => {
+                    const isEditing = editingTax?.category === cat.key && editingTax?.index === idx;
+                    if (isEditing) {
+                      return (
+                        <div key={`${item}-${idx}`} className="flex items-center gap-1 bg-white border border-brand-500 rounded-md px-1.5 py-0.5 w-full">
+                          <input
+                            type="text"
+                            autoFocus
+                            value={editingTax.value}
+                            onChange={(e) => setEditingTax({ ...editingTax, value: e.target.value })}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleSaveEditTaxonomy();
+                              } else if (e.key === 'Escape') {
+                                setEditingTax(null);
+                              }
+                            }}
+                            className="flex-1 min-w-0 text-[11px] text-slate-800 focus:outline-none py-0.5"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleSaveEditTaxonomy}
+                            title="Save"
+                            className="p-0.5 text-emerald-600 hover:bg-emerald-50 rounded cursor-pointer"
+                          >
+                            <Check className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingTax(null)}
+                            title="Cancel"
+                            className="p-0.5 text-slate-400 hover:bg-slate-100 rounded cursor-pointer"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      );
+                    }
 
-          {/* 3. Education Degrees */}
-          <div className="p-3.5 bg-slate-50/70 rounded-xl border border-slate-200 space-y-2">
-            <div className="font-bold text-slate-800 flex items-center gap-1.5">
-              <i className="fa-solid fa-graduation-cap text-indigo-600"></i>
-              <span>Education Degrees</span>
-            </div>
-            <div className="flex flex-wrap gap-1">
-              {masterTaxonomies.education.map((item) => (
-                <span
-                  key={item}
-                  className="px-2 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-medium text-slate-700 shadow-2xs"
-                >
-                  {item}
-                </span>
-              ))}
-            </div>
-          </div>
+                    return (
+                      <span
+                        key={`${item}-${idx}`}
+                        className="group inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-md bg-white border border-slate-200 text-[11px] font-medium text-slate-700 shadow-2xs hover:border-slate-300 transition-colors"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setEditingTax({ category: cat.key, index: idx, value: item })}
+                          title="Click to rename"
+                          className="hover:text-brand-600 cursor-pointer text-left"
+                        >
+                          {item}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingTax({ category: cat.key, index: idx, value: item })}
+                          title="Rename option"
+                          className="text-slate-300 hover:text-brand-600 p-0.5 rounded cursor-pointer"
+                        >
+                          <Pencil className="w-2.5 h-2.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveTaxonomyOption(cat.key, item)}
+                          title="Remove option"
+                          className="text-slate-300 hover:text-rose-600 p-0.5 rounded cursor-pointer"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
 
-          {/* 4. Pipeline Stages */}
-          <div className="p-3.5 bg-slate-50/70 rounded-xl border border-slate-200 space-y-2">
-            <div className="font-bold text-slate-800 flex items-center gap-1.5">
-              <i className="fa-solid fa-bars-staggered text-purple-600"></i>
-              <span>Pipeline Stages</span>
-            </div>
-            <div className="flex flex-wrap gap-1">
-              {masterTaxonomies.stages.map((item) => (
-                <span
-                  key={item}
-                  className="px-2 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-medium text-slate-700 shadow-2xs"
+              <div className="flex items-center gap-1.5 pt-2 border-t border-slate-200/80">
+                <input
+                  type="text"
+                  value={newTaxInput[cat.key]}
+                  onChange={(e) => setNewTaxInput((prev) => ({ ...prev, [cat.key]: e.target.value }))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddTaxonomyOption(cat.key);
+                    }
+                  }}
+                  placeholder={cat.placeholder}
+                  className="flex-1 min-w-0 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] text-slate-700 placeholder-slate-400 focus:border-brand-600 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleAddTaxonomyOption(cat.key)}
+                  className="px-2.5 py-1.5 bg-slate-900 hover:bg-black text-white rounded-lg text-[11px] font-medium inline-flex items-center gap-1 transition-colors cursor-pointer flex-shrink-0"
                 >
-                  {item}
-                </span>
-              ))}
+                  <Plus className="w-3 h-3" />
+                  <span>Add</span>
+                </button>
+              </div>
             </div>
-          </div>
+          ))}
         </div>
       </div>
 
@@ -433,8 +569,8 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-scale-up">
             <div className="px-6 py-4 bg-[#0B0F17] text-white flex items-center justify-between border-b border-white/10">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-sm">
-                  <i className="fa-solid fa-tag"></i>
+                <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center">
+                  <Tags className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="text-sm font-bold tracking-tight">Create Entity Custom Field</h3>
@@ -445,7 +581,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                 onClick={() => setShowAddModal(false)}
                 className="text-slate-400 hover:text-white transition-colors cursor-pointer"
               >
-                <i className="fa-solid fa-xmark text-sm"></i>
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -533,7 +669,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                   type="submit"
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  <i className="fa-solid fa-plus text-[10px]"></i>
+                  <Plus className="w-3.5 h-3.5" />
                   <span>Register Field</span>
                 </button>
               </div>
@@ -592,9 +728,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                   ...editingField,
                   entityLabel: entityLabelMap[editingField.entity] || 'Custom',
                 };
-                setFieldsList((prev) =>
-                  prev.map((f) => (f.id === editingField.id ? updatedObj : f))
-                );
+                setFieldsList((prev) => prev.map((f) => (f.id === editingField.id ? updatedObj : f)));
                 setEditingField(null);
                 showToast('Field Updated', `"${updatedObj.name}" updated.`);
               }}

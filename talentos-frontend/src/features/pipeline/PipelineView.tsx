@@ -87,7 +87,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               className="px-3.5 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <i className="fa-solid fa-plus text-[10px]"></i>
-              <span>Add Opportunity</span>
+              <span>Add Requirement</span>
             </button>
           )}
         </div>

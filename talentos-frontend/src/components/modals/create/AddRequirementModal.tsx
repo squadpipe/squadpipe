@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Requirement, Client, User } from '../../../types';
+import { DynamicCustomFieldsSection, useMasterTaxonomies } from '../../shared/DynamicCustomFieldsSection';
 
 interface AddRequirementModalProps {
   isOpen: boolean;
@@ -18,6 +19,8 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
   users = [],
   showToast,
 }) => {
+  const taxonomies = useMasterTaxonomies(isOpen);
+  const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     opportunityTitle: '',
     companyName: clients[0]?.name || '',
@@ -56,9 +59,11 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
       skillsRequired: form.skillsRequired.trim() || 'Java, Cloud, Microservices',
       assignedRecruiter: form.assignedRecruiter,
       status: form.status,
+      customFields: customValues,
     };
 
     onSave(newReq);
+    setCustomValues({});
     showToast('Requirement Created', `${newReq.code} (${newReq.opportunityTitle}) added to pipeline!`, 'fa-solid fa-circle-check text-blue-500');
     onClose();
   };
@@ -79,11 +84,8 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
               <i className="fa-solid fa-briefcase text-sm"></i>
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                <span>Create New Job Requirement</span>
-                <span className="text-[10px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.2 rounded">
-                  Client Job Order
-                </span>
+              <h2 className="text-sm font-bold text-white">
+                Create New Job Requirement
               </h2>
               <div className="text-[11px] text-slate-400 mt-0.5">
                 Intake new client requisition, bill rate, location, and required technical skills.
@@ -103,7 +105,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
           <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Opportunity / Role Title *</label>
+                <label className="block font-semibold text-slate-700 mb-1">Requirement / Role Title *</label>
                 <input
                   value={form.opportunityTitle}
                   onChange={(e) => setForm({ ...form, opportunityTitle: e.target.value })}
@@ -218,8 +220,11 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
                   onChange={(e) => setForm({ ...form, status: e.target.value as Requirement['status'] })}
                   className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600"
                 >
-                  <option value="Requirement">Requirement (New)</option>
-                  <option value="Submitted">Submitted</option>
+                  {taxonomies.stages.map((stage) => (
+                    <option key={stage} value={stage}>
+                      {stage}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -234,6 +239,13 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
                 className="w-full p-2.5 border border-slate-200 rounded-lg bg-white text-xs focus:border-brand-600 focus:outline-none"
               ></textarea>
             </div>
+
+            <DynamicCustomFieldsSection
+              entity="requirement"
+              values={customValues}
+              onChange={setCustomValues}
+              isOpen={isOpen}
+            />
           </div>
 
           {/* Modal Footer */}

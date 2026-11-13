@@ -30,6 +30,7 @@ export interface Candidate {
   assignedRecruiter: string;
   pipelineStage: string;
   rawSnippet?: string;
+  customFields?: Record<string, any>;
 }
 
 export interface ClientContact {
@@ -47,6 +48,7 @@ export interface Client {
   boardNumber: string;
   location: string;
   contacts: ClientContact[];
+  customFields?: Record<string, any>;
 }
 
 export interface Vendor {
@@ -60,6 +62,7 @@ export interface Vendor {
   paymentTerms: string;
   invoicingTerms: string;
   msa: string;
+  customFields?: Record<string, any>;
 }
 
 export interface Requirement {
@@ -76,6 +79,7 @@ export interface Requirement {
   assignedRecruiter: string;
   targetBillRate?: number;
   targetPayRate?: number;
+  customFields?: Record<string, any>;
 }
 
 export interface BillablePlacement {
@@ -102,6 +106,7 @@ export interface BillablePlacement {
   requirementId?: string;
   clientId?: string;
   vendorId?: string;
+  customFields?: Record<string, any>;
 }
 
 export interface SlaTask {
