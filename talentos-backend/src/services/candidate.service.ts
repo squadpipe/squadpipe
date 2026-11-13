@@ -238,12 +238,34 @@ export class CandidateService {
   }
 
   async deleteCandidate(id: string, tenantId?: string) {
-    if (tenantId) {
-      const existing = await prisma.candidate.findUnique({ where: { id } });
-      if (!existing || existing.tenantId !== tenantId) {
-        throw new Error('Candidate not found or unauthorized');
-      }
+    const existing = await prisma.candidate.findUnique({ where: { id } });
+    if (!existing || (tenantId && existing.tenantId !== tenantId)) {
+      const notFoundErr: any = new Error('Candidate not found or unauthorized');
+      notFoundErr.statusCode = 404;
+      throw notFoundErr;
     }
+
+    const linkedPlacementsCount = await prisma.placement.count({
+      where: {
+        tenantId: existing.tenantId,
+        OR: [
+          { candidateId: existing.id },
+          {
+            candidateId: null,
+            resourceName: { equals: existing.fullName, mode: 'insensitive' },
+          },
+        ],
+      },
+    });
+
+    if (linkedPlacementsCount > 0 || existing.pipelineStage === CandidatePipelineStage.BILLABLE) {
+      const conflictErr: any = new Error(
+        'Cannot delete a billable consultant. Please remove them from Billable Consultants first.'
+      );
+      conflictErr.statusCode = 409;
+      throw conflictErr;
+    }
+
     return prisma.candidate.delete({ where: { id } });
   }
 }

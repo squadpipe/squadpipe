@@ -1,5 +1,5 @@
 import { prisma } from '../config/prisma.config';
-import { PlacementStatus, Prisma, DeploymentType, PlacementType, AutomationCategory } from '@prisma/client';
+import { CandidatePipelineStage, PlacementStatus, Prisma, DeploymentType, PlacementType, AutomationCategory } from '@prisma/client';
 import { automationEngineService } from './automationEngine.service';
 import { slaEngineService } from './slaEngine.service';
 
@@ -502,7 +502,38 @@ export class PlacementService {
       throw new Error('Placement not found or unauthorized');
     }
     const deleted = await prisma.placement.delete({ where: { id } });
+
     try {
+      const targetCandidate = existing.candidateId
+        ? await prisma.candidate.findUnique({ where: { id: existing.candidateId } })
+        : await prisma.candidate.findFirst({
+            where: {
+              tenantId: existing.tenantId,
+              fullName: { equals: existing.resourceName.trim(), mode: 'insensitive' },
+            },
+          });
+
+      if (targetCandidate && targetCandidate.pipelineStage === CandidatePipelineStage.BILLABLE) {
+        const remainingPlacements = await prisma.placement.count({
+          where: {
+            tenantId: existing.tenantId,
+            OR: [
+              { candidateId: targetCandidate.id },
+              {
+                candidateId: null,
+                resourceName: { equals: targetCandidate.fullName, mode: 'insensitive' },
+              },
+            ],
+          },
+        });
+        if (remainingPlacements === 0) {
+          await prisma.candidate.update({
+            where: { id: targetCandidate.id },
+            data: { pipelineStage: CandidatePipelineStage.AVAILABLE_BENCH },
+          });
+        }
+      }
+
       await slaEngineService.resolveTasksForEntity(existing.tenantId, 'placement', id);
     } catch {
       // Non-critical

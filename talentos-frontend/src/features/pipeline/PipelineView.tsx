@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -21,6 +21,7 @@ import {
 import { apiClient } from '../../config/api.config';
 import { Requirement, Candidate } from '../../types';
 import { TablePagination } from '../../components/shared/TablePagination';
+import { ModalPortal } from '../../components/shared/ModalPortal';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapRequirementFromApi } from '../../utils/entityMappers';
 
@@ -55,23 +56,76 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
-  const [serverReqs, setServerReqs] = useState<Requirement[]>([]);
+  const [serverReqs, setServerReqs] = useState<Requirement[]>(requirements);
   const [totalReqs, setTotalReqs] = useState(requirements.length);
   const [isLoadingReqs, setIsLoadingReqs] = useState(false);
-  const [draggedReqId, setDraggedReqId] = useState<string | null>(null);
+  const [activeDrag, setActiveDrag] = useState<{
+    req: Requirement;
+    width: number;
+    height: number;
+    initialX: number;
+    initialY: number;
+  } | null>(null);
   const [dragOverStage, setDragOverStage] = useState<Requirement['status'] | null>(null);
   const [editingReq, setEditingReq] = useState<Requirement | null>(null);
   const [reqToDelete, setReqToDelete] = useState<Requirement | null>(null);
 
+  const boardScrollRef = useRef<HTMLDivElement | null>(null);
+  const columnRefs = useRef<Partial<Record<Requirement['status'], HTMLDivElement | null>>>({});
+  const floatingPreviewRef = useRef<HTMLDivElement | null>(null);
+  const dragOverStageRef = useRef<Requirement['status'] | null>(null);
+  const suppressClickRef = useRef(false);
+  const rafRef = useRef<number | null>(null);
+  const cleanupDragRef = useRef<(() => void) | null>(null);
+  const pendingStageMapRef = useRef<Map<string, { stage: Requirement['status']; until: number }>>(new Map());
+  const dragSessionRef = useRef<{
+    req: Requirement;
+    startX: number;
+    startY: number;
+    offsetX: number;
+    offsetY: number;
+    width: number;
+    height: number;
+    active: boolean;
+    latestX: number;
+    latestY: number;
+    clientX: number;
+    clientY: number;
+  } | null>(null);
+
   const debouncedSearch = useDebounce(search, 300);
+
+  const applyPendingStages = useCallback((list: Requirement[]): Requirement[] => {
+    const now = Date.now();
+    if (pendingStageMapRef.current.size === 0) return list;
+    for (const [id, entry] of pendingStageMapRef.current.entries()) {
+      if (entry.until <= now) pendingStageMapRef.current.delete(id);
+    }
+    if (pendingStageMapRef.current.size === 0) return list;
+    return list.map((r) => {
+      const pending = pendingStageMapRef.current.get(r.id);
+      return pending && r.status !== pending.stage ? { ...r, status: pending.stage } : r;
+    });
+  }, []);
 
   useEffect(() => {
     setPage(1);
   }, [debouncedSearch, displayMode]);
 
   useEffect(() => {
+    // When showing the full Kanban board without search, sync instantaneously from parent state
+    if (displayMode === 'kanban' && !debouncedSearch.trim() && requirements.length > 0) {
+      const synced = applyPendingStages(requirements);
+      setServerReqs(synced);
+      setTotalReqs(synced.length);
+      setIsLoadingReqs(false);
+      return;
+    }
+
     let active = true;
-    setIsLoadingReqs(true);
+    if (displayMode === 'list') {
+      setIsLoadingReqs(true);
+    }
     const params: Record<string, any> = {
       search: debouncedSearch.trim() || undefined,
     };
@@ -85,7 +139,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
       .then((res) => {
         if (!active) return;
         if (res.data?.success && Array.isArray(res.data.data)) {
-          const mapped = res.data.data.map(mapRequirementFromApi);
+          const mapped = applyPendingStages(res.data.data.map(mapRequirementFromApi));
           setServerReqs(mapped);
           setTotalReqs(res.data.pagination?.total ?? mapped.length);
         }
@@ -93,7 +147,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
       .catch(() => {
         if (!active) return;
         const q = debouncedSearch.toLowerCase();
-        const fallback = requirements.filter(
+        const fallback = applyPendingStages(requirements).filter(
           (r) =>
             !q ||
             r.opportunityTitle.toLowerCase().includes(q) ||
@@ -110,7 +164,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
     return () => {
       active = false;
     };
-  }, [debouncedSearch, displayMode, page, limit, requirements]);
+  }, [debouncedSearch, displayMode, page, limit, requirements, applyPendingStages]);
 
   const stageOrder: Requirement['status'][] = [
     'Requirement',
@@ -122,35 +176,30 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
 
   const stageMeta: Record<
     Requirement['status'],
-    { dotClass: string; headerAccent: string; pillClass: string; tableBadge: string }
+    { dotClass: string; pillClass: string; tableBadge: string }
   > = {
     Requirement: {
       dotClass: 'bg-slate-400',
-      headerAccent: 'border-t-slate-400',
       pillClass: 'bg-slate-100 text-slate-700 border-slate-200',
       tableBadge: 'bg-slate-100 text-slate-700 border-slate-200',
     },
     Submitted: {
       dotClass: 'bg-amber-500',
-      headerAccent: 'border-t-amber-400',
       pillClass: 'bg-amber-50 text-amber-700 border-amber-200',
       tableBadge: 'bg-amber-50 text-amber-700 border-amber-200',
     },
     Interview: {
       dotClass: 'bg-blue-500',
-      headerAccent: 'border-t-blue-500',
       pillClass: 'bg-blue-50 text-blue-700 border-blue-200',
       tableBadge: 'bg-blue-50 text-blue-700 border-blue-200',
     },
     Selected: {
       dotClass: 'bg-purple-500',
-      headerAccent: 'border-t-purple-500',
       pillClass: 'bg-purple-50 text-purple-700 border-purple-200',
       tableBadge: 'bg-purple-50 text-purple-700 border-purple-200',
     },
     Onboarding: {
       dotClass: 'bg-emerald-500',
-      headerAccent: 'border-t-emerald-500',
       pillClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
       tableBadge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     },
@@ -164,16 +213,340 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
 
   const filteredReqs = serverReqs;
 
+  const commitStageMove = useCallback(
+    (req: Requirement, nextStage: Requirement['status']) => {
+      if (req.status === nextStage) return;
+      pendingStageMapRef.current.set(req.id, { stage: nextStage, until: Date.now() + 2500 });
+      setServerReqs((prev) => prev.map((r) => (r.id === req.id ? { ...r, status: nextStage } : r)));
+      onStatusChange(req, nextStage);
+      if (nextStage === 'Onboarding') {
+        onOpenPlacementWizard({ ...req, status: nextStage });
+      }
+    },
+    [onStatusChange, onOpenPlacementWizard]
+  );
+
   const moveStage = (req: Requirement, direction: number) => {
     const currentIndex = stageOrder.indexOf(req.status);
     const nextIndex = currentIndex + direction;
     if (nextIndex >= 0 && nextIndex < stageOrder.length) {
-      const nextStage = stageOrder[nextIndex];
-      onStatusChange(req, nextStage);
-      if (nextStage === 'Onboarding') {
-        onOpenPlacementWizard(req);
+      commitStageMove(req, stageOrder[nextIndex]);
+    }
+  };
+
+  const hitTestStage = useCallback((clientX: number, clientY: number): Requirement['status'] | null => {
+    for (const st of stageOrder) {
+      const col = columnRefs.current[st];
+      if (!col) continue;
+      const rect = col.getBoundingClientRect();
+      if (
+        clientX >= rect.left - 7 &&
+        clientX <= rect.right + 7 &&
+        clientY >= rect.top - 40 &&
+        clientY <= rect.bottom + 40
+      ) {
+        return st;
       }
     }
+    return null;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      cleanupDragRef.current?.();
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+  }, []);
+
+  const handleCardPointerDown = (e: React.PointerEvent<HTMLDivElement>, req: Requirement) => {
+    if (e.button !== 0) return;
+    const targetEl = e.target as HTMLElement;
+    if (targetEl.closest('button:not([data-allow-drag]), a, input, select, textarea, [data-no-drag="true"]')) return;
+
+    const cardRect = e.currentTarget.getBoundingClientRect();
+    const session = {
+      req,
+      startX: e.clientX,
+      startY: e.clientY,
+      offsetX: e.clientX - cardRect.left,
+      offsetY: e.clientY - cardRect.top,
+      width: cardRect.width,
+      height: cardRect.height,
+      active: false,
+      latestX: cardRect.left,
+      latestY: cardRect.top,
+      clientX: e.clientX,
+      clientY: e.clientY,
+    };
+    dragSessionRef.current = session;
+
+    const resetDragVisuals = () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      dragOverStageRef.current = null;
+      setDragOverStage(null);
+      setActiveDrag(null);
+      dragSessionRef.current = null;
+      cleanupDragRef.current?.();
+      cleanupDragRef.current = null;
+    };
+
+    const updateFrame = () => {
+      rafRef.current = null;
+      const cur = dragSessionRef.current;
+      if (!cur || !cur.active) return;
+
+      if (floatingPreviewRef.current) {
+        floatingPreviewRef.current.style.transform = `translate3d(${cur.latestX}px, ${cur.latestY}px, 0) rotate(1.2deg)`;
+      }
+
+      // Smooth horizontal auto-scroll when dragging near left/right edge of the board
+      const scroller = boardScrollRef.current;
+      if (scroller && scroller.scrollWidth > scroller.clientWidth) {
+        const sRect = scroller.getBoundingClientRect();
+        const edgeZone = 56;
+        if (cur.clientX < sRect.left + edgeZone) {
+          scroller.scrollLeft -= 12;
+        } else if (cur.clientX > sRect.right - edgeZone) {
+          scroller.scrollLeft += 12;
+        }
+      }
+
+      const hovered = hitTestStage(cur.clientX, cur.clientY);
+      if (hovered !== dragOverStageRef.current) {
+        dragOverStageRef.current = hovered;
+        setDragOverStage(hovered);
+      }
+    };
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const cur = dragSessionRef.current;
+      if (!cur) return;
+
+      cur.clientX = moveEvent.clientX;
+      cur.clientY = moveEvent.clientY;
+      cur.latestX = moveEvent.clientX - cur.offsetX;
+      cur.latestY = moveEvent.clientY - cur.offsetY;
+
+      if (!cur.active) {
+        const dist = Math.hypot(moveEvent.clientX - cur.startX, moveEvent.clientY - cur.startY);
+        if (dist <= 5) return;
+        cur.active = true;
+        suppressClickRef.current = true;
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'grabbing';
+        setActiveDrag({
+          req: cur.req,
+          width: cur.width,
+          height: cur.height,
+          initialX: cur.latestX,
+          initialY: cur.latestY,
+        });
+        dragOverStageRef.current = cur.req.status;
+        setDragOverStage(cur.req.status);
+      }
+
+      if (rafRef.current === null) {
+        rafRef.current = requestAnimationFrame(updateFrame);
+      }
+    };
+
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      const cur = dragSessionRef.current;
+      const wasActive = Boolean(cur?.active);
+      const targetStage = wasActive
+        ? hitTestStage(upEvent.clientX, upEvent.clientY) ?? dragOverStageRef.current
+        : null;
+      const movedReq = cur?.req;
+
+      resetDragVisuals();
+
+      if (wasActive) {
+        setTimeout(() => {
+          suppressClickRef.current = false;
+        }, 0);
+        if (movedReq && targetStage && targetStage !== movedReq.status) {
+          commitStageMove(movedReq, targetStage);
+        }
+      }
+    };
+
+    const handleKeyDown = (keyEvent: KeyboardEvent) => {
+      if (keyEvent.key === 'Escape' && dragSessionRef.current?.active) {
+        resetDragVisuals();
+      }
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', resetDragVisuals);
+    window.addEventListener('keydown', handleKeyDown);
+
+    cleanupDragRef.current = () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', resetDragVisuals);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  };
+
+  const handleCardTitleClick = (req: Requirement) => {
+    if (suppressClickRef.current) return;
+    if (onSelectReq) onSelectReq(req);
+  };
+
+  const renderCardBody = (req: Requirement) => {
+    const skills = getSkillsList(req.skillsRequired);
+    const stageIdx = stageOrder.indexOf(req.status);
+    return (
+      <>
+        {/* Card Top Meta Row */}
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            data-allow-drag="true"
+            onClick={() => handleCardTitleClick(req)}
+            className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/70 cursor-pointer hover:bg-brand-50 hover:text-brand-700 hover:border-brand-200 transition-colors inline-flex items-center gap-1 whitespace-nowrap flex-shrink-0"
+          >
+            <GripVertical className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" />
+            <span>{req.code}</span>
+          </button>
+          <span
+            title={req.location}
+            className="text-[10px] text-slate-400 flex items-center justify-end gap-1 min-w-0 flex-1"
+          >
+            <MapPin className="w-2.5 h-2.5 flex-shrink-0 text-slate-300" />
+            <span className="truncate">{req.location || 'Remote'}</span>
+          </span>
+        </div>
+
+        {/* Role & Company */}
+        <div>
+          <h4
+            onClick={() => handleCardTitleClick(req)}
+            title={req.opportunityTitle}
+            className="font-bold text-[12.5px] text-slate-900 leading-snug line-clamp-2 cursor-pointer hover:text-brand-600 transition-colors"
+          >
+            {req.opportunityTitle}
+          </h4>
+          <div className="flex items-center gap-1 text-[11px] font-medium text-slate-500 mt-1 min-w-0">
+            <Building2 className="w-3 h-3 text-slate-400 flex-shrink-0" />
+            <span className="truncate" title={req.companyName}>
+              {req.companyName}
+            </span>
+          </div>
+        </div>
+
+        {/* Candidate Status or Bench Matcher */}
+        {req.resourceName ? (
+          <div className="px-2.5 py-1.5 rounded-lg bg-emerald-50/75 border border-emerald-200/75 flex items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold text-emerald-800 flex items-center gap-1.5 min-w-0 flex-1">
+              <User className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+              <span className="truncate" title={req.resourceName}>
+                {req.resourceName}
+              </span>
+            </span>
+            <span className="text-[9px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded whitespace-nowrap flex-shrink-0">
+              Assigned
+            </span>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onOpenMatcher(req)}
+            className="w-full py-1.5 px-2.5 rounded-lg text-[11px] font-semibold bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200/80 flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <UsersRound className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>Match Bench Talent</span>
+          </button>
+        )}
+
+        {/* Capped Skills Pills */}
+        {skills.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap">
+            {skills.slice(0, 3).map((sk) => (
+              <span
+                key={sk}
+                title={sk}
+                className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-medium max-w-[96px] truncate"
+              >
+                {sk}
+              </span>
+            ))}
+            {skills.length > 3 && (
+              <span
+                title={skills.slice(3).join(', ')}
+                className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[10px] font-semibold whitespace-nowrap"
+              >
+                +{skills.length - 3}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Clean Card Action Footer */}
+        <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-[11px]">
+          <div className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50/80 divide-x divide-slate-200 overflow-hidden flex-shrink-0">
+            <button
+              type="button"
+              disabled={stageIdx === 0}
+              onClick={() => moveStage(req, -1)}
+              className="p-1 text-slate-500 hover:bg-white hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              title="Move Backward"
+            >
+              <ArrowLeft className="w-3 h-3" />
+            </button>
+            <button
+              type="button"
+              disabled={stageIdx === stageOrder.length - 1}
+              onClick={() => moveStage(req, 1)}
+              className="p-1 text-slate-500 hover:bg-white hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              title="Advance Stage"
+            >
+              <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => onOpenPitchWriter(req)}
+              title="Open submission pitch writer"
+              className="px-2 py-1 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/70 text-[10px] font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap"
+            >
+              <Send className="w-2.5 h-2.5" />
+              <span>Pitch</span>
+            </button>
+            {onUpdateReq && (
+              <button
+                type="button"
+                onClick={() => setEditingReq({ ...req })}
+                title="Edit requirement"
+                className="p-1 text-slate-400 hover:text-brand-600 rounded-md hover:bg-brand-50 transition-colors cursor-pointer"
+              >
+                <Pencil className="w-3 h-3" />
+              </button>
+            )}
+            {onDeleteReq && (
+              <button
+                type="button"
+                onClick={() => setReqToDelete(req)}
+                title="Delete requirement"
+                className="p-1 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        </div>
+      </>
+    );
   };
 
   return (
@@ -266,44 +639,25 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
 
       {/* Kanban Mode */}
       {displayMode === 'kanban' ? (
-        <div className="overflow-x-auto pb-2 -mx-1 px-1">
+        <div ref={boardScrollRef} className="overflow-x-auto pb-2 -mx-1 px-1">
           <div className="grid grid-cols-5 gap-3.5 min-w-[1160px] items-stretch">
             {stageOrder.map((stage) => {
               const reqsInStage = filteredReqs.filter((r) => r.status === stage);
-              const isDropTarget = dragOverStage === stage;
+              const isDropTarget = Boolean(activeDrag && dragOverStage === stage);
+              const isMovingIntoStage = Boolean(isDropTarget && activeDrag?.req.status !== stage);
               const meta = stageMeta[stage];
               return (
                 <div
                   key={stage}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = 'move';
-                    if (dragOverStage !== stage) setDragOverStage(stage);
+                  ref={(el) => {
+                    columnRefs.current[stage] = el;
                   }}
-                  onDragLeave={(e) => {
-                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                      setDragOverStage(null);
-                    }
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const droppedId = e.dataTransfer.getData('text/plain') || draggedReqId;
-                    setDragOverStage(null);
-                    setDraggedReqId(null);
-                    if (!droppedId) return;
-                    const droppedReq =
-                      requirements.find((r) => r.id === droppedId) ||
-                      serverReqs.find((r) => r.id === droppedId);
-                    if (droppedReq && droppedReq.status !== stage) {
-                      onStatusChange(droppedReq, stage);
-                      if (stage === 'Onboarding') {
-                        onOpenPlacementWizard(droppedReq);
-                      }
-                    }
-                  }}
-                  className={`p-3 rounded-xl border border-t-2 ${meta.headerAccent} flex flex-col min-h-[540px] max-h-[calc(100vh-250px)] transition-all ${
-                    isDropTarget
-                      ? 'ring-2 ring-brand-500 bg-brand-50/40 border-brand-300'
+                  data-kanban-stage={stage}
+                  className={`p-3 rounded-xl border flex flex-col min-h-[540px] max-h-[calc(100vh-250px)] transition-colors duration-150 ${
+                    isMovingIntoStage
+                      ? 'ring-2 ring-brand-500 bg-brand-50/50 border-brand-300'
+                      : isDropTarget
+                      ? 'border-brand-300 bg-slate-100/90'
                       : 'bg-slate-100/75 border-slate-200/80'
                   }`}
                 >
@@ -327,16 +681,16 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                     {reqsInStage.length === 0 ? (
                       <div
                         className={`flex-1 flex flex-col items-center justify-center p-5 text-center text-[11px] border border-dashed rounded-xl transition-colors ${
-                          isDropTarget
-                            ? 'border-brand-400 bg-brand-50/70 text-brand-700 font-semibold'
+                          isMovingIntoStage
+                            ? 'border-brand-400 bg-brand-50/80 text-brand-700 font-semibold'
                             : 'border-slate-200/90 bg-white/50 text-slate-400'
                         }`}
                       >
                         <Columns className="w-5 h-5 mb-2 text-slate-300" />
                         <p className="font-medium text-slate-500">
-                          {isDropTarget ? `Drop to move to ${stage}` : `No requisitions in ${stage}`}
+                          {isMovingIntoStage ? `Release to move to ${stage}` : `No requisitions in ${stage}`}
                         </p>
-                        {stage === 'Requirement' && onOpenAddReq && !isDropTarget && (
+                        {stage === 'Requirement' && onOpenAddReq && !isMovingIntoStage && (
                           <button
                             type="button"
                             onClick={onOpenAddReq}
@@ -349,157 +703,18 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                       </div>
                     ) : (
                       reqsInStage.map((req) => {
-                        const skills = getSkillsList(req.skillsRequired);
-                        const stageIdx = stageOrder.indexOf(req.status);
+                        const isBeingDragged = activeDrag?.req.id === req.id;
                         return (
                           <div
                             key={req.id}
-                            draggable
-                            onDragStart={(e) => {
-                              setDraggedReqId(req.id);
-                              e.dataTransfer.effectAllowed = 'move';
-                              e.dataTransfer.setData('text/plain', req.id);
-                            }}
-                            onDragEnd={() => {
-                              setDraggedReqId(null);
-                              setDragOverStage(null);
-                            }}
-                            className={`bg-white p-3.5 rounded-xl border border-slate-200/90 card-shadow hover:border-slate-300 transition-all space-y-2.5 cursor-grab active:cursor-grabbing ${
-                              draggedReqId === req.id ? 'opacity-50 scale-[0.98] ring-2 ring-brand-400' : ''
+                            onPointerDown={(e) => handleCardPointerDown(e, req)}
+                            className={`p-3.5 rounded-xl border space-y-2.5 select-none transition-colors ${
+                              isBeingDragged
+                                ? 'opacity-30 border-dashed border-brand-300 bg-brand-50/30 shadow-none pointer-events-none'
+                                : 'bg-white border-slate-200/90 card-shadow hover:border-slate-300 cursor-grab active:cursor-grabbing'
                             }`}
                           >
-                            {/* Card Top Meta Row */}
-                            <div className="flex items-center justify-between gap-2">
-                              <button
-                                type="button"
-                                onClick={() => onSelectReq && onSelectReq(req)}
-                                className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/70 cursor-pointer hover:bg-brand-50 hover:text-brand-700 hover:border-brand-200 transition-colors inline-flex items-center gap-1 whitespace-nowrap flex-shrink-0"
-                              >
-                                <GripVertical className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" />
-                                <span>{req.code}</span>
-                              </button>
-                              <span
-                                title={req.location}
-                                className="text-[10px] text-slate-400 flex items-center justify-end gap-1 min-w-0 flex-1"
-                              >
-                                <MapPin className="w-2.5 h-2.5 flex-shrink-0 text-slate-300" />
-                                <span className="truncate">{req.location || 'Remote'}</span>
-                              </span>
-                            </div>
-
-                            {/* Role & Company */}
-                            <div>
-                              <h4
-                                onClick={() => onSelectReq && onSelectReq(req)}
-                                title={req.opportunityTitle}
-                                className="font-bold text-[12.5px] text-slate-900 leading-snug line-clamp-2 cursor-pointer hover:text-brand-600 transition-colors"
-                              >
-                                {req.opportunityTitle}
-                              </h4>
-                              <div className="flex items-center gap-1 text-[11px] font-medium text-slate-500 mt-1 min-w-0">
-                                <Building2 className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                                <span className="truncate" title={req.companyName}>
-                                  {req.companyName}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Candidate Status or Bench Matcher */}
-                            {req.resourceName ? (
-                              <div className="px-2.5 py-1.5 rounded-lg bg-emerald-50/75 border border-emerald-200/75 flex items-center justify-between gap-2">
-                                <span className="text-[11px] font-semibold text-emerald-800 flex items-center gap-1.5 min-w-0 flex-1">
-                                  <User className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-                                  <span className="truncate" title={req.resourceName}>
-                                    {req.resourceName}
-                                  </span>
-                                </span>
-                                <span className="text-[9px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded whitespace-nowrap flex-shrink-0">
-                                  Assigned
-                                </span>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => onOpenMatcher(req)}
-                                className="w-full py-1.5 px-2.5 rounded-lg text-[11px] font-semibold bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200/80 flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
-                              >
-                                <UsersRound className="w-3.5 h-3.5 flex-shrink-0" />
-                                <span>Match Bench Talent</span>
-                              </button>
-                            )}
-
-                            {/* Capped Skills Pills */}
-                            {skills.length > 0 && (
-                              <div className="flex items-center gap-1 flex-wrap">
-                                {skills.slice(0, 3).map((sk) => (
-                                  <span
-                                    key={sk}
-                                    title={sk}
-                                    className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-medium max-w-[96px] truncate"
-                                  >
-                                    {sk}
-                                  </span>
-                                ))}
-                                {skills.length > 3 && (
-                                  <span
-                                    title={skills.slice(3).join(', ')}
-                                    className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[10px] font-semibold whitespace-nowrap"
-                                  >
-                                    +{skills.length - 3}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Clean Card Action Footer */}
-                            <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-[11px]">
-                              <div className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50/80 divide-x divide-slate-200 overflow-hidden flex-shrink-0">
-                                <button
-                                  disabled={stageIdx === 0}
-                                  onClick={() => moveStage(req, -1)}
-                                  className="p-1 text-slate-500 hover:bg-white hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                                  title="Move Backward"
-                                >
-                                  <ArrowLeft className="w-3 h-3" />
-                                </button>
-                                <button
-                                  disabled={stageIdx === stageOrder.length - 1}
-                                  onClick={() => moveStage(req, 1)}
-                                  className="p-1 text-slate-500 hover:bg-white hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                                  title="Advance Stage"
-                                >
-                                  <ArrowRight className="w-3 h-3" />
-                                </button>
-                              </div>
-
-                              <div className="flex items-center gap-1 flex-shrink-0">
-                                <button
-                                  onClick={() => onOpenPitchWriter(req)}
-                                  title="Open submission pitch writer"
-                                  className="px-2 py-1 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/70 text-[10px] font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap"
-                                >
-                                  <Send className="w-2.5 h-2.5" />
-                                  <span>Pitch</span>
-                                </button>
-                                {onUpdateReq && (
-                                  <button
-                                    onClick={() => setEditingReq({ ...req })}
-                                    title="Edit requirement"
-                                    className="p-1 text-slate-400 hover:text-brand-600 rounded-md hover:bg-brand-50 transition-colors cursor-pointer"
-                                  >
-                                    <Pencil className="w-3 h-3" />
-                                  </button>
-                                )}
-                                {onDeleteReq && (
-                                  <button
-                                    onClick={() => setReqToDelete(req)}
-                                    title="Delete requirement"
-                                    className="p-1 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors cursor-pointer"
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
+                            {renderCardBody(req)}
                           </div>
                         );
                       })
@@ -806,6 +1021,24 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Smooth 60fps Floating Drag Card Preview */}
+      {activeDrag && (
+        <ModalPortal>
+          <div
+            ref={floatingPreviewRef}
+            style={{
+              width: activeDrag.width,
+              height: activeDrag.height,
+              transform: `translate3d(${activeDrag.initialX}px, ${activeDrag.initialY}px, 0) rotate(1.2deg)`,
+              willChange: 'transform',
+            }}
+            className="fixed top-0 left-0 z-[9990] pointer-events-none select-none bg-white p-3.5 rounded-xl border border-brand-400 shadow-2xl ring-2 ring-brand-500/20 space-y-2.5 opacity-95"
+          >
+            {renderCardBody(activeDrag.req)}
+          </div>
+        </ModalPortal>
       )}
     </div>
   );

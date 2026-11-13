@@ -1,30 +1,46 @@
 import React, { useState, useEffect } from 'react';
-import { FileSpreadsheet, FileText, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowRight,
+  FileSpreadsheet,
+  FileText,
+  Pencil,
+  Plus,
+  Search,
+  ShieldAlert,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { apiClient } from '../../config/api.config';
-import { Candidate } from '../../types';
+import { BillablePlacement, Candidate } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { TablePagination } from '../../components/shared/TablePagination';
+import { ModalPortal } from '../../components/shared/ModalPortal';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapCandidateFromApi } from '../../utils/entityMappers';
 
 interface ConsultantsViewProps {
   candidates: Candidate[];
+  placements?: BillablePlacement[];
   rateMasked: boolean;
   onOpenResumeParser: () => void;
   onPreviewResume: (candidate: Candidate) => void;
   onOpenAddConsultant?: () => void;
   onOpenCsvImport?: () => void;
+  onNavigateToBillable?: () => void;
   onUpdateCandidate?: (candidate: Candidate) => void;
-  onDeleteCandidate?: (candidate: Candidate) => void;
+  onDeleteCandidate?: (candidate: Candidate) => Promise<void> | void;
 }
 
 export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
   candidates,
+  placements = [],
   rateMasked,
   onOpenResumeParser,
   onPreviewResume,
   onOpenAddConsultant,
   onOpenCsvImport,
+  onNavigateToBillable,
   onUpdateCandidate,
   onDeleteCandidate,
 }) => {
@@ -36,6 +52,20 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
   const [totalRows, setTotalRows] = useState(candidates.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
+  const [candidateToDelete, setCandidateToDelete] = useState<Candidate | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const getLinkedPlacements = (cand: Candidate): BillablePlacement[] => {
+    const nameKey = cand.fullName.trim().toLowerCase();
+    return placements.filter(
+      (p) =>
+        (p.candidateId && p.candidateId === cand.id) ||
+        p.resourceName.trim().toLowerCase() === nameKey
+    );
+  };
+
+  const isConsultantBillable = (cand: Candidate): boolean =>
+    cand.pipelineStage === 'Billable' || getLinkedPlacements(cand).length > 0;
 
   const debouncedSearch = useDebounce(search, 300);
 
@@ -323,8 +353,12 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                         )}
                         {onDeleteCandidate && (
                           <button
-                            onClick={() => onDeleteCandidate(c)}
-                            title="Delete consultant"
+                            onClick={() => setCandidateToDelete(c)}
+                            title={
+                              isConsultantBillable(c)
+                                ? 'Billable consultant — remove from Billable Consultants before deleting'
+                                : 'Delete consultant'
+                            }
                             className="p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -355,14 +389,15 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
 
       {/* Edit Consultant Modal */}
       {editingCandidate && (
-        <div
-          onClick={() => setEditingCandidate(null)}
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
-        >
+        <ModalPortal>
           <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up"
+            onClick={() => setEditingCandidate(null)}
+            className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
           >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up"
+            >
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Edit Consultant</h3>
@@ -508,8 +543,134 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                 </button>
               </div>
             </form>
+            </div>
           </div>
-        </div>
+        </ModalPortal>
+      )}
+
+      {/* Delete Consultant Confirmation / Billable Block Modal */}
+      {candidateToDelete && (
+        <ModalPortal>
+          {(() => {
+            const linkedPlacements = getLinkedPlacements(candidateToDelete);
+            const isBillable = isConsultantBillable(candidateToDelete);
+            return (
+              <div
+                onClick={() => {
+                  if (!isDeleting) setCandidateToDelete(null);
+                }}
+                className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+              >
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up"
+                >
+                  <div className="p-6 space-y-4">
+                    <div className="flex items-start gap-3.5">
+                      <div
+                        className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${
+                          isBillable
+                            ? 'bg-amber-50 border-amber-200 text-amber-600'
+                            : 'bg-rose-50 border-rose-200 text-rose-600'
+                        }`}
+                      >
+                        {isBillable ? (
+                          <ShieldAlert className="w-5 h-5" />
+                        ) : (
+                          <AlertTriangle className="w-4 h-4" />
+                        )}
+                      </div>
+                      <div className="space-y-1.5 min-w-0">
+                        <h3 className="text-sm font-bold text-slate-900">
+                          {isBillable ? 'Cannot Delete Billable Consultant' : 'Delete Consultant?'}
+                        </h3>
+                        {isBillable ? (
+                          <>
+                            <p className="text-xs text-slate-600 leading-relaxed">
+                              <span className="font-semibold text-slate-900">
+                                {candidateToDelete.fullName}
+                              </span>{' '}
+                              is currently listed under{' '}
+                              <span className="font-semibold text-slate-800">Billable Consultants</span>
+                              {linkedPlacements.length > 0
+                                ? ` (${linkedPlacements.map((p) => p.customer).join(', ')})`
+                                : ''}
+                              .
+                            </p>
+                            <p className="text-[11px] text-amber-700 bg-amber-50/80 border border-amber-200/80 rounded-lg px-2.5 py-2 leading-relaxed font-medium">
+                              You cannot delete a billable consultant directly. Please remove their record from Billable Consultants first.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-xs text-slate-500 leading-relaxed">
+                              Are you sure you want to permanently delete{' '}
+                              <span className="font-semibold text-slate-900">
+                                {candidateToDelete.fullName}
+                              </span>{' '}
+                              ({candidateToDelete.currentTitle}) from your consultant roster?
+                            </p>
+                            <p className="text-[11px] text-rose-600 font-medium pt-0.5">
+                              This action cannot be undone and removes associated candidate submission records.
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                      <button
+                        type="button"
+                        disabled={isDeleting}
+                        onClick={() => setCandidateToDelete(null)}
+                        className="px-4 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 rounded-lg transition-colors cursor-pointer"
+                      >
+                        {isBillable ? 'Close' : 'Cancel'}
+                      </button>
+
+                      {isBillable ? (
+                        onNavigateToBillable && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCandidateToDelete(null);
+                              onNavigateToBillable();
+                            }}
+                            className="px-4 py-2 text-xs font-semibold bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                          >
+                            <span>Go to Billable Consultants</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        )
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={isDeleting}
+                          onClick={async () => {
+                            if (!onDeleteCandidate) return;
+                            setIsDeleting(true);
+                            try {
+                              await onDeleteCandidate(candidateToDelete);
+                              setCandidateToDelete(null);
+                            } catch {
+                              // Error toast handled by parent; keep modal open cleanly or close if blocked
+                            } finally {
+                              setIsDeleting(false);
+                            }
+                          }}
+                          className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-lg shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>{isDeleting ? 'Deleting...' : 'Delete Consultant'}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </ModalPortal>
       )}
     </section>
   );

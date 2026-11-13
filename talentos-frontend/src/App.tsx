@@ -683,6 +683,7 @@ export const App: React.FC = () => {
 
       case 'consultants':
         if (!loadedEntities.current.has('candidates')) fetchCandidates();
+        if (!loadedEntities.current.has('placements')) fetchPlacements();
         break;
 
       case 'clients':
@@ -979,9 +980,14 @@ export const App: React.FC = () => {
       setCandidates((prev) => prev.filter((c) => c.id !== candidate.id));
       fetchSidebarCounts();
       showToast('Consultant Removed', `${candidate.fullName} removed from roster.`, 'fa-solid fa-trash-can text-slate-500');
-    } catch (e) {
+    } catch (e: any) {
       console.warn('API delete candidate:', e);
-      showToast('Delete Failed', `Could not delete ${candidate.fullName}.`, 'fa-solid fa-circle-exclamation text-rose-500');
+      showToast(
+        'Delete Failed',
+        e?.response?.data?.message || `Could not delete ${candidate.fullName}.`,
+        'fa-solid fa-circle-exclamation text-rose-500'
+      );
+      throw e;
     }
   };
 
@@ -1026,13 +1032,35 @@ export const App: React.FC = () => {
   const handleDeletePlacement = async (placement: BillablePlacement) => {
     try {
       await apiClient.delete(`/placements/${placement.id}`);
-      setPlacements((prev) => prev.filter((p) => p.id !== placement.id));
+      const remainingPlacements = placements.filter((p) => p.id !== placement.id);
+      setPlacements(remainingPlacements);
+      const targetName = placement.resourceName.trim().toLowerCase();
+      const stillHasPlacement = remainingPlacements.some(
+        (p) =>
+          (placement.candidateId && p.candidateId === placement.candidateId) ||
+          p.resourceName.trim().toLowerCase() === targetName
+      );
+      if (!stillHasPlacement) {
+        setCandidates((prev) =>
+          prev.map((c) =>
+            c.pipelineStage === 'Billable' &&
+            ((placement.candidateId && c.id === placement.candidateId) ||
+              c.fullName.trim().toLowerCase() === targetName)
+              ? { ...c, pipelineStage: 'Available / Bench' }
+              : c
+          )
+        );
+      }
       fetchSidebarCounts();
       fetchSlaTasks();
       showToast('Placement Removed', `${placement.resourceName}'s placement removed.`, 'fa-solid fa-trash-can text-slate-500');
-    } catch (e) {
+    } catch (e: any) {
       console.warn('API delete placement:', e);
-      showToast('Delete Failed', `Could not delete placement.`, 'fa-solid fa-circle-exclamation text-rose-500');
+      showToast(
+        'Delete Failed',
+        e?.response?.data?.message || `Could not delete placement.`,
+        'fa-solid fa-circle-exclamation text-rose-500'
+      );
     }
   };
 
@@ -1352,11 +1380,13 @@ export const App: React.FC = () => {
           {currentView === 'consultants' && (
             <ConsultantsView
               candidates={candidates}
+              placements={placements}
               rateMasked={rateMasked}
               onOpenResumeParser={() => setIsResumeModalOpen(true)}
               onPreviewResume={(c) => setSelectedResumeCand(c)}
               onOpenAddConsultant={() => setActiveCreateModal('consultant')}
               onOpenCsvImport={() => setCurrentView('import_data')}
+              onNavigateToBillable={() => setCurrentView('billable')}
               onUpdateCandidate={handleUpdateCandidate}
               onDeleteCandidate={handleDeleteCandidate}
             />

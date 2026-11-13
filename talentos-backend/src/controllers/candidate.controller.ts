@@ -61,6 +61,7 @@ export const deleteCandidate = async (req: Request, res: Response) => {
     await candidateService.deleteCandidate(req.params.id, tenantId);
     res.json({ success: true, message: 'Candidate removed from roster' });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Failed to delete candidate' });
+    const status = error.statusCode || 500;
+    res.status(status).json({ success: false, message: error.message || 'Failed to delete candidate' });
   }
 };
