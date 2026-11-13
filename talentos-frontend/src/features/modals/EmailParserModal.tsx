@@ -242,7 +242,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
     } catch (err: any) {
       showToast(
         'Save Failed',
-        err.response?.data?.message || err.message || 'Could not save requisition to database.',
+        err.response?.data?.message || 'Could not save requisition. Please try again.',
         'fa-solid fa-triangle-exclamation text-rose-500'
       );
     } finally {

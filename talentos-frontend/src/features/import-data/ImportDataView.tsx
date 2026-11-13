@@ -15,6 +15,7 @@ import {
 import { apiClient } from '../../config/api.config';
 import { Candidate } from '../../types';
 import { useCurrency } from '../../utils/currency';
+import { ModalPortal } from '../../components/shared/ModalPortal';
 
 interface ImportDataViewProps {
   onImportCandidates?: (candidates: Candidate[]) => void;
@@ -261,11 +262,15 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
       setShowCsvImportModal(false);
       showToast(
         'Migration Executed',
-        `Successfully mapped and imported ${count} candidates into central PostgreSQL bench roster!`,
+        `Successfully mapped and imported ${count} candidates into central bench roster!`,
         'fa-solid fa-circle-check text-emerald-500'
       );
     } catch (err: any) {
-      showToast('Import Error', err.message || 'Failed to import candidates to database.', 'fa-solid fa-triangle-exclamation text-rose-500');
+      showToast(
+        'Import Error',
+        err?.response?.data?.message || 'Failed to import candidates. Please check your file and try again.',
+        'fa-solid fa-triangle-exclamation text-rose-500'
+      );
     } finally {
       setIsImporting(false);
     }
@@ -362,8 +367,17 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
 
       {/* Spreadsheet Migration & Column Mapping Wizard Modal */}
       {showMigrationModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col animate-scale-up max-h-[90vh]">
+        <ModalPortal>
+          <div
+            onClick={() => {
+              if (!isImporting) setShowMigrationModal(false);
+            }}
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col animate-scale-up max-h-[90vh]"
+            >
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
                 <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
@@ -481,7 +495,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
                       {isImporting ? (
                         <>
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Importing to PostgreSQL...</span>
+                          <span>Importing candidates...</span>
                         </>
                       ) : (
                         <>
@@ -518,12 +532,22 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* Quick CSV Import Modal */}
       {showCsvImportModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden flex flex-col animate-scale-up">
+        <ModalPortal>
+          <div
+            onClick={() => {
+              if (!isImporting) setShowCsvImportModal(false);
+            }}
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden flex flex-col animate-scale-up"
+            >
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
                 <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
@@ -584,6 +608,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
     </section>
   );

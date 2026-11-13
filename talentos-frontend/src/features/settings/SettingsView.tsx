@@ -637,7 +637,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="pt-2 flex items-center justify-between">
                 <span className="text-[11px] text-slate-500 flex items-center gap-1.5">
                   <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
-                  Stored securely in your workspace database.
+                  Stored securely in your workspace.
                 </span>
                 <button
                   type="submit"

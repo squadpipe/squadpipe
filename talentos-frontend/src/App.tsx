@@ -256,12 +256,36 @@ export const App: React.FC = () => {
     null
   );
 
+  const sanitizeToastMessage = (rawMessage: string): string => {
+    const internalPatterns = [
+      /\bprisma\b/i,
+      /PrismaClient/i,
+      /ConnectorError/i,
+      /PostgresError/i,
+      /postgresql:\/\//i,
+      /postgres:\/\//i,
+      /Invalid `[^`]+` invocation/i,
+      /Can't reach database server/i,
+      /Unique constraint failed/i,
+      /Foreign key constraint/i,
+      /\brelation "[^"]+" does not exist\b/i,
+      /\bcolumn "[^"]+" (?:of relation "[^"]+" )?does not exist\b/i,
+      /\bdatabase "[^"]*" does not exist\b/i,
+      /\bpg_hba\b/i,
+      /\bECONNREFUSED\b/i,
+    ];
+    if (internalPatterns.some((pattern) => pattern.test(rawMessage))) {
+      return 'An unexpected error occurred. Please try again.';
+    }
+    return rawMessage;
+  };
+
   const showToast = (
     title: string,
     message: string,
     icon = 'fa-solid fa-circle-check text-emerald-500'
   ) => {
-    setToast({ title, message, icon });
+    setToast({ title, message: sanitizeToastMessage(message), icon });
     setTimeout(() => {
       setToast(null);
     }, 3500);

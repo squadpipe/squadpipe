@@ -24,6 +24,11 @@ samp {
   scrollbar-width: none;
 }
 
+/* Ensure full-viewport fixed backdrops never inherit parent space-y-* / space-x-* margins */
+.fixed.inset-0 {
+  margin: 0 !important;
+}
+
 .card-shadow {
   box-shadow: 0 1px 3px 0 rgba(16, 24, 40, 0.04), 0 1px 2px -1px rgba(16, 24, 40, 0.02);
 }

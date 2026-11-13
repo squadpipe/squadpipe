@@ -337,7 +337,11 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
         required: false,
       });
     } catch (err: any) {
-      showToast('Failed to Save', err.message || 'Error saving custom field to database.', 'fa-solid fa-triangle-exclamation text-rose-500');
+      showToast(
+        'Failed to Save',
+        err?.response?.data?.message || 'Could not save custom field. Please try again.',
+        'fa-solid fa-triangle-exclamation text-rose-500'
+      );
     }
   };
 
