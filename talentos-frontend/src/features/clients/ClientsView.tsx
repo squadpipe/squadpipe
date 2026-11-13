@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Pencil, X } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Client, Requirement, BillablePlacement } from '../../types';
 import { ClientDetailDrawer } from '../../components/modals/ClientDetailDrawer';
+import { TablePagination } from '../../components/shared/TablePagination';
+import { useDebounce } from '../../utils/useDebounce';
+import { mapClientFromApi } from '../../utils/entityMappers';
 
 interface ClientsViewProps {
   clients: Client[];
@@ -24,9 +27,58 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   showToast = () => {},
 }) => {
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(6);
+  const [serverClients, setServerClients] = useState<Client[]>([]);
+  const [totalClients, setTotalClients] = useState(clients.length);
+  const [isLoadingClients, setIsLoadingClients] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [isSavingClient, setIsSavingClient] = useState(false);
+
+  const debouncedSearch = useDebounce(search, 300);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
+
+  useEffect(() => {
+    let active = true;
+    setIsLoadingClients(true);
+    apiClient
+      .get('/clients', {
+        params: {
+          search: debouncedSearch.trim() || undefined,
+          page,
+          limit,
+        },
+      })
+      .then((res) => {
+        if (!active) return;
+        if (res.data?.success && Array.isArray(res.data.data)) {
+          const mapped = res.data.data.map(mapClientFromApi);
+          setServerClients(mapped);
+          setTotalClients(res.data.pagination?.total ?? mapped.length);
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        const q = debouncedSearch.toLowerCase();
+        const fallback = clients.filter(
+          (c) => !q || c.name.toLowerCase().includes(q) || c.location.toLowerCase().includes(q)
+        );
+        setTotalClients(fallback.length);
+        setServerClients(fallback.slice((page - 1) * limit, page * limit));
+      })
+      .finally(() => {
+        if (active) setIsLoadingClients(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [debouncedSearch, page, limit, clients]);
+
+  const filtered = serverClients;
 
   const handleSaveClientEdit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,12 +100,6 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
       setIsSavingClient(false);
     }
   };
-
-  const filtered = clients.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.location.toLowerCase().includes(search.toLowerCase())
-  );
 
   return (
     <section className="max-w-7xl mx-auto space-y-5 animate-fade-in">
@@ -207,6 +253,23 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
           );
         })
         )}
+      </div>
+
+      {/* Pagination Bar */}
+      <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
+        <TablePagination
+          page={page}
+          limit={limit}
+          total={totalClients}
+          onPageChange={setPage}
+          onLimitChange={(nextLimit) => {
+            setLimit(nextLimit);
+            setPage(1);
+          }}
+          itemLabel="clients"
+          isLoading={isLoadingClients}
+          pageSizeOptions={[6, 12, 24, 48]}
+        />
       </div>
 
       {/* Client Detail Flyout Drawer */}

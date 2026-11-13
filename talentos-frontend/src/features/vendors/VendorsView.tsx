@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Pencil, X } from 'lucide-react';
+import { apiClient } from '../../config/api.config';
 import { Vendor } from '../../types';
+import { TablePagination } from '../../components/shared/TablePagination';
+import { useDebounce } from '../../utils/useDebounce';
+import { mapVendorFromApi } from '../../utils/entityMappers';
 
 interface VendorsViewProps {
   vendors: Vendor[];
@@ -16,15 +20,61 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
   onDeleteVendor,
 }) => {
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [tableRows, setTableRows] = useState<Vendor[]>([]);
+  const [totalRows, setTotalRows] = useState(vendors.length);
+  const [isLoadingRows, setIsLoadingRows] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
 
-  const filtered = vendors.filter(
-    (v) =>
-      v.name.toLowerCase().includes(search.toLowerCase()) ||
-      v.skillSpecialization.toLowerCase().includes(search.toLowerCase()) ||
-      v.contactName.toLowerCase().includes(search.toLowerCase()) ||
-      v.location.toLowerCase().includes(search.toLowerCase())
-  );
+  const debouncedSearch = useDebounce(search, 300);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
+
+  useEffect(() => {
+    let active = true;
+    setIsLoadingRows(true);
+    apiClient
+      .get('/vendors', {
+        params: {
+          search: debouncedSearch.trim() || undefined,
+          page,
+          limit,
+        },
+      })
+      .then((res) => {
+        if (!active) return;
+        if (res.data?.success && Array.isArray(res.data.data)) {
+          const mapped = res.data.data.map(mapVendorFromApi);
+          setTableRows(mapped);
+          setTotalRows(res.data.pagination?.total ?? mapped.length);
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        const q = debouncedSearch.toLowerCase();
+        const fallback = vendors.filter(
+          (v) =>
+            !q ||
+            v.name.toLowerCase().includes(q) ||
+            v.skillSpecialization.toLowerCase().includes(q) ||
+            v.contactName.toLowerCase().includes(q) ||
+            v.location.toLowerCase().includes(q)
+        );
+        setTotalRows(fallback.length);
+        setTableRows(fallback.slice((page - 1) * limit, page * limit));
+      })
+      .finally(() => {
+        if (active) setIsLoadingRows(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [debouncedSearch, page, limit, vendors]);
+
+  const filtered = tableRows;
 
   return (
     <section className="max-w-7xl mx-auto space-y-5 animate-fade-in">
@@ -50,7 +100,7 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
         {/* Search Bar */}
         <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <span className="font-semibold text-xs text-slate-900">
-            {filtered.length} Registered Vendors
+            {totalRows} Registered Vendors
           </span>
           <div className="relative">
             <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
@@ -155,6 +205,18 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
             </tbody>
           </table>
         </div>
+        <TablePagination
+          page={page}
+          limit={limit}
+          total={totalRows}
+          onPageChange={setPage}
+          onLimitChange={(nextLimit) => {
+            setLimit(nextLimit);
+            setPage(1);
+          }}
+          itemLabel="vendors"
+          isLoading={isLoadingRows}
+        />
       </div>
 
       {/* Edit Vendor Modal */}

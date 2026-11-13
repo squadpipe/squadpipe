@@ -1,6 +1,14 @@
 import { prisma } from '../config/prisma.config';
 import { PlacementStatus, Prisma, DeploymentType, PlacementType } from '@prisma/client';
 
+export interface PlacementFilterParams {
+  search?: string;
+  status?: string;
+  model?: string;
+  page?: number;
+  limit?: number;
+}
+
 export class PlacementService {
   private parseRate(val: any, fallback: number): number {
     if (typeof val === 'number') return isNaN(val) ? fallback : val;
@@ -18,20 +26,115 @@ export class PlacementService {
     return PlacementStatus.ACTIVE;
   }
 
-  async getPlacements(tenantId?: string) {
+  private mapPlacementType(model?: string): PlacementType | undefined {
+    const m = String(model || '').trim().toUpperCase();
+    if (!m || m === 'ALL') return undefined;
+    if (m.includes('W2')) return PlacementType.W2_HOURLY;
+    if (m.includes('1099') || m.includes('TEN_NINETY_NINE')) return PlacementType.TEN_NINETY_NINE;
+    if (m.includes('FULL')) return PlacementType.FULL_TIME;
+    if (m.includes('C2C')) return PlacementType.C2C_SUBCONTRACTOR;
+    return undefined;
+  }
+
+  async getPlacements(tenantId?: string, params: PlacementFilterParams = {}) {
     const where: Prisma.PlacementWhereInput = {};
+    const andConditions: Prisma.PlacementWhereInput[] = [];
     if (tenantId) where.tenantId = tenantId;
 
-    return prisma.placement.findMany({
-      where,
-      include: {
-        recruiter: { select: { id: true, fullName: true, desk: true } },
-        candidate: true,
-        client: true,
-        vendor: true
-      },
-      orderBy: { createdAt: 'desc' }
-    });
+    const q = params.search ? String(params.search).trim() : '';
+    if (q) {
+      andConditions.push({
+        OR: [
+          { resourceName: { contains: q, mode: 'insensitive' } },
+          { customer: { contains: q, mode: 'insensitive' } },
+          { skillRole: { contains: q, mode: 'insensitive' } },
+          { purchaseOrderNumber: { contains: q, mode: 'insensitive' } },
+          { vendor: { name: { contains: q, mode: 'insensitive' } } },
+          { recruiter: { fullName: { contains: q, mode: 'insensitive' } } },
+        ],
+      });
+    }
+
+    const mappedModel = this.mapPlacementType(params.model);
+    if (mappedModel) {
+      andConditions.push({ placementType: mappedModel });
+    }
+
+    const statusParam = params.status ? String(params.status).trim() : '';
+    if (statusParam && statusParam !== 'All' && statusParam !== 'ALL') {
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const in30Days = new Date(startOfToday);
+      in30Days.setDate(in30Days.getDate() + 30);
+
+      if (statusParam === 'Ended') {
+        andConditions.push({ status: { in: [PlacementStatus.COMPLETED, PlacementStatus.TERMINATED] } });
+      } else if (statusParam === 'Expiring Soon') {
+        andConditions.push({
+          status: { notIn: [PlacementStatus.COMPLETED, PlacementStatus.TERMINATED] },
+          endDate: { gte: startOfToday, lte: in30Days },
+        });
+      } else if (statusParam === 'Extended') {
+        andConditions.push({
+          status: PlacementStatus.EXTENDED,
+          OR: [{ endDate: { lt: startOfToday } }, { endDate: { gt: in30Days } }],
+        });
+      } else if (statusParam === 'Active') {
+        andConditions.push({
+          status: PlacementStatus.ACTIVE,
+          OR: [{ endDate: { lt: startOfToday } }, { endDate: { gt: in30Days } }],
+        });
+      } else {
+        andConditions.push({ status: this.mapPlacementStatus(statusParam) });
+      }
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
+    }
+
+    const include = {
+      recruiter: { select: { id: true, fullName: true, desk: true } },
+      candidate: true,
+      client: true,
+      vendor: true
+    };
+
+    const hasPagination = params.page !== undefined || params.limit !== undefined;
+    if (!hasPagination) {
+      const data = await prisma.placement.findMany({
+        where,
+        include,
+        orderBy: { createdAt: 'desc' }
+      });
+      return {
+        data,
+        pagination: { page: 1, limit: data.length || 10, total: data.length, totalPages: 1 }
+      };
+    }
+
+    const page = params.page ? Math.max(1, params.page) : 1;
+    const limit = params.limit ? Math.max(1, Math.min(100, params.limit)) : 10;
+    const [total, data] = await Promise.all([
+      prisma.placement.count({ where }),
+      prisma.placement.findMany({
+        where,
+        include,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit
+      })
+    ]);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit))
+      }
+    };
   }
 
   async createPlacement(payload: any, tenantId: string = 'talentos-agency', recruiterId?: string) {

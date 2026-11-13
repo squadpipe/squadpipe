@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Pencil, X } from 'lucide-react';
+import { apiClient } from '../../config/api.config';
 import { Requirement, Candidate } from '../../types';
+import { TablePagination } from '../../components/shared/TablePagination';
+import { useDebounce } from '../../utils/useDebounce';
+import { mapRequirementFromApi } from '../../utils/entityMappers';
 
 interface PipelineViewProps {
   requirements: Requirement[];
@@ -31,10 +35,64 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
 }) => {
   const [displayMode, setDisplayMode] = useState<'kanban' | 'list'>('kanban');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [serverReqs, setServerReqs] = useState<Requirement[]>([]);
+  const [totalReqs, setTotalReqs] = useState(requirements.length);
+  const [isLoadingReqs, setIsLoadingReqs] = useState(false);
   const [draggedReqId, setDraggedReqId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<Requirement['status'] | null>(null);
   const [editingReq, setEditingReq] = useState<Requirement | null>(null);
   const [reqToDelete, setReqToDelete] = useState<Requirement | null>(null);
+
+  const debouncedSearch = useDebounce(search, 300);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, displayMode]);
+
+  useEffect(() => {
+    let active = true;
+    setIsLoadingReqs(true);
+    const params: Record<string, any> = {
+      search: debouncedSearch.trim() || undefined,
+    };
+    if (displayMode === 'list') {
+      params.page = page;
+      params.limit = limit;
+    }
+
+    apiClient
+      .get('/requirements', { params })
+      .then((res) => {
+        if (!active) return;
+        if (res.data?.success && Array.isArray(res.data.data)) {
+          const mapped = res.data.data.map(mapRequirementFromApi);
+          setServerReqs(mapped);
+          setTotalReqs(res.data.pagination?.total ?? mapped.length);
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        const q = debouncedSearch.toLowerCase();
+        const fallback = requirements.filter(
+          (r) =>
+            !q ||
+            r.opportunityTitle.toLowerCase().includes(q) ||
+            r.companyName.toLowerCase().includes(q) ||
+            r.skillsRequired.toLowerCase().includes(q)
+        );
+        setTotalReqs(fallback.length);
+        setServerReqs(displayMode === 'list' ? fallback.slice((page - 1) * limit, page * limit) : fallback);
+      })
+      .finally(() => {
+        if (active) setIsLoadingReqs(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [debouncedSearch, displayMode, page, limit, requirements]);
 
   const stageOrder: Requirement['status'][] = [
     'Requirement',
@@ -44,12 +102,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
     'Onboarding',
   ];
 
-  const filteredReqs = requirements.filter(
-    (r) =>
-      r.opportunityTitle.toLowerCase().includes(search.toLowerCase()) ||
-      r.companyName.toLowerCase().includes(search.toLowerCase()) ||
-      r.skillsRequired.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredReqs = serverReqs;
 
   const moveStage = (req: Requirement, direction: number) => {
     const currentIndex = stageOrder.indexOf(req.status);
@@ -404,6 +457,18 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               )}
             </tbody>
           </table>
+          <TablePagination
+            page={page}
+            limit={limit}
+            total={totalReqs}
+            onPageChange={setPage}
+            onLimitChange={(nextLimit) => {
+              setLimit(nextLimit);
+              setPage(1);
+            }}
+            itemLabel="requirements"
+            isLoading={isLoadingReqs}
+          />
         </div>
       )}
 

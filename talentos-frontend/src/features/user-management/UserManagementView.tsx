@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Search,
   UserPlus,
@@ -12,7 +12,11 @@ import {
   AlertTriangle,
   Pencil,
 } from 'lucide-react';
+import { apiClient } from '../../config/api.config';
 import { User } from '../../types';
+import { TablePagination } from '../../components/shared/TablePagination';
+import { useDebounce } from '../../utils/useDebounce';
+import { mapUserFromApi } from '../../utils/entityMappers';
 
 interface UserManagementViewProps {
   users: User[];
@@ -36,7 +40,64 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Invited' | 'Suspended'>('All');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [tableUsers, setTableUsers] = useState<User[]>([]);
+  const [totalUsers, setTotalUsers] = useState(users.length);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+
+  const debouncedSearch = useDebounce(search, 300);
+  const currentUserEmail = users.find((u) => u.isCurrentUser)?.email;
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, roleFilter, statusFilter]);
+
+  useEffect(() => {
+    let active = true;
+    setIsLoadingUsers(true);
+    apiClient
+      .get('/users', {
+        params: {
+          search: debouncedSearch.trim() || undefined,
+          role: roleFilter !== 'All' ? roleFilter : undefined,
+          status: statusFilter !== 'All' ? statusFilter : undefined,
+          page,
+          limit,
+        },
+      })
+      .then((res) => {
+        if (!active) return;
+        if (res.data?.success && Array.isArray(res.data.data)) {
+          const mapped = res.data.data.map((u: any) => mapUserFromApi(u, currentUserEmail));
+          setTableUsers(mapped);
+          setTotalUsers(res.data.pagination?.total ?? mapped.length);
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        const q = debouncedSearch.toLowerCase();
+        const fallback = users.filter((u) => {
+          const matchesSearch =
+            !q ||
+            u.name.toLowerCase().includes(q) ||
+            u.email.toLowerCase().includes(q) ||
+            u.desk.toLowerCase().includes(q);
+          const matchesRole = roleFilter === 'All' || u.role === roleFilter;
+          const matchesStatus = statusFilter === 'All' || u.status === statusFilter;
+          return matchesSearch && matchesRole && matchesStatus;
+        });
+        setTotalUsers(fallback.length);
+        setTableUsers(fallback.slice((page - 1) * limit, page * limit));
+      })
+      .finally(() => {
+        if (active) setIsLoadingUsers(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [debouncedSearch, roleFilter, statusFilter, page, limit, users, currentUserEmail]);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [newUser, setNewUser] = useState({
@@ -64,15 +125,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
     }
   };
 
-  const filteredUsers = users.filter((u) => {
-    const matchesSearch =
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase()) ||
-      u.desk.toLowerCase().includes(search.toLowerCase());
-    const matchesRole = roleFilter === 'All' || u.role === roleFilter;
-    const matchesStatus = statusFilter === 'All' || u.status === statusFilter;
-    return matchesSearch && matchesRole && matchesStatus;
-  });
+  const filteredUsers = tableUsers;
 
   const handleInviteSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -191,7 +244,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
           </div>
 
           <div className="text-[11px] text-slate-500">
-            <span className="font-semibold text-slate-800">{filteredUsers.length}</span> of {users.length} members
+            <span className="font-semibold text-slate-800">{totalUsers}</span> of {users.length} members
           </div>
         </div>
 
@@ -357,6 +410,18 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
             </tbody>
           </table>
         </div>
+        <TablePagination
+          page={page}
+          limit={limit}
+          total={totalUsers}
+          onPageChange={setPage}
+          onLimitChange={(nextLimit) => {
+            setLimit(nextLimit);
+            setPage(1);
+          }}
+          itemLabel="members"
+          isLoading={isLoadingUsers}
+        />
       </div>
 
       {/* Delete Member Confirmation Modal */}

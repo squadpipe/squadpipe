@@ -3,9 +3,19 @@ import { placementService } from '../services/placement.service';
 
 export const getPlacements = async (req: Request, res: Response) => {
   try {
+    const { search, status, model, page, limit } = req.query;
     const tenantId = req.user?.tenantId || 'talentos-agency';
-    const placements = await placementService.getPlacements(tenantId);
-    res.json({ success: true, data: placements });
+    const parsedPage = page ? Math.max(1, parseInt(String(page), 10) || 1) : undefined;
+    const parsedLimit = limit ? Math.max(1, Math.min(100, parseInt(String(limit), 10) || 10)) : undefined;
+
+    const result = await placementService.getPlacements(tenantId, {
+      search: search ? String(search) : undefined,
+      status: status ? String(status) : undefined,
+      model: model ? String(model) : undefined,
+      page: parsedPage,
+      limit: parsedLimit,
+    });
+    res.json({ success: true, data: result.data, pagination: result.pagination });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'Failed to fetch placements' });
   }

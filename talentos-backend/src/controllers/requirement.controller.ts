@@ -3,14 +3,19 @@ import { requirementService } from '../services/requirement.service';
 
 export const getRequirements = async (req: Request, res: Response) => {
   try {
-    const { search, status } = req.query;
+    const { search, status, page, limit } = req.query;
     const tenantId = req.user?.tenantId || 'talentos-agency';
-    const reqs = await requirementService.getRequirements({
+    const parsedPage = page ? Math.max(1, parseInt(String(page), 10) || 1) : undefined;
+    const parsedLimit = limit ? Math.max(1, Math.min(100, parseInt(String(limit), 10) || 10)) : undefined;
+
+    const result = await requirementService.getRequirementsPaginated({
       tenantId,
       search: search ? String(search) : undefined,
       status: status ? String(status) : undefined,
+      page: parsedPage,
+      limit: parsedLimit,
     });
-    res.json({ success: true, data: reqs });
+    res.json({ success: true, data: result.data, pagination: result.pagination });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'Failed to fetch requirements' });
   }

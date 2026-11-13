@@ -1,7 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Pencil, X } from 'lucide-react';
+import { apiClient } from '../../config/api.config';
 import { Candidate } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
+import { TablePagination } from '../../components/shared/TablePagination';
+import { useDebounce } from '../../utils/useDebounce';
+import { mapCandidateFromApi } from '../../utils/entityMappers';
 
 interface ConsultantsViewProps {
   candidates: Candidate[];
@@ -26,17 +30,63 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
 }) => {
   const [search, setSearch] = useState('');
   const [workAuthFilter, setWorkAuthFilter] = useState('All');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [tableRows, setTableRows] = useState<Candidate[]>([]);
+  const [totalRows, setTotalRows] = useState(candidates.length);
+  const [isLoadingRows, setIsLoadingRows] = useState(false);
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
 
-  const filtered = candidates.filter((c) => {
-    const matchesSearch =
-      c.fullName.toLowerCase().includes(search.toLowerCase()) ||
-      c.skillset.toLowerCase().includes(search.toLowerCase()) ||
-      c.currentTitle.toLowerCase().includes(search.toLowerCase());
-    const matchesAuth =
-      workAuthFilter === 'All' || c.workAuth.includes(workAuthFilter);
-    return matchesSearch && matchesAuth;
-  });
+  const debouncedSearch = useDebounce(search, 300);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, workAuthFilter]);
+
+  useEffect(() => {
+    let active = true;
+    setIsLoadingRows(true);
+    apiClient
+      .get('/candidates', {
+        params: {
+          search: debouncedSearch.trim() || undefined,
+          workAuth: workAuthFilter !== 'All' ? workAuthFilter : undefined,
+          page,
+          limit,
+        },
+      })
+      .then((res) => {
+        if (!active) return;
+        if (res.data?.success && Array.isArray(res.data.data)) {
+          const mapped = res.data.data.map(mapCandidateFromApi);
+          setTableRows(mapped);
+          setTotalRows(res.data.pagination?.total ?? mapped.length);
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        const q = debouncedSearch.toLowerCase();
+        const fallback = candidates.filter((c) => {
+          const matchesSearch =
+            !q ||
+            c.fullName.toLowerCase().includes(q) ||
+            c.skillset.toLowerCase().includes(q) ||
+            c.currentTitle.toLowerCase().includes(q);
+          const matchesAuth = workAuthFilter === 'All' || c.workAuth.includes(workAuthFilter);
+          return matchesSearch && matchesAuth;
+        });
+        setTotalRows(fallback.length);
+        setTableRows(fallback.slice((page - 1) * limit, page * limit));
+      })
+      .finally(() => {
+        if (active) setIsLoadingRows(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [debouncedSearch, workAuthFilter, page, limit, candidates]);
+
+  const filtered = tableRows;
 
   const getStageBadgeClass = (stage: string) => {
     switch (stage) {
@@ -100,7 +150,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
         <div className="px-5 py-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
           <div className="flex items-center gap-3">
             <span className="font-semibold text-xs text-slate-900">
-              {filtered.length} Active Consultants
+              {totalRows} Active Consultants
             </span>
             <select
               value={workAuthFilter}
@@ -289,6 +339,18 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
             </tbody>
           </table>
         </div>
+        <TablePagination
+          page={page}
+          limit={limit}
+          total={totalRows}
+          onPageChange={setPage}
+          onLimitChange={(nextLimit) => {
+            setLimit(nextLimit);
+            setPage(1);
+          }}
+          itemLabel="consultants"
+          isLoading={isLoadingRows}
+        />
       </div>
 
       {/* Edit Consultant Modal */}

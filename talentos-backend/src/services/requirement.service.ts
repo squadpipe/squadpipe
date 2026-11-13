@@ -5,6 +5,8 @@ export interface RequirementFilterParams {
   tenantId?: string;
   search?: string;
   status?: string;
+  page?: number;
+  limit?: number;
 }
 
 export const requirementStatusMap: Record<string, RequirementStatus> = {
@@ -23,7 +25,7 @@ export const requirementStatusMap: Record<string, RequirementStatus> = {
 };
 
 export class RequirementService {
-  async getRequirements(params: RequirementFilterParams) {
+  private buildWhereClause(params: RequirementFilterParams): Prisma.RequirementWhereInput {
     const { search, status, tenantId } = params;
     const where: Prisma.RequirementWhereInput = {};
 
@@ -31,17 +33,27 @@ export class RequirementService {
       where.tenantId = tenantId;
     }
 
-    if (search) {
+    const q = search ? String(search).trim() : '';
+    if (q) {
       where.OR = [
-        { opportunityTitle: { contains: String(search), mode: 'insensitive' } },
-        { companyName: { contains: String(search), mode: 'insensitive' } },
-        { skillsRequired: { contains: String(search), mode: 'insensitive' } }
+        { opportunityTitle: { contains: q, mode: 'insensitive' } },
+        { companyName: { contains: q, mode: 'insensitive' } },
+        { code: { contains: q, mode: 'insensitive' } },
+        { skillsRequired: { contains: q, mode: 'insensitive' } },
+        { location: { contains: q, mode: 'insensitive' } },
+        { clientContact: { fullName: { contains: q, mode: 'insensitive' } } },
+        { submissions: { some: { candidate: { fullName: { contains: q, mode: 'insensitive' } } } } },
       ];
     }
     if (status && status !== 'all' && status !== 'ALL') {
       where.status = requirementStatusMap[status] || (status as RequirementStatus);
     }
 
+    return where;
+  }
+
+  async getRequirements(params: RequirementFilterParams) {
+    const where = this.buildWhereClause(params);
     return prisma.requirement.findMany({
       where,
       include: {
@@ -57,6 +69,63 @@ export class RequirementService {
       },
       orderBy: { createdAt: 'desc' }
     });
+  }
+
+  async getRequirementsPaginated(params: RequirementFilterParams) {
+    const where = this.buildWhereClause(params);
+    const hasPagination = params.page !== undefined || params.limit !== undefined;
+    const page = params.page ? Math.max(1, params.page) : 1;
+    const limit = params.limit ? Math.max(1, Math.min(100, params.limit)) : 10;
+
+    const include = {
+      client: true,
+      clientContact: true,
+      assignedRecruiter: {
+        select: { id: true, fullName: true, role: true, desk: true }
+      },
+      submissions: {
+        include: { candidate: true },
+        orderBy: { createdAt: 'desc' as const }
+      }
+    };
+
+    if (!hasPagination) {
+      const data = await prisma.requirement.findMany({
+        where,
+        include,
+        orderBy: { createdAt: 'desc' }
+      });
+      return {
+        data,
+        pagination: {
+          page: 1,
+          limit: data.length || 10,
+          total: data.length,
+          totalPages: 1
+        }
+      };
+    }
+
+    const [total, data] = await Promise.all([
+      prisma.requirement.count({ where }),
+      prisma.requirement.findMany({
+        where,
+        include,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit
+      })
+    ]);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit))
+      }
+    };
   }
 
   async getRequirementById(id: string, tenantId?: string) {

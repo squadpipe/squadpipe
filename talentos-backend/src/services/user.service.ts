@@ -2,29 +2,92 @@ import { prisma } from '../config/prisma.config';
 import { UserStatus, UserRole, Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
+export interface UserFilterParams {
+  search?: string;
+  role?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}
+
 export class UserService {
-  async getUsers(tenantId?: string) {
+  async getUsers(tenantId?: string, params: UserFilterParams = {}) {
     const where: Prisma.UserWhereInput = {};
     if (tenantId) where.tenantId = tenantId;
 
-    return prisma.user.findMany({
-      where,
-      select: {
-        id: true,
-        email: true,
-        fullName: true,
-        agencyName: true,
-        tenantId: true,
-        role: true,
-        desk: true,
-        rateMasked: true,
-        status: true,
-        workload: true,
-        lastActiveAt: true,
-        createdAt: true
-      },
-      orderBy: { createdAt: 'asc' }
-    });
+    const q = params.search ? String(params.search).trim() : '';
+    if (q) {
+      where.OR = [
+        { fullName: { contains: q, mode: 'insensitive' } },
+        { email: { contains: q, mode: 'insensitive' } },
+        { desk: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    if (params.role && params.role !== 'All' && params.role !== 'ALL') {
+      const roleUpper = String(params.role).toUpperCase().replace(/[\s-]/g, '_');
+      if (Object.values(UserRole).includes(roleUpper as UserRole)) {
+        where.role = roleUpper as UserRole;
+      }
+    }
+
+    if (params.status && params.status !== 'All' && params.status !== 'ALL') {
+      const statusUpper = String(params.status).toUpperCase().replace(/[\s-]/g, '_');
+      if (Object.values(UserStatus).includes(statusUpper as UserStatus)) {
+        where.status = statusUpper as UserStatus;
+      }
+    }
+
+    const select = {
+      id: true,
+      email: true,
+      fullName: true,
+      agencyName: true,
+      tenantId: true,
+      role: true,
+      desk: true,
+      rateMasked: true,
+      status: true,
+      workload: true,
+      lastActiveAt: true,
+      createdAt: true
+    };
+
+    const hasPagination = params.page !== undefined || params.limit !== undefined;
+    if (!hasPagination) {
+      const data = await prisma.user.findMany({
+        where,
+        select,
+        orderBy: { createdAt: 'asc' }
+      });
+      return {
+        data,
+        pagination: { page: 1, limit: data.length || 10, total: data.length, totalPages: 1 }
+      };
+    }
+
+    const page = params.page ? Math.max(1, params.page) : 1;
+    const limit = params.limit ? Math.max(1, Math.min(100, params.limit)) : 10;
+    const [total, data] = await Promise.all([
+      prisma.user.count({ where }),
+      prisma.user.findMany({
+        where,
+        select,
+        orderBy: { createdAt: 'asc' },
+        skip: (page - 1) * limit,
+        take: limit
+      })
+    ]);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit))
+      }
+    };
   }
 
   async getUserById(id: string) {

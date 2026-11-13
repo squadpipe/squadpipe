@@ -18,9 +18,12 @@ import {
   MessageSquare,
   Briefcase,
   Pencil,
+  Search,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { AutomationRule, AutomationAuditLog } from '../../types';
+import { TablePagination } from '../../components/shared/TablePagination';
+import { useDebounce } from '../../utils/useDebounce';
 
 interface AutomationsViewProps {
   rules: AutomationRule[];
@@ -232,6 +235,14 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
   const [isSubmittingRule, setIsSubmittingRule] = useState(false);
   const [activeRules, setActiveRules] = useState<any[]>(initialRules || []);
   const [localLogs, setLocalLogs] = useState<AutomationAuditLog[]>(initialLogs || []);
+  const [logSearch, setLogSearch] = useState('');
+  const [logPage, setLogPage] = useState(1);
+  const [logLimit, setLogLimit] = useState(5);
+  const [paginatedLogs, setPaginatedLogs] = useState<AutomationAuditLog[]>(initialLogs || []);
+  const [totalLogs, setTotalLogs] = useState(initialLogs?.length || 0);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+
+  const debouncedLogSearch = useDebounce(logSearch, 300);
 
   useEffect(() => {
     setActiveRules(initialRules || []);
@@ -240,6 +251,60 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
   useEffect(() => {
     setLocalLogs(initialLogs || []);
   }, [initialLogs]);
+
+  useEffect(() => {
+    setLogPage(1);
+  }, [debouncedLogSearch]);
+
+  useEffect(() => {
+    let active = true;
+    setIsLoadingLogs(true);
+    apiClient
+      .get('/automations/audit-logs', {
+        params: {
+          search: debouncedLogSearch.trim() || undefined,
+          page: logPage,
+          limit: logLimit,
+        },
+      })
+      .then((res) => {
+        if (!active) return;
+        if (res.data?.success && Array.isArray(res.data.data)) {
+          const mapped: AutomationAuditLog[] = res.data.data.map((log: any) => ({
+            id: log.id,
+            timestamp: log.createdAt
+              ? new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              : log.timestamp || 'Just now',
+            ruleName: log.ruleName || '',
+            target: log.target || '',
+            conditionsMet: log.conditionsMet || '',
+            actionDispatched: log.actionDispatched || '',
+            status: log.status === 'FAILED' ? 'Failed' : 'Executed',
+          }));
+          setPaginatedLogs(mapped);
+          setTotalLogs(res.data.pagination?.total ?? mapped.length);
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        const q = debouncedLogSearch.toLowerCase();
+        const fallback = localLogs.filter(
+          (l) =>
+            !q ||
+            l.ruleName.toLowerCase().includes(q) ||
+            l.target.toLowerCase().includes(q) ||
+            l.actionDispatched.toLowerCase().includes(q)
+        );
+        setTotalLogs(fallback.length);
+        setPaginatedLogs(fallback.slice((logPage - 1) * logLimit, logPage * logLimit));
+      })
+      .finally(() => {
+        if (active) setIsLoadingLogs(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [debouncedLogSearch, logPage, logLimit, localLogs]);
 
   const [newRuleForm, setNewRuleForm] = useState({
     name: '',
@@ -723,31 +788,43 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
 
       {/* Recent Automation Activity Log */}
       <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-5 py-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-slate-50/50">
           <div className="flex items-center gap-2">
             <Activity className="w-3.5 h-3.5 text-slate-500" />
             <h3 className="font-semibold text-slate-900 text-xs">Recent Automation Activity</h3>
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-              {localLogs.length} events
+              {totalLogs} events
             </span>
           </div>
-          {localLogs.length > 0 && (
-            <button
-              onClick={() => setLocalLogs([])}
-              className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-            >
-              Clear View
-            </button>
-          )}
+          <div className="flex items-center gap-2.5">
+            <div className="relative w-52">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={logSearch}
+                onChange={(e) => setLogSearch(e.target.value)}
+                placeholder="Search logs..."
+                className="w-full pl-8 pr-3 py-1 border border-slate-200 rounded-md text-xs bg-white focus:border-brand-600 focus:outline-none transition-colors"
+              />
+            </div>
+            {localLogs.length > 0 && (
+              <button
+                onClick={() => setLocalLogs([])}
+                className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+              >
+                Clear View
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="divide-y divide-slate-100">
-          {localLogs.length === 0 ? (
+          {paginatedLogs.length === 0 ? (
             <div className="p-6 text-center text-xs text-slate-400">
               No automation events recorded yet. Click Test Run or Run Check above.
             </div>
           ) : (
-            localLogs.slice(0, 8).map((log) => (
+            paginatedLogs.map((log) => (
               <div
                 key={log.id}
                 className="px-5 py-3 hover:bg-slate-50/60 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
@@ -780,6 +857,18 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
             ))
           )}
         </div>
+        <TablePagination
+          page={logPage}
+          limit={logLimit}
+          total={totalLogs}
+          onPageChange={setLogPage}
+          onLimitChange={(nextLimit) => {
+            setLogLimit(nextLimit);
+            setLogPage(1);
+          }}
+          itemLabel="events"
+          isLoading={isLoadingLogs}
+        />
       </div>
 
       {/* Create Automation Rule Modal */}

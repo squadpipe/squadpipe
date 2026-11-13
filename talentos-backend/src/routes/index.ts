@@ -593,11 +593,59 @@ router.delete('/users/:id', async (req: Request, res: Response) => {
 router.get('/custom-fields', async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
-    const fields = await prisma.customFieldDefinition.findMany({
-      where: { tenantId },
-      orderBy: { createdAt: 'asc' }
+    const { search, scope, entity, page, limit } = req.query;
+    const where: any = { tenantId };
+
+    const rawScope = String(scope || entity || '').trim().toUpperCase();
+    if (rawScope && rawScope !== 'ALL') {
+      where.entity = rawScope;
+    }
+
+    const q = search ? String(search).trim() : '';
+    if (q) {
+      where.OR = [
+        { name: { contains: q, mode: 'insensitive' } },
+        { key: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    const parsedPage = page ? Math.max(1, parseInt(String(page), 10) || 1) : undefined;
+    const parsedLimit = limit ? Math.max(1, Math.min(100, parseInt(String(limit), 10) || 10)) : undefined;
+
+    if (parsedPage === undefined && parsedLimit === undefined) {
+      const fields = await prisma.customFieldDefinition.findMany({
+        where,
+        orderBy: { createdAt: 'asc' }
+      });
+      return res.json({
+        success: true,
+        data: fields,
+        pagination: { page: 1, limit: fields.length || 10, total: fields.length, totalPages: 1 }
+      });
+    }
+
+    const currentPage = parsedPage || 1;
+    const currentLimit = parsedLimit || 10;
+    const [total, fields] = await Promise.all([
+      prisma.customFieldDefinition.count({ where }),
+      prisma.customFieldDefinition.findMany({
+        where,
+        orderBy: { createdAt: 'asc' },
+        skip: (currentPage - 1) * currentLimit,
+        take: currentLimit
+      })
+    ]);
+
+    res.json({
+      success: true,
+      data: fields,
+      pagination: {
+        page: currentPage,
+        limit: currentLimit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / currentLimit))
+      }
     });
-    res.json({ success: true, data: fields });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Failed to fetch custom fields' });
   }

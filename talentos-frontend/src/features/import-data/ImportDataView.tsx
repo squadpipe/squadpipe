@@ -148,18 +148,6 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
     );
   };
 
-  const loadSampleCsvIntoMapper = () => {
-    setUploadedFileName(SAMPLE_CSV_FILENAME);
-    setParsedRows(sampleCsvRows);
-    setMigrationStep(2);
-    setShowMigrationModal(true);
-    showToast(
-      'Sample CSV Loaded',
-      'Loaded 3 sample candidate rows into Column Schema Mapper.',
-      'fa-solid fa-circle-check text-emerald-500'
-    );
-  };
-
   const sampleRow = parsedRows[0] || {};
   const columnMappings = [
     { source: 'Candidate_Name', sample: sampleRow.fullName || '—', target: 'fullName' },
@@ -279,21 +267,11 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
   return (
     <section className="max-w-7xl mx-auto space-y-5 animate-fade-in select-none">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-bold text-slate-900 tracking-tight">Data Import &amp; Legacy Migration</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Migrate legacy Excel sheets, Google Sheets, and candidate resume folders into TalentOS CRM.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={downloadSampleCsv}
-          className="px-3.5 py-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-semibold flex items-center gap-2 transition-colors self-start sm:self-auto cursor-pointer shadow-2xs"
-        >
-          <i className="fa-solid fa-download text-[11px]"></i>
-          <span>Download Sample CSV</span>
-        </button>
+      <div>
+        <h2 className="text-lg font-bold text-slate-900 tracking-tight">Data Import &amp; Legacy Migration</h2>
+        <p className="text-xs text-slate-500 mt-0.5">
+          Migrate legacy Excel sheets, Google Sheets, and candidate resume folders into TalentOS CRM.
+        </p>
       </div>
 
       {/* 2 Large Cards Grid matching Screenshot media_1794485798106_34331046.png */}
@@ -305,7 +283,14 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
             <span>Excel & CSV Spreadsheet Import</span>
           </h3>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Upload your legacy candidate rosters, requirements trackers, and billing spreadsheets. Map spreadsheet columns to CRM fields with validation.
+            Upload your legacy candidate rosters, requirements trackers, and billing spreadsheets. Map spreadsheet columns to CRM fields with validation.{' '}
+            <button
+              type="button"
+              onClick={downloadSampleCsv}
+              className="font-semibold text-brand-600 hover:text-brand-700 underline cursor-pointer"
+            >
+              Download sample CSV
+            </button>
           </p>
           <div
             onClick={() => {
@@ -327,7 +312,14 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
             <span>Candidate CSV & Resume Import Engine</span>
           </h3>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Import candidate profiles in bulk via CSV spreadsheet, or extract structured candidate details directly from Word and PDF resumes using our instant pattern extractor. 100% private, local, and instant.
+            Import candidate profiles in bulk via CSV spreadsheet, or extract structured candidate details directly from Word and PDF resumes using our instant pattern extractor.{' '}
+            <button
+              type="button"
+              onClick={downloadSampleCsv}
+              className="font-semibold text-brand-600 hover:text-brand-700 underline cursor-pointer"
+            >
+              Download sample CSV
+            </button>
           </p>
           <div className="grid grid-cols-2 gap-3 pt-1">
             <div
@@ -352,73 +344,6 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
               <div className="text-[10px] text-slate-400 mt-0.5">Regex pattern extraction from PDF/Word</div>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Sample CSV Format & Downloadable Template Card */}
-      <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-              <i className="fa-solid fa-table-columns text-emerald-600 text-sm"></i>
-              <span>Sample CSV File &amp; Expected Schema Template</span>
-            </h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              Use this standardized CSV template (<span className="font-semibold text-slate-700">{SAMPLE_CSV_FILENAME}</span>) to format bulk consultant imports with zero mapping errors.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={loadSampleCsvIntoMapper}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <i className="fa-solid fa-wand-magic-sparkles text-brand-600 text-[11px]"></i>
-              <span>Test in Column Mapper</span>
-            </button>
-            <button
-              type="button"
-              onClick={downloadSampleCsv}
-              className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-            >
-              <i className="fa-solid fa-file-arrow-down text-[11px]"></i>
-              <span>Download Sample CSV (.csv)</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-[11px]">
-            <thead className="bg-slate-50/90 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-              <tr>
-                {SAMPLE_CSV_HEADERS.map((col) => (
-                  <th key={col} className="px-4 py-2.5 whitespace-nowrap">
-                    {col}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
-              {sampleCsvRows.map((row) => (
-                <tr key={row.email} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="px-4 py-2.5 font-semibold text-slate-900 whitespace-nowrap">{row.fullName}</td>
-                  <td className="px-4 py-2.5 whitespace-nowrap">{row.currentTitle}</td>
-                  <td className="px-4 py-2.5 whitespace-nowrap">
-                    <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-medium">
-                      {row.workAuth}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2.5 text-brand-600 whitespace-nowrap">{row.email}</td>
-                  <td className="px-4 py-2.5 whitespace-nowrap">{row.phone}</td>
-                  <td className="px-4 py-2.5 font-semibold text-emerald-700 whitespace-nowrap">{row.hourlyRateDisplay}</td>
-                  <td className="px-4 py-2.5 whitespace-nowrap">{row.relocation}</td>
-                  <td className="px-4 py-2.5 max-w-xs truncate">{row.skillset}</td>
-                  <td className="px-4 py-2.5 whitespace-nowrap">{row.education}</td>
-                  <td className="px-4 py-2.5 whitespace-nowrap text-slate-500">{row.assignedRecruiter}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       </div>
 

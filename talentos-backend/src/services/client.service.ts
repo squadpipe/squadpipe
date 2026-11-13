@@ -1,24 +1,73 @@
 import { prisma } from '../config/prisma.config';
 import { Prisma } from '@prisma/client';
 
+export interface ListQueryParams {
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
 export class ClientService {
-  async getClients(tenantId?: string) {
+  async getClients(tenantId?: string, params: ListQueryParams = {}) {
     const where: Prisma.ClientWhereInput = {};
     if (tenantId) where.tenantId = tenantId;
 
-    return prisma.client.findMany({
-      where,
-      include: {
-        contacts: true,
-        requirements: {
-          select: { id: true, code: true, opportunityTitle: true, status: true }
-        },
-        placements: {
-          select: { id: true, resourceName: true, skillRole: true, status: true, billRate: true }
-        }
+    const q = params.search ? String(params.search).trim() : '';
+    if (q) {
+      where.OR = [
+        { name: { contains: q, mode: 'insensitive' } },
+        { location: { contains: q, mode: 'insensitive' } },
+        { website: { contains: q, mode: 'insensitive' } },
+        { boardNumber: { contains: q, mode: 'insensitive' } },
+        { contacts: { some: { fullName: { contains: q, mode: 'insensitive' } } } },
+      ];
+    }
+
+    const include = {
+      contacts: true,
+      requirements: {
+        select: { id: true, code: true, opportunityTitle: true, status: true }
       },
-      orderBy: { name: 'asc' }
-    });
+      placements: {
+        select: { id: true, resourceName: true, skillRole: true, status: true, billRate: true }
+      }
+    };
+
+    const hasPagination = params.page !== undefined || params.limit !== undefined;
+    if (!hasPagination) {
+      const data = await prisma.client.findMany({
+        where,
+        include,
+        orderBy: { name: 'asc' }
+      });
+      return {
+        data,
+        pagination: { page: 1, limit: data.length || 10, total: data.length, totalPages: 1 }
+      };
+    }
+
+    const page = params.page ? Math.max(1, params.page) : 1;
+    const limit = params.limit ? Math.max(1, Math.min(100, params.limit)) : 10;
+    const [total, data] = await Promise.all([
+      prisma.client.count({ where }),
+      prisma.client.findMany({
+        where,
+        include,
+        orderBy: { name: 'asc' },
+        skip: (page - 1) * limit,
+        take: limit
+      })
+    ]);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit))
+      }
+    };
   }
 
   async getClientById(id: string, tenantId?: string) {
@@ -127,19 +176,64 @@ export class ClientService {
     return prisma.client.delete({ where: { id } });
   }
 
-  async getVendors(tenantId?: string) {
+  async getVendors(tenantId?: string, params: ListQueryParams = {}) {
     const where: Prisma.VendorWhereInput = {};
     if (tenantId) where.tenantId = tenantId;
 
-    return prisma.vendor.findMany({
-      where,
-      include: {
-        placements: {
-          select: { id: true, resourceName: true, customer: true, status: true }
-        }
-      },
-      orderBy: { name: 'asc' }
-    });
+    const q = params.search ? String(params.search).trim() : '';
+    if (q) {
+      where.OR = [
+        { name: { contains: q, mode: 'insensitive' } },
+        { contactName: { contains: q, mode: 'insensitive' } },
+        { email: { contains: q, mode: 'insensitive' } },
+        { phone: { contains: q, mode: 'insensitive' } },
+        { location: { contains: q, mode: 'insensitive' } },
+        { skillSpecialization: { contains: q, mode: 'insensitive' } },
+        { paymentTerms: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    const include = {
+      placements: {
+        select: { id: true, resourceName: true, customer: true, status: true }
+      }
+    };
+
+    const hasPagination = params.page !== undefined || params.limit !== undefined;
+    if (!hasPagination) {
+      const data = await prisma.vendor.findMany({
+        where,
+        include,
+        orderBy: { name: 'asc' }
+      });
+      return {
+        data,
+        pagination: { page: 1, limit: data.length || 10, total: data.length, totalPages: 1 }
+      };
+    }
+
+    const page = params.page ? Math.max(1, params.page) : 1;
+    const limit = params.limit ? Math.max(1, Math.min(100, params.limit)) : 10;
+    const [total, data] = await Promise.all([
+      prisma.vendor.count({ where }),
+      prisma.vendor.findMany({
+        where,
+        include,
+        orderBy: { name: 'asc' },
+        skip: (page - 1) * limit,
+        take: limit
+      })
+    ]);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit))
+      }
+    };
   }
 
   async createVendor(raw: any, tenantId: string = 'talentos-agency') {

@@ -5,6 +5,9 @@ export interface CandidateFilterParams {
   tenantId?: string;
   search?: string;
   stage?: string;
+  workAuth?: string;
+  page?: number;
+  limit?: number;
 }
 
 export const stageMap: Record<string, CandidatePipelineStage> = {
@@ -25,27 +28,38 @@ export const stageMap: Record<string, CandidatePipelineStage> = {
 };
 
 export class CandidateService {
-  async getCandidates(params: CandidateFilterParams) {
-    const { search, stage, tenantId } = params;
+  private buildWhereClause(params: CandidateFilterParams): Prisma.CandidateWhereInput {
+    const { search, stage, workAuth, tenantId } = params;
     const where: Prisma.CandidateWhereInput = {};
 
     if (tenantId) {
       where.tenantId = tenantId;
     }
 
-    if (search) {
+    const q = search ? String(search).trim() : '';
+    if (q) {
       where.OR = [
-        { fullName: { contains: String(search), mode: 'insensitive' } },
-        { skillset: { contains: String(search), mode: 'insensitive' } },
-        { currentTitle: { contains: String(search), mode: 'insensitive' } },
-        { workAuth: { contains: String(search), mode: 'insensitive' } }
+        { fullName: { contains: q, mode: 'insensitive' } },
+        { skillset: { contains: q, mode: 'insensitive' } },
+        { currentTitle: { contains: q, mode: 'insensitive' } },
+        { workAuth: { contains: q, mode: 'insensitive' } },
+        { email: { contains: q, mode: 'insensitive' } },
+        { phone: { contains: q, mode: 'insensitive' } }
       ];
     }
-    if (stage && stage !== 'ALL') {
+    if (stage && stage !== 'ALL' && stage !== 'All') {
       const mappedStage = stageMap[stage] || (stage as CandidatePipelineStage);
       where.pipelineStage = mappedStage;
     }
+    if (workAuth && workAuth !== 'ALL' && workAuth !== 'All') {
+      where.workAuth = { contains: String(workAuth).trim(), mode: 'insensitive' };
+    }
 
+    return where;
+  }
+
+  async getCandidates(params: CandidateFilterParams) {
+    const where = this.buildWhereClause(params);
     return prisma.candidate.findMany({
       where,
       include: {
@@ -55,6 +69,57 @@ export class CandidateService {
       },
       orderBy: { createdAt: 'desc' }
     });
+  }
+
+  async getCandidatesPaginated(params: CandidateFilterParams) {
+    const where = this.buildWhereClause(params);
+    const hasPagination = params.page !== undefined || params.limit !== undefined;
+    const page = params.page ? Math.max(1, params.page) : 1;
+    const limit = params.limit ? Math.max(1, Math.min(100, params.limit)) : 10;
+
+    const include = {
+      assignedRecruiter: {
+        select: { id: true, fullName: true, role: true, desk: true }
+      }
+    };
+
+    if (!hasPagination) {
+      const data = await prisma.candidate.findMany({
+        where,
+        include,
+        orderBy: { createdAt: 'desc' }
+      });
+      return {
+        data,
+        pagination: {
+          page: 1,
+          limit: data.length || 10,
+          total: data.length,
+          totalPages: 1
+        }
+      };
+    }
+
+    const [total, data] = await Promise.all([
+      prisma.candidate.count({ where }),
+      prisma.candidate.findMany({
+        where,
+        include,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit
+      })
+    ]);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit))
+      }
+    };
   }
 
   async getCandidateById(id: string, tenantId?: string) {

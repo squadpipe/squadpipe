@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   DollarSign,
   TrendingUp,
@@ -16,9 +16,13 @@ import {
   X,
   FileText,
 } from 'lucide-react';
+import { apiClient } from '../../config/api.config';
 import { BillablePlacement } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
+import { TablePagination } from '../../components/shared/TablePagination';
 import { useCurrency } from '../../utils/currency';
+import { useDebounce } from '../../utils/useDebounce';
+import { mapPlacementFromApi } from '../../utils/entityMappers';
 
 interface ExtensionData {
   newEndDate: string;
@@ -66,6 +70,69 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Expiring Soon' | 'Extended' | 'Ended'>('All');
   const [modelFilter, setModelFilter] = useState<'All' | 'W2 Hourly' | 'C2C Subcontractor' | '1099' | 'Full-Time'>('All');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [tableRows, setTableRows] = useState<BillablePlacement[]>([]);
+  const [totalRows, setTotalRows] = useState(placements.length);
+  const [isLoadingRows, setIsLoadingRows] = useState(false);
+
+  const debouncedSearch = useDebounce(search, 300);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter, modelFilter]);
+
+  useEffect(() => {
+    let active = true;
+    setIsLoadingRows(true);
+    apiClient
+      .get('/placements', {
+        params: {
+          search: debouncedSearch.trim() || undefined,
+          status: statusFilter !== 'All' ? statusFilter : undefined,
+          model: modelFilter !== 'All' ? modelFilter : undefined,
+          page,
+          limit,
+        },
+      })
+      .then((res) => {
+        if (!active) return;
+        if (res.data?.success && Array.isArray(res.data.data)) {
+          const mapped = res.data.data.map(mapPlacementFromApi);
+          setTableRows(mapped);
+          setTotalRows(res.data.pagination?.total ?? mapped.length);
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        const q = debouncedSearch.toLowerCase();
+        const fallback = placements.filter((p) => {
+          const matchesSearch =
+            !q ||
+            p.resourceName.toLowerCase().includes(q) ||
+            p.customer.toLowerCase().includes(q) ||
+            p.skillRole.toLowerCase().includes(q) ||
+            p.recruiter.toLowerCase().includes(q) ||
+            (p.purchaseOrderNumber || '').toLowerCase().includes(q) ||
+            (p.vendorName || '').toLowerCase().includes(q);
+          const effStatus = getEffectiveStatus(p);
+          const matchesStatus =
+            statusFilter === 'All' ||
+            (statusFilter === 'Ended' ? effStatus === 'Completed' || effStatus === 'Terminated' : effStatus === statusFilter);
+          const pModel = p.placementType || 'C2C Subcontractor';
+          const matchesModel = modelFilter === 'All' || pModel.toLowerCase().includes(modelFilter.toLowerCase());
+          return matchesSearch && matchesStatus && matchesModel;
+        });
+        setTotalRows(fallback.length);
+        setTableRows(fallback.slice((page - 1) * limit, page * limit));
+      })
+      .finally(() => {
+        if (active) setIsLoadingRows(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [debouncedSearch, statusFilter, modelFilter, page, limit, placements]);
 
   const [editingPlacement, setEditingPlacement] = useState<BillablePlacement | null>(null);
   const [deletingPlacement, setDeletingPlacement] = useState<BillablePlacement | null>(null);
@@ -97,27 +164,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
     return 'Active';
   };
 
-  const filtered = placements.filter((p) => {
-    const q = search.toLowerCase();
-    const matchesSearch =
-      !q ||
-      p.resourceName.toLowerCase().includes(q) ||
-      p.customer.toLowerCase().includes(q) ||
-      p.skillRole.toLowerCase().includes(q) ||
-      p.recruiter.toLowerCase().includes(q) ||
-      (p.purchaseOrderNumber || '').toLowerCase().includes(q) ||
-      (p.vendorName || '').toLowerCase().includes(q);
-
-    const effStatus = getEffectiveStatus(p);
-    const matchesStatus =
-      statusFilter === 'All' ||
-      (statusFilter === 'Ended' ? effStatus === 'Completed' || effStatus === 'Terminated' : effStatus === statusFilter);
-
-    const pModel = p.placementType || 'C2C Subcontractor';
-    const matchesModel = modelFilter === 'All' || pModel.toLowerCase().includes(modelFilter.toLowerCase());
-
-    return matchesSearch && matchesStatus && matchesModel;
-  });
+  const filtered = tableRows;
 
   const activePlacements = placements.filter((p) => p.status !== 'Completed' && p.status !== 'Terminated');
   const totalHourlySpread = activePlacements.reduce((sum, p) => sum + (Number(p.hourlySpread) || 0), 0);
@@ -342,7 +389,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
         <div className="px-5 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold text-xs text-slate-900 mr-1">
-              {filtered.length} Placements
+              {totalRows} Placements
             </span>
             {(['All', 'Active', 'Expiring Soon', 'Extended', 'Ended'] as const).map((tab) => (
               <button
@@ -542,6 +589,18 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
             </tbody>
           </table>
         </div>
+        <TablePagination
+          page={page}
+          limit={limit}
+          total={totalRows}
+          onPageChange={setPage}
+          onLimitChange={(nextLimit) => {
+            setLimit(nextLimit);
+            setPage(1);
+          }}
+          itemLabel="placements"
+          isLoading={isLoadingRows}
+        />
       </div>
 
       {/* Interactive Extend SOW Modal */}

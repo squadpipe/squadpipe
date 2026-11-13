@@ -3,9 +3,17 @@ import { clientService } from '../services/client.service';
 
 export const getClients = async (req: Request, res: Response) => {
   try {
+    const { search, page, limit } = req.query;
     const tenantId = req.user?.tenantId || 'talentos-agency';
-    const clients = await clientService.getClients(tenantId);
-    res.json({ success: true, data: clients });
+    const parsedPage = page ? Math.max(1, parseInt(String(page), 10) || 1) : undefined;
+    const parsedLimit = limit ? Math.max(1, Math.min(100, parseInt(String(limit), 10) || 10)) : undefined;
+
+    const result = await clientService.getClients(tenantId, {
+      search: search ? String(search) : undefined,
+      page: parsedPage,
+      limit: parsedLimit,
+    });
+    res.json({ success: true, data: result.data, pagination: result.pagination });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'Failed to fetch clients' });
   }
@@ -44,9 +52,17 @@ export const deleteClient = async (req: Request, res: Response) => {
 
 export const getVendors = async (req: Request, res: Response) => {
   try {
+    const { search, page, limit } = req.query;
     const tenantId = req.user?.tenantId || 'talentos-agency';
-    const vendors = await clientService.getVendors(tenantId);
-    res.json({ success: true, data: vendors });
+    const parsedPage = page ? Math.max(1, parseInt(String(page), 10) || 1) : undefined;
+    const parsedLimit = limit ? Math.max(1, Math.min(100, parseInt(String(limit), 10) || 10)) : undefined;
+
+    const result = await clientService.getVendors(tenantId, {
+      search: search ? String(search) : undefined,
+      page: parsedPage,
+      limit: parsedLimit,
+    });
+    res.json({ success: true, data: result.data, pagination: result.pagination });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'Failed to fetch vendors' });
   }

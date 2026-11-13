@@ -17,11 +17,14 @@ import {
   CreditCard,
   GraduationCap,
   GitBranch,
+  Search,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { CustomField } from '../../types';
 import { invalidateSchemaCaches } from '../../components/shared/DynamicCustomFieldsSection';
 import { useCurrency } from '../../utils/currency';
+import { TablePagination } from '../../components/shared/TablePagination';
+import { useDebounce } from '../../utils/useDebounce';
 
 interface CustomFieldsViewProps {
   customFields?: CustomField[];
@@ -83,10 +86,22 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
   const { symbol: currencySymbol } = useCurrency();
   const [activeSection, setActiveSection] = useState<'fields' | 'dropdowns'>('fields');
   const [scope, setScope] = useState<'all' | 'consultant' | 'requirement' | 'client' | 'vendor' | 'placement'>('all');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [tableFields, setTableFields] = useState<any[]>([]);
+  const [totalFields, setTotalFields] = useState(propCustomFields?.length || 0);
+  const [isLoadingFields, setIsLoadingFields] = useState(false);
   const [activeTaxonomy, setActiveTaxonomy] = useState<TaxonomyKey>('workAuth');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingField, setEditingField] = useState<any | null>(null);
   const [fieldsList, setFieldsList] = useState<any[]>(propCustomFields || []);
+
+  const debouncedSearch = useDebounce(search, 300);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, scope]);
 
   const [masterTaxonomies, setMasterTaxonomies] = useState<Record<TaxonomyKey, string[]>>(DEFAULT_TAXONOMIES);
   const [newTaxInput, setNewTaxInput] = useState<Record<TaxonomyKey, string>>({
@@ -123,6 +138,23 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
       .catch((err) => console.warn('Fetch taxonomies error:', err));
   }, []);
 
+  const mapCustomFieldApi = (f: any) => ({
+    id: f.id,
+    name: f.name,
+    entity: (f.entity || 'consultant').toLowerCase(),
+    entityLabel: (f.entity || 'Consultant').charAt(0).toUpperCase() + (f.entity || 'Consultant').slice(1).toLowerCase(),
+    type: f.type === 'NUMBER' ? `Currency (${currencySymbol})` : f.type === 'DROPDOWN' ? 'Dropdown' : f.type === 'DATE' ? 'Date' : 'Text',
+    options: Array.isArray(f.options)
+      ? f.options.join(', ')
+      : typeof f.options === 'object' && f.options?.values
+      ? f.options.values
+      : typeof f.options === 'string'
+      ? f.options
+      : 'Standard Format',
+    required: !!f.required,
+    active: f.active ?? true,
+  });
+
   useEffect(() => {
     if (propCustomFields && propCustomFields.length) {
       setFieldsList(propCustomFields);
@@ -132,27 +164,48 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
       .get('/custom-fields')
       .then((res) => {
         if (res.data?.success && Array.isArray(res.data.data)) {
-          const mapped = res.data.data.map((f: any) => ({
-            id: f.id,
-            name: f.name,
-            entity: (f.entity || 'consultant').toLowerCase(),
-            entityLabel: (f.entity || 'Consultant').charAt(0).toUpperCase() + (f.entity || 'Consultant').slice(1).toLowerCase(),
-            type: f.type === 'NUMBER' ? `Currency (${currencySymbol})` : f.type === 'DROPDOWN' ? 'Dropdown' : f.type === 'DATE' ? 'Date' : 'Text',
-            options: Array.isArray(f.options)
-              ? f.options.join(', ')
-              : typeof f.options === 'object' && f.options?.values
-              ? f.options.values
-              : typeof f.options === 'string'
-              ? f.options
-              : 'Standard Format',
-            required: !!f.required,
-            active: f.active ?? true,
-          }));
-          setFieldsList(mapped);
+          setFieldsList(res.data.data.map(mapCustomFieldApi));
         }
       })
       .catch((err) => console.warn('Fetch custom fields error:', err));
   }, [propCustomFields]);
+
+  useEffect(() => {
+    let active = true;
+    setIsLoadingFields(true);
+    apiClient
+      .get('/custom-fields', {
+        params: {
+          search: debouncedSearch.trim() || undefined,
+          scope: scope !== 'all' ? scope : undefined,
+          page,
+          limit,
+        },
+      })
+      .then((res) => {
+        if (!active) return;
+        if (res.data?.success && Array.isArray(res.data.data)) {
+          const mapped = res.data.data.map(mapCustomFieldApi);
+          setTableFields(mapped);
+          setTotalFields(res.data.pagination?.total ?? mapped.length);
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        const q = debouncedSearch.toLowerCase();
+        const fallback = fieldsList.filter(
+          (f) => (scope === 'all' || f.entity === scope) && (!q || String(f.name || '').toLowerCase().includes(q))
+        );
+        setTotalFields(fallback.length);
+        setTableFields(fallback.slice((page - 1) * limit, page * limit));
+      })
+      .finally(() => {
+        if (active) setIsLoadingFields(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [debouncedSearch, scope, page, limit, fieldsList]);
 
   const [newField, setNewField] = useState({
     name: '',
@@ -162,7 +215,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
     required: false,
   });
 
-  const filteredFields = fieldsList.filter((f) => scope === 'all' || f.entity === scope);
+  const filteredFields = tableFields;
 
   const handleAddTaxonomyOption = async (category: TaxonomyKey) => {
     const val = (newTaxInput[category] || '').trim();
@@ -368,14 +421,26 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
               ))}
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowAddModal(true)}
-              className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-xs flex items-center gap-1.5 shadow-2xs transition-colors self-start sm:self-auto cursor-pointer flex-shrink-0"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Custom Field</span>
-            </button>
+            <div className="flex items-center gap-2.5 self-start sm:self-auto flex-shrink-0">
+              <div className="relative w-52">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search fields..."
+                  className="w-full pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none transition-colors"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(true)}
+                className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-xs flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer flex-shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Custom Field</span>
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -500,6 +565,18 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
               </tbody>
             </table>
           </div>
+          <TablePagination
+            page={page}
+            limit={limit}
+            total={totalFields}
+            onPageChange={setPage}
+            onLimitChange={(nextLimit) => {
+              setLimit(nextLimit);
+              setPage(1);
+            }}
+            itemLabel="fields"
+            isLoading={isLoadingFields}
+          />
         </div>
       )}
 

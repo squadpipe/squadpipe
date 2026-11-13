@@ -3,14 +3,20 @@ import { candidateService } from '../services/candidate.service';
 
 export const getCandidates = async (req: Request, res: Response) => {
   try {
-    const { search, stage } = req.query;
+    const { search, stage, workAuth, page, limit } = req.query;
     const tenantId = req.user?.tenantId || 'talentos-agency';
-    const candidates = await candidateService.getCandidates({
+    const parsedPage = page ? Math.max(1, parseInt(String(page), 10) || 1) : undefined;
+    const parsedLimit = limit ? Math.max(1, Math.min(100, parseInt(String(limit), 10) || 10)) : undefined;
+
+    const result = await candidateService.getCandidatesPaginated({
       tenantId,
       search: search ? String(search) : undefined,
       stage: stage ? String(stage) : undefined,
+      workAuth: workAuth ? String(workAuth) : undefined,
+      page: parsedPage,
+      limit: parsedLimit,
     });
-    res.json({ success: true, data: candidates });
+    res.json({ success: true, data: result.data, pagination: result.pagination });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'Failed to fetch candidates' });
   }

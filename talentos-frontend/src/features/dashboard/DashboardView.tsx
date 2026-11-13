@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { apiClient } from '../../config/api.config';
 import { Requirement, Candidate, BillablePlacement, SlaTask } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
+import { TablePagination } from '../../components/shared/TablePagination';
+import { useDebounce } from '../../utils/useDebounce';
+import { mapRequirementFromApi } from '../../utils/entityMappers';
 
 interface DashboardViewProps {
   requirements: Requirement[];
@@ -38,7 +41,63 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 }) => {
   const [tableSearch, setTableSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [tableRows, setTableRows] = useState<Requirement[]>([]);
+  const [totalRows, setTotalRows] = useState(requirements.length);
+  const [isLoadingRows, setIsLoadingRows] = useState(false);
   const [remarksState, setRemarksState] = useState<Record<string, string>>({});
+
+  const debouncedSearch = useDebounce(tableSearch, 300);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter]);
+
+  useEffect(() => {
+    let active = true;
+    setIsLoadingRows(true);
+    apiClient
+      .get('/requirements', {
+        params: {
+          search: debouncedSearch.trim() || undefined,
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+          page,
+          limit,
+        },
+      })
+      .then((res) => {
+        if (!active) return;
+        if (res.data?.success && Array.isArray(res.data.data)) {
+          const mapped = res.data.data.map(mapRequirementFromApi);
+          setTableRows(mapped);
+          setTotalRows(res.data.pagination?.total ?? mapped.length);
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        const fallback = requirements.filter((r) => {
+          const q = debouncedSearch.toLowerCase();
+          const matchesSearch =
+            !q ||
+            r.opportunityTitle.toLowerCase().includes(q) ||
+            r.companyName.toLowerCase().includes(q) ||
+            r.code.toLowerCase().includes(q) ||
+            (r.resourceName || '').toLowerCase().includes(q) ||
+            r.skillsRequired.toLowerCase().includes(q);
+          const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
+          return matchesSearch && matchesStatus;
+        });
+        setTotalRows(fallback.length);
+        setTableRows(fallback.slice((page - 1) * limit, page * limit));
+      })
+      .finally(() => {
+        if (active) setIsLoadingRows(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [debouncedSearch, statusFilter, page, limit, requirements]);
 
   // 6 KPI Counts
   const activeReqsCount = requirements.length;
@@ -48,18 +107,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const onboardingCount = requirements.filter((r) => r.status === 'Onboarding').length;
   const activeBillableCount = placements.length;
 
-  const filteredRequirements = requirements.filter((r) => {
-    const matchesSearch =
-      r.opportunityTitle.toLowerCase().includes(tableSearch.toLowerCase()) ||
-      r.companyName.toLowerCase().includes(tableSearch.toLowerCase()) ||
-      r.code.toLowerCase().includes(tableSearch.toLowerCase()) ||
-      (r.resourceName || '').toLowerCase().includes(tableSearch.toLowerCase()) ||
-      r.skillsRequired.toLowerCase().includes(tableSearch.toLowerCase());
-
-    const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
+  const filteredRequirements = tableRows;
 
   const getStatusBadgeClass = (status: Requirement['status']) => {
     switch (status) {
@@ -239,7 +287,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex items-center gap-2">
             <span className="font-semibold text-xs text-slate-900">Requirements Overview</span>
             <span className="text-[11px] text-slate-400 bg-white border border-slate-200 px-1.5 py-0.2 rounded">
-              {filteredRequirements.length} rows
+              {totalRows} rows
             </span>
           </div>
 
@@ -403,6 +451,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </tbody>
           </table>
         </div>
+        <TablePagination
+          page={page}
+          limit={limit}
+          total={totalRows}
+          onPageChange={setPage}
+          onLimitChange={(nextLimit) => {
+            setLimit(nextLimit);
+            setPage(1);
+          }}
+          itemLabel="requirements"
+          isLoading={isLoadingRows}
+        />
       </div>
 
       {/* 2-Column Dashboard Lower Section matching prototype lines 2135-2220 */}

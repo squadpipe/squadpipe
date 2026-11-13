@@ -1,5 +1,5 @@
 import { prisma } from '../config/prisma.config';
-import { AuditStatus, AutomationCategory, TriggerEvent } from '@prisma/client';
+import { AuditStatus, AutomationCategory, Prisma, TriggerEvent } from '@prisma/client';
 
 const DEFAULT_TENANT_RULES: Array<{
   name: string;
@@ -92,14 +92,54 @@ export class AutomationEngineService {
     });
   }
 
-  async getAuditLogs(tenantId: string, limit = 50) {
-    return prisma.automationAuditLog.findMany({
-      where: {
-        rule: { tenantId },
+  async getAuditLogs(tenantId: string, params: { search?: string; page?: number; limit?: number } = {}) {
+    const where: Prisma.AutomationAuditLogWhereInput = {
+      rule: { tenantId },
+    };
+
+    const q = params.search ? String(params.search).trim() : '';
+    if (q) {
+      where.OR = [
+        { ruleName: { contains: q, mode: 'insensitive' } },
+        { target: { contains: q, mode: 'insensitive' } },
+        { actionDispatched: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    const hasPagination = params.page !== undefined || params.limit !== undefined;
+    if (!hasPagination) {
+      const data = await prisma.automationAuditLog.findMany({
+        where,
+        take: 50,
+        orderBy: { createdAt: 'desc' },
+      });
+      return {
+        data,
+        pagination: { page: 1, limit: data.length || 10, total: data.length, totalPages: 1 },
+      };
+    }
+
+    const page = params.page ? Math.max(1, params.page) : 1;
+    const limit = params.limit ? Math.max(1, Math.min(100, params.limit)) : 10;
+    const [total, data] = await Promise.all([
+      prisma.automationAuditLog.count({ where }),
+      prisma.automationAuditLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
       },
-      take: limit,
-      orderBy: { createdAt: 'desc' },
-    });
+    };
   }
 
   async testTriggerRule(ruleId: string, tenantId: string) {
