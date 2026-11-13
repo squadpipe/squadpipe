@@ -14,7 +14,6 @@ import {
   Search,
   Send,
   Trash2,
-  User,
   UsersRound,
   X,
 } from 'lucide-react';
@@ -24,10 +23,12 @@ import { TablePagination } from '../../components/shared/TablePagination';
 import { ModalPortal } from '../../components/shared/ModalPortal';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapRequirementFromApi } from '../../utils/entityMappers';
+import { useCurrency } from '../../utils/currency';
 
 interface PipelineViewProps {
   requirements: Requirement[];
   candidates: Candidate[];
+  rateMasked?: boolean;
   onStatusChange: (req: Requirement, newStatus: any) => void;
   onOpenEmailParser: () => void;
   onOpenMatcher: (req: Requirement) => void;
@@ -42,6 +43,7 @@ interface PipelineViewProps {
 export const PipelineView: React.FC<PipelineViewProps> = ({
   requirements,
   candidates,
+  rateMasked = false,
   onStatusChange,
   onOpenEmailParser,
   onOpenMatcher,
@@ -52,6 +54,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
   onUpdateReq,
   onDeleteReq,
 }) => {
+  const { symbol: currencySymbol } = useCurrency();
   const [displayMode, setDisplayMode] = useState<'kanban' | 'list'>('kanban');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -401,9 +404,32 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
     if (onSelectReq) onSelectReq(req);
   };
 
+  const getInitials = (name?: string): string => {
+    const parts = String(name || '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (parts.length === 0) return 'C';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  };
+
+  const extractWorkModel = (location?: string): string | null => {
+    const match = String(location || '').match(/\b(remote|hybrid|on-?site)\b/i);
+    if (!match) return null;
+    const raw = match[1].toLowerCase();
+    if (raw === 'hybrid') return 'Hybrid';
+    if (raw === 'remote') return 'Remote';
+    return 'Onsite';
+  };
+
   const renderCardBody = (req: Requirement) => {
     const skills = getSkillsList(req.skillsRequired);
     const stageIdx = stageOrder.indexOf(req.status);
+    const workModel = extractWorkModel(req.location);
+    const visibleSkills = skills.slice(0, 3);
+    const remainingSkillCount = Math.max(0, skills.length - visibleSkills.length);
+
     return (
       <>
         {/* Card Top Meta Row */}
@@ -412,92 +438,113 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             type="button"
             data-allow-drag="true"
             onClick={() => handleCardTitleClick(req)}
-            className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/70 cursor-pointer hover:bg-brand-50 hover:text-brand-700 hover:border-brand-200 transition-colors inline-flex items-center gap-1 whitespace-nowrap flex-shrink-0"
+            className="text-[10.5px] font-mono font-semibold px-2 py-0.5 rounded-md bg-slate-50 text-slate-600 border border-slate-200/80 cursor-pointer hover:bg-brand-50 hover:text-brand-700 hover:border-brand-200 transition-colors inline-flex items-center gap-1 whitespace-nowrap flex-shrink-0"
           >
             <GripVertical className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" />
             <span>{req.code}</span>
           </button>
-          <span
-            title={req.location}
-            className="text-[10px] text-slate-400 flex items-center justify-end gap-1 min-w-0 flex-1"
-          >
-            <MapPin className="w-2.5 h-2.5 flex-shrink-0 text-slate-300" />
-            <span className="truncate">{req.location || 'Remote'}</span>
-          </span>
-        </div>
 
-        {/* Role & Company */}
-        <div>
-          <h4
-            onClick={() => handleCardTitleClick(req)}
-            title={req.opportunityTitle}
-            className="font-bold text-[12.5px] text-slate-900 leading-snug line-clamp-2 cursor-pointer hover:text-brand-600 transition-colors"
-          >
-            {req.opportunityTitle}
-          </h4>
-          <div className="flex items-center gap-1 text-[11px] font-medium text-slate-500 mt-1 min-w-0">
-            <Building2 className="w-3 h-3 text-slate-400 flex-shrink-0" />
-            <span className="truncate" title={req.companyName}>
-              {req.companyName}
-            </span>
+          <div className="flex items-center gap-1.5 min-w-0 justify-end">
+            {workModel && (
+              <span className="px-1.5 py-0.5 rounded-md bg-slate-100/90 text-slate-600 text-[10px] font-medium whitespace-nowrap">
+                {workModel}
+              </span>
+            )}
+            {!rateMasked && Boolean(req.targetBillRate) && (
+              <span className="text-[10.5px] font-semibold text-slate-600 tabular-nums whitespace-nowrap">
+                {currencySymbol}
+                {req.targetBillRate}/hr
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Candidate Status or Bench Matcher */}
+        {/* Role Title + Client & Full Location */}
+        <div className="space-y-1.5">
+          <h4
+            onClick={() => handleCardTitleClick(req)}
+            title={req.opportunityTitle}
+            className="font-semibold text-[13px] text-slate-900 leading-[1.38] line-clamp-2 tracking-[-0.01em] cursor-pointer hover:text-brand-600 transition-colors"
+          >
+            {req.opportunityTitle}
+          </h4>
+          <div className="space-y-0.5 text-[11px] min-w-0">
+            <div className="flex items-center gap-1.5 text-slate-600 font-medium min-w-0">
+              <Building2 className="w-3 h-3 text-slate-400 flex-shrink-0" />
+              <span className="truncate" title={req.companyName}>
+                {req.companyName}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 text-slate-400 min-w-0">
+              <MapPin className="w-3 h-3 text-slate-300 flex-shrink-0" />
+              <span className="truncate" title={req.location || 'Remote'}>
+                {req.location || 'Remote'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Assignee Strip or Bench Matcher */}
         {req.resourceName ? (
-          <div className="px-2.5 py-1.5 rounded-lg bg-emerald-50/75 border border-emerald-200/75 flex items-center justify-between gap-2">
-            <span className="text-[11px] font-semibold text-emerald-800 flex items-center gap-1.5 min-w-0 flex-1">
-              <User className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-              <span className="truncate" title={req.resourceName}>
+          <div className="px-2.5 py-2 rounded-lg bg-slate-50/90 border border-slate-200/80 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[9px] font-bold flex items-center justify-center flex-shrink-0 shadow-2xs">
+                {getInitials(req.resourceName)}
+              </span>
+              <span
+                className="text-[11.5px] font-semibold text-slate-800 truncate"
+                title={req.resourceName}
+              >
                 {req.resourceName}
               </span>
-            </span>
-            <span className="text-[9px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded whitespace-nowrap flex-shrink-0">
-              Assigned
+            </div>
+            <span className="inline-flex items-center gap-1 text-[9.5px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-1.5 py-0.5 rounded-md whitespace-nowrap flex-shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span>Assigned</span>
             </span>
           </div>
         ) : (
           <button
             type="button"
             onClick={() => onOpenMatcher(req)}
-            className="w-full py-1.5 px-2.5 rounded-lg text-[11px] font-semibold bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200/80 flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+            className="w-full py-1.5 px-2.5 rounded-lg text-[11px] font-semibold bg-brand-50/75 hover:bg-brand-100/80 text-brand-700 border border-brand-200/70 flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
           >
             <UsersRound className="w-3.5 h-3.5 flex-shrink-0" />
             <span>Match Bench Talent</span>
           </button>
         )}
 
-        {/* Capped Skills Pills */}
+        {/* Single-Row Skills Strip */}
         {skills.length > 0 && (
-          <div className="flex items-center gap-1 flex-wrap">
-            {skills.slice(0, 3).map((sk) => (
+          <div className="flex items-center gap-1 flex-nowrap overflow-hidden">
+            {visibleSkills.map((sk) => (
               <span
                 key={sk}
                 title={sk}
-                className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-medium max-w-[96px] truncate"
+                className="px-2 py-0.5 rounded-md bg-slate-100/90 text-slate-600 text-[10px] font-medium min-w-0 max-w-[86px] truncate"
               >
                 {sk}
               </span>
             ))}
-            {skills.length > 3 && (
+            {remainingSkillCount > 0 && (
               <span
-                title={skills.slice(3).join(', ')}
-                className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[10px] font-semibold whitespace-nowrap"
+                title={skills.slice(visibleSkills.length).join(', ')}
+                className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 text-[10px] font-semibold whitespace-nowrap flex-shrink-0"
               >
-                +{skills.length - 3}
+                +{remainingSkillCount}
               </span>
             )}
           </div>
         )}
 
         {/* Clean Card Action Footer */}
-        <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-[11px]">
-          <div className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50/80 divide-x divide-slate-200 overflow-hidden flex-shrink-0">
+        <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2 text-[11px]">
+          <div className="inline-flex items-center rounded-lg border border-slate-200/80 bg-slate-50/80 divide-x divide-slate-200/80 overflow-hidden flex-shrink-0">
             <button
               type="button"
               disabled={stageIdx === 0}
               onClick={() => moveStage(req, -1)}
-              className="p-1 text-slate-500 hover:bg-white hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              className="p-1.5 text-slate-500 hover:bg-white hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
               title="Move Backward"
             >
               <ArrowLeft className="w-3 h-3" />
@@ -506,7 +553,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               type="button"
               disabled={stageIdx === stageOrder.length - 1}
               onClick={() => moveStage(req, 1)}
-              className="p-1 text-slate-500 hover:bg-white hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              className="p-1.5 text-slate-500 hover:bg-white hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
               title="Advance Stage"
             >
               <ArrowRight className="w-3 h-3" />
@@ -518,9 +565,9 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               type="button"
               onClick={() => onOpenPitchWriter(req)}
               title="Open submission pitch writer"
-              className="px-2 py-1 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/70 text-[10px] font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap"
+              className="px-2.5 py-1 rounded-lg bg-amber-50/90 hover:bg-amber-100 text-amber-800 border border-amber-200/60 text-[10.5px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
             >
-              <Send className="w-2.5 h-2.5" />
+              <Send className="w-3 h-3 text-amber-600" />
               <span>Pitch</span>
             </button>
             {onUpdateReq && (
@@ -528,9 +575,9 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                 type="button"
                 onClick={() => setEditingReq({ ...req })}
                 title="Edit requirement"
-                className="p-1 text-slate-400 hover:text-brand-600 rounded-md hover:bg-brand-50 transition-colors cursor-pointer"
+                className="p-1.5 text-slate-400 hover:text-brand-600 rounded-lg hover:bg-brand-50 transition-colors cursor-pointer"
               >
-                <Pencil className="w-3 h-3" />
+                <Pencil className="w-3.5 h-3.5" />
               </button>
             )}
             {onDeleteReq && (
@@ -538,9 +585,9 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                 type="button"
                 onClick={() => setReqToDelete(req)}
                 title="Delete requirement"
-                className="p-1 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors cursor-pointer"
+                className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
               >
-                <Trash2 className="w-3 h-3" />
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
@@ -640,7 +687,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
       {/* Kanban Mode */}
       {displayMode === 'kanban' ? (
         <div ref={boardScrollRef} className="overflow-x-auto pb-2 -mx-1 px-1">
-          <div className="grid grid-cols-5 gap-3.5 min-w-[1160px] items-stretch">
+          <div className="grid grid-cols-5 gap-3.5 min-w-[1340px] items-stretch">
             {stageOrder.map((stage) => {
               const reqsInStage = filteredReqs.filter((r) => r.status === stage);
               const isDropTarget = Boolean(activeDrag && dragOverStage === stage);
@@ -708,10 +755,10 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                           <div
                             key={req.id}
                             onPointerDown={(e) => handleCardPointerDown(e, req)}
-                            className={`p-3.5 rounded-xl border space-y-2.5 select-none transition-colors ${
+                            className={`p-3.5 rounded-xl border space-y-3 select-none transition-all duration-150 ${
                               isBeingDragged
                                 ? 'opacity-30 border-dashed border-brand-300 bg-brand-50/30 shadow-none pointer-events-none'
-                                : 'bg-white border-slate-200/90 card-shadow hover:border-slate-300 cursor-grab active:cursor-grabbing'
+                                : 'bg-white border-slate-200/90 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_4px_12px_rgba(15,23,42,0.06)] hover:border-slate-300/90 cursor-grab active:cursor-grabbing'
                             }`}
                           >
                             {renderCardBody(req)}
@@ -1034,7 +1081,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               transform: `translate3d(${activeDrag.initialX}px, ${activeDrag.initialY}px, 0) rotate(1.2deg)`,
               willChange: 'transform',
             }}
-            className="fixed top-0 left-0 z-[9990] pointer-events-none select-none bg-white p-3.5 rounded-xl border border-brand-400 shadow-2xl ring-2 ring-brand-500/20 space-y-2.5 opacity-95"
+            className="fixed top-0 left-0 z-[9990] pointer-events-none select-none bg-white p-3.5 rounded-xl border border-brand-400 shadow-2xl ring-2 ring-brand-500/20 space-y-3 opacity-95"
           >
             {renderCardBody(activeDrag.req)}
           </div>

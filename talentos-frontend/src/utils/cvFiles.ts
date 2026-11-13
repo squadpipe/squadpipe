@@ -91,3 +91,4 @@ export async function downloadOriginalCandidateCv(
   setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
   return resolvedName;
 }
+

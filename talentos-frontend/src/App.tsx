@@ -1384,6 +1384,7 @@ export const App: React.FC = () => {
             <PipelineView
               requirements={requirements}
               candidates={candidates}
+              rateMasked={rateMasked}
               onStatusChange={handleStatusChange}
               onOpenEmailParser={() => setIsEmailModalOpen(true)}
               onOpenMatcher={(req) => {

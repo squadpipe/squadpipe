@@ -19,12 +19,14 @@ import {
   UserCheck,
   Search,
   Layers,
+  Loader2,
   Info,
 } from 'lucide-react';
 import { Candidate, Requirement } from '../../types';
 import { useCurrency } from '../../utils/currency';
 import { generateCandidateResumePdf } from '../../utils/pdfGenerator';
 import { initWorkspaceBrand, useWorkspaceBrand } from '../../utils/workspaceBrand';
+import { downloadOriginalCandidateCv } from '../../utils/cvFiles';
 import {
   cleanExtractedResumeText,
   parseResumeSections,
@@ -112,11 +114,13 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
   const brandName = (brand.agencyName || brand.legalEntityName || 'TalentOS Staffing').trim();
   const [showQuickSubmitDropdown, setShowQuickSubmitDropdown] = useState(false);
   const [reqFilterQuery, setReqFilterQuery] = useState('');
+  const [isDownloadingCv, setIsDownloadingCv] = useState(false);
   const detailsScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setShowQuickSubmitDropdown(false);
     setReqFilterQuery('');
+    setIsDownloadingCv(false);
     if (detailsScrollRef.current) {
       detailsScrollRef.current.scrollTop = 0;
     }
@@ -209,6 +213,32 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
     .filter(Boolean)
     .join(' ');
 
+  const hasStoredOriginalCv = Boolean(candidate.resumeFileUrl);
+
+  const handleDownloadOriginalCv = async () => {
+    if (!hasStoredOriginalCv || isDownloadingCv) return;
+    setIsDownloadingCv(true);
+    try {
+      const downloadedName = await downloadOriginalCandidateCv(
+        candidate.id,
+        candidate.resumeName || `${(candidate.fullName || 'Consultant').replace(/\s+/g, '_')}_CV.pdf`
+      );
+      showToast(
+        'Original CV Downloaded',
+        `Downloaded stored original CV (${downloadedName}) for ${candidate.fullName}.`,
+        'fa-solid fa-file-arrow-down text-emerald-500'
+      );
+    } catch (err: any) {
+      showToast(
+        'CV Download Failed',
+        err?.response?.data?.message || err?.message || 'Unable to download original CV.',
+        'fa-solid fa-circle-exclamation text-rose-500'
+      );
+    } finally {
+      setIsDownloadingCv(false);
+    }
+  };
+
   const downloadProfileBriefPdf = () => {
     const blob = generateCandidateResumePdf(candidate, formattedRate, brand);
     const url = URL.createObjectURL(blob);
@@ -261,6 +291,22 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
+                {hasStoredOriginalCv && (
+                  <button
+                    type="button"
+                    disabled={isDownloadingCv}
+                    onClick={handleDownloadOriginalCv}
+                    title={`Download original stored CV${candidate.resumeName ? ` (${candidate.resumeName})` : ''}`}
+                    className="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-[11px] font-semibold inline-flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                  >
+                    {isDownloadingCv ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Download className="w-3.5 h-3.5" />
+                    )}
+                    <span>{isDownloadingCv ? 'Downloading...' : 'Download Original CV'}</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={downloadProfileBriefPdf}
@@ -594,7 +640,9 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
             <div className="hidden sm:flex items-center gap-1.5 text-slate-500 text-[11px] truncate">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span className="truncate">
-                {brandName} Brief &bull; Summary Only (Not Original CV)
+                {hasStoredOriginalCv
+                  ? `${brandName} Brief • Original CV Stored (${candidate.resumeName || 'Attached'})`
+                  : `${brandName} Brief • Summary Only (Not Original CV)`}
               </span>
             </div>
 

@@ -2,14 +2,17 @@ import React, { useState, useEffect } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
+  Download,
   Eye,
   FileSpreadsheet,
   FileText,
+  Loader2,
   Pencil,
   Plus,
   Search,
   ShieldAlert,
   Trash2,
+  Upload,
   X,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
@@ -19,6 +22,11 @@ import { TablePagination } from '../../components/shared/TablePagination';
 import { ModalPortal } from '../../components/shared/ModalPortal';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapCandidateFromApi } from '../../utils/entityMappers';
+import {
+  ALLOWED_CV_ACCEPT,
+  downloadOriginalCandidateCv,
+  validateCvFileSelection,
+} from '../../utils/cvFiles';
 
 interface ConsultantsViewProps {
   candidates: Candidate[];
@@ -29,7 +37,7 @@ interface ConsultantsViewProps {
   onOpenAddConsultant?: () => void;
   onOpenCsvImport?: () => void;
   onNavigateToBillable?: () => void;
-  onUpdateCandidate?: (candidate: Candidate) => void;
+  onUpdateCandidate?: (candidate: Candidate, cvFile?: File | null) => Promise<void> | void;
   onDeleteCandidate?: (candidate: Candidate) => Promise<void> | void;
 }
 
@@ -53,8 +61,19 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
   const [totalRows, setTotalRows] = useState(candidates.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
+  const [editCvFile, setEditCvFile] = useState<File | null>(null);
+  const [editCvError, setEditCvError] = useState<string>('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [isDownloadingEditCv, setIsDownloadingEditCv] = useState(false);
   const [candidateToDelete, setCandidateToDelete] = useState<Candidate | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    setEditCvFile(null);
+    setEditCvError('');
+    setIsSavingEdit(false);
+    setIsDownloadingEditCv(false);
+  }, [editingCandidate?.id]);
 
   const getLinkedPlacements = (cand: Candidate): BillablePlacement[] => {
     const nameKey = cand.fullName.trim().toLowerCase();
@@ -394,28 +413,51 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up"
+              className="bg-white rounded-xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up flex flex-col max-h-[90vh]"
             >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="shrink-0 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Edit Consultant</h3>
                 <p className="text-[11px] text-slate-500 mt-0.5">{editingCandidate.fullName}</p>
               </div>
               <button
-                onClick={() => setEditingCandidate(null)}
-                className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+                type="button"
+                disabled={isSavingEdit}
+                onClick={() => {
+                  setEditCvFile(null);
+                  setEditCvError('');
+                  setEditingCandidate(null);
+                }}
+                className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer disabled:opacity-50"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
-                if (onUpdateCandidate) onUpdateCandidate(editingCandidate);
-                setEditingCandidate(null);
+                if (!onUpdateCandidate) {
+                  setEditingCandidate(null);
+                  return;
+                }
+                setIsSavingEdit(true);
+                setEditCvError('');
+                try {
+                  await onUpdateCandidate(editingCandidate, editCvFile);
+                  setEditCvFile(null);
+                  setEditingCandidate(null);
+                } catch (err: any) {
+                  setEditCvError(
+                    err?.response?.data?.message ||
+                      err?.message ||
+                      'Failed to save changes.'
+                  );
+                } finally {
+                  setIsSavingEdit(false);
+                }
               }}
-              className="p-6 space-y-3.5 text-xs"
+              className="p-6 space-y-3.5 text-xs overflow-y-auto custom-scrollbar"
             >
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -525,19 +567,149 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                 />
               </div>
 
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700">
+                    Original CV / Resume File
+                  </label>
+                  {editingCandidate.resumeFileUrl && (
+                    <button
+                      type="button"
+                      disabled={isDownloadingEditCv}
+                      onClick={async () => {
+                        setIsDownloadingEditCv(true);
+                        setEditCvError('');
+                        try {
+                          await downloadOriginalCandidateCv(
+                            editingCandidate.id,
+                            editingCandidate.resumeName || `${editingCandidate.fullName}_CV.pdf`
+                          );
+                        } catch (err: any) {
+                          setEditCvError(
+                            err?.response?.data?.message || 'Unable to download stored CV file.'
+                          );
+                        } finally {
+                          setIsDownloadingEditCv(false);
+                        }
+                      }}
+                      className="text-[11px] font-semibold text-brand-600 hover:text-brand-700 inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      {isDownloadingEditCv ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Download className="w-3 h-3" />
+                      )}
+                      <span>Download Stored CV</span>
+                    </button>
+                  )}
+                </div>
+
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const file = e.dataTransfer.files?.[0];
+                    if (!file) return;
+                    const errMsg = validateCvFileSelection(file);
+                    if (errMsg) {
+                      setEditCvError(errMsg);
+                      return;
+                    }
+                    setEditCvError('');
+                    setEditCvFile(file);
+                  }}
+                  className="p-3 rounded-lg border border-dashed border-slate-300 bg-slate-50/70 space-y-2"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText className="w-4 h-4 text-slate-500 shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-semibold text-slate-800 truncate">
+                          {editCvFile
+                            ? editCvFile.name
+                            : editingCandidate.resumeFileUrl
+                              ? editingCandidate.resumeName || 'Stored Original CV'
+                              : 'No original CV file uploaded yet'}
+                        </div>
+                        <div className="text-[10px] text-slate-500">
+                          {editCvFile
+                            ? `New upload ready (${(editCvFile.size / 1024).toFixed(1)} KB) — saves on update`
+                            : editingCandidate.resumeFileUrl
+                              ? 'Upload a new file to replace the stored CV'
+                              : 'PDF, DOC, DOCX, TXT, or RTF (max 15 MB)'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {editCvFile && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditCvFile(null);
+                            setEditCvError('');
+                          }}
+                          className="px-2 py-1 rounded border border-slate-200 bg-white text-rose-600 hover:bg-rose-50 text-[11px] font-medium cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      )}
+                      <label className="px-2.5 py-1.5 rounded-md bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors">
+                        <Upload className="w-3 h-3 text-brand-600" />
+                        <span>
+                          {editCvFile
+                            ? 'Change File'
+                            : editingCandidate.resumeFileUrl
+                              ? 'Replace CV'
+                              : 'Upload CV'}
+                        </span>
+                        <input
+                          type="file"
+                          accept={ALLOWED_CV_ACCEPT}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const errMsg = validateCvFileSelection(file);
+                            if (errMsg) {
+                              setEditCvError(errMsg);
+                              e.target.value = '';
+                              return;
+                            }
+                            setEditCvError('');
+                            setEditCvFile(file);
+                            e.target.value = '';
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                  {editCvError && (
+                    <div className="text-[11px] text-rose-600 font-medium">{editCvError}</div>
+                  )}
+                </div>
+              </div>
+
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setEditingCandidate(null)}
-                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  disabled={isSavingEdit}
+                  onClick={() => {
+                    setEditCvFile(null);
+                    setEditCvError('');
+                    setEditingCandidate(null);
+                  }}
+                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 cursor-pointer disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                  disabled={isSavingEdit}
+                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
                 >
-                  Save Changes
+                  {isSavingEdit && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isSavingEdit ? 'Saving...' : 'Save Changes'}</span>
                 </button>
               </div>
             </form>
