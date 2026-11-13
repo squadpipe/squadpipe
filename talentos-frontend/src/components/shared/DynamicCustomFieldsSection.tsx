@@ -32,6 +32,39 @@ export function invalidateSchemaCaches() {
   cachedCustomFields = null;
 }
 
+function normalizeCustomField(f: any): CustomField {
+  const entity = String(f.entity || 'consultant').toLowerCase() as CustomField['entity'];
+  const rawType = String(f.type || 'Text');
+  const upperType = rawType.toUpperCase();
+  const type: CustomField['type'] =
+    upperType === 'DROPDOWN'
+      ? 'Dropdown'
+      : upperType === 'DATE'
+      ? 'Date'
+      : upperType === 'NUMBER'
+      ? 'Number'
+      : upperType === 'CURRENCY ($)' || rawType === 'Currency ($)'
+      ? ('Currency ($)' as any)
+      : 'Text';
+  const options = Array.isArray(f.options)
+    ? f.options.join(', ')
+    : typeof f.options === 'object' && f.options?.values
+    ? String(f.options.values)
+    : typeof f.options === 'string'
+    ? f.options
+    : '';
+  return {
+    id: f.id,
+    name: f.name,
+    entity,
+    entityLabel: f.entityLabel || entity.charAt(0).toUpperCase() + entity.slice(1),
+    type,
+    options,
+    required: !!f.required,
+    active: f.active ?? true,
+  };
+}
+
 export function useMasterTaxonomies(isOpen = true) {
   const [taxonomies, setTaxonomies] = useState<MasterTaxonomies>(
     cachedTaxonomies || DEFAULT_MASTER_TAXONOMIES
@@ -41,16 +74,16 @@ export function useMasterTaxonomies(isOpen = true) {
     if (!isOpen) return;
     let active = true;
     apiClient
-      .get<Partial<MasterTaxonomies>>('/taxonomies')
+      .get<any>('/taxonomies')
       .then((res) => {
         if (!active) return;
-        const data = res?.data;
-        if (data && typeof data === 'object') {
+        const raw = res?.data?.data || res?.data;
+        if (raw && typeof raw === 'object') {
           const merged: MasterTaxonomies = {
-            workAuth: Array.isArray(data.workAuth) && data.workAuth.length > 0 ? data.workAuth : DEFAULT_MASTER_TAXONOMIES.workAuth,
-            paymentTerms: Array.isArray(data.paymentTerms) && data.paymentTerms.length > 0 ? data.paymentTerms : DEFAULT_MASTER_TAXONOMIES.paymentTerms,
-            education: Array.isArray(data.education) && data.education.length > 0 ? data.education : DEFAULT_MASTER_TAXONOMIES.education,
-            stages: Array.isArray(data.stages) && data.stages.length > 0 ? data.stages : DEFAULT_MASTER_TAXONOMIES.stages,
+            workAuth: Array.isArray(raw.workAuth) && raw.workAuth.length > 0 ? raw.workAuth : DEFAULT_MASTER_TAXONOMIES.workAuth,
+            paymentTerms: Array.isArray(raw.paymentTerms) && raw.paymentTerms.length > 0 ? raw.paymentTerms : DEFAULT_MASTER_TAXONOMIES.paymentTerms,
+            education: Array.isArray(raw.education) && raw.education.length > 0 ? raw.education : DEFAULT_MASTER_TAXONOMIES.education,
+            stages: Array.isArray(raw.stages) && raw.stages.length > 0 ? raw.stages : DEFAULT_MASTER_TAXONOMIES.stages,
           };
           cachedTaxonomies = merged;
           setTaxonomies(merged);
@@ -88,12 +121,18 @@ export const DynamicCustomFieldsSection: React.FC<DynamicCustomFieldsSectionProp
     if (!isOpen) return;
     let mounted = true;
     apiClient
-      .get<CustomField[]>('/custom-fields')
+      .get<any>('/custom-fields')
       .then((res) => {
         if (!mounted) return;
-        if (Array.isArray(res?.data)) {
-          cachedCustomFields = res.data;
-          setFields(res.data.filter((f) => f.entity === entity && f.active !== false));
+        const rawList = Array.isArray(res?.data?.data)
+          ? res.data.data
+          : Array.isArray(res?.data)
+          ? res.data
+          : null;
+        if (rawList) {
+          const normalized: CustomField[] = (rawList as any[]).map(normalizeCustomField);
+          cachedCustomFields = normalized;
+          setFields(normalized.filter((f) => f.entity === entity && f.active !== false));
         }
       })
       .catch(() => {

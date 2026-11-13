@@ -201,30 +201,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* Section 3: Settings & Administration */}
+        {/* Section 3: Workspace & Data */}
         <div>
           <div className="px-3.5 text-[10px] font-semibold uppercase tracking-wider mb-1 text-slate-400">
-            Settings & Administration
+            Workspace &amp; Data
           </div>
 
           <div
-            onClick={() => onNavigate('user_management')}
+            onClick={() => onNavigate('automation')}
             className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
-              currentView === 'user_management'
-                ? 'bg-white/[0.09] text-white shadow-xs font-semibold'
+              currentView === 'automation'
+                ? 'bg-amber-500/15 text-amber-300 shadow-xs font-semibold border border-amber-500/30'
                 : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
             }`}
           >
             <div className="flex items-center gap-2.5">
               <i
-                className={`fa-solid fa-users-gear w-4 text-center transition-colors ${
-                  currentView === 'user_management' ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-200'
+                className={`fa-solid fa-bolt w-4 text-center transition-colors ${
+                  currentView === 'automation' ? 'text-amber-400' : 'text-slate-400 group-hover:text-slate-200'
                 }`}
               ></i>
-              <span>User Management</span>
+              <span>Automations</span>
             </div>
-            <span className="text-[10px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded">
-              {counts.users} Users
+            <span className="text-[9px] font-bold text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">
+              {counts.activeRules} Active
             </span>
           </div>
 
@@ -250,27 +250,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           <div
-            onClick={() => onNavigate('automation')}
-            className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
-              currentView === 'automation'
-                ? 'bg-amber-500/15 text-amber-300 shadow-xs font-semibold border border-amber-500/30'
-                : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <i
-                className={`fa-solid fa-bolt w-4 text-center transition-colors ${
-                  currentView === 'automation' ? 'text-amber-400' : 'text-slate-400 group-hover:text-slate-200'
-                }`}
-              ></i>
-              <span>Automations</span>
-            </div>
-            <span className="text-[9px] font-bold text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">
-              {counts.activeRules} Active
-            </span>
-          </div>
-
-          <div
             onClick={() => onNavigate('import_data')}
             className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
               currentView === 'import_data'
@@ -288,6 +267,73 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <span className="text-[9px] text-emerald-400 font-medium bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
               CSV/Excel
+            </span>
+          </div>
+        </div>
+
+        {/* Section 4: Settings & Administration */}
+        <div>
+          <div className="px-3.5 text-[10px] font-semibold uppercase tracking-wider mb-1 text-slate-400">
+            Settings &amp; Administration
+          </div>
+
+          <div
+            onClick={() => onNavigate('settings_general')}
+            className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
+              currentView === 'settings_general'
+                ? 'bg-white/[0.09] text-white shadow-xs font-semibold'
+                : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <i
+                className={`fa-solid fa-sliders w-4 text-center transition-colors ${
+                  currentView === 'settings_general' ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-200'
+                }`}
+              ></i>
+              <span>General Settings</span>
+            </div>
+          </div>
+
+          <div
+            onClick={() => onNavigate('settings_smtp')}
+            className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
+              currentView === 'settings_smtp'
+                ? 'bg-white/[0.09] text-white shadow-xs font-semibold'
+                : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <i
+                className={`fa-solid fa-envelope-circle-check w-4 text-center transition-colors ${
+                  currentView === 'settings_smtp' ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-200'
+                }`}
+              ></i>
+              <span>Email Setup (SMTP)</span>
+            </div>
+            <span className="text-[9px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded">
+              SMTP
+            </span>
+          </div>
+
+          <div
+            onClick={() => onNavigate('user_management')}
+            className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
+              currentView === 'user_management'
+                ? 'bg-white/[0.09] text-white shadow-xs font-semibold'
+                : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <i
+                className={`fa-solid fa-users-gear w-4 text-center transition-colors ${
+                  currentView === 'user_management' ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-200'
+                }`}
+              ></i>
+              <span>User Management</span>
+            </div>
+            <span className="text-[10px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded">
+              {counts.users} Users
             </span>
           </div>
         </div>

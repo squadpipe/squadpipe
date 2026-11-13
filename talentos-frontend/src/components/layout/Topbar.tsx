@@ -30,6 +30,10 @@ export const Topbar: React.FC<TopbarProps> = ({ currentView, onOpenCreateModal }
         return 'Workflow Automations';
       case 'import_data':
         return 'Data Import & Migration';
+      case 'settings_general':
+        return 'General Settings';
+      case 'settings_smtp':
+        return 'Email Setup (SMTP)';
       default:
         return 'Dashboard Overview';
     }

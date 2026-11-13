@@ -4,6 +4,7 @@ import { placementService } from '../services/placement.service';
 import { csvImporterService } from '../services/csvImporter.service';
 import { resumeParserClientService } from '../services/resumeParserClient.service';
 import { smtpService } from '../services/smtp.service';
+import { getTenantSettings, saveGeneralSettings, saveSmtpSettings } from '../config/smtp.config';
 import { prisma } from '../config/prisma.config';
 import { authenticateJwt } from '../middlewares/auth.middleware';
 import { rateMaskMiddleware } from '../middlewares/rateMask.middleware';
@@ -211,8 +212,8 @@ router.post('/parse-email', async (req: Request, res: Response) => {
     const parsedPayRate = payRateMatch
       ? parseInt(payRateMatch[1], 10)
       : parsedBillRate > 0
-      ? Math.round(parsedBillRate * 0.75)
-      : 0;
+        ? Math.round(parsedBillRate * 0.75)
+        : 0;
 
     let workModel: 'Remote' | 'Hybrid' | 'Onsite' = 'Remote';
     if (/\bhybrid\b/i.test(text)) workModel = 'Hybrid';
@@ -664,9 +665,11 @@ router.get('/taxonomies', async (_req: Request, res: Response) => {
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
 
-    if (rows.length === 0) {
+    const existingCats = new Set(rows.map((r) => r.category));
+    const missingDefaults = DEFAULT_TAXONOMIES.filter((d) => !existingCats.has(d.category));
+    if (missingDefaults.length > 0) {
       await prisma.masterTaxonomy.createMany({
-        data: DEFAULT_TAXONOMIES,
+        data: missingDefaults,
         skipDuplicates: true,
       });
       rows = await prisma.masterTaxonomy.findMany({
@@ -873,5 +876,83 @@ router.get('/sla-tasks', async (req: Request, res: Response) => {
 });
 router.post('/sla-tasks/evaluate', slaController.evaluateSlaRadar);
 router.patch('/sla-tasks/:id/complete', slaController.completeSlaTask);
+
+// Workspace General & User-Configured SMTP Settings (zero .env dependency)
+router.get('/settings', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const settings = await getTenantSettings(tenantId);
+    const emailLogs = await prisma.emailLog.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' },
+      take: 15,
+    });
+    res.json({ success: true, data: { ...settings, emailLogs } });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'Failed to load settings' });
+  }
+});
+
+router.put('/settings/general', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const updated = await saveGeneralSettings(tenantId, req.body || {});
+    res.json({ success: true, data: updated, message: 'General settings updated' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'Failed to save general settings' });
+  }
+});
+
+router.put('/settings/smtp', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const updated = await saveSmtpSettings(tenantId, req.body || {});
+    res.json({ success: true, data: updated, message: 'SMTP settings saved' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'Failed to save SMTP settings' });
+  }
+});
+
+router.post('/settings/smtp/test', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const { recipientEmail, smtp } = req.body || {};
+    const targetEmail = String(recipientEmail || '').trim();
+    if (!targetEmail) {
+      return res.status(400).json({ success: false, message: 'Test recipient email address is required' });
+    }
+    if (smtp && typeof smtp === 'object') {
+      await saveSmtpSettings(tenantId, smtp);
+    }
+    const result = await smtpService.sendMail({
+      to: targetEmail,
+      subject: 'TalentOS Custom SMTP Connection Test',
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.6; color: #1e293b;">
+          <h3 style="margin: 0 0 8px;">TalentOS SMTP Test Successful</h3>
+          <p>Your custom outbound SMTP server configuration is active and delivering messages.</p>
+          <p style="font-size: 12px; color: #64748b;">Sent from TalentOS Workspace Settings</p>
+        </div>
+      `,
+      tenantId,
+    });
+    const emailLogs = await prisma.emailLog.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' },
+      take: 15,
+    });
+    res.json({
+      success: true,
+      delivered: result.success,
+      message: result.success
+        ? `Test email delivered to ${targetEmail}`
+        : result.error || 'SMTP test delivery failed',
+      data: result,
+      emailLogs,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'SMTP test failed' });
+  }
+});
 
 export default router;

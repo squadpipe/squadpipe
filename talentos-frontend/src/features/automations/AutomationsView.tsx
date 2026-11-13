@@ -304,7 +304,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
       }
       showToast(
         'Starter Pack Activated',
-        `Enabled ${seeded.length || 5} agency rules for tenant "${tenantId}".`
+        `Enabled ${seeded.length || 5} default automation rules.`
       );
     } catch (err: any) {
       showToast(
@@ -330,7 +330,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
         actionPills: tpl.actionPills,
       });
       if (onRefreshAutomations) onRefreshAutomations();
-      showToast('Rule Enabled', `"${tpl.name}" is now active for tenant "${tenantId}".`);
+      showToast('Rule Enabled', `"${tpl.name}" is now active.`);
     } catch (err: any) {
       showToast('Enable Failed', err.response?.data?.message || err.message || 'Failed to enable rule.');
     }
@@ -374,7 +374,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
       await apiClient.delete(`/automations/rules/${rule.id}`);
       setActiveRules((prev) => prev.filter((r) => r.id !== rule.id));
       if (onRefreshAutomations) onRefreshAutomations();
-      showToast('Rule Deleted', `"${rule.name}" removed from tenant "${tenantId}".`);
+      showToast('Rule Deleted', `"${rule.name}" has been deleted.`);
     } catch (err: any) {
       showToast('Delete Failed', err.response?.data?.message || 'Could not delete rule.');
     }
@@ -419,7 +419,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
       if (onRefreshAutomations) onRefreshAutomations();
       showToast(
         'SLA Check Complete',
-        `Scanned tenant "${tenantId}". ${count} new SLA alert(s) queued.`
+        `Workspace check completed. ${count} new SLA alert(s) queued.`
       );
     } catch (err: any) {
       showToast(
@@ -477,9 +477,6 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
             <h2 className="text-lg font-bold text-slate-900 tracking-tight">Workflow Automations</h2>
-            <span className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[11px] text-slate-600">
-              Tenant: {tenantId}
-            </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
             Automated SLA alerts, interview reminders, and contract expiry rules scoped to your workspace.
@@ -544,7 +541,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
               <h3 className="text-sm font-bold text-slate-900">
-                No automation rules enabled for <span className="text-brand-600">{tenantId}</span>
+                No automation rules enabled yet
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Activate the 5 default staffing rules at once or enable individual templates below.
@@ -654,7 +651,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
 
                 {/* WHEN / THEN Recipe Block */}
                 <div className="p-3.5 rounded-lg border border-slate-200/80 bg-slate-50/70 text-xs space-y-2.5">
-                  <div className="flex items-baseline gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider bg-slate-200/70 px-1.5 py-0.5 rounded">
                       WHEN
                     </span>
@@ -662,7 +659,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                     <select
                       value={rule.threshold}
                       onChange={(e) => handleUpdateThreshold(rule, e.target.value)}
-                      className="px-2 py-0.5 border border-slate-300 rounded-md bg-white text-xs font-semibold text-slate-900 focus:border-brand-600 focus:outline-none cursor-pointer"
+                      className="pl-2.5 pr-8 py-1 border border-slate-200 rounded-lg bg-white text-xs font-semibold text-slate-800 shadow-2xs hover:border-slate-300 focus:border-brand-600 focus:outline-none cursor-pointer"
                     >
                       {getThresholdOptionsForRule(rule).map((opt) => (
                         <option key={opt} value={opt}>
@@ -741,7 +738,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
         <div className="divide-y divide-slate-100">
           {localLogs.length === 0 ? (
             <div className="p-6 text-center text-xs text-slate-400">
-              No automation events recorded yet for {tenantId}. Click Test Run or Run Check above.
+              No automation events recorded yet. Click Test Run or Run Check above.
             </div>
           ) : (
             localLogs.slice(0, 8).map((log) => (
@@ -789,7 +786,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                   {editingRuleId ? 'Edit Automation Rule' : 'Create Automation Rule'}
                 </h3>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  Tenant: <span >{tenantId}</span>
+                  Configure trigger threshold and automated follow-up actions.
                 </p>
               </div>
               <button

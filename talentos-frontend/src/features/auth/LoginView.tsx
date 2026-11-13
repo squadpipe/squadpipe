@@ -647,7 +647,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
 
         {/* Subtle Bottom Spacer */}
         <div className="text-center text-[11px] text-slate-400 flex-shrink-0">
-          TalentOS Staffing Suite &bull; Tenant-Isolated Workspace
+          TalentOS Staffing Suite &bull; Enterprise Workspace
         </div>
       </div>
     </div>

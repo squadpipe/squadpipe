@@ -16,6 +16,7 @@ import { UserManagementView } from './features/user-management/UserManagementVie
 import { CustomFieldsView } from './features/custom-fields/CustomFieldsView';
 import { AutomationsView } from './features/automations/AutomationsView';
 import { ImportDataView } from './features/import-data/ImportDataView';
+import { SettingsView } from './features/settings/SettingsView';
 
 // Auth View
 import { LoginView } from './features/auth/LoginView';
@@ -1500,6 +1501,14 @@ export const App: React.FC = () => {
               }}
               onOpenResumeParser={() => setIsResumeModalOpen(true)}
               onNavigate={setCurrentView}
+              showToast={showToast}
+            />
+          )}
+
+          {(currentView === 'settings_general' || currentView === 'settings_smtp') && (
+            <SettingsView
+              activeTab={currentView === 'settings_smtp' ? 'smtp' : 'general'}
+              onTabChange={(tab) => setCurrentView(tab === 'smtp' ? 'settings_smtp' : 'settings_general')}
               showToast={showToast}
             />
           )}
