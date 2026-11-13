@@ -81,7 +81,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
             <div>
               <h2 className="text-sm font-bold text-white flex items-center gap-2">
                 <span>Create New Job Requirement</span>
-                <span className="text-[10px] font-mono font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.2 rounded">
+                <span className="text-[10px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.2 rounded">
                   Client Job Order
                 </span>
               </h2>
@@ -178,7 +178,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
                   value={form.targetRate}
                   onChange={(e) => setForm({ ...form, targetRate: e.target.value })}
                   placeholder="e.g. $115/hr"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-mono focus:border-brand-600 focus:outline-none"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs focus:border-brand-600 focus:outline-none"
                   required
                 />
               </div>
@@ -190,7 +190,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
                 value={form.skillsRequired}
                 onChange={(e) => setForm({ ...form, skillsRequired: e.target.value })}
                 placeholder="e.g. AWS, Terraform, Kubernetes, Python, Helm"
-                className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-mono text-[11px] focus:border-brand-600 focus:outline-none"
+                className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs text-[11px] focus:border-brand-600 focus:outline-none"
                 required
               />
             </div>

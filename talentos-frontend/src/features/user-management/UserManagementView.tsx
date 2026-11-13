@@ -190,7 +190,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
             </div>
           </div>
 
-          <div className="text-[11px] font-mono text-slate-500">
+          <div className="text-[11px] text-slate-500">
             <span className="font-semibold text-slate-800">{filteredUsers.length}</span> of {users.length} members
           </div>
         </div>

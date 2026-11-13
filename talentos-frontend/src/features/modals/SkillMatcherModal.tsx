@@ -98,7 +98,7 @@ export const SkillMatcherModal: React.FC<SkillMatcherModalProps> = ({
             {currentReq && (
               <div className="mt-3 flex items-center gap-2 text-xs text-slate-600 flex-wrap">
                 <span className="font-semibold text-slate-700">Required Competencies:</span>
-                <span className="font-mono text-slate-500 bg-white px-2.5 py-1 rounded-md border border-slate-200 text-[11px]">
+                <span className="text-slate-500 bg-white px-2.5 py-1 rounded-md border border-slate-200 text-[11px]">
                   {currentReq.skillsRequired}
                 </span>
               </div>
@@ -120,7 +120,7 @@ export const SkillMatcherModal: React.FC<SkillMatcherModalProps> = ({
                     <span className="px-2 py-0.5 rounded text-[10px] bg-slate-100 text-slate-600 border border-slate-200">
                       {m.candidate.workAuth}
                     </span>
-                    <span className="text-[10px] text-slate-400 font-mono">{m.candidate.hourlyRate}</span>
+                    <span className="text-[10px] text-slate-400">{m.candidate.hourlyRate}</span>
                   </div>
                   <div className="text-[11px] text-slate-500 mt-0.5">{m.candidate.currentTitle}</div>
 

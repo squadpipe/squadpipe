@@ -209,7 +209,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
                 <i className="fa-solid fa-file-excel text-emerald-600 text-base"></i>
                 <div>
                   <h2 className="text-sm font-bold text-slate-900">Spreadsheet Migration &amp; Column Mapping Wizard</h2>
-                  <div className="text-[11px] text-slate-500 font-mono">
+                  <div className="text-[11px] text-slate-500">
                     Step {migrationStep} of 3: {stepTitles[migrationStep]}
                   </div>
                 </div>
@@ -265,7 +265,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
                     Verify Column Mapping from Excel to TalentOS CRM:
                   </div>
                   <table className="w-full text-left text-xs border border-slate-200 rounded-lg overflow-hidden">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-semibold text-slate-600 uppercase font-mono">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-semibold text-slate-600 uppercase">
                       <tr>
                         <th className="p-2">Source Excel Column</th>
                         <th className="p-2">Sample Preview</th>
@@ -276,15 +276,15 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
                     <tbody className="divide-y divide-slate-100">
                       {columnMappings.map((m) => (
                         <tr key={m.source}>
-                          <td className="p-2 font-mono font-medium text-slate-900">{m.source}</td>
-                          <td className="p-2 text-slate-500 italic font-mono">{m.sample}</td>
+                          <td className="p-2 font-medium text-slate-900">{m.source}</td>
+                          <td className="p-2 text-slate-500 italic">{m.sample}</td>
                           <td className="p-2">
                             <span className="px-2 py-0.5 border rounded text-xs bg-white font-medium text-slate-800">
                               {m.target}
                             </span>
                           </td>
                           <td className="p-2">
-                            <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                            <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
                               ✅ 100% Match
                             </span>
                           </td>
@@ -355,7 +355,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
                 <i className="fa-solid fa-file-csv text-emerald-600 text-base"></i>
                 <div>
                   <h2 className="text-sm font-bold text-slate-900">Candidate CSV Import</h2>
-                  <div className="text-[11px] text-slate-500 font-mono">Bulk roster ingestion</div>
+                  <div className="text-[11px] text-slate-500">Bulk roster ingestion</div>
                 </div>
               </div>
               <button

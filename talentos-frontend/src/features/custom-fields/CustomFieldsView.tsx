@@ -159,14 +159,14 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
               Custom attributes configured across Candidates, Requisitions, Clients, Vendors, and Placements.
             </p>
           </div>
-          <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+          <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
             {fieldsList.length} Active Fields
           </span>
         </div>
 
         {/* Scope Tabs Filter */}
         <div className="px-5 py-2.5 border-b border-slate-200 flex flex-wrap items-center gap-1.5 text-xs bg-white">
-          <span className="text-[11px] font-semibold text-slate-400 mr-1 uppercase tracking-wider font-mono">
+          <span className="text-[11px] font-semibold text-slate-400 mr-1 uppercase tracking-wider">
             Filter Entity:
           </span>
           <button
@@ -223,7 +223,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 font-mono">
+              <tr className="bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                 <th className="py-2.5 px-5">Field Label</th>
                 <th className="py-2.5 px-4">Target Entity</th>
                 <th className="py-2.5 px-4">Data Type</th>
@@ -262,7 +262,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                   </td>
 
                   {/* Data Type Badge with Icon */}
-                  <td className="py-3 px-4 font-mono text-[11px] text-slate-600">
+                  <td className="py-3 px-4 text-[11px] text-slate-600">
                     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-100 border border-slate-200">
                       {field.type === 'Dropdown' ? (
                         <i className="fa-solid fa-list-check text-slate-500 text-[10px]"></i>
@@ -278,7 +278,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                   </td>
 
                   {/* Options / Format */}
-                  <td className="py-3 px-4 text-slate-500 text-[11px] max-w-xs truncate font-mono">
+                  <td className="py-3 px-4 text-slate-500 text-[11px] max-w-xs truncate">
                     {field.options}
                   </td>
 

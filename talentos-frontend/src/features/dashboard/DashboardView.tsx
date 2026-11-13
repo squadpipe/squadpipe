@@ -143,7 +143,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <i className="fa-solid fa-briefcase text-xs"></i>
             </div>
           </div>
-          <div className="text-2xl font-bold text-slate-900 font-mono">{activeReqsCount}</div>
+          <div className="text-2xl font-bold text-slate-900">{activeReqsCount}</div>
           <div className="text-[10px] text-slate-400 mt-1">
             <span className="text-emerald-600 font-medium">Open pipeline</span> orders
           </div>
@@ -160,7 +160,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <i className="fa-solid fa-paper-plane text-xs"></i>
             </div>
           </div>
-          <div className="text-2xl font-bold text-slate-900 font-mono">{submittedCount}</div>
+          <div className="text-2xl font-bold text-slate-900">{submittedCount}</div>
           <div className="text-[10px] text-slate-400 mt-1">
             <span className="text-blue-600 font-medium">Client review</span>
           </div>
@@ -177,7 +177,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <i className="fa-solid fa-calendar-check text-xs"></i>
             </div>
           </div>
-          <div className="text-2xl font-bold text-slate-900 font-mono">{interviewsCount}</div>
+          <div className="text-2xl font-bold text-slate-900">{interviewsCount}</div>
           <div className="text-[10px] text-slate-400 mt-1">
             <span className="text-amber-600 font-medium">Active rounds</span>
           </div>
@@ -194,7 +194,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <i className="fa-solid fa-award text-xs"></i>
             </div>
           </div>
-          <div className="text-2xl font-bold text-slate-900 font-mono">{selectedCount}</div>
+          <div className="text-2xl font-bold text-slate-900">{selectedCount}</div>
           <div className="text-[10px] text-slate-400 mt-1">
             <span className="text-purple-600 font-medium">Offers finalized</span>
           </div>
@@ -211,7 +211,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <i className="fa-solid fa-user-check text-xs"></i>
             </div>
           </div>
-          <div className="text-2xl font-bold text-slate-900 font-mono">{onboardingCount}</div>
+          <div className="text-2xl font-bold text-slate-900">{onboardingCount}</div>
           <div className="text-[10px] text-slate-400 mt-1">
             <span className="text-indigo-600 font-medium">Background check</span>
           </div>
@@ -228,7 +228,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <i className="fa-solid fa-dollar-sign text-xs"></i>
             </div>
           </div>
-          <div className="text-2xl font-bold text-emerald-950 font-mono">{activeBillableCount}</div>
+          <div className="text-2xl font-bold text-emerald-950">{activeBillableCount}</div>
           <div className="text-[10px] text-emerald-700 mt-1">Generating revenue</div>
         </div>
       </div>
@@ -238,7 +238,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="px-5 py-3.5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-xs text-slate-900">Requirements Overview</span>
-            <span className="text-[11px] text-slate-400 font-mono bg-white border border-slate-200 px-1.5 py-0.2 rounded">
+            <span className="text-[11px] text-slate-400 bg-white border border-slate-200 px-1.5 py-0.2 rounded">
               {filteredRequirements.length} rows
             </span>
           </div>
@@ -306,7 +306,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                 return (
                   <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="px-4 py-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                    <td className="px-4 py-3 text-[11px] text-slate-500 whitespace-nowrap">
                       {dateStr}
                     </td>
                     <td className="px-4 py-3 font-medium text-slate-900 max-w-xs">
@@ -315,7 +315,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         onClick={() => onSelectReq(req)}
                       >
                         <span className="truncate font-semibold">{req.opportunityTitle}</span>
-                        <span className="text-[9px] font-mono text-slate-400 bg-slate-100 px-1 py-0.2 rounded">
+                        <span className="text-[9px] text-slate-400 bg-slate-100 px-1 py-0.2 rounded">
                           {req.code}
                         </span>
                       </div>
@@ -396,7 +396,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold text-xs text-slate-900">Today's Priority Action Queue</h3>
-                  <span className="text-[9px] font-mono bg-emerald-50 text-emerald-700 px-1.5 py-0.2 rounded border border-emerald-200 font-semibold">
+                  <span className="text-[9px] bg-emerald-50 text-emerald-700 px-1.5 py-0.2 rounded border border-emerald-200 font-semibold">
                     {slaTasks.length} Rules
                   </span>
                 </div>
@@ -439,7 +439,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div className="space-y-0.5 overflow-hidden pr-2">
                   <div className="flex items-center gap-1.5">
                     <span
-                      className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border ${
+                      className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${
                         item.badgeClass || 'bg-amber-50 text-amber-700 border-amber-200'
                       }`}
                     >
@@ -516,7 +516,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     >
                       {b.resourceName}
                     </span>
-                    <span className="text-[9px] font-mono bg-white border border-slate-200 px-1 py-0.2 rounded text-slate-600">
+                    <span className="text-[9px] bg-white border border-slate-200 px-1 py-0.2 rounded text-slate-600">
                       {b.deployment}
                     </span>
                   </div>
@@ -525,10 +525,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="font-mono font-bold text-emerald-700 text-xs">
+                  <span className="font-bold text-emerald-700 text-xs">
                     <MaskedValue value={b.billing} isMasked={rateMasked} />
                   </span>
-                  <div className="text-[9px] font-mono text-slate-400">Ends {b.endDate}</div>
+                  <div className="text-[9px] text-slate-400">Ends {b.endDate}</div>
                 </div>
               </div>
             ))}

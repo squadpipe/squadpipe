@@ -208,14 +208,14 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
           <div className="bg-emerald-50/60 border border-emerald-200 p-4 rounded-xl flex items-center justify-between">
             <div>
               <div className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Gross Profit Margin Spread</div>
-              <div className="text-xl font-extrabold text-emerald-700 font-mono mt-0.5">
+              <div className="text-xl font-extrabold text-emerald-700 mt-0.5">
                 {spread >= 0 ? `+$${spread.toFixed(2)}/hr` : `-$${Math.abs(spread).toFixed(2)}/hr`}{' '}
                 <span className="text-xs font-semibold text-emerald-600">({marginPct}%)</span>
               </div>
             </div>
             <div className="text-right">
               <div className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Est. Monthly Gross Profit</div>
-              <div className="text-xl font-extrabold text-emerald-700 font-mono mt-0.5">
+              <div className="text-xl font-extrabold text-emerald-700 mt-0.5">
                 ${monthlyGrossProfit}/mo
               </div>
             </div>
@@ -267,7 +267,7 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
                 type="number"
                 value={formData.billRate}
                 onChange={(e) => setFormData({ ...formData, billRate: Number(e.target.value) })}
-                className="mt-1 w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg font-mono text-slate-800 font-bold"
+                className="mt-1 w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 font-bold"
               />
             </div>
             <div>
@@ -276,7 +276,7 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
                 type="number"
                 value={formData.payRate}
                 onChange={(e) => setFormData({ ...formData, payRate: Number(e.target.value) })}
-                className="mt-1 w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg font-mono text-slate-800 font-bold"
+                className="mt-1 w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 font-bold"
               />
             </div>
 
@@ -331,7 +331,7 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
                 value={formData.purchaseOrderNumber}
                 onChange={(e) => setFormData({ ...formData, purchaseOrderNumber: e.target.value })}
                 placeholder="e.g. PO-2026-8841"
-                className="mt-1 w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg font-mono text-slate-800"
+                className="mt-1 w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800"
               />
             </div>
 
@@ -341,7 +341,7 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
                 type="date"
                 value={formData.startDate}
                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                className="mt-1 w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg font-mono text-slate-800"
+                className="mt-1 w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800"
               />
             </div>
             <div>
@@ -350,7 +350,7 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
                 type="date"
                 value={formData.endDate}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                className="mt-1 w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg font-mono text-slate-800"
+                className="mt-1 w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800"
               />
             </div>
           </div>

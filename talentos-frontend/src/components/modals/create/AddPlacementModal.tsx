@@ -207,7 +207,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
             <div>
               <h2 className="text-sm font-bold text-white flex items-center gap-2">
                 <span>Create Billable Placement Record</span>
-                <span className="text-[10px] font-mono font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded">
+                <span className="text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded">
                   Active Deployment
                 </span>
               </h2>
@@ -277,10 +277,10 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
                 <div>
                   <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Hourly Margin Spread</div>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-base font-extrabold font-mono text-emerald-700">
+                    <span className="text-base font-extrabold text-emerald-700">
                       {spread >= 0 ? `+$${spread.toFixed(2)}/hr` : `-$${Math.abs(spread).toFixed(2)}/hr`}
                     </span>
-                    <span className={`text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded border ${marginBadgeClass}`}>
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${marginBadgeClass}`}>
                       {marginPct}% margin
                     </span>
                   </div>
@@ -288,7 +288,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
               </div>
               <div className="text-right">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Est. Monthly Gross Profit</div>
-                <div className="text-base font-extrabold font-mono text-emerald-700 mt-0.5">
+                <div className="text-base font-extrabold text-emerald-700 mt-0.5">
                   ${monthlyGrossProfit.toLocaleString()}/mo
                 </div>
               </div>
@@ -361,7 +361,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
                   value={form.billing}
                   onChange={(e) => setForm({ ...form, billing: e.target.value })}
                   placeholder="$115/hr"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-mono font-bold text-emerald-700 focus:border-brand-600 focus:outline-none"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-bold text-emerald-700 focus:border-brand-600 focus:outline-none"
                   required
                 />
               </div>
@@ -371,7 +371,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
                   value={form.payRate}
                   onChange={(e) => setForm({ ...form, payRate: e.target.value })}
                   placeholder="$85/hr"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-mono font-bold text-slate-800 focus:border-brand-600 focus:outline-none"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 focus:border-brand-600 focus:outline-none"
                   required
                 />
               </div>
@@ -444,7 +444,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
                   value={form.purchaseOrderNumber}
                   onChange={(e) => setForm({ ...form, purchaseOrderNumber: e.target.value })}
                   placeholder="e.g. PO-2026-8841"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-mono focus:border-brand-600 focus:outline-none"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs focus:border-brand-600 focus:outline-none"
                 />
               </div>
             </div>
@@ -456,7 +456,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
                   type="date"
                   value={form.startDate}
                   onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-mono focus:border-brand-600"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs focus:border-brand-600"
                   required
                 />
               </div>
@@ -466,7 +466,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
                   type="date"
                   value={form.endDate}
                   onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-mono focus:border-brand-600"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs focus:border-brand-600"
                   required
                 />
               </div>
@@ -479,7 +479,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   placeholder="+1 (555) 019-2831"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-mono focus:border-brand-600"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs focus:border-brand-600"
                 />
               </div>
               <div>

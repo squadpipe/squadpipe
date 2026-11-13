@@ -499,7 +499,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                   type="text"
                   value={placeForm.billing}
                   onChange={(e) => setPlaceForm({ ...placeForm, billing: e.target.value })}
-                  className="mt-1 w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-mono"
+                  className="mt-1 w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
                 />
               </div>
               <div>
@@ -508,7 +508,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                   type="text"
                   value={placeForm.payRate}
                   onChange={(e) => setPlaceForm({ ...placeForm, payRate: e.target.value })}
-                  className="mt-1 w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-mono"
+                  className="mt-1 w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
                 />
               </div>
             </div>

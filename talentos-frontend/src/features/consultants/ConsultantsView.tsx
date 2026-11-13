@@ -155,13 +155,13 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                     >
                       {c.fullName}
                     </div>
-                    <div className="text-[10px] text-slate-400 font-mono">
+                    <div className="text-[10px] text-slate-400">
                       {c.email} &bull; {c.phone}
                     </div>
                   </td>
 
                   {/* Work Auth */}
-                  <td className="px-4 py-3 whitespace-nowrap font-mono text-[10px]">
+                  <td className="px-4 py-3 whitespace-nowrap text-[10px]">
                     <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200">
                       {c.workAuth}
                     </span>
@@ -181,7 +181,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                         .map((sk) => (
                           <span
                             key={sk}
-                            className="text-[9px] font-mono bg-brand-50 text-brand-700 px-1.5 py-0.2 rounded border border-brand-200"
+                            className="text-[9px] bg-brand-50 text-brand-700 px-1.5 py-0.2 rounded border border-brand-200"
                           >
                             {sk.trim()}
                           </span>
@@ -190,7 +190,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                   </td>
 
                   {/* Hourly Rate */}
-                  <td className="px-4 py-3 font-mono whitespace-nowrap">
+                  <td className="px-4 py-3 whitespace-nowrap">
                     <MaskedValue value={c.hourlyRate} isMasked={rateMasked} />
                   </td>
 
@@ -211,7 +211,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                   <td className="px-4 py-3 whitespace-nowrap">
                     <button
                       onClick={() => onPreviewResume(c)}
-                      className="text-[11px] text-brand-600 hover:underline flex items-center gap-1 font-mono cursor-pointer"
+                      className="text-[11px] text-brand-600 hover:underline flex items-center gap-1 cursor-pointer"
                     >
                       <i className="fa-regular fa-file-pdf text-rose-500"></i>
                       <span>{c.resumeFormat || 'PDF'}</span>

@@ -477,7 +477,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
             <h2 className="text-lg font-bold text-slate-900 tracking-tight">Workflow Automations</h2>
-            <span className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[11px] font-mono text-slate-600">
+            <span className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[11px] text-slate-600">
               Tenant: {tenantId}
             </span>
           </div>
@@ -523,7 +523,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
           ))}
         </div>
 
-        <div className="flex items-center gap-3 text-[11px] font-mono text-slate-500 flex-shrink-0">
+        <div className="flex items-center gap-3 text-[11px] text-slate-500 flex-shrink-0">
           <span>
             <strong className="text-slate-900">{activeCount}</strong> active
           </span>
@@ -544,7 +544,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
               <h3 className="text-sm font-bold text-slate-900">
-                No automation rules enabled for <span className="font-mono text-brand-600">{tenantId}</span>
+                No automation rules enabled for <span className="text-brand-600">{tenantId}</span>
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Activate the 5 default staffing rules at once or enable individual templates below.
@@ -573,7 +573,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                     </div>
                     <div>
                       <div className="font-semibold text-slate-900 text-xs">{tpl.name}</div>
-                      <div className="text-[10px] font-mono uppercase text-slate-400">{tpl.category}</div>
+                      <div className="text-[10px] uppercase text-slate-400">{tpl.category}</div>
                     </div>
                   </div>
                   <p className="text-[11px] text-slate-600 leading-relaxed">
@@ -611,7 +611,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                     </div>
                     <div>
                       <h3 className="font-semibold text-slate-900 text-sm tracking-tight">{rule.name}</h3>
-                      <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider font-mono">
+                      <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
                         {rule.category}
                       </span>
                     </div>
@@ -655,7 +655,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                 {/* WHEN / THEN Recipe Block */}
                 <div className="p-3.5 rounded-lg border border-slate-200/80 bg-slate-50/70 text-xs space-y-2.5">
                   <div className="flex items-baseline gap-2 flex-wrap">
-                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider bg-slate-200/70 px-1.5 py-0.5 rounded font-mono">
+                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider bg-slate-200/70 px-1.5 py-0.5 rounded">
                       WHEN
                     </span>
                     <span className="text-slate-700">{rule.whenText}</span>
@@ -675,7 +675,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                   <div className="w-full h-px bg-slate-200/60"></div>
 
                   <div className="flex items-start gap-2">
-                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider bg-emerald-100/70 px-1.5 py-0.5 rounded font-mono mt-0.5">
+                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider bg-emerald-100/70 px-1.5 py-0.5 rounded mt-0.5">
                       THEN
                     </span>
                     <span className="text-slate-800 font-medium leading-relaxed">{rule.thenSummary}</span>
@@ -724,7 +724,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
           <div className="flex items-center gap-2">
             <Activity className="w-3.5 h-3.5 text-slate-500" />
             <h3 className="font-semibold text-slate-900 text-xs">Recent Automation Activity</h3>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
               {localLogs.length} events
             </span>
           </div>
@@ -756,7 +756,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-slate-900 text-xs">{log.target}</span>
-                      <span className="px-2 py-0.2 rounded-md bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-mono">
+                      <span className="px-2 py-0.2 rounded-md bg-slate-100 text-slate-700 border border-slate-200 text-[10px]">
                         {log.ruleName}
                       </span>
                     </div>
@@ -768,7 +768,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2.5 self-end sm:self-center flex-shrink-0 text-[11px]">
-                  <span className="text-slate-400 font-mono">{log.timestamp}</span>
+                  <span className="text-slate-400">{log.timestamp}</span>
                   <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-medium">
                     {log.status}
                   </span>
@@ -789,7 +789,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                   {editingRuleId ? 'Edit Automation Rule' : 'Create Automation Rule'}
                 </h3>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  Tenant: <span className="font-mono">{tenantId}</span>
+                  Tenant: <span >{tenantId}</span>
                 </p>
               </div>
               <button

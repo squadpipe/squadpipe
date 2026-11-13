@@ -102,7 +102,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               type="email"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-900 font-semibold text-xs focus:border-brand-600 focus:outline-none font-mono"
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-900 font-semibold text-xs focus:border-brand-600 focus:outline-none"
             />
           </div>
 
@@ -129,7 +129,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 <i className="fa-solid fa-shield-halved text-amber-600"></i>
                 Rate Masking Status
               </span>
-              <span className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold ${
+              <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
                 currentUser.rateMasked ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
               }`}>
                 {currentUser.rateMasked ? '•••• Masked' : 'Rates Visible'}

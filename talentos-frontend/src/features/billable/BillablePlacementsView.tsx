@@ -253,7 +253,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold text-slate-900 tracking-tight">Active Billable Consultants</h2>
-            <span className="text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 px-2 py-0.5 rounded">
+            <span className="text-[10px] font-bold bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 px-2 py-0.5 rounded">
               {activePlacements.length} Active Placements
             </span>
           </div>
@@ -287,7 +287,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
           </div>
           <div>
             <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Active Billing</div>
-            <div className="text-lg font-bold text-slate-900 font-mono">{activePlacements.length} Consultants</div>
+            <div className="text-lg font-bold text-slate-900">{activePlacements.length} Consultants</div>
             <div className="text-[10px] text-emerald-600 font-medium mt-0.5">{placements.length} Total Ledger Records</div>
           </div>
         </div>
@@ -298,7 +298,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
           </div>
           <div>
             <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Avg. Hourly Spread</div>
-            <div className="text-lg font-bold text-blue-700 font-mono">
+            <div className="text-lg font-bold text-blue-700">
               <MaskedValue value={`+$${avgHourlySpread}/hr`} isMasked={rateMasked} />
             </div>
             <div className="text-[10px] text-slate-500 mt-0.5">
@@ -313,7 +313,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
           </div>
           <div>
             <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Monthly Gross Profit</div>
-            <div className="text-lg font-bold text-emerald-800 font-mono">
+            <div className="text-lg font-bold text-emerald-800">
               <MaskedValue value={`$${totalMonthlyGrossProfit.toLocaleString()}/mo`} isMasked={rateMasked} />
             </div>
             <div className="text-[10px] text-slate-500 mt-0.5">
@@ -328,7 +328,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
           </div>
           <div>
             <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Contract Expiry Radar</div>
-            <div className="text-lg font-bold text-amber-700 font-mono">{contractsExpiringSoon} Pending Renewal</div>
+            <div className="text-lg font-bold text-amber-700">{contractsExpiringSoon} Pending Renewal</div>
             <div className="text-[10px] text-amber-700 font-medium mt-0.5">Expiring within 30 days</div>
           </div>
         </div>
@@ -385,7 +385,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
         {/* Ledger Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase tracking-wider font-mono">
+            <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
               <tr>
                 <th className="px-3.5 py-3">Customer &amp; PO</th>
                 <th className="px-3.5 py-3">Consultant &amp; Role</th>
@@ -415,7 +415,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                         <div className="font-bold text-slate-900">{p.customer}</div>
                         <div className="text-[11px] text-slate-500 font-sans mt-0.5">{p.customerContact || 'Hiring Manager'}</div>
                         {p.purchaseOrderNumber && (
-                          <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-mono bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                          <div className="mt-1 inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
                             <FileText className="w-2.5 h-2.5" />
                             <span>PO: {p.purchaseOrderNumber}</span>
                           </div>
@@ -426,7 +426,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                       <td className="px-3.5 py-3">
                         <div className="font-bold text-slate-900 flex items-center gap-1.5">
                           <span>{p.resourceName}</span>
-                          <span className="text-[9px] font-mono font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                          <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
                             {p.deployment}
                           </span>
                         </div>
@@ -440,7 +440,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                       <td className="px-3.5 py-3 space-y-1">
                         <div>
                           <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold border ${
+                            className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${
                               p.placementType && p.placementType.includes('W2')
                                 ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
                                 : 'bg-purple-50 text-purple-700 border-purple-200'
@@ -453,18 +453,18 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                       </td>
 
                       {/* Pay Rate */}
-                      <td className="px-3.5 py-3 font-mono font-medium text-slate-600">
+                      <td className="px-3.5 py-3 font-medium text-slate-600">
                         <MaskedValue value={p.payRate || '-'} isMasked={rateMasked} />
                       </td>
 
                       {/* Bill Rate */}
-                      <td className="px-3.5 py-3 font-mono font-bold text-slate-900">
+                      <td className="px-3.5 py-3 font-bold text-slate-900">
                         <MaskedValue value={p.billing} isMasked={rateMasked} />
                       </td>
 
                       {/* Hourly Margin Spread */}
                       <td className="px-3.5 py-3">
-                        <div className="font-mono font-bold text-emerald-600 text-xs">
+                        <div className="font-bold text-emerald-600 text-xs">
                           <MaskedValue value={formatSpread(p.hourlySpread)} isMasked={rateMasked} />
                         </div>
                         <div className="text-[10px] text-slate-400">
@@ -473,7 +473,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                       </td>
 
                       {/* Contract Period */}
-                      <td className="px-3.5 py-3 font-mono text-[11px] text-slate-600">
+                      <td className="px-3.5 py-3 text-[11px] text-slate-600">
                         <div>
                           {p.startDate} &rarr; {p.endDate}
                         </div>
@@ -576,7 +576,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="font-semibold text-slate-700 text-[11px]">Quick Extension Presets</label>
-                  <span className="text-[10px] font-mono text-slate-400">Current End: {extendingPlacement.endDate}</span>
+                  <span className="text-[10px] text-slate-400">Current End: {extendingPlacement.endDate}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   {[
@@ -611,13 +611,13 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                   required
                   value={extendForm.newEndDate}
                   onChange={(e) => setExtendForm({ ...extendForm, newEndDate: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:border-brand-600 focus:outline-none"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
                 />
               </div>
 
               <div className="bg-emerald-50/70 border border-emerald-200 rounded-lg px-3.5 py-2.5 flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-emerald-800">Revised Spread Preview</span>
-                <span className="font-mono font-bold text-emerald-700">
+                <span className="font-bold text-emerald-700">
                   {extSpread >= 0 ? `+$${extSpread.toFixed(2)}/hr` : `-$${Math.abs(extSpread).toFixed(2)}/hr`} ({extMargin}%)
                 </span>
               </div>
@@ -630,7 +630,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                     value={extendForm.billing || ''}
                     onChange={(e) => setExtendForm({ ...extendForm, billing: e.target.value })}
                     placeholder="$115/hr"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:border-brand-600 focus:outline-none"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
                   />
                 </div>
                 <div>
@@ -640,7 +640,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                     value={extendForm.payRate || ''}
                     onChange={(e) => setExtendForm({ ...extendForm, payRate: e.target.value })}
                     placeholder="$85/hr"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:border-brand-600 focus:outline-none"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
                   />
                 </div>
               </div>
@@ -652,7 +652,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                   value={extendForm.purchaseOrderNumber || ''}
                   onChange={(e) => setExtendForm({ ...extendForm, purchaseOrderNumber: e.target.value })}
                   placeholder="e.g. PO-2026-9901"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:border-brand-600 focus:outline-none"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
                 />
               </div>
 
@@ -711,7 +711,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
               {/* Live Spread Bar */}
               <div className="bg-emerald-50/70 border border-emerald-200 rounded-lg px-3.5 py-2.5 flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-emerald-800">Hourly Margin Spread</span>
-                <span className="font-mono font-bold text-emerald-700">
+                <span className="font-bold text-emerald-700">
                   {editSpread >= 0 ? `+$${editSpread.toFixed(2)}/hr` : `-$${Math.abs(editSpread).toFixed(2)}/hr`} ({editMargin}%)
                 </span>
               </div>
@@ -810,7 +810,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                     value={editingPlacement.payRate || ''}
                     onChange={(e) => setEditingPlacement({ ...editingPlacement, payRate: e.target.value })}
                     placeholder="$85/hr"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:border-brand-600 focus:outline-none"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
                   />
                 </div>
                 <div>
@@ -820,7 +820,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                     value={editingPlacement.billing}
                     onChange={(e) => setEditingPlacement({ ...editingPlacement, billing: e.target.value })}
                     placeholder="$115/hr"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:border-brand-600 focus:outline-none"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
                   />
                 </div>
                 <div>
@@ -830,7 +830,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                     value={editingPlacement.purchaseOrderNumber || ''}
                     onChange={(e) => setEditingPlacement({ ...editingPlacement, purchaseOrderNumber: e.target.value })}
                     placeholder="PO-2026-01"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:border-brand-600 focus:outline-none"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
                   />
                 </div>
               </div>
@@ -842,7 +842,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                     type="date"
                     value={editingPlacement.startDate}
                     onChange={(e) => setEditingPlacement({ ...editingPlacement, startDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:border-brand-600 focus:outline-none"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
                   />
                 </div>
                 <div>
@@ -851,7 +851,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                     type="date"
                     value={editingPlacement.endDate}
                     onChange={(e) => setEditingPlacement({ ...editingPlacement, endDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:border-brand-600 focus:outline-none"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
                   />
                 </div>
               </div>
@@ -863,7 +863,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                     type="text"
                     value={editingPlacement.phone || ''}
                     onChange={(e) => setEditingPlacement({ ...editingPlacement, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:border-brand-600 focus:outline-none"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
                   />
                 </div>
                 <div>

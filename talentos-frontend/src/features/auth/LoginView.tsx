@@ -550,7 +550,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                   onChange={(e) => setResetCode(e.target.value)}
                   placeholder="6-digit reset code"
                   required
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 font-mono text-center text-sm tracking-widest focus:border-brand-600 focus:outline-none transition-colors"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 text-center text-sm tracking-widest focus:border-brand-600 focus:outline-none transition-colors"
                 />
               </div>
 

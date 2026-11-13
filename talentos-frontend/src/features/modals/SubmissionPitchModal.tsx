@@ -213,7 +213,7 @@ export const SubmissionPitchModal: React.FC<SubmissionPitchModalProps> = ({
                 value={recipientEmail}
                 onChange={(e) => setRecipientEmail(e.target.value)}
                 placeholder="hiring.manager@client.com"
-                className="mt-1 w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 font-mono"
+                className="mt-1 w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800"
               />
             </div>
           </div>
@@ -225,7 +225,7 @@ export const SubmissionPitchModal: React.FC<SubmissionPitchModalProps> = ({
               type="text"
               value={customSubject}
               onChange={(e) => setCustomSubject(e.target.value)}
-              className="mt-1 w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 font-semibold font-mono"
+              className="mt-1 w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 font-semibold"
             />
           </div>
 
@@ -236,7 +236,7 @@ export const SubmissionPitchModal: React.FC<SubmissionPitchModalProps> = ({
               rows={9}
               value={customBody}
               onChange={(e) => setCustomBody(e.target.value)}
-              className="mt-1 w-full p-3 text-xs bg-white border border-slate-200 rounded-xl text-slate-800 font-mono leading-relaxed"
+              className="mt-1 w-full p-3 text-xs bg-white border border-slate-200 rounded-xl text-slate-800 leading-relaxed"
             ></textarea>
           </div>
         </div>

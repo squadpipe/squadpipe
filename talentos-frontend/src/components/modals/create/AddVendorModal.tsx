@@ -70,7 +70,7 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
             <div>
               <h2 className="text-sm font-bold text-white flex items-center gap-2">
                 <span>Register Staffing Vendor Partner</span>
-                <span className="text-[10px] font-mono font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded">
+                <span className="text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded">
                   Sub-Tier Partner
                 </span>
               </h2>
@@ -130,7 +130,7 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   placeholder="+1 (469) 555-9011"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-mono focus:border-brand-600 focus:outline-none"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs focus:border-brand-600 focus:outline-none"
                 />
               </div>
             </div>

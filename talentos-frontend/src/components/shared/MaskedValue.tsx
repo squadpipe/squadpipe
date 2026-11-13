@@ -16,7 +16,7 @@ export const MaskedValue: React.FC<MaskedValueProps> = ({
   className = ''
 }) => {
   if (isMasked) {
-    return <span className={`font-mono tracking-widest text-slate-400 select-none ${className}`}>••••••</span>;
+    return <span className={`tracking-widest text-slate-400 select-none ${className}`}>••••••</span>;
   }
   return <span className={className}>{prefix}{value}{suffix}</span>;
 };

@@ -79,7 +79,7 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
             <div>
               <h2 className="text-sm font-bold text-white flex items-center gap-2">
                 <span>Add New Consultant Profile</span>
-                <span className="text-[10px] font-mono font-semibold bg-brand-500/20 text-brand-300 border border-brand-500/30 px-1.5 py-0.2 rounded">
+                <span className="text-[10px] font-semibold bg-brand-500/20 text-brand-300 border border-brand-500/30 px-1.5 py-0.2 rounded">
                   Candidate Roster
                 </span>
               </h2>
@@ -143,7 +143,7 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
                   value={form.hourlyRate}
                   onChange={(e) => setForm({ ...form, hourlyRate: e.target.value })}
                   placeholder="e.g. $95/hr (W2) or $110/hr (C2C)"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-mono focus:border-brand-600 focus:outline-none"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs focus:border-brand-600 focus:outline-none"
                 />
               </div>
             </div>
@@ -166,7 +166,7 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   placeholder="e.g. +1 (512) 555-0199"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-mono focus:border-brand-600 focus:outline-none"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs focus:border-brand-600 focus:outline-none"
                 />
               </div>
             </div>
@@ -202,7 +202,7 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
                 value={form.skillset}
                 onChange={(e) => setForm({ ...form, skillset: e.target.value })}
                 placeholder="e.g. Java 17, Spring Boot, Apache Kafka, AWS, Microservices"
-                className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-mono text-[11px] focus:border-brand-600 focus:outline-none"
+                className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs text-[11px] focus:border-brand-600 focus:outline-none"
                 required
               />
             </div>

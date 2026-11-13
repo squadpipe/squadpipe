@@ -8,7 +8,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro Display"', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace']
+        mono: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro Display"', 'system-ui', 'sans-serif']
       },
       colors: {
         brand: {

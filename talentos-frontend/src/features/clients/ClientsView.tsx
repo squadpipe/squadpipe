@@ -108,7 +108,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                     <h3 className="font-bold text-slate-900 text-sm hover:text-brand-600 transition-colors">
                       {client.name}
                     </h3>
-                    <span className="text-[11px] text-brand-600 font-mono mt-0.5 block">
+                    <span className="text-[11px] text-brand-600 mt-0.5 block">
                       {client.website}
                     </span>
                   </div>
@@ -166,7 +166,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                         <div className="font-medium text-slate-800">
                           {contact.name || (contact as any).fullName}
                         </div>
-                        <span className="text-[10px] font-mono text-slate-400">
+                        <span className="text-[10px] text-slate-400">
                           {contact.designation}
                         </span>
                       </div>
@@ -177,7 +177,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
 
               {/* Footer Activity Metrics */}
               <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-                <span className="font-mono text-[11px] text-slate-600">
+                <span className="text-[11px] text-slate-600">
                   <strong className="text-slate-900">{clientReqs.length}</strong> Reqs &bull;{' '}
                   <strong className="text-emerald-700 font-semibold">{clientPlacements.length}</strong> Active Placements
                 </span>

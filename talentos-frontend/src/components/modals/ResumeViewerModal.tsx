@@ -83,7 +83,7 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
             </div>
             <div>
               <div className="text-xs font-bold leading-tight">{candidate.resumeName || `${candidate.fullName}_Resume.pdf`}</div>
-              <div className="text-[10px] text-slate-400 font-mono">
+              <div className="text-[10px] text-slate-400">
                 {candidate.fullName} &bull; {candidate.workAuth} &bull; {candidate.currentTitle}
               </div>
             </div>
@@ -112,7 +112,7 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
             <div className="border-b border-slate-200 pb-4 text-center">
               <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">{candidate.fullName}</h1>
               <div className="text-slate-600 font-semibold text-xs mt-0.5">{candidate.currentTitle}</div>
-              <div className="text-[11px] text-slate-500 font-mono mt-1">
+              <div className="text-[11px] text-slate-500 mt-1">
                 {candidate.email} &bull; {candidate.phone} &bull; {candidate.workAuth} &bull; Relocation: {candidate.relocation}
               </div>
             </div>
@@ -136,7 +136,7 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
                 {skills.map((skill, idx) => (
                   <span
                     key={idx}
-                    className="px-2.5 py-1 rounded-md text-[11px] font-mono bg-slate-50 border border-slate-200 text-slate-700 font-medium"
+                    className="px-2.5 py-1 rounded-md text-[11px] bg-slate-50 border border-slate-200 text-slate-700 font-medium"
                   >
                     {skill}
                   </span>
@@ -158,7 +158,7 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
                   <div>
                     <div className="flex justify-between font-bold text-slate-900 text-xs">
                       <span>{candidate.currentTitle} — Senior Consultant</span>
-                      <span className="font-mono text-[11px] text-slate-500">Current</span>
+                      <span className="text-[11px] text-slate-500">Current</span>
                     </div>
                     <div className="text-[11px] text-slate-600 italic">Enterprise Staffing & Consulting</div>
                     <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
@@ -185,7 +185,7 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
         {/* Modal Actions Footer */}
         <div className="px-6 py-3.5 bg-white border-t border-slate-200 flex items-center justify-between text-xs">
           <div className="flex items-center gap-2">
-            <span className="text-slate-400 font-mono text-[10px] hidden sm:inline">
+            <span className="text-slate-400 text-[10px] hidden sm:inline">
               Verified Consultant Record &bull; Direct Import Verified
             </span>
           </div>
@@ -229,7 +229,7 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
                           >
                             <div className="font-bold text-slate-900 group-hover:text-brand-600 flex items-center justify-between">
                               <span className="truncate max-w-[200px]">{req.opportunityTitle}</span>
-                              <span className="text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
                                 {req.code}
                               </span>
                             </div>

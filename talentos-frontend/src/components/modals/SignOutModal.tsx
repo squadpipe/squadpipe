@@ -42,7 +42,7 @@ export const SignOutModal: React.FC<SignOutModalProps> = ({
               Active Account
             </div>
             <div className="font-semibold text-slate-800">{currentUser.name}</div>
-            <div className="text-[11px] text-slate-500 font-mono">
+            <div className="text-[11px] text-slate-500">
               {currentUser.email} &bull; {currentUser.role}
             </div>
           </div>

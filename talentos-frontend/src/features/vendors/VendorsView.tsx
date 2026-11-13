@@ -87,17 +87,17 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                   <tr key={v.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="px-4 py-3 font-semibold text-slate-900">{v.name}</td>
                     <td className="px-4 py-3 text-slate-800">{v.contactName}</td>
-                    <td className="px-4 py-3 font-mono text-[11px] text-slate-500">
+                    <td className="px-4 py-3 text-[11px] text-slate-500">
                       {v.phone} <br />
                       {v.email}
                     </td>
                     <td className="px-4 py-3 text-slate-600">{v.location}</td>
-                    <td className="px-4 py-3 font-mono text-[10px]">{v.skillSpecialization}</td>
-                    <td className="px-4 py-3 font-mono font-medium">{v.paymentTerms}</td>
-                    <td className="px-4 py-3 font-mono text-slate-600">{v.invoicingTerms}</td>
+                    <td className="px-4 py-3 text-[10px]">{v.skillSpecialization}</td>
+                    <td className="px-4 py-3 font-medium">{v.paymentTerms}</td>
+                    <td className="px-4 py-3 text-slate-600">{v.invoicingTerms}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span
-                        className={`text-[10px] font-mono px-2 py-0.5 rounded font-semibold border ${
+                        className={`text-[10px] px-2 py-0.5 rounded font-semibold border ${
                           isMsaExecuted
                             ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                             : 'bg-amber-50 text-amber-700 border-amber-200'

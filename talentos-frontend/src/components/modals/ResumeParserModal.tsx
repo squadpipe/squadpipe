@@ -178,7 +178,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
             <div>
               <h2 className="text-sm font-bold text-white flex items-center gap-2">
                 <span>Add Consultant — Resume Parser</span>
-                <span className="text-[10px] font-mono font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded">
+                <span className="text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded">
                   Pattern Engine
                 </span>
               </h2>
@@ -217,11 +217,11 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
 
             {/* Right: Upload Status / Supported Formats */}
             <div className="flex items-center gap-2 text-[11px] text-slate-500 font-medium">
-              <span className="px-2 py-1 rounded bg-white border border-slate-200 font-mono text-[10px]">
+              <span className="px-2 py-1 rounded bg-white border border-slate-200 text-[10px]">
                 Supports .pdf, .doc, .docx, .txt
               </span>
               {hasParsedFile && (
-                <span className="px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono text-[10px]">
+                <span className="px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px]">
                   File Parsed
                 </span>
               )}
@@ -236,7 +236,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
                   <i className="fa-solid fa-spinner fa-spin text-brand-600"></i>
                   <span>Scanning Document &amp; Extracting Entities via Pattern Engine...</span>
                 </span>
-                <span className="font-mono">{parseProgress}%</span>
+                <span >{parseProgress}%</span>
               </div>
               <div className="w-full bg-brand-200 h-1.5 rounded-full overflow-hidden">
                 <div
@@ -256,7 +256,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
                   <i className="fa-regular fa-file-lines text-slate-500"></i>
                   <span className="font-bold text-slate-800 text-xs">Source Document</span>
                 </div>
-                <span className="text-[10px] font-mono text-brand-700 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded font-medium flex items-center gap-1">
+                <span className="text-[10px] text-brand-700 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded font-medium flex items-center gap-1">
                   <i
                     className={
                       profile.fileName?.endsWith('.docx')
@@ -283,7 +283,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
               </div>
 
               {/* Document Text Excerpt */}
-              <div className="p-3 bg-white rounded-lg border border-slate-200 text-[11px] font-mono text-slate-600 space-y-2 max-h-60 overflow-y-auto leading-relaxed shadow-2xs">
+              <div className="p-3 bg-white rounded-lg border border-slate-200 text-[11px] text-slate-600 space-y-2 max-h-60 overflow-y-auto leading-relaxed shadow-2xs">
                 <div className="whitespace-pre-line">
                   {profile.rawSnippet || 'Upload a resume file above to inspect extracted document text.'}
                 </div>
@@ -291,7 +291,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
 
               {/* Parsing Controls */}
               <div className="flex items-center justify-between pt-1">
-                <span className="text-[10px] text-slate-500 font-mono font-medium flex items-center gap-1">
+                <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
                   <i className={`fa-solid ${hasParsedFile ? 'fa-circle-check text-emerald-500' : 'fa-circle-info text-slate-400'}`}></i>
                   <span>{hasParsedFile ? 'Document Parsed Successfully' : 'Awaiting Resume Upload'}</span>
                 </span>
@@ -315,7 +315,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
                     Review and edit fields before saving
                   </span>
                 </div>
-                <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-mono font-bold flex items-center gap-1">
+                <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
                   <i className="fa-solid fa-check text-[9px]"></i>
                   <span>Pattern Matched</span>
                 </span>
@@ -366,7 +366,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
                     type="text"
                     value={profile.hourlyRate}
                     onChange={(e) => setProfile({ ...profile, hourlyRate: e.target.value })}
-                    className="w-full px-2.5 py-1 text-xs border border-slate-200 rounded bg-slate-50/50 font-mono focus:bg-white focus:border-brand-500 focus:outline-none"
+                    className="w-full px-2.5 py-1 text-xs border border-slate-200 rounded bg-slate-50/50 focus:bg-white focus:border-brand-500 focus:outline-none"
                   />
                 </div>
               </div>
@@ -387,7 +387,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
                     type="text"
                     value={profile.phone}
                     onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                    className="w-full px-2.5 py-1 text-xs border border-slate-200 rounded bg-slate-50/50 font-mono focus:bg-white focus:border-brand-500 focus:outline-none"
+                    className="w-full px-2.5 py-1 text-xs border border-slate-200 rounded bg-slate-50/50 focus:bg-white focus:border-brand-500 focus:outline-none"
                   />
                 </div>
               </div>
@@ -425,7 +425,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
                   type="text"
                   value={profile.skillset}
                   onChange={(e) => setProfile({ ...profile, skillset: e.target.value })}
-                  className="w-full px-2.5 py-1 text-xs border border-slate-200 rounded bg-slate-50/50 font-mono text-[11px] focus:bg-white focus:border-brand-500 focus:outline-none"
+                  className="w-full px-2.5 py-1 text-xs border border-slate-200 rounded bg-slate-50/50 text-[11px] focus:bg-white focus:border-brand-500 focus:outline-none"
                 />
               </div>
 

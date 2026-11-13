@@ -216,7 +216,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                         <div className="flex items-start justify-between gap-2">
                           <span
                             onClick={() => onSelectReq && onSelectReq(req)}
-                            className="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 cursor-pointer hover:bg-brand-50 hover:text-brand-600 transition-colors inline-flex items-center"
+                            className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 cursor-pointer hover:bg-brand-50 hover:text-brand-600 transition-colors inline-flex items-center"
                           >
                             <i className="fa-solid fa-grip-vertical text-[9px] text-slate-300 mr-1"></i>
                             {req.code}
@@ -256,7 +256,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                           </button>
                         )}
 
-                        <div className="text-[10px] text-slate-500 font-mono truncate">
+                        <div className="text-[10px] text-slate-500 truncate">
                           {req.skillsRequired}
                         </div>
 
@@ -339,10 +339,10 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                     >
                       {req.opportunityTitle}
                     </span>
-                    <div className="font-mono text-[10px] text-slate-400">{req.code}</div>
+                    <div className="text-[10px] text-slate-400">{req.code}</div>
                   </td>
                   <td className="py-3 px-4 font-semibold text-slate-700">{req.companyName}</td>
-                  <td className="py-3 px-4 text-slate-600 font-mono text-[11px] max-w-xs truncate">
+                  <td className="py-3 px-4 text-slate-600 text-[11px] max-w-xs truncate">
                     {req.skillsRequired}
                   </td>
                   <td className="py-3 px-4">{req.resourceName || <span className="text-slate-400 italic">Unassigned</span>}</td>
@@ -399,7 +399,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Edit Requirement</h3>
-                <p className="text-[11px] font-mono text-slate-500 mt-0.5">{editingReq.code}</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">{editingReq.code}</p>
               </div>
               <button
                 onClick={() => setEditingReq(null)}
@@ -535,7 +535,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                   <h3 className="text-sm font-bold text-slate-900">Delete Requirement?</h3>
                   <p className="text-xs text-slate-500 leading-relaxed">
                     Are you sure you want to permanently remove{' '}
-                    <span className="font-mono font-bold text-slate-800">{reqToDelete.code}</span> —{' '}
+                    <span className="font-bold text-slate-800">{reqToDelete.code}</span> —{' '}
                     <span className="font-semibold text-slate-800">{reqToDelete.opportunityTitle}</span> at{' '}
                     <span className="font-semibold text-slate-800">{reqToDelete.companyName}</span>?
                   </p>

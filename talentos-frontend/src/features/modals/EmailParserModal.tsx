@@ -214,7 +214,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
             <div>
               <h3 className="font-bold text-white text-sm flex items-center gap-2">
                 <span>Client Email Job Order Intake Parser</span>
-                <span className="text-[10px] font-mono font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                <span className="text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
                   Auto-Extract &amp; Create
                 </span>
               </h3>
@@ -269,7 +269,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                   }
                 }}
                 placeholder="Paste any hiring manager email here — parsing runs automatically on paste..."
-                className="w-full flex-1 p-3.5 text-xs bg-slate-50 font-mono border border-slate-200 rounded-xl text-slate-700 leading-relaxed focus:bg-white focus:border-brand-600 focus:outline-none"
+                className="w-full flex-1 p-3.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-700 leading-relaxed focus:bg-white focus:border-brand-600 focus:outline-none"
               ></textarea>
               <div className="text-[10px] text-slate-400 flex items-center gap-1">
                 <i className="fa-solid fa-circle-info"></i>
@@ -285,7 +285,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                   <span>2. Review &amp; Complete Extracted Fields</span>
                 </div>
                 {marginSpread > 0 && (
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-mono font-bold">
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold">
                     Est. Spread: +${marginSpread}/hr
                   </span>
                 )}
@@ -392,7 +392,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                       }));
                     }}
                     placeholder="120"
-                    className="mt-0.5 w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg font-mono text-slate-800 focus:border-brand-600 focus:outline-none"
+                    className="mt-0.5 w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 focus:border-brand-600 focus:outline-none"
                   />
                 </div>
                 <div>
@@ -403,7 +403,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                     value={extractedReq.targetPayRate || ''}
                     onChange={(e) => setExtractedReq({ ...extractedReq, targetPayRate: Number(e.target.value) || 0 })}
                     placeholder="90"
-                    className="mt-0.5 w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg font-mono text-slate-800 focus:border-brand-600 focus:outline-none"
+                    className="mt-0.5 w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 focus:border-brand-600 focus:outline-none"
                   />
                 </div>
                 <div>
@@ -485,7 +485,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                   value={extractedReq.skillsRequired}
                   onChange={(e) => setExtractedReq({ ...extractedReq, skillsRequired: e.target.value })}
                   placeholder="Java, Spring Boot, Kafka, AWS..."
-                  className="mt-1.5 w-full px-2.5 py-1 text-[11px] bg-white/80 border border-slate-200 rounded-lg text-slate-600 font-mono focus:border-brand-600 focus:outline-none"
+                  className="mt-1.5 w-full px-2.5 py-1 text-[11px] bg-white/80 border border-slate-200 rounded-lg text-slate-600 focus:border-brand-600 focus:outline-none"
                 />
               </div>
 

@@ -52,13 +52,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           <div className="flex items-center gap-1.5">
             <span className="font-bold text-white text-[15px] tracking-tight">TalentOS</span>
-            <span className="text-[9px] font-mono font-bold bg-brand-500/20 text-brand-300 border border-brand-500/30 px-1.5 py-0.5 rounded tracking-wider">
+            <span className="text-[9px] font-bold bg-brand-500/20 text-brand-300 border border-brand-500/30 px-1.5 py-0.5 rounded tracking-wider">
               CRM
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono text-emerald-400">
+        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-400">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
           <span className="text-[9px]">Live Sync</span>
         </div>
@@ -104,7 +104,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ></i>
               <span>Pipeline</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono bg-white/[0.04] px-1.5 py-0.5 rounded">
+            <span className="text-[10px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded">
               {counts.requirements}
             </span>
           </div>
@@ -132,7 +132,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ></i>
               <span>Consultants</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono bg-white/[0.04] px-1.5 py-0.5 rounded">
+            <span className="text-[10px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded">
               {counts.consultants}
             </span>
           </div>
@@ -153,7 +153,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ></i>
               <span>Clients</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono bg-white/[0.04] px-1.5 py-0.5 rounded">
+            <span className="text-[10px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded">
               {counts.clients}
             </span>
           </div>
@@ -174,7 +174,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ></i>
               <span>Vendors</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono bg-white/[0.04] px-1.5 py-0.5 rounded">
+            <span className="text-[10px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded">
               {counts.vendors}
             </span>
           </div>
@@ -195,7 +195,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ></i>
               <span>Billable Consultants</span>
             </div>
-            <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/30">
+            <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/30">
               {counts.billable}
             </span>
           </div>
@@ -223,7 +223,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ></i>
               <span>User Management</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono bg-white/[0.04] px-1.5 py-0.5 rounded">
+            <span className="text-[10px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded">
               {counts.users} Users
             </span>
           </div>
@@ -244,7 +244,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ></i>
               <span>Custom Fields</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono bg-white/[0.04] px-1.5 py-0.5 rounded">
+            <span className="text-[10px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded">
               {counts.customFields}
             </span>
           </div>
@@ -314,7 +314,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {currentUser?.email || 'admin@talentos-agency.com'}
               </div>
               <div className="mt-1.5 flex items-center gap-1.5">
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                   {currentUser?.role || 'Administrator'}
                 </span>
                 <span className="text-[10px] text-slate-400">&bull; Active Session</span>

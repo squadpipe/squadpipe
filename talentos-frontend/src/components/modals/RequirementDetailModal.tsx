@@ -72,7 +72,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-mono text-xs font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded border border-brand-200">
+              <span className="text-xs font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded border border-brand-200">
                 {requirement.code}
               </span>
               <h2 className="text-sm font-bold text-slate-900">{requirement.opportunityTitle}</h2>
@@ -232,7 +232,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
               {skills.map((s, idx) => (
                 <span
                   key={idx}
-                  className="text-xs font-mono bg-brand-50 text-brand-700 border border-brand-200 px-2 py-0.5 rounded-md font-medium"
+                  className="text-xs bg-brand-50 text-brand-700 border border-brand-200 px-2 py-0.5 rounded-md font-medium"
                 >
                   {s}
                 </span>
@@ -281,7 +281,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                   </div>
                   <div>
                     <span className="font-bold text-slate-900 text-xs block">{requirement.resourceName}</span>
-                    <span className="text-[10px] text-slate-400 font-mono">
+                    <span className="text-[10px] text-slate-400">
                       Recruiter: {requirement.assignedRecruiter}
                     </span>
                   </div>
@@ -295,7 +295,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                       View Resume
                     </button>
                   )}
-                  <span className="text-[10px] font-mono text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded font-semibold">
+                  <span className="text-[10px] text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded font-semibold">
                     Client Review
                   </span>
                 </div>
@@ -321,7 +321,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                       <div>
                         <div className="font-bold text-slate-900 group-hover:text-brand-600 text-xs flex items-center gap-1.5">
                           <span>{con.fullName}</span>
-                          <span className="text-[9px] font-mono font-normal text-slate-400">({con.workAuth})</span>
+                          <span className="text-[9px] font-normal text-slate-400">({con.workAuth})</span>
                         </div>
                         <div className="text-[10px] text-slate-500 mt-0.5">
                           {con.currentTitle} &bull; {con.hourlyRate}

@@ -121,7 +121,7 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
                     {item.title}
                   </h4>
                   <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">{item.desc}</p>
-                  <div className="text-[10px] text-slate-400 font-mono mt-2">{item.meta}</div>
+                  <div className="text-[10px] text-slate-400 mt-2">{item.meta}</div>
 
                   {!item.done && (
                     <div className="mt-3 pt-3 border-t border-slate-100 flex justify-end">
@@ -142,7 +142,7 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
           {/* Footer */}
           <div className="p-4 border-t border-slate-100 bg-slate-50/80 text-[11px] text-slate-500 flex justify-between items-center">
             <span>Deterministic SLA Scanner Active</span>
-            <span className="font-mono text-[10px] bg-slate-200 px-2 py-0.5 rounded text-slate-700">
+            <span className="text-[10px] bg-slate-200 px-2 py-0.5 rounded text-slate-700">
               Auto-Evaluating
             </span>
           </div>

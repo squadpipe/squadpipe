@@ -2,9 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
+body,
+.font-mono,
+code,
+pre,
+kbd,
+samp {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   letter-spacing: -0.01em;
+}
+
+.font-mono {
+  font-variant-numeric: tabular-nums;
 }
 
 .no-scrollbar::-webkit-scrollbar {
