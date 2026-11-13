@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { apiClient } from '../../config/api.config';
 import { Candidate } from '../../types';
+import { useCurrency } from '../../utils/currency';
 
 interface ImportDataViewProps {
   onImportCandidates?: (candidates: Candidate[]) => void;
@@ -9,18 +10,155 @@ interface ImportDataViewProps {
   showToast: (title: string, message: string, icon?: string) => void;
 }
 
+const SAMPLE_CSV_FILENAME = 'TalentOS_Sample_Candidates_Template.csv';
+
+const SAMPLE_CSV_HEADERS = [
+  'Candidate_Name',
+  'Designation_Title',
+  'Visa_Status',
+  'Email_Address',
+  'Phone_Cell',
+  'Rate_Expectation',
+  'Relocation_Pref',
+  'Primary_Skillset',
+  'Education',
+  'Desk_Owner',
+];
+
+const escapeCsvField = (val: string): string => {
+  const s = String(val ?? '');
+  if (/[",\n\r]/.test(s)) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+};
+
+/**
+ * Parses a single RFC-4180 CSV line while preserving commas inside quoted fields.
+ */
+const parseCsvLine = (line: string): string[] => {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current.trim());
+  return result;
+};
+
 export const ImportDataView: React.FC<ImportDataViewProps> = ({
   onImportCandidates,
   onOpenResumeParser,
   onNavigate,
   showToast,
 }) => {
+  const { symbol: currencySymbol } = useCurrency();
   const [showMigrationModal, setShowMigrationModal] = useState(false);
   const [migrationStep, setMigrationStep] = useState<1 | 2 | 3>(1);
   const [showCsvImportModal, setShowCsvImportModal] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string>('');
   const [parsedRows, setParsedRows] = useState<any[]>([]);
   const [isImporting, setIsImporting] = useState<boolean>(false);
+
+  const sampleCsvRows = [
+    {
+      fullName: 'Aarav Mehta',
+      currentTitle: 'Senior Java Microservices Architect',
+      workAuth: 'US Citizen',
+      email: 'aarav.mehta@example.com',
+      phone: '+1 (512) 555-0142',
+      hourlyRateDisplay: `${currencySymbol}95/hr (C2C)`,
+      relocation: 'Yes',
+      skillset: 'Java, Spring Boot, Kafka, AWS, PostgreSQL',
+      education: 'MS Computer Science',
+      assignedRecruiter: 'Recruitment Desk',
+    },
+    {
+      fullName: 'Priya Nair',
+      currentTitle: 'Staff Data & Databricks Engineer',
+      workAuth: 'Green Card',
+      email: 'priya.nair@example.com',
+      phone: '+1 (469) 555-0188',
+      hourlyRateDisplay: `${currencySymbol}88/hr (W2)`,
+      relocation: 'Yes',
+      skillset: 'Python, PySpark, Databricks, Snowflake, SQL',
+      education: 'B.Tech Data Science',
+      assignedRecruiter: 'Recruitment Desk',
+    },
+    {
+      fullName: 'Daniel Brooks',
+      currentTitle: 'Lead DevOps & Kubernetes Engineer',
+      workAuth: 'US Citizen',
+      email: 'daniel.brooks@example.com',
+      phone: '+1 (312) 555-0165',
+      hourlyRateDisplay: `${currencySymbol}105/hr (C2C)`,
+      relocation: 'No',
+      skillset: 'Kubernetes, Terraform, AWS, Docker, CI/CD',
+      education: 'BS Information Systems',
+      assignedRecruiter: 'Recruitment Desk',
+    },
+  ];
+
+  const downloadSampleCsv = () => {
+    const rowLines = sampleCsvRows.map((r) =>
+      [
+        r.fullName,
+        r.currentTitle,
+        r.workAuth,
+        r.email,
+        r.phone,
+        r.hourlyRateDisplay,
+        r.relocation,
+        r.skillset,
+        r.education,
+        r.assignedRecruiter,
+      ]
+        .map(escapeCsvField)
+        .join(',')
+    );
+    const csvContent = [SAMPLE_CSV_HEADERS.join(','), ...rowLines].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = SAMPLE_CSV_FILENAME;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast(
+      'Sample CSV Downloaded',
+      `Downloaded ${SAMPLE_CSV_FILENAME} template with 3 formatted sample candidates.`,
+      'fa-solid fa-file-csv text-emerald-500'
+    );
+  };
+
+  const loadSampleCsvIntoMapper = () => {
+    setUploadedFileName(SAMPLE_CSV_FILENAME);
+    setParsedRows(sampleCsvRows);
+    setMigrationStep(2);
+    setShowMigrationModal(true);
+    showToast(
+      'Sample CSV Loaded',
+      'Loaded 3 sample candidate rows into Column Schema Mapper.',
+      'fa-solid fa-circle-check text-emerald-500'
+    );
+  };
 
   const sampleRow = parsedRows[0] || {};
   const columnMappings = [
@@ -32,6 +170,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
     { source: 'Rate_Expectation', sample: sampleRow.hourlyRateDisplay || '—', target: 'hourlyRate' },
     { source: 'Relocation_Pref', sample: sampleRow.relocation || '—', target: 'relocation' },
     { source: 'Primary_Skillset', sample: sampleRow.skillset || '—', target: 'skillset' },
+    { source: 'Education', sample: sampleRow.education || '—', target: 'education' },
     { source: 'Desk_Owner', sample: sampleRow.assignedRecruiter || '—', target: 'assignedRecruiter' },
   ];
 
@@ -44,24 +183,30 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
     reader.onload = (evt) => {
       const text = evt.target?.result as string;
       if (!text) return;
-      const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+      const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
       if (lines.length > 1) {
-        const headers = lines[0].split(',').map((h) => h.replace(/["']/g, '').trim().toLowerCase());
-        const rows = lines.slice(1).map((line) => {
-          const parts = line.split(',').map((p) => p.replace(/["']/g, '').trim());
-          const row: any = {};
-          headers.forEach((h, i) => {
-            if (h.includes('name')) row.fullName = parts[i];
-            else if (h.includes('title') || h.includes('role')) row.currentTitle = parts[i];
-            else if (h.includes('email')) row.email = parts[i];
-            else if (h.includes('phone') || h.includes('cell')) row.phone = parts[i];
-            else if (h.includes('visa') || h.includes('auth')) row.workAuth = parts[i];
-            else if (h.includes('rate')) row.hourlyRateDisplay = parts[i];
-            else if (h.includes('skill')) row.skillset = parts[i];
-            else if (h.includes('relo')) row.relocation = parts[i];
-          });
-          return row;
-        }).filter((r) => r.fullName && r.email);
+        const headers = parseCsvLine(lines[0]).map((h) => h.trim().toLowerCase());
+        const rows = lines
+          .slice(1)
+          .map((line) => {
+            const parts = parseCsvLine(line);
+            const row: any = {};
+            headers.forEach((h, i) => {
+              const val = parts[i] || '';
+              if (h.includes('name')) row.fullName = val;
+              else if (h.includes('title') || h.includes('role')) row.currentTitle = val;
+              else if (h.includes('email')) row.email = val;
+              else if (h.includes('phone') || h.includes('cell')) row.phone = val;
+              else if (h.includes('visa') || h.includes('auth')) row.workAuth = val;
+              else if (h.includes('rate')) row.hourlyRateDisplay = val;
+              else if (h.includes('skill')) row.skillset = val;
+              else if (h.includes('relo')) row.relocation = val;
+              else if (h.includes('edu') || h.includes('degree')) row.education = val;
+              else if (h.includes('desk') || h.includes('recruiter') || h.includes('owner')) row.assignedRecruiter = val;
+            });
+            return row;
+          })
+          .filter((r) => r.fullName && r.email);
 
         setParsedRows(rows);
         if (rows.length > 0) {
@@ -133,12 +278,22 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
 
   return (
     <section className="max-w-7xl mx-auto space-y-5 animate-fade-in select-none">
-      {/* Header matching exact prototype */}
-      <div>
-        <h2 className="text-lg font-bold text-slate-900 tracking-tight">Data Import & Legacy Migration</h2>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Migrate legacy Excel sheets, Google Sheets, and candidate resume folders into TalentOS CRM.
-        </p>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-slate-900 tracking-tight">Data Import &amp; Legacy Migration</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Migrate legacy Excel sheets, Google Sheets, and candidate resume folders into TalentOS CRM.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={downloadSampleCsv}
+          className="px-3.5 py-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-semibold flex items-center gap-2 transition-colors self-start sm:self-auto cursor-pointer shadow-2xs"
+        >
+          <i className="fa-solid fa-download text-[11px]"></i>
+          <span>Download Sample CSV</span>
+        </button>
       </div>
 
       {/* 2 Large Cards Grid matching Screenshot media_1794485798106_34331046.png */}
@@ -200,6 +355,73 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
         </div>
       </div>
 
+      {/* Sample CSV Format & Downloadable Template Card */}
+      <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+              <i className="fa-solid fa-table-columns text-emerald-600 text-sm"></i>
+              <span>Sample CSV File &amp; Expected Schema Template</span>
+            </h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Use this standardized CSV template (<span className="font-semibold text-slate-700">{SAMPLE_CSV_FILENAME}</span>) to format bulk consultant imports with zero mapping errors.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={loadSampleCsvIntoMapper}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <i className="fa-solid fa-wand-magic-sparkles text-brand-600 text-[11px]"></i>
+              <span>Test in Column Mapper</span>
+            </button>
+            <button
+              type="button"
+              onClick={downloadSampleCsv}
+              className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+            >
+              <i className="fa-solid fa-file-arrow-down text-[11px]"></i>
+              <span>Download Sample CSV (.csv)</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-[11px]">
+            <thead className="bg-slate-50/90 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              <tr>
+                {SAMPLE_CSV_HEADERS.map((col) => (
+                  <th key={col} className="px-4 py-2.5 whitespace-nowrap">
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-slate-700">
+              {sampleCsvRows.map((row) => (
+                <tr key={row.email} className="hover:bg-slate-50/70 transition-colors">
+                  <td className="px-4 py-2.5 font-semibold text-slate-900 whitespace-nowrap">{row.fullName}</td>
+                  <td className="px-4 py-2.5 whitespace-nowrap">{row.currentTitle}</td>
+                  <td className="px-4 py-2.5 whitespace-nowrap">
+                    <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-medium">
+                      {row.workAuth}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 text-brand-600 whitespace-nowrap">{row.email}</td>
+                  <td className="px-4 py-2.5 whitespace-nowrap">{row.phone}</td>
+                  <td className="px-4 py-2.5 font-semibold text-emerald-700 whitespace-nowrap">{row.hourlyRateDisplay}</td>
+                  <td className="px-4 py-2.5 whitespace-nowrap">{row.relocation}</td>
+                  <td className="px-4 py-2.5 max-w-xs truncate">{row.skillset}</td>
+                  <td className="px-4 py-2.5 whitespace-nowrap">{row.education}</td>
+                  <td className="px-4 py-2.5 whitespace-nowrap text-slate-500">{row.assignedRecruiter}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Spreadsheet Migration & Column Mapping Wizard Modal */}
       {showMigrationModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
@@ -246,7 +468,15 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
                       Select or Drop CSV File &rarr;
                     </div>
                   </label>
-                  <div className="flex justify-end">
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      onClick={downloadSampleCsv}
+                      className="text-emerald-700 hover:underline font-semibold text-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <i className="fa-solid fa-file-arrow-down text-[11px]"></i>
+                      <span>Download Sample CSV Template</span>
+                    </button>
                     <button
                       onClick={() => setMigrationStep(2)}
                       disabled={parsedRows.length === 0}
@@ -381,20 +611,30 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
                 <div className="text-[11px] text-slate-500 mt-1">Accepts UTF-8 comma-separated spreadsheets</div>
               </label>
 
-              <div className="pt-2 flex justify-end gap-2">
+              <div className="pt-2 flex items-center justify-between gap-2">
                 <button
-                  onClick={() => setShowCsvImportModal(false)}
-                  className="px-3 py-1.5 border border-slate-200 text-slate-600 rounded text-xs cursor-pointer"
+                  type="button"
+                  onClick={downloadSampleCsv}
+                  className="text-emerald-700 hover:underline font-semibold text-xs flex items-center gap-1.5 cursor-pointer"
                 >
-                  Cancel
+                  <i className="fa-solid fa-file-arrow-down text-[11px]"></i>
+                  <span>Sample CSV</span>
                 </button>
-                <button
-                  onClick={handleRunMigration}
-                  disabled={isImporting || parsedRows.length === 0}
-                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded text-xs cursor-pointer"
-                >
-                  {isImporting ? 'Uploading...' : `Upload & Ingest (${parsedRows.length})`}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowCsvImportModal(false)}
+                    className="px-3 py-1.5 border border-slate-200 text-slate-600 rounded text-xs cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleRunMigration}
+                    disabled={isImporting || parsedRows.length === 0}
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded text-xs cursor-pointer"
+                  >
+                    {isImporting ? 'Uploading...' : `Upload & Ingest (${parsedRows.length})`}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

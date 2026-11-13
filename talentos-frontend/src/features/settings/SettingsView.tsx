@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Settings,
   Mail,
   Server,
   ShieldCheck,
@@ -225,45 +224,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   return (
     <section className="max-w-6xl mx-auto space-y-5 animate-fade-in select-none">
-      {/* Header + 2-Tab Navigation */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Standalone Page Header */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex items-center justify-between gap-4">
         <div>
           <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
             <span className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center shadow-xs">
-              <Settings className="w-4 h-4" />
+              {activeTab === 'general' ? (
+                <SlidersHorizontal className="w-4 h-4" />
+              ) : (
+                <Mail className="w-4 h-4" />
+              )}
             </span>
-            <span>Workspace Settings</span>
+            <span>{activeTab === 'general' ? 'General Settings' : 'Email Setup (SMTP)'}</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Manage agency profile defaults and configure your own outbound SMTP server.
+            {activeTab === 'general'
+              ? 'Manage agency profile, currency, localization, and billing operational defaults.'
+              : 'Configure your own outbound SMTP server for client submittals and interview reminders.'}
           </p>
-        </div>
-
-        <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200 self-start md:self-auto">
-          <button
-            type="button"
-            onClick={() => onTabChange('general')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'general'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>General Settings</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onTabChange('smtp')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'smtp'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Mail className="w-3.5 h-3.5" />
-            <span>Email Setup (SMTP)</span>
-          </button>
         </div>
       </div>
 
