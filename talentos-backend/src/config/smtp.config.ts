@@ -1,5 +1,8 @@
 import nodemailer from 'nodemailer';
 import { prisma } from './prisma.config';
+import { decryptSecret, encryptSecret } from '../utils/cryptoSecret';
+
+export const MASKED_SECRET_PLACEHOLDER = '••••••••';
 
 export interface GeneralSettings {
   agencyName: string;
@@ -29,19 +32,43 @@ export interface SmtpSettings {
   replyToEmail: string;
 }
 
+export interface RedactedSmtpSettings extends SmtpSettings {
+  hasPassword: boolean;
+}
+
+export function redactSmtpSettings(smtp: SmtpSettings): RedactedSmtpSettings {
+  const hasPassword = Boolean(smtp.password && smtp.password.trim().length > 0);
+  return {
+    ...smtp,
+    password: hasPassword ? MASKED_SECRET_PLACEHOLDER : '',
+    hasPassword,
+  };
+}
+
+function safeDecryptSmtpPassword(rawPassword: unknown): string {
+  if (typeof rawPassword !== 'string' || !rawPassword) return '';
+  if (rawPassword === MASKED_SECRET_PLACEHOLDER) return '';
+  try {
+    return decryptSecret(rawPassword);
+  } catch (err) {
+    console.warn('Unable to decrypt stored SMTP password (key may have rotated):', err);
+    return '';
+  }
+}
+
 export interface TenantSettingsBundle {
   general: GeneralSettings;
   smtp: SmtpSettings;
 }
 
 export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
-  agencyName: 'TalentOS Staffing',
-  legalEntityName: 'TalentOS Staffing Solutions LLC',
-  website: 'https://talentos-agency.com',
-  supportEmail: 'desk@talentos-agency.com',
-  supportPhone: '+1 (800) 555-0199',
-  headquarters: 'Austin, TX',
-  timezone: 'America/Chicago (CST/CDT)',
+  agencyName: '',
+  legalEntityName: '',
+  website: '',
+  supportEmail: '',
+  supportPhone: '',
+  headquarters: '',
+  timezone: '',
   dateFormat: 'MM/DD/YYYY',
   currency: 'USD ($)',
   defaultPaymentTerms: 'Net 30 Days',
@@ -90,9 +117,14 @@ export async function getTenantSettings(tenantId = 'talentos-agency'): Promise<T
     );
 
     if (rows && rows.length > 0) {
+      const rawSmtp = rows[0].smtp_config || {};
       const bundle: TenantSettingsBundle = {
         general: { ...DEFAULT_GENERAL_SETTINGS, ...(rows[0].general_config || {}) },
-        smtp: { ...DEFAULT_SMTP_SETTINGS, ...(rows[0].smtp_config || {}) },
+        smtp: {
+          ...DEFAULT_SMTP_SETTINGS,
+          ...rawSmtp,
+          password: safeDecryptSmtpPassword(rawSmtp.password),
+        },
       };
       settingsMemoryCache.set(key, bundle);
       return bundle;
@@ -141,6 +173,10 @@ export async function saveGeneralSettings(
         ? Boolean(partial.requirePoForPlacement)
         : current.general.requirePoForPlacement,
   };
+  const persistedSmtp: SmtpSettings = {
+    ...current.smtp,
+    password: encryptSecret(current.smtp.password),
+  };
   const key = tenantId || 'talentos-agency';
   await ensureTenantSettingsTable();
   await prisma.$executeRawUnsafe(
@@ -149,7 +185,7 @@ export async function saveGeneralSettings(
      ON CONFLICT (tenant_id) DO UPDATE SET general_config = $2::jsonb, updated_at = NOW()`,
     key,
     JSON.stringify(nextGeneral),
-    JSON.stringify(current.smtp)
+    JSON.stringify(persistedSmtp)
   );
   settingsMemoryCache.set(key, { general: nextGeneral, smtp: current.smtp });
   return nextGeneral;
@@ -164,12 +200,23 @@ export async function saveSmtpSettings(
     partial.encryption === 'SSL' || partial.encryption === 'NONE' || partial.encryption === 'STARTTLS'
       ? partial.encryption
       : current.smtp.encryption;
+  const incomingPassword = partial.password;
+  const resolvedPassword =
+    incomingPassword === undefined || incomingPassword === MASKED_SECRET_PLACEHOLDER
+      ? current.smtp.password
+      : incomingPassword;
+
   const nextSmtp: SmtpSettings = {
     ...current.smtp,
     ...partial,
+    password: resolvedPassword,
     port: Number(partial.port ?? current.smtp.port) || (encryption === 'SSL' ? 465 : 587),
     encryption,
     enabled: partial.enabled !== undefined ? Boolean(partial.enabled) : current.smtp.enabled,
+  };
+  const persistedSmtp: SmtpSettings = {
+    ...nextSmtp,
+    password: encryptSecret(nextSmtp.password),
   };
   const key = tenantId || 'talentos-agency';
   await ensureTenantSettingsTable();
@@ -179,7 +226,7 @@ export async function saveSmtpSettings(
      ON CONFLICT (tenant_id) DO UPDATE SET smtp_config = $3::jsonb, updated_at = NOW()`,
     key,
     JSON.stringify(current.general),
-    JSON.stringify(nextSmtp)
+    JSON.stringify(persistedSmtp)
   );
   settingsMemoryCache.set(key, { general: current.general, smtp: nextSmtp });
   return nextSmtp;

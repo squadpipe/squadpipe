@@ -41,6 +41,7 @@ interface SmtpSettings {
   encryption: 'STARTTLS' | 'SSL' | 'NONE';
   username: string;
   password: string;
+  hasPassword?: boolean;
   fromName: string;
   fromEmail: string;
   replyToEmail: string;
@@ -145,7 +146,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   }, []);
 
   const isSmtpConfigured = Boolean(
-    smtp.enabled && smtp.host.trim() && smtp.username.trim() && smtp.password && smtp.fromEmail.trim()
+    smtp.enabled &&
+      smtp.host.trim() &&
+      smtp.username.trim() &&
+      (smtp.password || smtp.hasPassword) &&
+      smtp.fromEmail.trim()
   );
 
   const handleSaveGeneral = async (e: React.FormEvent) => {
@@ -171,7 +176,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleSaveSmtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!smtp.host.trim() || !smtp.username.trim() || !smtp.password || !smtp.fromEmail.trim()) {
+    if (
+      !smtp.host.trim() ||
+      !smtp.username.trim() ||
+      (!smtp.password && !smtp.hasPassword) ||
+      !smtp.fromEmail.trim()
+    ) {
       showToast(
         'Missing Fields',
         'Please provide SMTP Host, Username, Password, and Sender Email Address.',

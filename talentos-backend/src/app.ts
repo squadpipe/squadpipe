@@ -2,13 +2,24 @@ import express from 'express';
 import cors from 'cors';
 import routes from './routes';
 import { errorHandler } from './middlewares/errorHandler.middleware';
+import { createCorsOriginChecker, securityHeadersMiddleware } from './middlewares/security.middleware';
 import { sanitizeErrorMessage } from './utils/errorSanitizer';
 
 const app = express();
 
-app.use(cors({ origin: '*' }));
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
+app.use(securityHeadersMiddleware);
+app.use(
+  cors({
+    origin: createCorsOriginChecker(),
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  })
+);
 app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Prevent internal database, ORM, or stack traces from leaking in API error responses
 app.use((req, res, next) => {

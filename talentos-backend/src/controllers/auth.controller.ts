@@ -1,12 +1,14 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { prisma } from '../config/prisma.config';
 import { LoginSchema } from '../dtos/auth.dto';
 import { AuthenticatedUser } from '../middlewares/auth.middleware';
 import { UserRole, UserStatus } from '@prisma/client';
-
-const JWT_SECRET = process.env.JWT_ACCESS_SECRET || 'dev_secret_key';
+import { getJwtAccessExpiry, getJwtAccessSecret } from '../config/jwt.config';
+import { smtpService } from '../services/smtp.service';
+import { escapeHtml } from '../utils/cryptoSecret';
 
 export const login = async (req: Request, res: Response) => {
   const parseResult = LoginSchema.safeParse(req.body);
@@ -32,10 +34,17 @@ export const login = async (req: Request, res: Response) => {
     });
   }
 
-  // Password verification (supports bcrypt hashed passwords or legacy direct match)
+  if (user.status === UserStatus.SUSPENDED) {
+    return res.status(403).json({
+      success: false,
+      message: 'Your account has been suspended. Please contact your administrator.'
+    });
+  }
+
+  // Password verification (bcrypt always in production; legacy plaintext check only in non-prod)
   const isMatch = user.passwordHash?.startsWith('$2')
     ? await bcrypt.compare(password, user.passwordHash)
-    : user.passwordHash === password;
+    : process.env.NODE_ENV !== 'production' && user.passwordHash === password;
   if (!isMatch) {
     return res.status(401).json({
       success: false,
@@ -49,17 +58,23 @@ export const login = async (req: Request, res: Response) => {
     email: user.email,
     fullName: user.fullName,
     agencyName: user.agencyName || 'TalentOS Staffing',
-    tenantId: user.tenantId || (user.email.endsWith('@talentos-agency.com') ? 'talentos-agency' : `tenant_${user.id}`),
+    tenantId: user.tenantId || `tenant_${user.id}`,
     role: user.role,
-    rateMasked: user.rateMasked
+    rateMasked: user.rateMasked,
+    tokenVersion: user.tokenVersion
   };
 
-  const token = jwt.sign(authPayload, JWT_SECRET, { expiresIn: '7d' });
+  const token = jwt.sign(authPayload, getJwtAccessSecret(), {
+    expiresIn: getJwtAccessExpiry() as jwt.SignOptions['expiresIn']
+  });
 
-  // Update last active timestamp
+  // Update last active timestamp and activate invited user on valid sign-in
   await prisma.user.update({
     where: { id: user.id },
-    data: { lastActiveAt: new Date() }
+    data: {
+      lastActiveAt: new Date(),
+      ...(user.status === UserStatus.INVITED ? { status: UserStatus.ACTIVE } : {})
+    }
   });
 
   res.json({
@@ -116,10 +131,20 @@ export const me = async (req: Request, res: Response) => {
 };
 
 export const logout = async (req: Request, res: Response) => {
-  res.json({
-    success: true,
-    message: 'Signed out successfully'
-  });
+  try {
+    if (req.user?.id) {
+      await prisma.user.updateMany({
+        where: { id: req.user.id },
+        data: { tokenVersion: { increment: 1 } }
+      });
+    }
+    res.json({
+      success: true,
+      message: 'Signed out successfully'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to revoke session' });
+  }
 };
 
 export const updateProfile = async (req: Request, res: Response) => {
@@ -194,23 +219,17 @@ export const signup = async (req: Request, res: Response) => {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Map role string to UserRole enum
-    let assignedRole: UserRole = UserRole.ADMINISTRATOR; // Default new registrant as Admin of their tenant
-    if (role) {
-      const upper = String(role).toUpperCase().replace(/[\s-]/g, '_');
-      if (Object.values(UserRole).includes(upper as UserRole)) {
-        assignedRole = upper as UserRole;
-      }
-    }
-
+    // Public self-signup creates an isolated tenant workspace owned by the registrant
+    const assignedRole: UserRole = UserRole.ADMINISTRATOR;
     const assignedDesk = desk?.trim() || 'US IT Contract (C2C & W2)';
     const rateMasked = false; // Owner/Admin of new tenant has unmasked rate view
 
-    // Determine Tenant ID & Agency Name
-    const isDemoDomain = normalizedEmail.endsWith('@talentos-agency.com');
+    // Determine Tenant ID & Agency Name (domain auto-join disabled unless ALLOW_DEMO_DOMAIN_JOIN=true)
+    const allowDemoDomainJoin = process.env.ALLOW_DEMO_DOMAIN_JOIN === 'true';
+    const isDemoDomain = allowDemoDomainJoin && normalizedEmail.endsWith('@talentos-agency.com');
     const tenantId = isDemoDomain
       ? 'talentos-agency'
-      : `tenant_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+      : `tenant_${Date.now().toString(36)}_${crypto.randomBytes(4).toString('hex')}`;
     const resolvedAgencyName = agencyName?.trim() || (isDemoDomain ? 'TalentOS Staffing' : `${fullName.trim()} Agency`);
 
     // Create user in database
@@ -237,10 +256,13 @@ export const signup = async (req: Request, res: Response) => {
       agencyName: user.agencyName,
       tenantId: user.tenantId,
       role: user.role,
-      rateMasked: user.rateMasked
+      rateMasked: user.rateMasked,
+      tokenVersion: user.tokenVersion
     };
 
-    const token = jwt.sign(authPayload, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign(authPayload, getJwtAccessSecret(), {
+      expiresIn: getJwtAccessExpiry() as jwt.SignOptions['expiresIn']
+    });
 
     res.status(201).json({
       success: true,
@@ -286,16 +308,27 @@ export const forgotPassword = async (req: Request, res: Response) => {
       where: { email: normalizedEmail }
     });
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'No account registered with this email address.'
+    // Generic response prevents account email enumeration while still dispatching valid requests
+    if (!user || user.status === UserStatus.SUSPENDED) {
+      return res.json({
+        success: true,
+        message: 'If an account is registered for that email address, a verification code has been dispatched.'
       });
     }
 
-    // Generate a 6-digit verification security code and persist it
-    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    // Cryptographically random 6-digit verification security code
+    const resetCode = crypto.randomInt(100000, 1000000).toString();
     const tokenKey = `reset_${normalizedEmail}_${resetCode}`;
+
+    // Revoke earlier unused reset codes for this user
+    await prisma.refreshToken.updateMany({
+      where: {
+        userId: user.id,
+        token: { startsWith: `reset_${normalizedEmail}_` },
+        revokedAt: null
+      },
+      data: { revokedAt: new Date() }
+    });
 
     await prisma.refreshToken.create({
       data: {
@@ -305,22 +338,24 @@ export const forgotPassword = async (req: Request, res: Response) => {
       }
     });
 
-    await prisma.emailLog.create({
-      data: {
-        tenantId: user.tenantId || 'talentos-agency',
-        recipientEmail: normalizedEmail,
-        recipientName: user.fullName,
-        subject: 'TalentOS Password Reset Verification Code',
-        bodyHtml: `<p>Your TalentOS password reset verification code is: <strong>${resetCode}</strong> (valid for 15 minutes).</p>`,
-        status: 'SENT',
-        sentAt: new Date()
-      }
+    await smtpService.sendMail({
+      to: normalizedEmail,
+      recipientName: user.fullName,
+      subject: 'TalentOS Password Reset Verification Code',
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.6; color: #1e293b;">
+          <p>Hello ${escapeHtml(user.fullName)},</p>
+          <p>Your TalentOS password reset verification code is:</p>
+          <p style="font-size: 20px; font-weight: 700; letter-spacing: 2px; color: #2563eb;">${resetCode}</p>
+          <p style="font-size: 12px; color: #64748b;">This code expires in 15 minutes. If you did not request a reset, you can safely ignore this message.</p>
+        </div>
+      `,
+      tenantId: user.tenantId || 'talentos-agency'
     });
 
     res.json({
       success: true,
-      message: `Password reset verification code dispatched to ${normalizedEmail}.`,
-      resetCode // returned for convenience when SMTP is unconfigured
+      message: 'If an account is registered for that email address, a verification code has been dispatched.'
     });
   } catch (error: any) {
     console.error('Forgot password error:', error);
@@ -383,7 +418,11 @@ export const resetPassword = async (req: Request, res: Response) => {
     await prisma.$transaction([
       prisma.user.update({
         where: { id: user.id },
-        data: { passwordHash }
+        data: {
+          passwordHash,
+          tokenVersion: { increment: 1 },
+          ...(user.status === UserStatus.INVITED ? { status: UserStatus.ACTIVE } : {})
+        }
       }),
       prisma.refreshToken.update({
         where: { id: tokenRecord.id },

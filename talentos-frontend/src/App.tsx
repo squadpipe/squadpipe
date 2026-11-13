@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { AppIcon } from './components/shared/AppIcon';
-import { apiClient } from './config/api.config';
+import { apiClient, AUTH_EXPIRED_EVENT } from './config/api.config';
 import { formatRateDisplay, getCurrencySymbol, initWorkspaceCurrency } from './utils/currency';
 import { mapCandidateFromApi } from './utils/entityMappers';
 import { buildCandidateFormData } from './utils/cvFiles';
@@ -14,14 +14,43 @@ import { SlaDrawer } from './components/layout/SlaDrawer';
 import { DashboardView } from './features/dashboard/DashboardView';
 import { PipelineView } from './features/pipeline/PipelineView';
 import { ConsultantsView } from './features/consultants/ConsultantsView';
-import { ClientsView } from './features/clients/ClientsView';
-import { VendorsView } from './features/vendors/VendorsView';
-import { BillablePlacementsView } from './features/billable/BillablePlacementsView';
-import { UserManagementView } from './features/user-management/UserManagementView';
-import { CustomFieldsView } from './features/custom-fields/CustomFieldsView';
-import { AutomationsView } from './features/automations/AutomationsView';
-import { ImportDataView } from './features/import-data/ImportDataView';
-import { SettingsView } from './features/settings/SettingsView';
+
+const ClientsView = React.lazy(() =>
+  import('./features/clients/ClientsView').then((m) => ({ default: m.ClientsView }))
+);
+const VendorsView = React.lazy(() =>
+  import('./features/vendors/VendorsView').then((m) => ({ default: m.VendorsView }))
+);
+const BillablePlacementsView = React.lazy(() =>
+  import('./features/billable/BillablePlacementsView').then((m) => ({
+    default: m.BillablePlacementsView,
+  }))
+);
+const UserManagementView = React.lazy(() =>
+  import('./features/user-management/UserManagementView').then((m) => ({
+    default: m.UserManagementView,
+  }))
+);
+const CustomFieldsView = React.lazy(() =>
+  import('./features/custom-fields/CustomFieldsView').then((m) => ({
+    default: m.CustomFieldsView,
+  }))
+);
+const AutomationsView = React.lazy(() =>
+  import('./features/automations/AutomationsView').then((m) => ({
+    default: m.AutomationsView,
+  }))
+);
+const ImportDataView = React.lazy(() =>
+  import('./features/import-data/ImportDataView').then((m) => ({
+    default: m.ImportDataView,
+  }))
+);
+const SettingsView = React.lazy(() =>
+  import('./features/settings/SettingsView').then((m) => ({
+    default: m.SettingsView,
+  }))
+);
 
 // Auth View
 import { LoginView } from './features/auth/LoginView';
@@ -293,7 +322,6 @@ export const App: React.FC = () => {
     }, 3500);
   };
 
-  // Dynamic State Stores (Loaded from TalentOS Backend API)
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -343,6 +371,23 @@ export const App: React.FC = () => {
       activeRules: 0,
     });
   };
+
+  useEffect(() => {
+    const handleAuthExpired = (event: Event) => {
+      const customEvent = event as CustomEvent<{ message?: string }>;
+      resetWorkspaceState();
+      setCurrentUser(null);
+      setAuthToken(null);
+      setShowSignOutModal(false);
+      showToast(
+        'Session Expired',
+        customEvent.detail?.message || 'Please sign in again to continue.',
+        'fa-solid fa-shield-halved text-amber-500'
+      );
+    };
+    window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+  }, []);
 
   // Dedicated, view-scoped fetch functions
   const fetchSidebarCounts = async () => {
@@ -1178,6 +1223,7 @@ export const App: React.FC = () => {
   };
 
   const handleSignOut = () => {
+    apiClient.post('/auth/logout').catch(() => {});
     localStorage.removeItem('talentos_access_token');
     localStorage.removeItem('talentos_current_user');
     sessionStorage.removeItem('talentos_access_token');
@@ -1349,7 +1395,14 @@ export const App: React.FC = () => {
 
         {/* Dynamic View Body */}
         <main className="flex-1 overflow-y-auto p-6 space-y-6">
-          {currentView === 'dashboard' && (
+          <React.Suspense
+            fallback={
+              <div className="flex items-center justify-center py-20 text-xs font-medium text-slate-400">
+                Loading workspace module...
+              </div>
+            }
+          >
+            {currentView === 'dashboard' && (
             <DashboardView
               requirements={requirements}
               candidates={candidates}
@@ -1578,13 +1631,14 @@ export const App: React.FC = () => {
             />
           )}
 
-          {(currentView === 'settings_general' || currentView === 'settings_smtp') && (
-            <SettingsView
-              activeTab={currentView === 'settings_smtp' ? 'smtp' : 'general'}
-              onTabChange={(tab) => setCurrentView(tab === 'smtp' ? 'settings_smtp' : 'settings_general')}
-              showToast={showToast}
-            />
-          )}
+            {(currentView === 'settings_general' || currentView === 'settings_smtp') && (
+              <SettingsView
+                activeTab={currentView === 'settings_smtp' ? 'smtp' : 'general'}
+                onTabChange={(tab) => setCurrentView(tab === 'smtp' ? 'settings_smtp' : 'settings_general')}
+                showToast={showToast}
+              />
+            )}
+          </React.Suspense>
         </main>
       </div>
 

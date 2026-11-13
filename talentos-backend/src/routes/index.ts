@@ -4,13 +4,20 @@ import { placementService } from '../services/placement.service';
 import { csvImporterService } from '../services/csvImporter.service';
 import { resumeParserClientService } from '../services/resumeParserClient.service';
 import { smtpService } from '../services/smtp.service';
-import { getTenantSettings, saveGeneralSettings, saveSmtpSettings } from '../config/smtp.config';
+import { getTenantSettings, redactSmtpSettings, saveGeneralSettings, saveSmtpSettings } from '../config/smtp.config';
 import { prisma } from '../config/prisma.config';
-import { authenticateJwt } from '../middlewares/auth.middleware';
+import { authenticateJwt, requireRole } from '../middlewares/auth.middleware';
 import { rateMaskMiddleware } from '../middlewares/rateMask.middleware';
+import {
+  authRateLimiter,
+  emailRateLimiter,
+  sensitiveAuthRateLimiter,
+  uploadRateLimiter,
+} from '../middlewares/security.middleware';
+import { escapeHtml, sanitizeEmailHtml } from '../utils/cryptoSecret';
 import { slaEngineService } from '../services/slaEngine.service';
 import { automationEngineService } from '../services/automationEngine.service';
-import { AutomationCategory, SlaCategory } from '@prisma/client';
+import { AutomationCategory, SlaCategory, UserRole } from '@prisma/client';
 
 import * as authController from '../controllers/auth.controller';
 import * as candidateController from '../controllers/candidate.controller';
@@ -37,15 +44,25 @@ const optionalSingleCvUpload = (req: Request, res: Response, next: (err?: any) =
   });
 };
 
-// Public routes (Health check & Authentication)
-router.get('/health', (req: Request, res: Response) => {
-  res.json({ success: true, service: 'talentos-backend', status: 'operational' });
+// Public routes (Readiness health check & Authentication)
+router.get('/health', async (_req: Request, res: Response) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ success: true, service: 'talentos-backend', status: 'operational', database: 'connected' });
+  } catch {
+    res.status(503).json({
+      success: false,
+      service: 'talentos-backend',
+      status: 'degraded',
+      database: 'disconnected',
+    });
+  }
 });
 
-router.post('/auth/signup', authController.signup);
-router.post('/auth/login', authController.login);
-router.post('/auth/forgot-password', authController.forgotPassword);
-router.post('/auth/reset-password', authController.resetPassword);
+router.post('/auth/signup', authRateLimiter, authController.signup);
+router.post('/auth/login', authRateLimiter, authController.login);
+router.post('/auth/forgot-password', sensitiveAuthRateLimiter, authController.forgotPassword);
+router.post('/auth/reset-password', sensitiveAuthRateLimiter, authController.resetPassword);
 
 // Protected routes (JWT authentication & Rate Masking)
 router.use(authenticateJwt);
@@ -136,10 +153,10 @@ router.get('/sidebar/counts', async (req: Request, res: Response) => {
 
 // Candidates
 router.get('/candidates', candidateController.getCandidates);
-router.post('/candidates', optionalSingleCvUpload, candidateController.createCandidate);
+router.post('/candidates', uploadRateLimiter, optionalSingleCvUpload, candidateController.createCandidate);
 router.get('/candidates/:id', candidateController.getCandidateById);
-router.put('/candidates/:id', optionalSingleCvUpload, candidateController.updateCandidate);
-router.post('/candidates/:id/cv', optionalSingleCvUpload, candidateController.uploadCandidateCv);
+router.put('/candidates/:id', uploadRateLimiter, optionalSingleCvUpload, candidateController.updateCandidate);
+router.post('/candidates/:id/cv', uploadRateLimiter, optionalSingleCvUpload, candidateController.uploadCandidateCv);
 router.get('/candidates/:id/cv', candidateController.downloadCandidateCv);
 router.patch('/candidates/:id/stage', candidateController.updateCandidate);
 router.delete('/candidates/:id', candidateController.deleteCandidate);
@@ -156,7 +173,7 @@ router.post('/candidates/csv-import', async (req: Request, res: Response) => {
 });
 
 // NLP & AI Endpoints (FastAPI Bridge)
-router.post('/parse-resume', upload.single('file'), async (req: Request, res: Response) => {
+router.post('/parse-resume', uploadRateLimiter, upload.single('file'), async (req: Request, res: Response) => {
   try {
     const file = req.file;
     if (!file) {
@@ -476,7 +493,7 @@ router.put('/vendors/:id', clientController.updateVendor);
 router.delete('/vendors/:id', clientController.deleteVendor);
 
 // SMTP Email Dispatch
-router.post('/smtp/send', async (req: Request, res: Response) => {
+router.post('/smtp/send', emailRateLimiter, async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
     const {
@@ -499,18 +516,22 @@ router.post('/smtp/send', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'Recipient email address is required.' });
     }
 
-    const resolvedSubject = subject || `Candidate Submission: ${candidateName || 'Consultant'} for ${requirementTitle || 'Role'} (${clientName || 'Client'})`;
-    const resolvedHtml = html || bodyHtml || `
+    const rawSubject = subject || `Candidate Submission: ${candidateName || 'Consultant'} for ${requirementTitle || 'Role'} (${clientName || 'Client'})`;
+    const resolvedSubject = String(rawSubject).replace(/[\r\n]+/g, ' ').trim();
+    const rawCustomHtml = html || bodyHtml;
+    const resolvedHtml = rawCustomHtml
+      ? sanitizeEmailHtml(String(rawCustomHtml))
+      : `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b;">
-        <p>Hello ${recipientName || 'Hiring Team'},</p>
-        <p>Please review the following consultant profile submitted for <strong>${requirementTitle || 'Open Requisition'}</strong> at <strong>${clientName || 'your organization'}</strong>:</p>
+        <p>Hello ${escapeHtml(recipientName || 'Hiring Team')},</p>
+        <p>Please review the following consultant profile submitted for <strong>${escapeHtml(requirementTitle || 'Open Requisition')}</strong> at <strong>${escapeHtml(clientName || 'your organization')}</strong>:</p>
         <ul>
-          <li><strong>Consultant:</strong> ${candidateName || 'N/A'}</li>
-          <li><strong>Work Authorization:</strong> ${workAuth || 'Authorized'}</li>
-          <li><strong>Bill Rate:</strong> ${rate || 'Competitive'}</li>
-          <li><strong>Location:</strong> ${location || 'Remote / Hybrid'}</li>
+          <li><strong>Consultant:</strong> ${escapeHtml(candidateName || 'N/A')}</li>
+          <li><strong>Work Authorization:</strong> ${escapeHtml(workAuth || 'Authorized')}</li>
+          <li><strong>Bill Rate:</strong> ${escapeHtml(rate || 'Competitive')}</li>
+          <li><strong>Location:</strong> ${escapeHtml(location || 'Remote / Hybrid')}</li>
         </ul>
-        <p>Best regards,<br/>${req.user?.fullName || 'TalentOS Recruitment Desk'}</p>
+        <p>Best regards,<br/>${escapeHtml(req.user?.fullName || 'TalentOS Recruitment Desk')}</p>
       </div>
     `;
 
@@ -544,8 +565,8 @@ router.delete('/placements/:id', placementController.deletePlacement);
 
 // Users & Roles
 router.get('/users', userController.getUsers);
-router.post('/users/invite', userController.inviteUser);
-router.put('/users/:id', async (req: Request, res: Response) => {
+router.post('/users/invite', requireRole([UserRole.ADMINISTRATOR]), userController.inviteUser);
+router.put('/users/:id', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
     const user = await prisma.user.findUnique({ where: { id: req.params.id } });
@@ -576,6 +597,9 @@ router.put('/users/:id', async (req: Request, res: Response) => {
       INVITED: 'INVITED',
     };
 
+    const resolvedNextStatus = status && statusMap[status] ? statusMap[status] : undefined;
+    const isSuspending = resolvedNextStatus === 'SUSPENDED' && user.status !== 'SUSPENDED';
+
     const updated = await prisma.user.update({
       where: { id: user.id },
       data: {
@@ -584,7 +608,8 @@ router.put('/users/:id', async (req: Request, res: Response) => {
         ...(role && roleMap[role] ? { role: roleMap[role] } : {}),
         ...(desk !== undefined ? { desk: String(desk).trim() } : {}),
         ...(rateMasked !== undefined ? { rateMasked: Boolean(rateMasked) } : {}),
-        ...(status && statusMap[status] ? { status: statusMap[status] } : {}),
+        ...(resolvedNextStatus ? { status: resolvedNextStatus } : {}),
+        ...(isSuspending ? { tokenVersion: { increment: 1 } } : {}),
       },
       select: {
         id: true,
@@ -603,16 +628,22 @@ router.put('/users/:id', async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: error.message || 'Failed to update user' });
   }
 });
-router.patch('/users/:id/rate-mask', userController.toggleUserRateMask);
-router.patch('/users/:id/status', async (req: Request, res: Response) => {
+router.patch('/users/:id/rate-mask', requireRole([UserRole.ADMINISTRATOR]), userController.toggleUserRateMask);
+router.patch('/users/:id/status', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
     const user = await prisma.user.findUnique({ where: { id: req.params.id } });
     if (!user || user.tenantId !== tenantId) return res.status(404).json({ success: false, message: 'User not found' });
+    if (req.user?.id === user.id) {
+      return res.status(400).json({ success: false, message: 'Cannot suspend your own active administrator account.' });
+    }
     const nextStatus = user.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
     const updated = await prisma.user.update({
       where: { id: req.params.id },
-      data: { status: nextStatus },
+      data: {
+        status: nextStatus,
+        ...(nextStatus === 'SUSPENDED' ? { tokenVersion: { increment: 1 } } : {}),
+      },
       select: { id: true, fullName: true, status: true }
     });
     res.json({ success: true, data: updated });
@@ -620,11 +651,14 @@ router.patch('/users/:id/status', async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: 'Failed to update user status' });
   }
 });
-router.delete('/users/:id', async (req: Request, res: Response) => {
+router.delete('/users/:id', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
     const user = await prisma.user.findUnique({ where: { id: req.params.id } });
     if (!user || user.tenantId !== tenantId) return res.status(404).json({ success: false, message: 'User not found' });
+    if (req.user?.id === user.id) {
+      return res.status(400).json({ success: false, message: 'Cannot delete your own administrator account.' });
+    }
     await prisma.user.delete({ where: { id: req.params.id } });
     res.json({ success: true, message: 'User removed successfully' });
   } catch (error: any) {
@@ -693,7 +727,7 @@ router.get('/custom-fields', async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: 'Failed to fetch custom fields' });
   }
 });
-router.post('/custom-fields', async (req: Request, res: Response) => {
+router.post('/custom-fields', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
     const { name, entity, type, options, required } = req.body;
@@ -718,7 +752,7 @@ router.post('/custom-fields', async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: error.message || 'Failed to create custom field' });
   }
 });
-router.put('/custom-fields/:id', async (req: Request, res: Response) => {
+router.put('/custom-fields/:id', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
     const existing = await prisma.customFieldDefinition.findFirst({
@@ -749,9 +783,16 @@ router.put('/custom-fields/:id', async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: error.message || 'Failed to update custom field' });
   }
 });
-router.delete('/custom-fields/:id', async (req: Request, res: Response) => {
+router.delete('/custom-fields/:id', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
   try {
-    await prisma.customFieldDefinition.delete({ where: { id: req.params.id } });
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const existing = await prisma.customFieldDefinition.findFirst({
+      where: { id: req.params.id, tenantId },
+    });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Custom field not found' });
+    }
+    await prisma.customFieldDefinition.delete({ where: { id: existing.id } });
     res.json({ success: true, message: 'Custom field deleted successfully' });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Failed to delete custom field' });
@@ -796,22 +837,26 @@ const DEFAULT_TAXONOMIES: Array<{ category: 'WORK_AUTH' | 'PAYMENT_TERMS' | 'EDU
   })),
 ];
 
-router.get('/taxonomies', async (_req: Request, res: Response) => {
+router.get('/taxonomies', async (req: Request, res: Response) => {
   try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
     let rows = await prisma.masterTaxonomy.findMany({
-      where: { active: true },
+      where: { tenantId, active: true },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
 
     const existingCats = new Set(rows.map((r) => r.category));
-    const missingDefaults = DEFAULT_TAXONOMIES.filter((d) => !existingCats.has(d.category));
+    const missingDefaults = DEFAULT_TAXONOMIES.filter((d) => !existingCats.has(d.category)).map((d) => ({
+      ...d,
+      tenantId,
+    }));
     if (missingDefaults.length > 0) {
       await prisma.masterTaxonomy.createMany({
         data: missingDefaults,
         skipDuplicates: true,
       });
       rows = await prisma.masterTaxonomy.findMany({
-        where: { active: true },
+        where: { tenantId, active: true },
         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       });
     }
@@ -829,17 +874,18 @@ router.get('/taxonomies', async (_req: Request, res: Response) => {
   }
 });
 
-router.post('/taxonomies', async (req: Request, res: Response) => {
+router.post('/taxonomies', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
   try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
     const mappedCat = mapTaxonomyCategory(req.body.category);
     const trimmed = String(req.body.optionValue || '').trim();
     if (!mappedCat || !trimmed) {
       return res.status(400).json({ success: false, message: 'Valid category and optionValue are required' });
     }
     const item = await prisma.masterTaxonomy.upsert({
-      where: { category_optionValue: { category: mappedCat, optionValue: trimmed } },
+      where: { tenantId_category_optionValue: { tenantId, category: mappedCat, optionValue: trimmed } },
       update: { active: true },
-      create: { category: mappedCat, optionValue: trimmed, active: true },
+      create: { tenantId, category: mappedCat, optionValue: trimmed, active: true },
     });
     res.status(201).json({ success: true, data: item });
   } catch (error: any) {
@@ -847,8 +893,9 @@ router.post('/taxonomies', async (req: Request, res: Response) => {
   }
 });
 
-router.put('/taxonomies', async (req: Request, res: Response) => {
+router.put('/taxonomies', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
   try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
     const mappedCat = mapTaxonomyCategory(req.body.category);
     const oldValue = String(req.body.oldValue || '').trim();
     const newValue = String(req.body.newValue || '').trim();
@@ -856,7 +903,7 @@ router.put('/taxonomies', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'Valid category, oldValue, and newValue are required' });
     }
     await prisma.masterTaxonomy.updateMany({
-      where: { category: mappedCat, optionValue: oldValue },
+      where: { tenantId, category: mappedCat, optionValue: oldValue },
       data: { optionValue: newValue },
     });
     res.json({ success: true });
@@ -865,8 +912,9 @@ router.put('/taxonomies', async (req: Request, res: Response) => {
   }
 });
 
-router.delete('/taxonomies', async (req: Request, res: Response) => {
+router.delete('/taxonomies', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
   try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
     const category = (req.body?.category ?? req.query?.category) as string | undefined;
     const optionValue = (req.body?.optionValue ?? req.query?.optionValue) as string | undefined;
     const mappedCat = mapTaxonomyCategory(category);
@@ -875,7 +923,7 @@ router.delete('/taxonomies', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'Valid category and optionValue are required' });
     }
     await prisma.masterTaxonomy.deleteMany({
-      where: { category: mappedCat, optionValue: trimmed },
+      where: { tenantId, category: mappedCat, optionValue: trimmed },
     });
     res.json({ success: true });
   } catch (error: any) {
@@ -1006,18 +1054,42 @@ router.get('/settings', async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
     const settings = await getTenantSettings(tenantId);
-    const emailLogs = await prisma.emailLog.findMany({
-      where: { tenantId },
-      orderBy: { createdAt: 'desc' },
-      take: 15,
+    const isAdmin = req.user?.role === UserRole.ADMINISTRATOR;
+    const emailLogs = isAdmin
+      ? await prisma.emailLog.findMany({
+          where: { tenantId },
+          orderBy: { createdAt: 'desc' },
+          take: 15,
+        })
+      : [];
+
+    res.json({
+      success: true,
+      data: {
+        general: settings.general,
+        smtp: isAdmin
+          ? redactSmtpSettings(settings.smtp)
+          : {
+              enabled: settings.smtp.enabled,
+              host: '',
+              port: 587,
+              encryption: 'STARTTLS',
+              username: '',
+              password: '',
+              fromName: settings.smtp.fromName,
+              fromEmail: '',
+              replyToEmail: '',
+              hasPassword: false,
+            },
+        emailLogs,
+      },
     });
-    res.json({ success: true, data: { ...settings, emailLogs } });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'Failed to load settings' });
   }
 });
 
-router.put('/settings/general', async (req: Request, res: Response) => {
+router.put('/settings/general', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
     const updated = await saveGeneralSettings(tenantId, req.body || {});
@@ -1027,17 +1099,17 @@ router.put('/settings/general', async (req: Request, res: Response) => {
   }
 });
 
-router.put('/settings/smtp', async (req: Request, res: Response) => {
+router.put('/settings/smtp', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
     const updated = await saveSmtpSettings(tenantId, req.body || {});
-    res.json({ success: true, data: updated, message: 'SMTP settings saved' });
+    res.json({ success: true, data: redactSmtpSettings(updated), message: 'SMTP settings saved' });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'Failed to save SMTP settings' });
   }
 });
 
-router.post('/settings/smtp/test', async (req: Request, res: Response) => {
+router.post('/settings/smtp/test', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
     const { recipientEmail, smtp } = req.body || {};

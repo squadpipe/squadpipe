@@ -1,5 +1,6 @@
 import { runRateMaskTests } from './unit/rateMask.test';
 import { runPlacementCalculationTests } from './unit/placement.test';
+import { runSecurityHardeningTests } from './unit/securityHardening.test';
 
 async function runAllBackendTests() {
   console.log('========================================================');
@@ -9,6 +10,7 @@ async function runAllBackendTests() {
   try {
     runRateMaskTests();
     runPlacementCalculationTests();
+    runSecurityHardeningTests();
 
     console.log('\n========================================================');
     console.log('🎉 ALL BACKEND TESTS PASSED (100% Success)');

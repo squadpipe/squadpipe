@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { UserRole } from '@prisma/client';
+import { prisma } from '../config/prisma.config';
+import { getJwtAccessSecret } from '../config/jwt.config';
 
 export interface AuthenticatedUser {
   id: string;
@@ -10,6 +12,7 @@ export interface AuthenticatedUser {
   agencyName?: string;
   tenantId: string;
   rateMasked: boolean;
+  tokenVersion?: number;
 }
 
 declare global {
@@ -20,10 +23,10 @@ declare global {
   }
 }
 
-export const authenticateJwt = (req: Request, res: Response, next: NextFunction) => {
+export const authenticateJwt = async (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    // For development convenience / prototype testing, allow fallback dev user if not in strict prod
+    // Allow headerless dev convenience ONLY outside production
     if (process.env.NODE_ENV !== 'production' && !authHeader) {
       req.user = {
         id: 'usr_admin',
@@ -32,7 +35,8 @@ export const authenticateJwt = (req: Request, res: Response, next: NextFunction)
         fullName: 'Johnathan Miller',
         agencyName: 'TalentOS Staffing',
         tenantId: 'talentos-agency',
-        rateMasked: false
+        rateMasked: false,
+        tokenVersion: 0
       };
       return next();
     }
@@ -40,18 +44,55 @@ export const authenticateJwt = (req: Request, res: Response, next: NextFunction)
   }
 
   const token = authHeader.split(' ')[1];
-  const secret = process.env.JWT_ACCESS_SECRET || 'dev_secret_key';
+  const secret = getJwtAccessSecret();
 
   try {
     const decoded = jwt.verify(token, secret) as AuthenticatedUser;
-    // Fallback tenantId if missing in older tokens
-    if (!decoded.tenantId) {
-      decoded.tenantId = decoded.email?.endsWith('@talentos-agency.com') ? 'talentos-agency' : `tenant_${decoded.id}`;
+    const dbUser = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        fullName: true,
+        agencyName: true,
+        tenantId: true,
+        rateMasked: true,
+        status: true,
+        tokenVersion: true
+      }
+    });
+
+    if (!dbUser) {
+      return res.status(401).json({ success: false, message: 'Session is no longer valid.' });
     }
-    req.user = decoded;
+
+    if (dbUser.status === 'SUSPENDED') {
+      return res.status(403).json({ success: false, message: 'Account suspended. Contact your workspace administrator.' });
+    }
+
+    const tokenVersionMatches =
+      typeof decoded.tokenVersion === 'number'
+        ? decoded.tokenVersion === dbUser.tokenVersion
+        : dbUser.tokenVersion === 0;
+
+    if (!tokenVersionMatches) {
+      return res.status(401).json({ success: false, message: 'Session expired or signed out. Please sign in again.' });
+    }
+
+    req.user = {
+      id: dbUser.id,
+      email: dbUser.email,
+      role: dbUser.role,
+      fullName: dbUser.fullName,
+      agencyName: dbUser.agencyName,
+      tenantId: dbUser.tenantId || 'talentos-agency',
+      rateMasked: dbUser.rateMasked,
+      tokenVersion: dbUser.tokenVersion
+    };
     next();
   } catch (err) {
-    return res.status(403).json({ success: false, message: 'Invalid or expired access token.' });
+    return res.status(401).json({ success: false, message: 'Invalid or expired access token.' });
   }
 };
 

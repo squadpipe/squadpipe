@@ -155,6 +155,7 @@ model User {
   role            UserRole       @default(TECHNICAL_RECRUITER)
   desk            String         @default("US IT Contract (C2C & W2)")
   rateMasked      Boolean        @default(true)
+  tokenVersion    Int            @default(0)
   status          UserStatus     @default(ACTIVE)
   workload        String?        @default("0 Requisitions • 0 Submissions")
   lastActiveAt    DateTime?
@@ -483,6 +484,7 @@ model CustomFieldDefinition {
 
 model MasterTaxonomy {
   id          String                 @id @default(uuid())
+  tenantId    String                 @default("talentos-agency")
   category    MasterTaxonomyCategory
   optionValue String
   sortOrder   Int                    @default(0)
@@ -490,8 +492,18 @@ model MasterTaxonomy {
   createdAt   DateTime               @default(now())
   updatedAt   DateTime               @updatedAt
 
-  @@unique([category, optionValue])
+  @@unique([tenantId, category, optionValue])
   @@index([category])
+  @@index([tenantId])
+}
+
+model TenantSettings {
+  tenantId      String   @id @map("tenant_id")
+  generalConfig Json     @default("{}") @map("general_config")
+  smtpConfig    Json     @default("{}") @map("smtp_config")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("tenant_settings")
 }
 
 model EmailLog {

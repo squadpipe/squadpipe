@@ -150,10 +150,17 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
     try {
       const res = await apiClient.post('/auth/forgot-password', { email: forgotEmail });
       if (res.data?.success) {
-        setSuccessMessage(`Reset code generated for ${forgotEmail}. Code: ${res.data.resetCode || '123456'}`);
-        setResetCode(res.data.resetCode || '');
+        setSuccessMessage(
+          res.data.message ||
+            `If an account exists for ${forgotEmail}, a 6-digit verification code has been dispatched.`
+        );
+        setResetCode('');
         setAuthMode('reset');
-        showToast('Code Issued', 'Password reset code generated.', 'fa-solid fa-key text-brand-500');
+        showToast(
+          'Verification Requested',
+          'Check your email inbox for your 6-digit verification code.',
+          'fa-solid fa-key text-brand-500'
+        );
       } else {
         setErrorMessage(res.data?.message || 'Email lookup failed.');
       }

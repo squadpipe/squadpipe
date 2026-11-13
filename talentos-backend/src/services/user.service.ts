@@ -1,6 +1,9 @@
 import { prisma } from '../config/prisma.config';
 import { UserStatus, UserRole, Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import { smtpService } from './smtp.service';
+import { escapeHtml } from '../utils/cryptoSecret';
 
 export interface UserFilterParams {
   search?: string;
@@ -108,12 +111,12 @@ export class UserService {
     });
   }
 
-  async toggleRateMask(id: string) {
-    const user = await prisma.user.findUnique({ where: { id } });
+  async toggleRateMask(id: string, tenantId: string) {
+    const user = await prisma.user.findFirst({ where: { id, tenantId } });
     if (!user) throw new Error('User not found');
 
     return prisma.user.update({
-      where: { id },
+      where: { id: user.id },
       data: { rateMasked: !user.rateMasked },
       select: { id: true, fullName: true, rateMasked: true }
     });
@@ -124,20 +127,34 @@ export class UserService {
     tenantId: string = 'talentos-agency',
     agencyName?: string
   ) {
-    const defaultPasswordHash = await bcrypt.hash('TalentOS@2026', 10);
+    const normalizedEmail = String(data.email || '').trim().toLowerCase();
+    if (!normalizedEmail || !normalizedEmail.includes('@')) {
+      throw new Error('A valid corporate email address is required.');
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    if (existing) {
+      throw new Error('A user with this email address already exists.');
+    }
+
+    // Cryptographically random temporary credential (never static default password)
+    const temporaryRandomSecret = crypto.randomBytes(24).toString('base64url');
+    const tempPasswordHash = await bcrypt.hash(temporaryRandomSecret, 12);
+    const setupCode = crypto.randomInt(100000, 1000000).toString();
     const resolvedName = (data.fullName || data.name || 'Team Member').trim();
+    const resolvedAgencyName = agencyName || 'TalentOS Staffing';
     const roleUpper = String(data.role || 'TECHNICAL_RECRUITER').toUpperCase().replace(/[\s-]/g, '_');
     const validRole = Object.values(UserRole).includes(roleUpper as UserRole)
       ? (roleUpper as UserRole)
       : UserRole.TECHNICAL_RECRUITER;
 
-    return prisma.user.create({
+    const invitedUser = await prisma.user.create({
       data: {
         fullName: resolvedName,
-        email: data.email.trim().toLowerCase(),
-        passwordHash: defaultPasswordHash,
+        email: normalizedEmail,
+        passwordHash: tempPasswordHash,
         tenantId,
-        agencyName: agencyName || 'TalentOS Staffing',
+        agencyName: resolvedAgencyName,
         role: validRole,
         desk: data.desk?.trim() || 'US IT Contract (C2C & W2)',
         rateMasked: data.rateMasked !== undefined ? Boolean(data.rateMasked) : true,
@@ -158,6 +175,36 @@ export class UserService {
         createdAt: true
       }
     });
+
+    // Issue one-time 24h activation / password setup code and dispatch via workspace SMTP
+    await prisma.refreshToken.create({
+      data: {
+        token: `reset_${normalizedEmail}_${setupCode}`,
+        userId: invitedUser.id,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      },
+    });
+
+    await smtpService
+      .sendMail({
+        to: normalizedEmail,
+        recipientName: resolvedName,
+        subject: `You're invited to ${resolvedAgencyName} on TalentOS`,
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.6; color: #1e293b;">
+            <p>Hello ${escapeHtml(resolvedName)},</p>
+            <p>You have been invited to join <strong>${escapeHtml(resolvedAgencyName)}</strong> as <strong>${escapeHtml(validRole.replace(/_/g, ' '))}</strong>.</p>
+            <p>Use the one-time setup code below via <em>Forgot / Reset Password</em> on the sign-in screen to set your password (valid for 24 hours):</p>
+            <p style="font-size: 20px; font-weight: 700; letter-spacing: 2px; color: #2563eb;">${setupCode}</p>
+          </div>
+        `,
+        tenantId,
+      })
+      .catch((err) => {
+        console.warn('Invite email dispatch warning:', err);
+      });
+
+    return invitedUser;
   }
 }
 

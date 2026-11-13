@@ -23,10 +23,12 @@ export const getUsers = async (req: Request, res: Response) => {
 
 export const toggleUserRateMask = async (req: Request, res: Response) => {
   try {
-    const updated = await userService.toggleRateMask(req.params.id);
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const updated = await userService.toggleRateMask(req.params.id, tenantId);
     res.json({ success: true, data: updated });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Failed to toggle rate mask' });
+    const status = error.message === 'User not found' ? 404 : 500;
+    res.status(status).json({ success: false, message: error.message || 'Failed to toggle rate mask' });
   }
 };
 
@@ -37,6 +39,8 @@ export const inviteUser = async (req: Request, res: Response) => {
     const user = await userService.inviteUser(req.body, tenantId, agencyName);
     res.status(201).json({ success: true, data: user });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Failed to invite user' });
+    const msg = error?.message || 'Failed to invite user';
+    const status = msg.includes('already exists') ? 409 : msg.includes('valid corporate email') ? 400 : 500;
+    res.status(status).json({ success: false, message: msg });
   }
 };
