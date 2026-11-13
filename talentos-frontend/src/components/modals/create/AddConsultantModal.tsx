@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Candidate, User } from '../../../types';
 import { DynamicCustomFieldsSection, useMasterTaxonomies } from '../../shared/DynamicCustomFieldsSection';
 import { useCurrency } from '../../../utils/currency';
@@ -21,7 +21,7 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
   const { symbol: currencySymbol } = useCurrency();
   const taxonomies = useMasterTaxonomies(isOpen);
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
-  const [form, setForm] = useState({
+  const getInitialForm = () => ({
     fullName: '',
     currentTitle: '',
     workAuth: 'US Citizen',
@@ -34,6 +34,14 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
     recruiter: users[0]?.name || '',
     pipelineStage: 'Available / Bench',
   });
+  const [form, setForm] = useState(getInitialForm);
+
+  useEffect(() => {
+    if (isOpen) {
+      setForm(getInitialForm());
+      setCustomValues({});
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -63,6 +71,7 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
     };
 
     onSave(newCandidate);
+    setForm(getInitialForm());
     setCustomValues({});
     showToast('Consultant Added', `${newCandidate.fullName} registered to talent roster!`, 'fa-solid fa-circle-check text-emerald-500');
     onClose();

@@ -103,6 +103,15 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
   };
 
   useEffect(() => {
+    setRawEmailText('');
+    setSkillInput('');
+    setHasParsed(false);
+    setIsParsing(false);
+    lastParsedTextRef.current = '';
+    setExtractedReq(EMPTY_FORM);
+  }, [isOpen]);
+
+  useEffect(() => {
     if (!isOpen) return;
     const trimmed = rawEmailText.trim();
     if (trimmed.length <= 20) {
@@ -115,15 +124,21 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
     return () => clearTimeout(timer);
   }, [rawEmailText, isOpen]);
 
-  if (!isOpen) return null;
-
   const handleClearAll = () => {
     setRawEmailText('');
     setSkillInput('');
     setHasParsed(false);
+    setIsParsing(false);
     lastParsedTextRef.current = '';
     setExtractedReq(EMPTY_FORM);
   };
+
+  const handleClose = () => {
+    handleClearAll();
+    onClose();
+  };
+
+  if (!isOpen) return null;
 
   const skillTags = extractedReq.skillsRequired
     .split(',')
@@ -226,7 +241,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
 
   return (
     <div
-      onClick={onClose}
+      onClick={handleClose}
       className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
     >
       <div
@@ -248,7 +263,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 cursor-pointer">
+          <button onClick={handleClose} className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 cursor-pointer">
             <i className="fa-solid fa-xmark text-sm"></i>
           </button>
         </div>
@@ -544,7 +559,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
             >
               Cancel

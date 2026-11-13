@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { apiClient } from '../../config/api.config';
 import { Candidate } from '../../types';
 import { formatRateDisplay, useCurrency } from '../../utils/currency';
@@ -10,6 +10,21 @@ interface ResumeParserModalProps {
   onSwitchToCsvImport?: () => void;
   showToast: (title: string, message: string, icon?: string) => void;
 }
+
+const EMPTY_PROFILE = {
+  fullName: '',
+  phone: '',
+  email: '',
+  workAuth: 'US Citizen',
+  currentTitle: '',
+  skillset: '',
+  education: '',
+  hourlyRate: '',
+  relocation: 'Yes',
+  recruiter: '',
+  fileName: '',
+  rawSnippet: '',
+};
 
 export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
   isOpen,
@@ -24,20 +39,26 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
   const [hasParsedFile, setHasParsedFile] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [profile, setProfile] = useState<any>({
-    fullName: '',
-    phone: '',
-    email: '',
-    workAuth: 'US Citizen',
-    currentTitle: '',
-    skillset: '',
-    education: '',
-    hourlyRate: '',
-    relocation: 'Yes',
-    recruiter: '',
-    fileName: '',
-    rawSnippet: '',
-  });
+  const [profile, setProfile] = useState<any>({ ...EMPTY_PROFILE });
+
+  const resetModalState = () => {
+    setProfile({ ...EMPTY_PROFILE });
+    setHasParsedFile(false);
+    setIsParsing(false);
+    setParseProgress(0);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  useEffect(() => {
+    resetModalState();
+  }, [isOpen]);
+
+  const handleClose = () => {
+    resetModalState();
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -164,13 +185,14 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
     }
 
     onApprove(newCandidate);
+    resetModalState();
     onClose();
     showToast('Consultant Approved', `${newCandidate.fullName} registered to candidate roster!`, 'fa-solid fa-circle-check text-emerald-500');
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-fade-in select-none">
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-scale-up">
+    <div onClick={handleClose} className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-fade-in select-none">
+      <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-scale-up">
         {/* Modal Header matching Prototype lines 760-776 */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
           <div className="flex items-center gap-3">
@@ -190,7 +212,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center text-sm transition-colors cursor-pointer"
           >
             <i className="fa-solid fa-xmark"></i>
@@ -258,15 +280,17 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
                   <i className="fa-regular fa-file-lines text-slate-500"></i>
                   <span className="font-bold text-slate-800 text-xs">Source Document</span>
                 </div>
-                <span className="text-[10px] text-brand-700 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded font-medium flex items-center gap-1">
+                <span className={`text-[10px] px-2 py-0.5 rounded font-medium flex items-center gap-1 border ${hasParsedFile && profile.fileName ? 'text-brand-700 bg-brand-50 border-brand-200' : 'text-slate-400 bg-slate-100 border-slate-200'}`}>
                   <i
                     className={
-                      profile.fileName?.endsWith('.docx')
-                        ? 'fa-regular fa-file-word text-blue-500'
-                        : 'fa-regular fa-file-pdf text-rose-500'
+                      hasParsedFile && profile.fileName
+                        ? profile.fileName.endsWith('.docx')
+                          ? 'fa-regular fa-file-word text-blue-500'
+                          : 'fa-regular fa-file-pdf text-rose-500'
+                        : 'fa-regular fa-file text-slate-400'
                     }
                   ></i>
-                  <span>{profile.fileName || 'Resume.pdf'}</span>
+                  <span>{hasParsedFile && profile.fileName ? profile.fileName : 'No file selected'}</span>
                 </span>
               </div>
 
@@ -317,10 +341,12 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
                     Review and edit fields before saving
                   </span>
                 </div>
-                <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
-                  <i className="fa-solid fa-check text-[9px]"></i>
-                  <span>Pattern Matched</span>
-                </span>
+                {hasParsedFile && (
+                  <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
+                    <i className="fa-solid fa-check text-[9px]"></i>
+                    <span>Pattern Matched</span>
+                  </span>
+                )}
               </div>
 
               {/* Form Grid */}
@@ -450,7 +476,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
           <button
             type="button"
             onClick={() => {
-              onClose();
+              handleClose();
               if (onSwitchToCsvImport) onSwitchToCsvImport();
             }}
             className="text-emerald-700 font-semibold hover:underline flex items-center gap-1.5 cursor-pointer"
@@ -461,7 +487,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-white text-xs font-medium transition-colors cursor-pointer"
             >
               Cancel

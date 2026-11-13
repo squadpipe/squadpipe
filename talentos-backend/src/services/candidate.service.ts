@@ -86,6 +86,23 @@ export class CandidateService {
       raw.resumeName ||
       `${(raw.fullName || 'Candidate').replace(/\s+/g, '_')}_Resume.pdf`;
 
+    let resolvedRecruiterId: string | null = raw.assignedRecruiterId || recruiterId || null;
+    if (resolvedRecruiterId) {
+      const existingUser = await prisma.user.findUnique({
+        where: { id: resolvedRecruiterId },
+        select: { id: true },
+      });
+      if (!existingUser) resolvedRecruiterId = null;
+    }
+    const recruiterName = raw.assignedRecruiter || raw.recruiter;
+    if (!resolvedRecruiterId && recruiterName && typeof recruiterName === 'string' && recruiterName.trim()) {
+      const matchedUser = await prisma.user.findFirst({
+        where: { tenantId, fullName: { equals: recruiterName.trim(), mode: 'insensitive' } },
+        select: { id: true },
+      });
+      if (matchedUser) resolvedRecruiterId = matchedUser.id;
+    }
+
     return prisma.candidate.create({
       data: {
         tenantId,
@@ -105,7 +122,7 @@ export class CandidateService {
         resumeFileUrl: raw.resumeFileUrl || null,
         rawSnippet: raw.rawSnippet || null,
         pipelineStage: mappedStage,
-        assignedRecruiterId: recruiterId || raw.assignedRecruiterId || null
+        assignedRecruiterId: resolvedRecruiterId
       },
       include: {
         assignedRecruiter: {

@@ -59,8 +59,12 @@ export class PlacementService {
     else if (typeStr.includes('1099')) placementType = PlacementType.TEN_NINETY_NINE;
     else if (typeStr.includes('FULL')) placementType = PlacementType.FULL_TIME;
 
-    // Resolve relational IDs when omitted
+    // Resolve and validate relational IDs so synthetic/stale IDs never fail FK constraints
     let candidateId: string | null = payload.candidateId || null;
+    if (candidateId) {
+      const existingCand = await prisma.candidate.findUnique({ where: { id: candidateId }, select: { id: true } });
+      if (!existingCand) candidateId = null;
+    }
     if (!candidateId && payload.resourceName) {
       const matchedCand = await prisma.candidate.findFirst({
         where: { tenantId, fullName: { equals: String(payload.resourceName).trim(), mode: 'insensitive' } },
@@ -70,6 +74,10 @@ export class PlacementService {
     }
 
     let clientId: string | null = payload.clientId || null;
+    if (clientId) {
+      const existingClient = await prisma.client.findUnique({ where: { id: clientId }, select: { id: true } });
+      if (!existingClient) clientId = null;
+    }
     if (!clientId && payload.customer) {
       const matchedClient = await prisma.client.findFirst({
         where: { tenantId, name: { equals: String(payload.customer).trim(), mode: 'insensitive' } },
@@ -79,6 +87,10 @@ export class PlacementService {
     }
 
     let vendorId: string | null = payload.vendorId || null;
+    if (vendorId) {
+      const existingVendor = await prisma.vendor.findUnique({ where: { id: vendorId }, select: { id: true } });
+      if (!existingVendor) vendorId = null;
+    }
     if (!vendorId && payload.vendorName) {
       const matchedVendor = await prisma.vendor.findFirst({
         where: { tenantId, name: { equals: String(payload.vendorName).trim(), mode: 'insensitive' } },
@@ -87,7 +99,25 @@ export class PlacementService {
       if (matchedVendor) vendorId = matchedVendor.id;
     }
 
-    const requirementId: string | null = payload.requirementId || null;
+    let requirementId: string | null = payload.requirementId || null;
+    if (requirementId) {
+      const existingReq = await prisma.requirement.findUnique({ where: { id: requirementId }, select: { id: true } });
+      if (!existingReq) requirementId = null;
+    }
+
+    let resolvedRecruiterId: string | null = payload.recruiterId || recruiterId || null;
+    if (resolvedRecruiterId) {
+      const existingUser = await prisma.user.findUnique({ where: { id: resolvedRecruiterId }, select: { id: true } });
+      if (!existingUser) resolvedRecruiterId = null;
+    }
+    if (!resolvedRecruiterId && payload.recruiter && typeof payload.recruiter === 'string' && payload.recruiter.trim()) {
+      const matchedUser = await prisma.user.findFirst({
+        where: { tenantId, fullName: { equals: payload.recruiter.trim(), mode: 'insensitive' } },
+        select: { id: true },
+      });
+      if (matchedUser) resolvedRecruiterId = matchedUser.id;
+    }
+
     const status = this.mapPlacementStatus(payload.status);
 
     const placement = await prisma.placement.create({
@@ -112,7 +142,7 @@ export class PlacementService {
         hourlySpread,
         marginPct: parseFloat(marginPct.toFixed(2)),
         purchaseOrderNumber: payload.purchaseOrderNumber?.trim() || null,
-        recruiterId: recruiterId || payload.recruiterId || null,
+        recruiterId: resolvedRecruiterId,
         status,
       },
       include: {

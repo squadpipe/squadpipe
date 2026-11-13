@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Client } from '../../../types';
 import { DynamicCustomFieldsSection } from '../../shared/DynamicCustomFieldsSection';
 
@@ -9,6 +9,17 @@ interface AddClientModalProps {
   showToast: (title: string, message: string, icon?: string) => void;
 }
 
+const INITIAL_CLIENT_FORM = {
+  name: '',
+  website: 'https://',
+  location: '',
+  phone: '',
+  contactName: '',
+  designation: '',
+  email: '',
+  directPhone: '',
+};
+
 export const AddClientModal: React.FC<AddClientModalProps> = ({
   isOpen,
   onClose,
@@ -16,16 +27,14 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
   showToast,
 }) => {
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
-  const [form, setForm] = useState({
-    name: '',
-    website: 'https://',
-    location: '',
-    phone: '',
-    contactName: '',
-    designation: '',
-    email: '',
-    directPhone: '',
-  });
+  const [form, setForm] = useState({ ...INITIAL_CLIENT_FORM });
+
+  useEffect(() => {
+    if (isOpen) {
+      setForm({ ...INITIAL_CLIENT_FORM });
+      setCustomValues({});
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -55,6 +64,7 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
     };
 
     onSave(newClient);
+    setForm({ ...INITIAL_CLIENT_FORM });
     setCustomValues({});
     showToast('Client Registered', `${newClient.name} account registered under active MSA!`, 'fa-solid fa-circle-check text-purple-500');
     onClose();

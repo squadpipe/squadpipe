@@ -90,8 +90,23 @@ export class RequirementService {
     const mappedStatus = requirementStatusMap[raw.status] || RequirementStatus.REQUIREMENT;
 
     // Handle Client relationship or auto-create new client & hiring contact
-    let resolvedClientId = raw.clientId || null;
-    let resolvedContactId = raw.clientContactId || null;
+    let resolvedClientId: string | null = raw.clientId || null;
+    if (resolvedClientId) {
+      const existingClientById = await prisma.client.findUnique({
+        where: { id: resolvedClientId },
+        select: { id: true },
+      });
+      if (!existingClientById) resolvedClientId = null;
+    }
+
+    let resolvedContactId: string | null = raw.clientContactId || null;
+    if (resolvedContactId) {
+      const existingContactById = await prisma.clientContact.findUnique({
+        where: { id: resolvedContactId },
+        select: { id: true },
+      });
+      if (!existingContactById) resolvedContactId = null;
+    }
 
     if (!resolvedClientId && raw.companyName && raw.companyName.trim()) {
       const companyTrimmed = raw.companyName.trim();
@@ -139,8 +154,8 @@ export class RequirementService {
       }
     }
 
-    // Resolve assigned recruiter by name if passed
-    let resolvedRecruiterId = raw.assignedRecruiterId || null;
+    // Resolve assigned recruiter by name or validate supplied/auth user ID
+    let resolvedRecruiterId: string | null = raw.assignedRecruiterId || null;
     if (!resolvedRecruiterId && raw.assignedRecruiter && typeof raw.assignedRecruiter === 'string' && raw.assignedRecruiter.trim()) {
       const matchedUser = await prisma.user.findFirst({
         where: { tenantId, fullName: { equals: raw.assignedRecruiter.trim(), mode: 'insensitive' } },
@@ -149,6 +164,13 @@ export class RequirementService {
       if (matchedUser) resolvedRecruiterId = matchedUser.id;
     }
     if (!resolvedRecruiterId) resolvedRecruiterId = recruiterId || null;
+    if (resolvedRecruiterId) {
+      const existingUser = await prisma.user.findUnique({
+        where: { id: resolvedRecruiterId },
+        select: { id: true },
+      });
+      if (!existingUser) resolvedRecruiterId = null;
+    }
 
     // Map work model
     let workModel: WorkModel = WorkModel.REMOTE;
@@ -217,8 +239,16 @@ export class RequirementService {
       data.targetPayRate = Number(raw.targetPayRate) || 0;
     }
     if (raw.assignedRecruiterId !== undefined) {
-      data.assignedRecruiter = raw.assignedRecruiterId
-        ? { connect: { id: raw.assignedRecruiterId } }
+      let validRecruiterId: string | null = raw.assignedRecruiterId || null;
+      if (validRecruiterId) {
+        const existingUser = await prisma.user.findUnique({
+          where: { id: validRecruiterId },
+          select: { id: true },
+        });
+        if (!existingUser) validRecruiterId = null;
+      }
+      data.assignedRecruiter = validRecruiterId
+        ? { connect: { id: validRecruiterId } }
         : { disconnect: true };
     } else if (raw.assignedRecruiter !== undefined && typeof raw.assignedRecruiter === 'string' && raw.assignedRecruiter.trim()) {
       const matchedUser = await prisma.user.findFirst({

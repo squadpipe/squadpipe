@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Vendor } from '../../../types';
 import { DynamicCustomFieldsSection, useMasterTaxonomies } from '../../shared/DynamicCustomFieldsSection';
 
@@ -9,6 +9,17 @@ interface AddVendorModalProps {
   showToast: (title: string, message: string, icon?: string) => void;
 }
 
+const INITIAL_VENDOR_FORM = {
+  name: '',
+  location: '',
+  contactName: '',
+  phone: '',
+  email: '',
+  skillSpecialization: '',
+  paymentTerms: 'Net 30',
+  msa: 'Yes',
+};
+
 export const AddVendorModal: React.FC<AddVendorModalProps> = ({
   isOpen,
   onClose,
@@ -17,16 +28,14 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
 }) => {
   const taxonomies = useMasterTaxonomies(isOpen);
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
-  const [form, setForm] = useState({
-    name: '',
-    location: '',
-    contactName: '',
-    phone: '',
-    email: '',
-    skillSpecialization: '',
-    paymentTerms: 'Net 30',
-    msa: 'Yes',
-  });
+  const [form, setForm] = useState({ ...INITIAL_VENDOR_FORM });
+
+  useEffect(() => {
+    if (isOpen) {
+      setForm({ ...INITIAL_VENDOR_FORM });
+      setCustomValues({});
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -52,6 +61,7 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
     };
 
     onSave(newVendor);
+    setForm({ ...INITIAL_VENDOR_FORM });
     setCustomValues({});
     showToast('Vendor Onboarded', `${newVendor.name} added to vendor network!`, 'fa-solid fa-circle-check text-amber-500');
     onClose();

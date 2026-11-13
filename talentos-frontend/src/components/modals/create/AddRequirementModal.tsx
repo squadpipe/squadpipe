@@ -23,7 +23,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
   const { symbol: currencySymbol } = useCurrency();
   const taxonomies = useMasterTaxonomies(isOpen);
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
-  const [form, setForm] = useState({
+  const getInitialForm = () => ({
     opportunityTitle: '',
     companyName: clients[0]?.name || '',
     clientContact: clients[0]?.contacts[0]?.name || '',
@@ -35,12 +35,13 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
     status: 'Requirement' as Requirement['status'],
     remarks: '',
   });
+  const [form, setForm] = useState(getInitialForm);
 
   useEffect(() => {
-    setForm((prev) => ({
-      ...prev,
-      targetRate: prev.targetRate ? formatRateDisplay(prev.targetRate, currencySymbol) : `${currencySymbol}115/hr`,
-    }));
+    if (isOpen) {
+      setForm(getInitialForm());
+      setCustomValues({});
+    }
   }, [currencySymbol, isOpen]);
 
   if (!isOpen) return null;
@@ -72,6 +73,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
     };
 
     onSave(newReq);
+    setForm(getInitialForm());
     setCustomValues({});
     showToast('Requirement Created', `${newReq.code} (${newReq.opportunityTitle}) added to pipeline!`, 'fa-solid fa-circle-check text-blue-500');
     onClose();
