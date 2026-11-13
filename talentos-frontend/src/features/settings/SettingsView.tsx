@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { CURRENCY_OPTIONS, setWorkspaceCurrency } from '../../utils/currency';
+import { setWorkspaceBrand } from '../../utils/workspaceBrand';
 
 interface GeneralSettings {
   agencyName: string;
@@ -126,6 +127,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         const data = res.data?.data;
         if (data?.general) {
           setGeneral({ ...DEFAULT_GENERAL, ...data.general });
+          setWorkspaceBrand(data.general);
           if (data.general.currency) setWorkspaceCurrency(data.general.currency);
         }
         if (data?.smtp) setSmtp({ ...DEFAULT_SMTP, ...data.smtp });
@@ -153,8 +155,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       const res = await apiClient.put('/settings/general', general);
       if (res.data?.data) {
         setGeneral(res.data.data);
+        setWorkspaceBrand(res.data.data);
         setWorkspaceCurrency(res.data.data.currency || general.currency);
       } else {
+        setWorkspaceBrand(general);
         setWorkspaceCurrency(general.currency);
       }
       showToast('Settings Saved', 'General organization settings updated.', 'fa-solid fa-circle-check text-emerald-500');

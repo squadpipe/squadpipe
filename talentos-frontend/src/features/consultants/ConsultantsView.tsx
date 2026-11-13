@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
+  Eye,
   FileSpreadsheet,
   FileText,
   Pencil,
@@ -142,7 +143,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
         <div>
           <h2 className="text-lg font-bold text-slate-900 tracking-tight">Consultant Roster</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Candidate profiles, work authorizations, verified skills, and resume documents.
+            Candidate profiles, work authorizations, verified technical skills, and readiness status.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -219,16 +220,15 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                 <th className="px-4 py-3">Key Skillset</th>
                 <th className="px-4 py-3">Hourly Rate</th>
                 <th className="px-4 py-3">Relocation</th>
-                <th className="px-4 py-3">Resume</th>
                 <th className="px-4 py-3">Stage</th>
-                {(onUpdateCandidate || onDeleteCandidate) && <th className="px-4 py-3 text-right">Actions</th>}
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
               {filtered.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={onUpdateCandidate || onDeleteCandidate ? 9 : 8}
+                    colSpan={8}
                     className="px-6 py-10 text-center text-xs text-slate-400"
                   >
                     No consultants found in the roster. Click{' '}
@@ -317,17 +317,6 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                     </span>
                   </td>
 
-                  {/* Resume Document Link */}
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <button
-                      onClick={() => onPreviewResume(c)}
-                      className="text-[11px] text-brand-600 hover:underline flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <FileText className="w-3.5 h-3.5 text-rose-500" />
-                      <span>{c.resumeFormat || 'PDF'}</span>
-                    </button>
-                  </td>
-
                   {/* Pipeline Stage */}
                   <td className="px-4 py-3 whitespace-nowrap">
                     <span
@@ -339,34 +328,43 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                     </span>
                   </td>
 
-                  {(onUpdateCandidate || onDeleteCandidate) && (
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <div className="inline-flex items-center gap-1">
-                        {onUpdateCandidate && (
-                          <button
-                            onClick={() => setEditingCandidate({ ...c })}
-                            title="Edit consultant"
-                            className="p-1.5 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        {onDeleteCandidate && (
-                          <button
-                            onClick={() => setCandidateToDelete(c)}
-                            title={
-                              isConsultantBillable(c)
-                                ? 'Billable consultant — remove from Billable Consultants before deleting'
-                                : 'Delete consultant'
-                            }
-                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  )}
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    <div className="inline-flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => onPreviewResume(c)}
+                        title="View consultant profile brief"
+                        aria-label={`View profile brief for ${c.fullName}`}
+                        className="p-1.5 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+                      {onUpdateCandidate && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingCandidate({ ...c })}
+                          title="Edit consultant"
+                          className="p-1.5 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {onDeleteCandidate && (
+                        <button
+                          type="button"
+                          onClick={() => setCandidateToDelete(c)}
+                          title={
+                            isConsultantBillable(c)
+                              ? 'Billable consultant — remove from Billable Consultants before deleting'
+                              : 'Delete consultant'
+                          }
+                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))
               )}

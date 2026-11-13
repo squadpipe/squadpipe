@@ -24,6 +24,7 @@ import {
 import { Candidate, Requirement } from '../../types';
 import { useCurrency } from '../../utils/currency';
 import { generateCandidateResumePdf } from '../../utils/pdfGenerator';
+import { initWorkspaceBrand, useWorkspaceBrand } from '../../utils/workspaceBrand';
 import {
   cleanExtractedResumeText,
   parseResumeSections,
@@ -107,6 +108,8 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
   showToast,
 }) => {
   const { formatRate } = useCurrency();
+  const brand = useWorkspaceBrand();
+  const brandName = (brand.agencyName || brand.legalEntityName || 'TalentOS Staffing').trim();
   const [showQuickSubmitDropdown, setShowQuickSubmitDropdown] = useState(false);
   const [reqFilterQuery, setReqFilterQuery] = useState('');
   const detailsScrollRef = useRef<HTMLDivElement>(null);
@@ -116,6 +119,9 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
     setReqFilterQuery('');
     if (detailsScrollRef.current) {
       detailsScrollRef.current.scrollTop = 0;
+    }
+    if (isOpen) {
+      initWorkspaceBrand(true);
     }
   }, [isOpen, candidate?.id]);
 
@@ -203,20 +209,21 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
     .filter(Boolean)
     .join(' ');
 
-  const downloadFormattedResumePdf = () => {
-    const blob = generateCandidateResumePdf(candidate, formattedRate);
+  const downloadProfileBriefPdf = () => {
+    const blob = generateCandidateResumePdf(candidate, formattedRate, brand);
     const url = URL.createObjectURL(blob);
+    const safeName = (candidate.fullName || 'Consultant').replace(/\s+/g, '_');
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${(candidate.fullName || 'Consultant').replace(/\s+/g, '_')}_Resume_Profile.pdf`;
+    link.download = `${safeName}_Profile_Brief.pdf`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
     showToast(
-      'PDF Downloaded',
-      `Exported formatted PDF profile for ${candidate.fullName}`,
+      'Profile Brief Downloaded',
+      `Exported ${brandName} consultant brief for ${candidate.fullName} (CRM summary — not original CV).`,
       'fa-solid fa-file-arrow-down text-emerald-500'
     );
   };
@@ -245,35 +252,23 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
                 <div className="w-6 h-6 rounded-md bg-brand-50 border border-brand-200/80 text-brand-600 flex items-center justify-center shrink-0">
                   <FileText className="w-3.5 h-3.5" />
                 </div>
-                <span className="text-[11px] font-bold text-slate-700 shrink-0">
-                  Extracted Resume Profile
+                <span className="text-[11px] font-bold text-slate-800 shrink-0">
+                  Consultant Profile Brief
                 </span>
-                {candidate.resumeName && (
-                  <>
-                    <span className="text-slate-300 hidden sm:inline">&bull;</span>
-                    <span
-                      className="text-[11px] text-slate-500 truncate max-w-[220px] hidden sm:inline"
-                      title={candidate.resumeName}
-                    >
-                      {candidate.resumeName}
-                    </span>
-                  </>
-                )}
-                {candidate.resumeFormat && (
-                  <span className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[9px] font-bold uppercase tracking-wider text-slate-500 shrink-0">
-                    {candidate.resumeFormat}
-                  </span>
-                )}
+                <span className="px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200/80 text-[10px] font-semibold text-amber-800 shrink-0">
+                  Summary Only &bull; Not Original CV
+                </span>
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
-                  onClick={downloadFormattedResumePdf}
+                  onClick={downloadProfileBriefPdf}
+                  title={`Export branded ${brandName} consultant brief PDF (summary only — not the original CV)`}
                   className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-semibold inline-flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5 text-slate-300" />
-                  <span>Download PDF</span>
+                  <span>Download Profile PDF</span>
                 </button>
                 <button
                   type="button"
@@ -281,7 +276,7 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
                     setShowQuickSubmitDropdown(false);
                     onClose();
                   }}
-                  aria-label="Close resume preview"
+                  aria-label="Close profile brief preview"
                   className="text-slate-400 hover:text-slate-700 w-7 h-7 rounded-lg hover:bg-slate-200/70 flex items-center justify-center transition-colors cursor-pointer"
                 >
                   <X className="w-4 h-4" />
@@ -370,6 +365,15 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
             ref={detailsScrollRef}
             className="flex-1 min-h-0 overflow-y-auto custom-scrollbar bg-slate-50/75 px-6 py-5 space-y-4 text-xs select-text"
           >
+            {/* Honest Summary Notice */}
+            <div className="flex items-start gap-2.5 rounded-xl bg-brand-50/60 border border-brand-200/70 px-3.5 py-2.5 text-[11px] text-slate-700">
+              <Info className="w-3.5 h-3.5 text-brand-600 mt-0.5 shrink-0" />
+              <span>
+                This is a <strong className="font-semibold text-slate-900">{brandName}</strong>{' '}
+                summary profile brief generated from CRM records — <strong className="font-semibold text-slate-900">not the candidate&apos;s original CV</strong>. Downloading exports a branded client brief.
+              </span>
+            </div>
+
             {/* Executive Summary Card */}
             <section className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-sm space-y-2.5">
               <div className="flex items-center gap-2">
@@ -517,9 +521,9 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
                 <div className="flex items-start gap-2 rounded-lg bg-slate-50 border border-dashed border-slate-200 px-3 py-2 text-[11px] text-slate-500">
                   <Info className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
                   <span>
-                    Full chronological work history text was not included with this directory import. Use{' '}
-                    <strong className="font-semibold text-slate-700">Download PDF</strong> to export a
-                    client-formatted profile summary.
+                    Detailed work history text is not attached to this directory entry. Exporting
+                    creates a branded <strong className="font-semibold text-slate-700">{brandName}</strong>{' '}
+                    profile brief PDF (summary only, not an original CV).
                   </span>
                 </div>
               </section>
@@ -549,16 +553,10 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
                 <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 pt-0.5">
                   <span className="inline-flex items-center gap-1">
                     <BadgeCheck className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Verified Candidate Profile</span>
+                    <span>CRM Profile Record</span>
                   </span>
                   <span className="text-slate-300">&bull;</span>
                   <span>{candidate.workAuth || 'Authorized'}</span>
-                  {candidate.resumeFormat && (
-                    <>
-                      <span className="text-slate-300">&bull;</span>
-                      <span>Source Format: {candidate.resumeFormat}</span>
-                    </>
-                  )}
                 </div>
               </div>
             </section>
@@ -593,11 +591,10 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
 
           {/* Fixed Modal Actions Footer */}
           <div className="shrink-0 rounded-b-2xl px-6 py-3.5 bg-white border-t border-slate-200 flex items-center justify-between gap-3 text-xs">
-            <div className="hidden sm:flex items-center gap-1.5 text-slate-500 text-[11px]">
+            <div className="hidden sm:flex items-center gap-1.5 text-slate-500 text-[11px] truncate">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span>
-                Verified Consultant Record
-                {skills.length > 0 ? ` • ${skills.length} skills indexed` : ''}
+              <span className="truncate">
+                {brandName} Brief &bull; Summary Only (Not Original CV)
               </span>
             </div>
 
