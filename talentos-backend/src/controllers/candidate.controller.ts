@@ -26,11 +26,12 @@ export const createCandidate = async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
     const recruiterId = req.user?.id;
-    const candidate = await candidateService.createCandidate(req.body, tenantId, recruiterId);
+    const candidate = await candidateService.createCandidate(req.body, tenantId, recruiterId, req.file);
     res.status(201).json({ success: true, data: candidate });
   } catch (error: any) {
     console.error('Error creating candidate:', error);
-    res.status(500).json({ success: false, message: error.message || 'Failed to create candidate' });
+    const status = error.statusCode || (String(error.message || '').includes('Unsupported CV') || String(error.message || '').includes('CV file') ? 400 : 500);
+    res.status(status).json({ success: false, message: error.message || 'Failed to create candidate' });
   }
 };
 
@@ -48,10 +49,46 @@ export const getCandidateById = async (req: Request, res: Response) => {
 export const updateCandidate = async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
-    const updated = await candidateService.updateCandidate(req.params.id, req.body, tenantId);
+    const updated = await candidateService.updateCandidate(req.params.id, req.body, tenantId, req.file);
     res.json({ success: true, data: updated });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Failed to update candidate' });
+    const status = error.statusCode || (String(error.message || '').includes('Unsupported CV') || String(error.message || '').includes('CV file') ? 400 : 500);
+    res.status(status).json({ success: false, message: error.message || 'Failed to update candidate' });
+  }
+};
+
+export const uploadCandidateCv = async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No CV file uploaded.' });
+    }
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const updated = await candidateService.uploadCandidateCv(req.params.id, req.file, tenantId);
+    res.json({ success: true, data: updated });
+  } catch (error: any) {
+    const status = error.statusCode || (String(error.message || '').includes('Unsupported CV') || String(error.message || '').includes('CV file') ? 400 : 500);
+    res.status(status).json({ success: false, message: error.message || 'Failed to upload CV' });
+  }
+};
+
+export const downloadCandidateCv = async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const downloaded = await candidateService.downloadCandidateCv(req.params.id, tenantId);
+    const fallbackName = downloaded.fileName.replace(/["\\\r\n]/g, '_');
+    const encodedName = encodeURIComponent(downloaded.fileName);
+
+    res.setHeader('Content-Type', downloaded.contentType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fallbackName}"; filename*=UTF-8''${encodedName}`
+    );
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.send(downloaded.buffer);
+  } catch (error: any) {
+    const status = error.statusCode || 500;
+    res.status(status).json({ success: false, message: error.message || 'Failed to download CV' });
   }
 };
 

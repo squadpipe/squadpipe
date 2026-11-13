@@ -16,6 +16,12 @@ import {
 import { apiClient } from '../../config/api.config';
 import { Candidate } from '../../types';
 import { formatRateDisplay, useCurrency } from '../../utils/currency';
+import { mapCandidateFromApi } from '../../utils/entityMappers';
+import {
+  ALLOWED_CV_ACCEPT,
+  buildCandidateFormData,
+  validateCvFileSelection,
+} from '../../utils/cvFiles';
 
 interface ResumeParserModalProps {
   isOpen: boolean;
@@ -51,6 +57,8 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
   const [isParsing, setIsParsing] = useState<boolean>(false);
   const [parseProgress, setParseProgress] = useState<number>(0);
   const [hasParsedFile, setHasParsedFile] = useState<boolean>(false);
+  const [selectedCvFile, setSelectedCvFile] = useState<File | null>(null);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [profile, setProfile] = useState<any>({ ...EMPTY_PROFILE });
@@ -58,7 +66,9 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
   const resetModalState = () => {
     setProfile({ ...EMPTY_PROFILE });
     setHasParsedFile(false);
+    setSelectedCvFile(null);
     setIsParsing(false);
+    setIsSaving(false);
     setParseProgress(0);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -76,10 +86,14 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
+  const processCvFile = async (file: File) => {
+    const validationError = validateCvFileSelection(file);
+    if (validationError) {
+      showToast('Invalid CV File', validationError, 'fa-solid fa-triangle-exclamation text-amber-500');
+      return;
+    }
 
+    setSelectedCvFile(file);
     setIsParsing(true);
     setParseProgress(25);
     const timer = setTimeout(() => setParseProgress(70), 300);
@@ -88,9 +102,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
     formData.append('file', file);
 
     try {
-      const res = await apiClient.post('/parse-resume', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await apiClient.post('/parse-resume', formData);
       clearTimeout(timer);
       setParseProgress(100);
       setIsParsing(false);
@@ -153,55 +165,93 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    await processCvFile(file);
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!file) return;
+    await processCvFile(file);
+  };
+
   const handleApprove = async () => {
     if (!profile.fullName.trim() || !profile.email.trim()) {
       showToast('Validation Error', 'Full Name and Email Address are required before saving.', 'fa-solid fa-triangle-exclamation text-amber-500');
       return;
     }
 
-    const newCandidate: Candidate = {
-      id: 'con_' + Date.now(),
-      fullName: profile.fullName,
+    const fallbackResumeName = selectedCvFile?.name || profile.fileName || 'Resume.pdf';
+    const fallbackFormat = fallbackResumeName.toLowerCase().endsWith('.docx')
+      ? 'DOCX'
+      : fallbackResumeName.toLowerCase().endsWith('.doc')
+        ? 'DOC'
+        : fallbackResumeName.toLowerCase().endsWith('.txt')
+          ? 'TXT'
+          : 'PDF';
+
+    const payload = {
+      fullName: profile.fullName.trim(),
+      email: profile.email.trim(),
       phone: profile.phone,
-      email: profile.email,
+      currentTitle: profile.currentTitle,
       workAuth: profile.workAuth,
       education: profile.education,
-      currentTitle: profile.currentTitle,
       skillset: profile.skillset,
-      hourlyRate: profile.hourlyRate,
+      hourlyRateDisplay: profile.hourlyRate,
       relocation: profile.relocation,
-      resumeName: profile.fileName || 'Resume.pdf',
-      resumeFormat: profile.fileName?.endsWith('.docx') ? 'DOCX' : 'PDF',
-      assignedRecruiter: profile.recruiter || 'Assigned Recruiter',
-      pipelineStage: 'Available / Bench',
+      resumeFileName: fallbackResumeName,
+      resumeFormat: fallbackFormat,
+      assignedRecruiter: profile.recruiter || undefined,
       rawSnippet: profile.rawSnippet,
     };
 
+    setIsSaving(true);
     try {
-      const res = await apiClient.post('/candidates', {
-        fullName: newCandidate.fullName,
-        email: newCandidate.email,
-        phone: newCandidate.phone,
-        currentTitle: newCandidate.currentTitle,
-        workAuth: newCandidate.workAuth,
-        education: newCandidate.education,
-        skillset: newCandidate.skillset,
-        hourlyRateDisplay: newCandidate.hourlyRate,
-        relocation: newCandidate.relocation,
-        resumeFileName: newCandidate.resumeName,
-        rawSnippet: newCandidate.rawSnippet,
-      });
-      if (res.data?.data?.id) {
-        newCandidate.id = res.data.data.id;
-      }
-    } catch (e) {
-      console.warn('API save candidate:', e);
-    }
+      const requestBody = selectedCvFile
+        ? buildCandidateFormData(payload, selectedCvFile)
+        : payload;
+      const res = await apiClient.post('/candidates', requestBody);
 
-    onApprove(newCandidate);
-    resetModalState();
-    onClose();
-    showToast('Consultant Approved', `${newCandidate.fullName} registered to candidate roster!`, 'fa-solid fa-circle-check text-emerald-500');
+      const savedCandidate: Candidate = res.data?.data
+        ? mapCandidateFromApi(res.data.data)
+        : {
+            id: 'con_' + Date.now(),
+            fullName: payload.fullName,
+            phone: payload.phone,
+            email: payload.email,
+            workAuth: payload.workAuth,
+            education: payload.education,
+            currentTitle: payload.currentTitle,
+            skillset: payload.skillset,
+            hourlyRate: payload.hourlyRateDisplay,
+            relocation: payload.relocation,
+            resumeName: fallbackResumeName,
+            resumeFormat: fallbackFormat,
+            assignedRecruiter: profile.recruiter || 'Assigned Recruiter',
+            pipelineStage: 'Available / Bench',
+            rawSnippet: payload.rawSnippet,
+          };
+
+      onApprove(savedCandidate);
+      resetModalState();
+      onClose();
+      showToast(
+        'Consultant Approved',
+        selectedCvFile
+          ? `${savedCandidate.fullName} and original CV saved to roster!`
+          : `${savedCandidate.fullName} registered to candidate roster!`,
+        'fa-solid fa-circle-check text-emerald-500'
+      );
+    } catch (e: any) {
+      const message = e?.response?.data?.message || e?.message || 'Failed to save consultant.';
+      showToast('Save Failed', message, 'fa-solid fa-circle-exclamation text-rose-500');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -247,7 +297,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
                   type="file"
                   ref={fileInputRef}
                   onChange={handleFileUpload}
-                  accept=".pdf,.doc,.docx,.txt"
+                  accept={ALLOWED_CV_ACCEPT}
                   className="hidden"
                 />
               </label>
@@ -255,11 +305,16 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
             </div>
 
             {/* Right: Upload Status / Supported Formats */}
-            <div className="flex items-center gap-2 text-[11px] text-slate-500 font-medium">
+            <div className="flex items-center gap-2 text-[11px] text-slate-500 font-medium flex-wrap">
               <span className="px-2 py-1 rounded bg-white border border-slate-200 text-[10px]">
-                Supports .pdf, .doc, .docx, .txt
+                Supports .pdf, .doc, .docx, .txt, .rtf
               </span>
-              {hasParsedFile && (
+              {selectedCvFile && (
+                <span className="px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold">
+                  Original CV Will Auto-Save
+                </span>
+              )}
+              {hasParsedFile && !selectedCvFile && (
                 <span className="px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px]">
                   File Parsed
                 </span>
@@ -310,6 +365,8 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
               {/* Drag & Drop Zone */}
               <div
                 onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleDrop}
                 className="border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-lg p-3 text-center bg-white cursor-pointer transition-colors group"
               >
                 <div className="flex items-center justify-center gap-2 text-slate-600 group-hover:text-brand-600 transition-colors">
@@ -318,7 +375,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
                     Drop new resume file here or click to browse
                   </span>
                 </div>
-                <div className="text-[10px] text-slate-400 mt-0.5">Word (.docx) or PDF (up to 20MB)</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">Word (.doc/.docx), PDF, TXT, or RTF (up to 15MB)</div>
               </div>
 
               {/* Document Text Excerpt */}
@@ -512,11 +569,16 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
             </button>
             <button
               type="button"
+              disabled={isSaving || isParsing}
               onClick={handleApprove}
-              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
-              <span>Add Consultant to Roster</span>
+              {isSaving ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
+              )}
+              <span>{isSaving ? 'Saving Consultant & CV...' : 'Add Consultant to Roster'}</span>
             </button>
           </div>
         </div>

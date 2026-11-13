@@ -3,6 +3,8 @@ import { X } from 'lucide-react';
 import { AppIcon } from './components/shared/AppIcon';
 import { apiClient } from './config/api.config';
 import { formatRateDisplay, getCurrencySymbol, initWorkspaceCurrency } from './utils/currency';
+import { mapCandidateFromApi } from './utils/entityMappers';
+import { buildCandidateFormData } from './utils/cvFiles';
 
 import { Sidebar } from './components/layout/Sidebar';
 import { Topbar } from './components/layout/Topbar';
@@ -888,15 +890,41 @@ export const App: React.FC = () => {
     );
   };
 
-  const handleUpdateCandidate = async (updated: Candidate) => {
+  const handleUpdateCandidate = async (updated: Candidate, cvFile?: File | null) => {
     try {
-      const res = await apiClient.put(`/candidates/${updated.id}`, updated);
-      const saved: Candidate = res.data?.data ?? updated;
+      const payload = {
+        fullName: updated.fullName,
+        email: updated.email,
+        phone: updated.phone,
+        currentTitle: updated.currentTitle,
+        workAuth: updated.workAuth,
+        education: updated.education,
+        skillset: updated.skillset,
+        hourlyRateDisplay: updated.hourlyRate,
+        relocation: updated.relocation,
+        pipelineStage: updated.pipelineStage,
+        assignedRecruiter: updated.assignedRecruiter,
+        customFields: updated.customFields,
+      };
+      const requestBody = cvFile
+        ? buildCandidateFormData(payload, cvFile)
+        : updated;
+      const res = await apiClient.put(`/candidates/${updated.id}`, requestBody);
+      const saved: Candidate = res.data?.data ? mapCandidateFromApi(res.data.data) : updated;
       setCandidates((prev) => prev.map((c) => (c.id === saved.id ? { ...c, ...saved } : c)));
-      showToast('Consultant Updated', `${saved.fullName} details saved.`, 'fa-solid fa-circle-check text-emerald-500');
+      setSelectedResumeCand((prev) => (prev && prev.id === saved.id ? { ...prev, ...saved } : prev));
+      showToast(
+        cvFile ? 'CV & Consultant Updated' : 'Consultant Updated',
+        cvFile ? `${saved.fullName} profile and CV file saved.` : `${saved.fullName} details saved.`,
+        'fa-solid fa-circle-check text-emerald-500'
+      );
     } catch (e: any) {
       console.warn('API update candidate failed:', e);
-      showToast('Update Failed', e?.response?.data?.error || `Could not update ${updated.fullName}.`, 'fa-solid fa-circle-exclamation text-rose-500');
+      showToast(
+        'Update Failed',
+        e?.response?.data?.message || e?.response?.data?.error || `Could not update ${updated.fullName}.`,
+        'fa-solid fa-circle-exclamation text-rose-500'
+      );
       throw e;
     }
   };
@@ -1702,17 +1730,29 @@ export const App: React.FC = () => {
         isOpen={activeCreateModal === 'consultant'}
         onClose={() => setActiveCreateModal(null)}
         users={users}
-        onSave={async (c) => {
-          let saved = c;
-          try {
-            const res = await apiClient.post('/candidates', c);
-            if (res.data?.data?.id) {
-              saved = { ...c, id: res.data.data.id };
-            }
-            fetchSidebarCounts();
-          } catch (e) {
-            console.warn('API save candidate:', e);
-          }
+        onSave={async (c, cvFile) => {
+          const payload = {
+            fullName: c.fullName,
+            email: c.email,
+            phone: c.phone,
+            currentTitle: c.currentTitle,
+            workAuth: c.workAuth,
+            education: c.education,
+            skillset: c.skillset,
+            hourlyRateDisplay: c.hourlyRate,
+            relocation: c.relocation,
+            assignedRecruiter: c.assignedRecruiter,
+            pipelineStage: c.pipelineStage,
+            resumeFileName: cvFile ? cvFile.name : c.resumeName,
+            resumeFormat: cvFile ? undefined : c.resumeFormat,
+            customFields: c.customFields,
+          };
+          const requestBody = cvFile
+            ? buildCandidateFormData(payload, cvFile)
+            : payload;
+          const res = await apiClient.post('/candidates', requestBody);
+          const saved = res.data?.data ? mapCandidateFromApi(res.data.data) : c;
+          fetchSidebarCounts();
           setCandidates((prev) => [saved, ...prev]);
         }}
         showToast={showToast}

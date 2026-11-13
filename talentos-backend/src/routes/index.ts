@@ -24,6 +24,19 @@ import * as slaController from '../controllers/sla.controller';
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
 
+const optionalSingleCvUpload = (req: Request, res: Response, next: (err?: any) => void) => {
+  upload.single('file')(req, res, (err: any) => {
+    if (err instanceof multer.MulterError) {
+      const msg = err.code === 'LIMIT_FILE_SIZE' ? 'CV file exceeds the 15 MB upload limit' : err.message;
+      return res.status(400).json({ success: false, message: msg });
+    }
+    if (err) {
+      return res.status(400).json({ success: false, message: err.message || 'Invalid file upload' });
+    }
+    return next();
+  });
+};
+
 // Public routes (Health check & Authentication)
 router.get('/health', (req: Request, res: Response) => {
   res.json({ success: true, service: 'talentos-backend', status: 'operational' });
@@ -123,9 +136,11 @@ router.get('/sidebar/counts', async (req: Request, res: Response) => {
 
 // Candidates
 router.get('/candidates', candidateController.getCandidates);
-router.post('/candidates', candidateController.createCandidate);
+router.post('/candidates', optionalSingleCvUpload, candidateController.createCandidate);
 router.get('/candidates/:id', candidateController.getCandidateById);
-router.put('/candidates/:id', candidateController.updateCandidate);
+router.put('/candidates/:id', optionalSingleCvUpload, candidateController.updateCandidate);
+router.post('/candidates/:id/cv', optionalSingleCvUpload, candidateController.uploadCandidateCv);
+router.get('/candidates/:id/cv', candidateController.downloadCandidateCv);
 router.patch('/candidates/:id/stage', candidateController.updateCandidate);
 router.delete('/candidates/:id', candidateController.deleteCandidate);
 router.post('/candidates/csv-import', async (req: Request, res: Response) => {

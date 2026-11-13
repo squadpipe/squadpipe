@@ -27,6 +27,7 @@ export interface Candidate {
   relocation: string;
   resumeName: string;
   resumeFormat: string;
+  resumeFileUrl?: string;
   assignedRecruiter: string;
   pipelineStage: string;
   rawSnippet?: string;

@@ -103,6 +103,7 @@ export const mapCandidateFromApi = (c: any): Candidate => ({
   relocation: c.relocation || 'Yes',
   resumeName: c.resumeFileName || '',
   resumeFormat: c.resumeFormat || 'PDF',
+  resumeFileUrl: c.resumeFileUrl || undefined,
   assignedRecruiter: c.assignedRecruiter?.fullName || c.assignedRecruiter || '',
   pipelineStage: formatCandidateStage(c.pipelineStage),
   rawSnippet: c.rawSnippet || '',

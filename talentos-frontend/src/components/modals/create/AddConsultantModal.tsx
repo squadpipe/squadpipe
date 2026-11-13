@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, UserPlus, X } from 'lucide-react';
+import { FileText, Loader2, Plus, Trash2, Upload, UserPlus, X } from 'lucide-react';
 import { Candidate, User } from '../../../types';
 import { DynamicCustomFieldsSection, useMasterTaxonomies } from '../../shared/DynamicCustomFieldsSection';
 import { useCurrency } from '../../../utils/currency';
+import { ALLOWED_CV_ACCEPT, validateCvFileSelection } from '../../../utils/cvFiles';
 
 interface AddConsultantModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (candidate: Candidate) => void;
+  onSave: (candidate: Candidate, cvFile?: File | null) => Promise<void> | void;
   users?: User[];
   showToast: (title: string, message: string, icon?: string) => void;
 }
@@ -22,6 +23,8 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
   const { symbol: currencySymbol } = useCurrency();
   const taxonomies = useMasterTaxonomies(isOpen);
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
+  const [selectedCvFile, setSelectedCvFile] = useState<File | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const getInitialForm = () => ({
     fullName: '',
     currentTitle: '',
@@ -41,18 +44,33 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
     if (isOpen) {
       setForm(getInitialForm());
       setCustomValues({});
+      setSelectedCvFile(null);
+      setIsSaving(false);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleCvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const validationError = validateCvFileSelection(file);
+    if (validationError) {
+      showToast('Invalid CV File', validationError, 'fa-solid fa-triangle-exclamation text-amber-500');
+      e.target.value = '';
+      return;
+    }
+    setSelectedCvFile(file);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.fullName.trim() || !form.email.trim()) {
       showToast('Validation Error', 'Full Name and Email Address are required.', 'fa-solid fa-triangle-exclamation text-amber-500');
       return;
     }
 
+    const cvName = selectedCvFile?.name || `${form.fullName.trim().replace(/\s+/g, '_')}_Resume.pdf`;
     const newCandidate: Candidate = {
       id: 'cand_' + Date.now(),
       fullName: form.fullName.trim(),
@@ -66,16 +84,34 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
       skillset: form.skillset.trim(),
       assignedRecruiter: form.recruiter,
       pipelineStage: form.pipelineStage,
-      resumeName: `${form.fullName.trim().replace(/\s+/g, '_')}_Resume.pdf`,
-      resumeFormat: 'PDF',
+      resumeName: cvName,
+      resumeFormat: cvName.toLowerCase().endsWith('.docx') ? 'DOCX' : 'PDF',
       customFields: customValues,
     };
 
-    onSave(newCandidate);
-    setForm(getInitialForm());
-    setCustomValues({});
-    showToast('Consultant Added', `${newCandidate.fullName} registered to talent roster!`, 'fa-solid fa-circle-check text-emerald-500');
-    onClose();
+    setIsSaving(true);
+    try {
+      await onSave(newCandidate, selectedCvFile);
+      setForm(getInitialForm());
+      setCustomValues({});
+      setSelectedCvFile(null);
+      showToast(
+        'Consultant Added',
+        selectedCvFile
+          ? `${newCandidate.fullName} and original CV saved to talent roster!`
+          : `${newCandidate.fullName} registered to talent roster!`,
+        'fa-solid fa-circle-check text-emerald-500'
+      );
+      onClose();
+    } catch (err: any) {
+      showToast(
+        'Save Failed',
+        err?.response?.data?.message || err?.message || 'Could not save consultant.',
+        'fa-solid fa-circle-exclamation text-rose-500'
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -258,6 +294,44 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
               </div>
             </div>
 
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">
+                Original CV / Resume File <span className="text-slate-400 font-normal">(Optional)</span>
+              </label>
+              <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg border border-dashed border-slate-300 bg-slate-50/70">
+                <div className="flex items-center gap-2 min-w-0">
+                  <FileText className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                  <span className="text-[11px] text-slate-700 truncate font-medium">
+                    {selectedCvFile
+                      ? `${selectedCvFile.name} (${(selectedCvFile.size / 1024).toFixed(1)} KB)`
+                      : 'Attach PDF, DOC, DOCX, TXT, or RTF (auto-saved with profile)'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {selectedCvFile && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCvFile(null)}
+                      className="px-2 py-1 rounded border border-slate-200 bg-white text-rose-600 hover:bg-rose-50 text-[11px] font-medium flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Remove</span>
+                    </button>
+                  )}
+                  <label className="px-2.5 py-1 rounded bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-colors">
+                    <Upload className="w-3 h-3 text-brand-600" />
+                    <span>{selectedCvFile ? 'Change File' : 'Upload CV'}</span>
+                    <input
+                      type="file"
+                      accept={ALLOWED_CV_ACCEPT}
+                      onChange={handleCvFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+
             <DynamicCustomFieldsSection
               entity="consultant"
               values={customValues}
@@ -277,10 +351,15 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              disabled={isSaving}
+              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
-              <span>Save & Add Consultant to Roster</span>
+              {isSaving ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
+              )}
+              <span>{isSaving ? 'Saving...' : 'Save & Add Consultant to Roster'}</span>
             </button>
           </div>
         </form>
