@@ -145,7 +145,19 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
-              {filtered.map((c) => (
+              {filtered.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={onUpdateCandidate || onDeleteCandidate ? 9 : 8}
+                    className="px-6 py-10 text-center text-xs text-slate-400"
+                  >
+                    No consultants found in the roster. Click{' '}
+                    <span className="font-semibold text-slate-600">Add Consultant</span> or{' '}
+                    <span className="font-semibold text-slate-600">Upload Resume</span> to add talent.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((c) => (
                 <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
                   {/* Full Name & Contacts */}
                   <td className="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">
@@ -254,7 +266,8 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                     </td>
                   )}
                 </tr>
-              ))}
+              ))
+              )}
             </tbody>
           </table>
         </div>

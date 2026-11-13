@@ -311,29 +311,35 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                   Select Available Bench Consultant:
                 </div>
                 <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
-                  {candidates.map((con) => (
-                    <div
-                      key={con.id}
-                      onClick={() => {
-                        onAssignCandidate(requirement, con);
-                        setShowBenchPicker(false);
-                      }}
-                      className="p-2.5 bg-white hover:bg-brand-50/50 rounded-lg border border-slate-200 hover:border-brand-500 cursor-pointer flex items-center justify-between transition-all group"
-                    >
-                      <div>
-                        <div className="font-bold text-slate-900 group-hover:text-brand-600 text-xs flex items-center gap-1.5">
-                          <span>{con.fullName}</span>
-                          <span className="text-[9px] font-normal text-slate-400">({con.workAuth})</span>
-                        </div>
-                        <div className="text-[10px] text-slate-500 mt-0.5">
-                          {con.currentTitle} &bull; {formatRate(con.hourlyRate)}
-                        </div>
-                      </div>
-                      <button className="px-2.5 py-1 rounded bg-brand-600 text-white text-[10px] font-semibold group-hover:bg-brand-700 transition-colors shadow-2xs">
-                        Assign & Submit
-                      </button>
+                  {candidates.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-slate-400 bg-white rounded-lg border border-dashed border-slate-200">
+                      No bench consultants available to assign yet.
                     </div>
-                  ))}
+                  ) : (
+                    candidates.map((con) => (
+                      <div
+                        key={con.id}
+                        onClick={() => {
+                          onAssignCandidate(requirement, con);
+                          setShowBenchPicker(false);
+                        }}
+                        className="p-2.5 bg-white hover:bg-brand-50/50 rounded-lg border border-slate-200 hover:border-brand-500 cursor-pointer flex items-center justify-between transition-all group"
+                      >
+                        <div>
+                          <div className="font-bold text-slate-900 group-hover:text-brand-600 text-xs flex items-center gap-1.5">
+                            <span>{con.fullName}</span>
+                            <span className="text-[9px] font-normal text-slate-400">({con.workAuth})</span>
+                          </div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">
+                            {con.currentTitle} &bull; {formatRate(con.hourlyRate)}
+                          </div>
+                        </div>
+                        <button className="px-2.5 py-1 rounded bg-brand-600 text-white text-[10px] font-semibold group-hover:bg-brand-700 transition-colors shadow-2xs">
+                          Assign & Submit
+                        </button>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}

@@ -592,7 +592,12 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
       ) : (
         /* Active Persisted Automation Cards Grid */
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {filteredRules.map((rule) => (
+          {filteredRules.length === 0 ? (
+            <div className="col-span-full bg-white rounded-xl border border-slate-200 card-shadow py-10 px-6 text-center text-xs text-slate-400">
+              No automation rules found in the &ldquo;{categoryFilter}&rdquo; category.
+            </div>
+          ) : (
+            filteredRules.map((rule) => (
             <div
               key={rule.id}
               className={`bg-white rounded-xl border border-slate-200 card-shadow p-5 flex flex-col justify-between space-y-4 transition-opacity ${
@@ -711,7 +716,8 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                 </button>
               </div>
             </div>
-          ))}
+          ))
+          )}
         </div>
       )}
 

@@ -288,97 +288,105 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
-              {filteredRequirements.map((req, idx) => {
-                const contactName =
-                  typeof req.clientContact === 'object' && req.clientContact !== null
-                    ? (req.clientContact as any).fullName || (req.clientContact as any).name || ''
-                    : String(req.clientContact || '');
+              {filteredRequirements.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="px-6 py-10 text-center text-xs text-slate-400">
+                    No active requirements found. Click <span className="font-semibold text-slate-600">Add Req</span> to create a job order.
+                  </td>
+                </tr>
+              ) : (
+                filteredRequirements.map((req, idx) => {
+                  const contactName =
+                    typeof req.clientContact === 'object' && req.clientContact !== null
+                      ? (req.clientContact as any).fullName || (req.clientContact as any).name || ''
+                      : String(req.clientContact || '');
 
-                const contactTitle =
-                  typeof req.clientContactTitle === 'object' && req.clientContactTitle !== null
-                    ? (req.clientContactTitle as any).designation || ''
-                    : String(req.clientContactTitle || '');
+                  const contactTitle =
+                    typeof req.clientContactTitle === 'object' && req.clientContactTitle !== null
+                      ? (req.clientContactTitle as any).designation || ''
+                      : String(req.clientContactTitle || '');
 
-                const rawDate = (req as any).createdAt;
-                const dateStr = rawDate
-                  ? new Date(rawDate).toISOString().split('T')[0]
-                  : new Date().toISOString().split('T')[0];
+                  const rawDate = (req as any).createdAt;
+                  const dateStr = rawDate
+                    ? new Date(rawDate).toISOString().split('T')[0]
+                    : new Date().toISOString().split('T')[0];
 
-                return (
-                  <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="px-4 py-3 text-[11px] text-slate-500 whitespace-nowrap">
-                      {dateStr}
-                    </td>
-                    <td className="px-4 py-3 font-medium text-slate-900 max-w-xs">
-                      <div
-                        className="flex items-center gap-1.5 cursor-pointer hover:text-brand-600 transition-colors"
-                        onClick={() => onSelectReq(req)}
-                      >
-                        <span className="truncate font-semibold">{req.opportunityTitle}</span>
-                        <span className="text-[9px] text-slate-400 bg-slate-100 px-1 py-0.2 rounded">
-                          {req.code}
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-slate-400 truncate mt-0.5">{req.skillsRequired}</div>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
-                      <div className="font-medium text-slate-800">{contactName}</div>
-                      <div className="text-[10px] text-slate-400">{contactTitle}</div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap font-semibold text-slate-800">
-                      {req.companyName}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-slate-600">{req.location}</td>
-                    <td className="px-4 py-3">
-                      {req.resourceName ? (
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className="font-medium text-slate-800 hover:text-brand-600 cursor-pointer transition-colors"
-                            onClick={() => onPreviewResumeByName(req.resourceName!)}
-                          >
-                            {req.resourceName}
+                  return (
+                    <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="px-4 py-3 text-[11px] text-slate-500 whitespace-nowrap">
+                        {dateStr}
+                      </td>
+                      <td className="px-4 py-3 font-medium text-slate-900 max-w-xs">
+                        <div
+                          className="flex items-center gap-1.5 cursor-pointer hover:text-brand-600 transition-colors"
+                          onClick={() => onSelectReq(req)}
+                        >
+                          <span className="truncate font-semibold">{req.opportunityTitle}</span>
+                          <span className="text-[9px] text-slate-400 bg-slate-100 px-1 py-0.2 rounded">
+                            {req.code}
                           </span>
                         </div>
-                      ) : (
-                        <span className="text-slate-400 italic text-[11px]">Unassigned</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <select
-                        value={req.status}
-                        onChange={(e) => onStatusChange(req, e.target.value)}
-                        className={`px-2 py-0.5 rounded text-[11px] font-medium border font-sans cursor-pointer ${getStatusBadgeClass(
-                          req.status
-                        )}`}
-                      >
-                        <option value="Requirement">Requirement</option>
-                        <option value="Submitted">Submitted</option>
-                        <option value="Interview">Interview</option>
-                        <option value="Selected">Selected</option>
-                        <option value="Onboarding">Onboarding</option>
-                      </select>
-                    </td>
-                    <td className="px-4 py-3 max-w-xs">
-                      <input
-                        value={remarksState[req.id] ?? ''}
-                        onChange={(e) => setRemarksState({ ...remarksState, [req.id]: e.target.value })}
-                        onBlur={() => showToast('Remarks Saved', `Saved notes for ${req.code}`)}
-                        placeholder="Click to add remarks..."
-                        className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-brand-600 rounded px-1.5 py-0.5 text-xs text-slate-700 truncate outline-none"
-                      />
-                    </td>
-                    <td className="px-3 py-3 text-right whitespace-nowrap">
-                      <button
-                        onClick={() => onSelectReq(req)}
-                        title="View Requisition Details"
-                        className="text-slate-400 hover:text-brand-600 p-1 transition-colors cursor-pointer"
-                      >
-                        <i className="fa-solid fa-arrow-up-right-from-square text-[11px]"></i>
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+                        <div className="text-[10px] text-slate-400 truncate mt-0.5">{req.skillsRequired}</div>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                        <div className="font-medium text-slate-800">{contactName}</div>
+                        <div className="text-[10px] text-slate-400">{contactTitle}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap font-semibold text-slate-800">
+                        {req.companyName}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-slate-600">{req.location}</td>
+                      <td className="px-4 py-3">
+                        {req.resourceName ? (
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className="font-medium text-slate-800 hover:text-brand-600 cursor-pointer transition-colors"
+                              onClick={() => onPreviewResumeByName(req.resourceName!)}
+                            >
+                              {req.resourceName}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic text-[11px]">Unassigned</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <select
+                          value={req.status}
+                          onChange={(e) => onStatusChange(req, e.target.value)}
+                          className={`px-2 py-0.5 rounded text-[11px] font-medium border font-sans cursor-pointer ${getStatusBadgeClass(
+                            req.status
+                          )}`}
+                        >
+                          <option value="Requirement">Requirement</option>
+                          <option value="Submitted">Submitted</option>
+                          <option value="Interview">Interview</option>
+                          <option value="Selected">Selected</option>
+                          <option value="Onboarding">Onboarding</option>
+                        </select>
+                      </td>
+                      <td className="px-4 py-3 max-w-xs">
+                        <input
+                          value={remarksState[req.id] ?? ''}
+                          onChange={(e) => setRemarksState({ ...remarksState, [req.id]: e.target.value })}
+                          onBlur={() => showToast('Remarks Saved', `Saved notes for ${req.code}`)}
+                          placeholder="Click to add remarks..."
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-brand-600 rounded px-1.5 py-0.5 text-xs text-slate-700 truncate outline-none"
+                        />
+                      </td>
+                      <td className="px-3 py-3 text-right whitespace-nowrap">
+                        <button
+                          onClick={() => onSelectReq(req)}
+                          title="View Requisition Details"
+                          className="text-slate-400 hover:text-brand-600 p-1 transition-colors cursor-pointer"
+                        >
+                          <i className="fa-solid fa-arrow-up-right-from-square text-[11px]"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -431,7 +439,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="space-y-2">
-            {slaTasks.slice(0, 3).map((item) => (
+            {slaTasks.length === 0 ? (
+              <div className="py-8 text-center text-xs text-slate-400 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
+                No pending SLA priority actions right now.
+              </div>
+            ) : (
+              slaTasks.slice(0, 3).map((item) => (
               <div
                 key={item.id}
                 className="p-2.5 bg-slate-50/80 hover:bg-slate-100/70 rounded-lg border border-slate-200/60 flex items-center justify-between text-xs transition-colors"
@@ -478,7 +491,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </button>
                 )}
               </div>
-            ))}
+            ))
+            )}
           </div>
         </div>
 
@@ -503,35 +517,41 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="space-y-2">
-            {placements.slice(0, 3).map((b) => (
-              <div
-                key={b.id}
-                className="p-2.5 bg-emerald-50/30 hover:bg-emerald-50/60 rounded-lg border border-emerald-100 flex items-center justify-between text-xs transition-colors"
-              >
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      onClick={() => onPreviewResumeByName(b.resourceName)}
-                      className="font-bold text-slate-900 text-xs cursor-pointer hover:text-brand-600 transition-colors"
-                    >
-                      {b.resourceName}
-                    </span>
-                    <span className="text-[9px] bg-white border border-slate-200 px-1 py-0.2 rounded text-slate-600">
-                      {b.deployment}
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-slate-500">
-                    {b.customer} &bull; {b.skillRole}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="font-bold text-emerald-700 text-xs">
-                    <MaskedValue value={b.billing} isMasked={rateMasked} />
-                  </span>
-                  <div className="text-[9px] text-slate-400">Ends {b.endDate}</div>
-                </div>
+            {placements.length === 0 ? (
+              <div className="py-8 text-center text-xs text-slate-400 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
+                No active billable consultants yet.
               </div>
-            ))}
+            ) : (
+              placements.slice(0, 3).map((b) => (
+                <div
+                  key={b.id}
+                  className="p-2.5 bg-emerald-50/30 hover:bg-emerald-50/60 rounded-lg border border-emerald-100 flex items-center justify-between text-xs transition-colors"
+                >
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        onClick={() => onPreviewResumeByName(b.resourceName)}
+                        className="font-bold text-slate-900 text-xs cursor-pointer hover:text-brand-600 transition-colors"
+                      >
+                        {b.resourceName}
+                      </span>
+                      <span className="text-[9px] bg-white border border-slate-200 px-1 py-0.2 rounded text-slate-600">
+                        {b.deployment}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-500">
+                      {b.customer} &bull; {b.skillRole}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-bold text-emerald-700 text-xs">
+                      <MaskedValue value={b.billing} isMasked={rateMasked} />
+                    </span>
+                    <div className="text-[9px] text-slate-400">Ends {b.endDate}</div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

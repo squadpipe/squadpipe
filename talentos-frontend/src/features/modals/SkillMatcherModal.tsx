@@ -111,7 +111,12 @@ export const SkillMatcherModal: React.FC<SkillMatcherModalProps> = ({
           <div className="space-y-3">
             <div className="text-xs font-bold text-slate-700">Ranked Bench Matches ({candidateMatches.length})</div>
 
-            {candidateMatches.map((m) => (
+            {candidateMatches.length === 0 ? (
+              <div className="py-10 px-6 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                No bench candidates available to match yet. Add consultants to see skill matches here.
+              </div>
+            ) : (
+              candidateMatches.map((m) => (
               <div
                 key={m.candidate.id}
                 className="p-4 rounded-xl border border-slate-200 card-shadow bg-white hover:border-slate-300 transition-all flex items-center justify-between gap-4"
@@ -166,7 +171,8 @@ export const SkillMatcherModal: React.FC<SkillMatcherModalProps> = ({
                   </button>
                 </div>
               </div>
-            ))}
+            ))
+            )}
           </div>
         </div>
 

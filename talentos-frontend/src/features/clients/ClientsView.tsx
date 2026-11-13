@@ -88,7 +88,12 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
 
       {/* Clients Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((client) => {
+        {filtered.length === 0 ? (
+          <div className="col-span-full bg-white rounded-xl border border-slate-200 card-shadow py-12 px-6 text-center text-xs text-slate-400">
+            No client companies found. Click <span className="font-semibold text-slate-600">Add Client</span> to register an enterprise account.
+          </div>
+        ) : (
+          filtered.map((client) => {
           const clientReqs = requirements.filter(
             (r) => r.companyName.toLowerCase() === client.name.toLowerCase()
           );
@@ -158,19 +163,23 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                     Contacts ({client.contacts.length})
                   </div>
                   <div className="space-y-1.5">
-                    {client.contacts.map((contact, idx) => (
-                      <div
-                        key={idx}
-                        className="text-xs bg-slate-50 p-2 rounded flex items-center justify-between"
-                      >
-                        <div className="font-medium text-slate-800">
-                          {contact.name || (contact as any).fullName}
+                    {client.contacts.length === 0 ? (
+                      <div className="text-[11px] text-slate-400 italic py-1">No contacts added yet.</div>
+                    ) : (
+                      client.contacts.map((contact, idx) => (
+                        <div
+                          key={idx}
+                          className="text-xs bg-slate-50 p-2 rounded flex items-center justify-between"
+                        >
+                          <div className="font-medium text-slate-800">
+                            {contact.name || (contact as any).fullName}
+                          </div>
+                          <span className="text-[10px] text-slate-400">
+                            {contact.designation}
+                          </span>
                         </div>
-                        <span className="text-[10px] text-slate-400">
-                          {contact.designation}
-                        </span>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
@@ -188,7 +197,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
               </div>
             </div>
           );
-        })}
+        })
+        )}
       </div>
 
       {/* Client Detail Flyout Drawer */}

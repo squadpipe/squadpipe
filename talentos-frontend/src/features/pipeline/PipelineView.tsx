@@ -330,57 +330,65 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredReqs.map((req) => (
-                <tr key={req.id} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="py-3 px-4 font-bold text-slate-900">
-                    <span
-                      onClick={() => onSelectReq && onSelectReq(req)}
-                      className="cursor-pointer hover:text-brand-600 transition-colors block"
-                    >
-                      {req.opportunityTitle}
-                    </span>
-                    <div className="text-[10px] text-slate-400">{req.code}</div>
-                  </td>
-                  <td className="py-3 px-4 font-semibold text-slate-700">{req.companyName}</td>
-                  <td className="py-3 px-4 text-slate-600 text-[11px] max-w-xs truncate">
-                    {req.skillsRequired}
-                  </td>
-                  <td className="py-3 px-4">{req.resourceName || <span className="text-slate-400 italic">Unassigned</span>}</td>
-                  <td className="py-3 px-4 font-semibold text-brand-600">{req.status}</td>
-                  <td className="py-3 px-4 text-right">
-                    <button
-                      onClick={() => onOpenMatcher(req)}
-                      className="px-2 py-1 rounded bg-purple-50 text-purple-700 text-[10px] font-semibold mr-1.5"
-                    >
-                      Match
-                    </button>
-                    <button
-                      onClick={() => onOpenPitchWriter(req)}
-                      className="px-2 py-1 rounded bg-amber-50 text-amber-700 text-[10px] font-semibold"
-                    >
-                      Pitch
-                    </button>
-                    {onUpdateReq && (
-                      <button
-                        onClick={() => setEditingReq({ ...req })}
-                        title="Edit requirement"
-                        className="ml-1.5 p-1 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                    {onDeleteReq && (
-                      <button
-                        onClick={() => setReqToDelete(req)}
-                        title="Delete requirement"
-                        className="ml-1 p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
-                      >
-                        <i className="fa-solid fa-trash-can text-xs"></i>
-                      </button>
-                    )}
+              {filteredReqs.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-10 px-6 text-center text-xs text-slate-400">
+                    No requirements found. Click <span className="font-semibold text-slate-600">Add Requirement</span> to create one.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredReqs.map((req) => (
+                  <tr key={req.id} className="hover:bg-slate-50/60 transition-colors">
+                    <td className="py-3 px-4 font-bold text-slate-900">
+                      <span
+                        onClick={() => onSelectReq && onSelectReq(req)}
+                        className="cursor-pointer hover:text-brand-600 transition-colors block"
+                      >
+                        {req.opportunityTitle}
+                      </span>
+                      <div className="text-[10px] text-slate-400">{req.code}</div>
+                    </td>
+                    <td className="py-3 px-4 font-semibold text-slate-700">{req.companyName}</td>
+                    <td className="py-3 px-4 text-slate-600 text-[11px] max-w-xs truncate">
+                      {req.skillsRequired}
+                    </td>
+                    <td className="py-3 px-4">{req.resourceName || <span className="text-slate-400 italic">Unassigned</span>}</td>
+                    <td className="py-3 px-4 font-semibold text-brand-600">{req.status}</td>
+                    <td className="py-3 px-4 text-right">
+                      <button
+                        onClick={() => onOpenMatcher(req)}
+                        className="px-2 py-1 rounded bg-purple-50 text-purple-700 text-[10px] font-semibold mr-1.5"
+                      >
+                        Match
+                      </button>
+                      <button
+                        onClick={() => onOpenPitchWriter(req)}
+                        className="px-2 py-1 rounded bg-amber-50 text-amber-700 text-[10px] font-semibold"
+                      >
+                        Pitch
+                      </button>
+                      {onUpdateReq && (
+                        <button
+                          onClick={() => setEditingReq({ ...req })}
+                          title="Edit requirement"
+                          className="ml-1.5 p-1 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {onDeleteReq && (
+                        <button
+                          onClick={() => setReqToDelete(req)}
+                          title="Delete requirement"
+                          className="ml-1 p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                        >
+                          <i className="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

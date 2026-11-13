@@ -81,7 +81,18 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
-              {filtered.map((v) => {
+              {filtered.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={onUpdateVendor || onDeleteVendor ? 9 : 8}
+                    className="px-6 py-10 text-center text-xs text-slate-400"
+                  >
+                    No staffing vendors found. Click{' '}
+                    <span className="font-semibold text-slate-600">Add Vendor</span> to register a sub-tier partner.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((v) => {
                 const isMsaExecuted = v.msa === 'Yes' || v.msa === 'Active';
                 return (
                   <tr key={v.id} className="hover:bg-slate-50/80 transition-colors">
@@ -132,7 +143,8 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                     )}
                   </tr>
                 );
-              })}
+              })
+              )}
             </tbody>
           </table>
         </div>

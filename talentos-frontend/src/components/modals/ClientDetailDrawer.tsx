@@ -409,29 +409,35 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
               )}
 
               <div className="space-y-2.5">
-                {client.contacts.map((cnt, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3.5 bg-slate-50 hover:bg-slate-100/70 rounded-xl border border-slate-200 flex items-center justify-between transition-colors"
-                  >
-                    <div>
-                      <div className="font-bold text-slate-900 flex items-center gap-2">
-                        <span>{cnt.name || (cnt as any).fullName}</span>
-                        {cnt.isPrimary && (
-                          <span className="text-[9px] font-bold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.2 rounded">
-                            Primary Lead
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[11px] text-slate-500 font-medium mt-0.5">
-                        {cnt.designation} &bull; {cnt.email}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-[11px] text-slate-600 font-semibold">{cnt.phone}</div>
-                    </div>
+                {client.contacts.length === 0 ? (
+                  <div className="py-8 text-center text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                    No contact persons added for this client yet.
                   </div>
-                ))}
+                ) : (
+                  client.contacts.map((cnt, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3.5 bg-slate-50 hover:bg-slate-100/70 rounded-xl border border-slate-200 flex items-center justify-between transition-colors"
+                    >
+                      <div>
+                        <div className="font-bold text-slate-900 flex items-center gap-2">
+                          <span>{cnt.name || (cnt as any).fullName}</span>
+                          {cnt.isPrimary && (
+                            <span className="text-[9px] font-bold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.2 rounded">
+                              Primary Lead
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+                          {cnt.designation} &bull; {cnt.email}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[11px] text-slate-600 font-semibold">{cnt.phone}</div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
