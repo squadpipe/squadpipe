@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Client } from '../../../types';
+import { DynamicCustomFieldsSection } from '../../shared/DynamicCustomFieldsSection';
 
 interface AddClientModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
   onSave,
   showToast,
 }) => {
+  const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     name: '',
     website: 'https://',
@@ -49,9 +51,11 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
           isPrimary: true,
         },
       ],
+      customFields: customValues,
     };
 
     onSave(newClient);
+    setCustomValues({});
     showToast('Client Registered', `${newClient.name} account registered under active MSA!`, 'fa-solid fa-circle-check text-purple-500');
     onClose();
   };
@@ -72,11 +76,8 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
               <i className="fa-solid fa-building text-sm"></i>
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                <span>Register New Client Account</span>
-                <span className="text-[10px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30 px-1.5 py-0.2 rounded">
-                  Corporate Client
-                </span>
+              <h2 className="text-sm font-bold text-white">
+                Register New Client Account
               </h2>
               <div className="text-[11px] text-slate-400 mt-0.5">
                 Add enterprise client account, headquarters location, and primary hiring manager.
@@ -186,6 +187,13 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
                 </div>
               </div>
             </div>
+
+            <DynamicCustomFieldsSection
+              entity="client"
+              values={customValues}
+              onChange={setCustomValues}
+              isOpen={isOpen}
+            />
           </div>
 
           {/* Modal Footer */}

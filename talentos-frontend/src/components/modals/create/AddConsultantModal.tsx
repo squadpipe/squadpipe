@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Candidate, User } from '../../../types';
+import { DynamicCustomFieldsSection, useMasterTaxonomies } from '../../shared/DynamicCustomFieldsSection';
 
 interface AddConsultantModalProps {
   isOpen: boolean;
@@ -16,6 +17,8 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
   users = [],
   showToast,
 }) => {
+  const taxonomies = useMasterTaxonomies(isOpen);
+  const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     fullName: '',
     currentTitle: '',
@@ -54,9 +57,11 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
       pipelineStage: form.pipelineStage,
       resumeName: `${form.fullName.trim().replace(/\s+/g, '_')}_Resume.pdf`,
       resumeFormat: 'PDF',
+      customFields: customValues,
     };
 
     onSave(newCandidate);
+    setCustomValues({});
     showToast('Consultant Added', `${newCandidate.fullName} registered to talent roster!`, 'fa-solid fa-circle-check text-emerald-500');
     onClose();
   };
@@ -77,11 +82,8 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
               <i className="fa-solid fa-user-plus text-sm"></i>
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                <span>Add New Consultant Profile</span>
-                <span className="text-[10px] font-semibold bg-brand-500/20 text-brand-300 border border-brand-500/30 px-1.5 py-0.2 rounded">
-                  Candidate Roster
-                </span>
+              <h2 className="text-sm font-bold text-white">
+                Add New Consultant Profile
               </h2>
               <div className="text-[11px] text-slate-400 mt-0.5">
                 Register candidate details, work authorization, hourly rates, and technical skillsets.
@@ -130,11 +132,11 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
                   onChange={(e) => setForm({ ...form, workAuth: e.target.value })}
                   className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600"
                 >
-                  <option value="US Citizen">US Citizen</option>
-                  <option value="Green Card">Green Card (Permanent Resident)</option>
-                  <option value="H-1B">H-1B (Transfer Ready)</option>
-                  <option value="TN Visa">TN Visa (NAFTA)</option>
-                  <option value="OPT EAD">OPT / CPT EAD</option>
+                  {taxonomies.workAuth.map((wa) => (
+                    <option key={wa} value={wa}>
+                      {wa}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -185,12 +187,18 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
               </div>
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Highest Education Degree</label>
-                <input
+                <select
                   value={form.education}
                   onChange={(e) => setForm({ ...form, education: e.target.value })}
-                  placeholder="e.g. Master's Degree"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs focus:border-brand-600 focus:outline-none"
-                />
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600"
+                >
+                  <option value="">Select degree...</option>
+                  {taxonomies.education.map((edu) => (
+                    <option key={edu} value={edu}>
+                      {edu}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -236,6 +244,13 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
                 </select>
               </div>
             </div>
+
+            <DynamicCustomFieldsSection
+              entity="consultant"
+              values={customValues}
+              onChange={setCustomValues}
+              isOpen={isOpen}
+            />
           </div>
 
           {/* Modal Footer */}

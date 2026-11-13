@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Vendor } from '../../../types';
+import { DynamicCustomFieldsSection, useMasterTaxonomies } from '../../shared/DynamicCustomFieldsSection';
 
 interface AddVendorModalProps {
   isOpen: boolean;
@@ -14,6 +15,8 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
   onSave,
   showToast,
 }) => {
+  const taxonomies = useMasterTaxonomies(isOpen);
+  const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     name: '',
     location: '',
@@ -45,9 +48,11 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
       paymentTerms: form.paymentTerms,
       invoicingTerms: 'Bi-weekly',
       msa: form.msa === 'Yes' ? 'Active' : 'Pending',
+      customFields: customValues,
     };
 
     onSave(newVendor);
+    setCustomValues({});
     showToast('Vendor Onboarded', `${newVendor.name} added to vendor network!`, 'fa-solid fa-circle-check text-amber-500');
     onClose();
   };
@@ -68,11 +73,8 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
               <i className="fa-solid fa-handshake text-sm"></i>
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                <span>Register Staffing Vendor Partner</span>
-                <span className="text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded">
-                  Sub-Tier Partner
-                </span>
+              <h2 className="text-sm font-bold text-white">
+                Register Staffing Vendor Partner
               </h2>
               <div className="text-[11px] text-slate-400 mt-0.5">
                 Onboard external staffing agency, partner contact, candidate specializations, and payment terms.
@@ -166,10 +168,11 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
                   onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })}
                   className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600"
                 >
-                  <option value="Net 30">Net 30 Days</option>
-                  <option value="Net 45">Net 45 Days</option>
-                  <option value="Net 15">Net 15 Days</option>
-                  <option value="Net 60">Net 60 Days</option>
+                  {taxonomies.paymentTerms.map((term) => (
+                    <option key={term} value={term}>
+                      {term}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -184,6 +187,13 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
                 </select>
               </div>
             </div>
+
+            <DynamicCustomFieldsSection
+              entity="vendor"
+              values={customValues}
+              onChange={setCustomValues}
+              isOpen={isOpen}
+            />
           </div>
 
           {/* Modal Footer */}

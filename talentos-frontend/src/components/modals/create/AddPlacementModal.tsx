@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DollarSign, X, Check, UserCheck, Briefcase, TrendingUp } from 'lucide-react';
 import { BillablePlacement, Candidate, Client, Requirement, User, Vendor } from '../../../types';
+import { DynamicCustomFieldsSection } from '../../shared/DynamicCustomFieldsSection';
 
 interface AddPlacementModalProps {
   isOpen: boolean;
@@ -30,6 +31,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
   requirements = [],
   showToast,
 }) => {
+  const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     candidateId: '',
     requirementId: '',
@@ -69,6 +71,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
         phone: '',
         email: '',
       });
+      setCustomValues({});
     }
   }, [isOpen]);
 
@@ -178,9 +181,11 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
       hourlySpread: finalSpread,
       marginPct: finalMargin,
       status: 'Active',
+      customFields: customValues,
     };
 
     onSave(newPlacement);
+    setCustomValues({});
     showToast(
       'Placement Activated',
       `Active deployment started for ${newPlacement.resourceName}!`,
@@ -205,11 +210,8 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
               <DollarSign className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                <span>Create Billable Placement Record</span>
-                <span className="text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded">
-                  Active Deployment
-                </span>
+              <h2 className="text-sm font-bold text-white">
+                Create Billable Placement Record
               </h2>
               <div className="text-[11px] text-slate-400 mt-0.5">
                 Link a consultant & requisition, lock bill/pay margin spread, and set contract dates.
@@ -493,6 +495,13 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
                 />
               </div>
             </div>
+
+            <DynamicCustomFieldsSection
+              entity="placement"
+              values={customValues}
+              onChange={setCustomValues}
+              isOpen={isOpen}
+            />
           </div>
 
           {/* Modal Footer */}
