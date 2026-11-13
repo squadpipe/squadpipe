@@ -211,7 +211,15 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
               {filteredUsers.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-10 text-center text-xs text-slate-400">
-                    No team members match the current filters.
+                    No team members match the current filters. Click{' '}
+                    <button
+                      type="button"
+                      onClick={() => setShowInviteModal(true)}
+                      className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                    >
+                      Invite Team Member
+                    </button>{' '}
+                    to add one.
                   </td>
                 </tr>
               ) : (

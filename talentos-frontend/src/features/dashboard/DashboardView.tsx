@@ -291,7 +291,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               {filteredRequirements.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-6 py-10 text-center text-xs text-slate-400">
-                    No active requirements found. Click <span className="font-semibold text-slate-600">Add Req</span> to create a job order.
+                    No active requirements found. Click{' '}
+                    <button
+                      type="button"
+                      onClick={onOpenCreateReq}
+                      className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                    >
+                      Add Req
+                    </button>{' '}
+                    to create a job order.
                   </td>
                 </tr>
               ) : (

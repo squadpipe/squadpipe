@@ -182,31 +182,42 @@ router.post('/parse-resume', upload.single('file'), async (req: Request, res: Re
 router.post('/parse-email', async (req: Request, res: Response) => {
   const rawEmailText = String(req.body.rawEmailText || req.body.text || '');
 
-  const extractEmailHeuristics = (text: string) => {
-    const lines = text.split(/\r?\n/).map((l) => l.trim());
-    const companyLine = text.match(/(?:Company|Client|Organization):\s*([^\n\r]+)/i);
+  const cleanField = (val?: any) =>
+    String(val || '')
+      .replace(/\*+/g, '')
+      .replace(/[_`~]+/g, '')
+      .replace(/^[\s:•\-–—]+|[\s*]+$/g, '')
+      .trim();
+
+  const extractEmailHeuristics = (rawText: string) => {
+    const text = rawText.replace(/\*\*/g, '').replace(/__/g, '');
+    const lines = text.split(/\r?\n/).map((l) => cleanField(l));
+    const companyLine = text.match(/(?:Target\s*Company|Company(?:\s*Name)?|Client(?:\s*Company)?|Organization)\s*:\s*([^\n\r]+)/i);
     const atCompany = text.match(/\bat\s+([A-Z][A-Za-z0-9&\s.-]{1,40}?)(?:\s*\(|,|\s+for\b|\s+in\b|\.|\n|$)/);
-    const contactLine = text.match(/From:\s*([^<\n\r]+?)(?:<|$)/i);
+    const contactLine = text.match(/(?:From|Hiring\s*Manager|Contact(?:\s*Name)?)\s*:\s*([^<\n\r]+?)(?:<|$)/i);
     const emailMatch = text.match(/<([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})>/) || text.match(/\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/);
     const subjectLine = text.match(/Subject:\s*(?:Urgent:|Contract:|Open Req:|Requisition:)?\s*([^\n\r]+)/i);
-    const forRole = text.match(/for\s+(?:a|an)\s+([A-Z][A-Za-z0-9\s/&+-]{3,60}?)(?:\s+at\b|\s+for\b|\s+in\b|\.|\n|$)/);
-    const locationLine = text.match(/Location:\s*([^\n\r]+)/i);
+    const jobTitleLine = text.match(/(?:Job\s*Title|Position(?:\s*Title)?|Opportunity(?:\s*Title)?|Role(?:\s*Title)?|Opening)\s*:\s*([^\n\r]+)/i);
+    const forRole = text.match(/(?:for|seeking|hiring)\s+(?:a|an)\s+([A-Z][A-Za-z0-9\s/&+-]{3,60}?)(?:\s+at\b|\s+for\b|\s+in\b|\.|\n|$)/i);
+    const locationLine = text.match(/(?:Work\s*Location|Location)\s*:\s*([^\n\r]+)/i);
     const cityState = text.match(/\b([A-Z][a-zA-Z\s]{2,25},\s*[A-Z]{2}(?:\s*\([^)\n]+\))?)/);
-    const titleLine = text.match(/(?:Title|Designation|Role):\s*([^\n\r]+)/i);
+    const contactTitleLine = text.match(/(?:Contact\s*Title|Designation|Hiring\s*Manager\s*Title|(?:^|\n)\s*Title)\s*:\s*([^\n\r]+)/i);
 
     // Signature extraction (Best regards / Thanks / Sincerely)
     let sigName = '';
     let sigTitle = '';
-    const sigIdx = lines.findIndex((l) => /^(?:best\s+regards|regards|thanks|thank\s+you|sincerely)[,!]?$/i.test(l));
+    let sigCompany = '';
+    const sigIdx = lines.findIndex((l) => /^(?:best\s+regards|regards|warm\s+regards|thanks|thank\s+you|sincerely)[,!]?$/i.test(l));
     if (sigIdx !== -1) {
       const afterSig = lines.slice(sigIdx + 1).filter(Boolean);
       if (afterSig[0] && !/@/.test(afterSig[0])) sigName = afterSig[0];
       if (afterSig[1] && !/@|\d{3}[-.\s]\d{3}/.test(afterSig[1])) sigTitle = afterSig[1];
+      if (afterSig[2] && !/@|\d{3}[-.\s]\d{3}/.test(afterSig[2])) sigCompany = afterSig[2];
     }
 
-    const billRateMatch = text.match(/(?:bill\s*rate|target\s*rate|rate)[^$\d\n\r]{0,20}\$(\d{2,3})/i)
+    const billRateMatch = text.match(/(?:max(?:imum)?\s*bill\s*rate|bill\s*rate|target\s*rate|rate)[^$\d\n\r]{0,20}\$?(\d{2,3})\s*(?:\/hr|per\s*hour|hr\b|hourly)?/i)
       || text.match(/\$(\d{2,3})\s*(?:\/hr|per\s*hour|hr\b|hourly)/i);
-    const payRateMatch = text.match(/(?:pay\s*rate|w2\s*rate|c2c\s*rate)[^$\d\n\r]{0,20}\$(\d{2,3})/i);
+    const payRateMatch = text.match(/(?:candidate\s*pay\s*rate|pay\s*rate|w2\s*rate|c2c\s*rate)[^$\d\n\r]{0,20}\$?(\d{2,3})/i);
 
     const parsedBillRate = billRateMatch ? parseInt(billRateMatch[1], 10) : 0;
     const parsedPayRate = payRateMatch
@@ -222,7 +233,7 @@ router.post('/parse-email', async (req: Request, res: Response) => {
     const commonSkills = [
       'Java', 'Spring Boot', 'Kafka', 'AWS', 'Kubernetes', 'Docker', 'Python', 'React', 'TypeScript',
       'Node.js', 'Snowflake', 'PySpark', 'Databricks', 'Terraform', 'Splunk', 'EDR', 'SIEM', 'SQL', 'Angular',
-      'Go', 'Azure', 'GCP', 'dbt', 'Airflow', 'Microservices', 'PostgreSQL', 'GraphQL'
+      'Go', 'Azure', 'GCP', 'dbt', 'Airflow', 'Microservices', 'PostgreSQL', 'GraphQL', 'REST API'
     ];
     const matchedSkills = commonSkills.filter((skill) =>
       new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(text)
@@ -234,12 +245,12 @@ router.post('/parse-email', async (req: Request, res: Response) => {
     if (!payRateMatch) missingParts.push('explicit pay rate');
 
     return {
-      companyName: (companyLine?.[1] || atCompany?.[1] || '').trim(),
-      opportunityTitle: (subjectLine?.[1] || forRole?.[1] || '').trim(),
-      clientContact: (contactLine?.[1] || sigName || '').trim(),
-      clientContactEmail: (emailMatch?.[1] || '').trim(),
-      clientContactTitle: (titleLine?.[1] || sigTitle || '').trim(),
-      location: (locationLine?.[1] || cityState?.[1] || (workModel === 'Remote' ? 'Remote' : workModel)).trim(),
+      companyName: cleanField(companyLine?.[1] || sigCompany || atCompany?.[1]),
+      opportunityTitle: cleanField(jobTitleLine?.[1] || subjectLine?.[1] || forRole?.[1]),
+      clientContact: cleanField(contactLine?.[1] || sigName),
+      clientContactEmail: cleanField(emailMatch?.[1]),
+      clientContactTitle: cleanField(contactTitleLine?.[1] || sigTitle),
+      location: cleanField(locationLine?.[1] || cityState?.[1] || (workModel === 'Remote' ? 'Remote' : workModel)),
       workModel,
       targetBillRate: parsedBillRate,
       targetPayRate: parsedPayRate,
@@ -253,7 +264,7 @@ router.post('/parse-email', async (req: Request, res: Response) => {
   try {
     let parsed: Record<string, any> = {};
     try {
-      const result = await resumeParserClientService.parseEmail(rawEmailText);
+      const result = await resumeParserClientService.parseEmail(rawEmailText.replace(/\*\*/g, ''));
       parsed = result?.data || result || {};
     } catch {
       parsed = {};
@@ -265,21 +276,22 @@ router.post('/parse-email', async (req: Request, res: Response) => {
       parsed.payRate || parsed.targetPayRate || fallback.targetPayRate || (billRate > 0 ? Math.round(billRate * 0.75) : 0)
     );
 
+    const parsedLocation = cleanField(parsed.location);
     const enriched = {
       ...parsed,
-      companyName: parsed.companyName || parsed.clientName || fallback.companyName,
-      opportunityTitle: parsed.opportunityTitle || parsed.jobTitle || fallback.opportunityTitle,
-      clientContact: parsed.clientContact || parsed.contactName || fallback.clientContact,
-      clientContactEmail: parsed.clientContactEmail || fallback.clientContactEmail,
-      clientContactTitle: parsed.clientContactTitle || parsed.contactTitle || fallback.clientContactTitle,
-      location: parsed.location && parsed.location !== 'Remote / Hybrid'
-        ? parsed.location
-        : fallback.location || parsed.location || 'Remote',
+      companyName: cleanField(parsed.companyName || parsed.clientName) || fallback.companyName,
+      opportunityTitle: cleanField(parsed.opportunityTitle || parsed.jobTitle) || fallback.opportunityTitle,
+      clientContact: cleanField(parsed.clientContact || parsed.contactName) || fallback.clientContact,
+      clientContactEmail: cleanField(parsed.clientContactEmail) || fallback.clientContactEmail,
+      clientContactTitle: cleanField(parsed.clientContactTitle || parsed.contactTitle) || fallback.clientContactTitle,
+      location: parsedLocation && parsedLocation !== 'Remote / Hybrid'
+        ? parsedLocation
+        : fallback.location || parsedLocation || 'Remote',
       workModel: parsed.workModel || fallback.workModel,
       targetBillRate: billRate,
       targetPayRate: payRate,
-      skillsRequired: parsed.skillsRequired || (Array.isArray(parsed.skills) ? parsed.skills.join(', ') : '') || fallback.skillsRequired,
-      missingNotes: fallback.missingNotes || parsed.missingNotes || '',
+      skillsRequired: cleanField(parsed.skillsRequired || (Array.isArray(parsed.skills) ? parsed.skills.join(', ') : '')) || fallback.skillsRequired,
+      missingNotes: fallback.missingNotes || cleanField(parsed.missingNotes) || '',
     };
 
     res.json({ success: true, data: enriched });

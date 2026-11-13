@@ -152,8 +152,26 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                     className="px-6 py-10 text-center text-xs text-slate-400"
                   >
                     No consultants found in the roster. Click{' '}
-                    <span className="font-semibold text-slate-600">Add Consultant</span> or{' '}
-                    <span className="font-semibold text-slate-600">Upload Resume</span> to add talent.
+                    {onOpenAddConsultant && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={onOpenAddConsultant}
+                          className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                        >
+                          Add Consultant
+                        </button>{' '}
+                        or{' '}
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      onClick={onOpenResumeParser}
+                      className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                    >
+                      Upload Resume
+                    </button>{' '}
+                    to add talent.
                   </td>
                 </tr>
               ) : (

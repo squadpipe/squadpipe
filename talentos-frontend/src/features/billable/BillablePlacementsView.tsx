@@ -403,7 +403,15 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-10 text-center text-slate-400 text-xs">
-                    No billable placements match the active filters.
+                    No billable placements found. Click{' '}
+                    <button
+                      type="button"
+                      onClick={onOpenNewPlacement}
+                      className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                    >
+                      New Placement
+                    </button>{' '}
+                    to register one.
                   </td>
                 </tr>
               ) : (

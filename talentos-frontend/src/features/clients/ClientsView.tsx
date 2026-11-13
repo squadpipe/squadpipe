@@ -90,7 +90,15 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.length === 0 ? (
           <div className="col-span-full bg-white rounded-xl border border-slate-200 card-shadow py-12 px-6 text-center text-xs text-slate-400">
-            No client companies found. Click <span className="font-semibold text-slate-600">Add Client</span> to register an enterprise account.
+            No client companies found. Click{' '}
+            <button
+              type="button"
+              onClick={onOpenAddClient}
+              className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+            >
+              Add Client
+            </button>{' '}
+            to register an enterprise account.
           </div>
         ) : (
           filtered.map((client) => {

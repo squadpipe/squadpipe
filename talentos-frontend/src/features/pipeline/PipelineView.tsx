@@ -333,7 +333,20 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               {filteredReqs.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-10 px-6 text-center text-xs text-slate-400">
-                    No requirements found. Click <span className="font-semibold text-slate-600">Add Requirement</span> to create one.
+                    No requirements found.{' '}
+                    {onOpenAddReq ? (
+                      <>
+                        Click{' '}
+                        <button
+                          type="button"
+                          onClick={onOpenAddReq}
+                          className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                        >
+                          Add Requirement
+                        </button>{' '}
+                        to create one.
+                      </>
+                    ) : null}
                   </td>
                 </tr>
               ) : (

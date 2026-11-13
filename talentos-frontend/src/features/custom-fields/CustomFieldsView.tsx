@@ -395,7 +395,15 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                 {filteredFields.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-10 text-center text-xs text-slate-400">
-                      No custom fields added for this form yet. Click <span className="font-semibold text-slate-600">Add Custom Field</span> to create one.
+                      No custom fields added for this form yet. Click{' '}
+                      <button
+                        type="button"
+                        onClick={() => setShowAddModal(true)}
+                        className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                      >
+                        Add Custom Field
+                      </button>{' '}
+                      to create one.
                     </td>
                   </tr>
                 ) : (

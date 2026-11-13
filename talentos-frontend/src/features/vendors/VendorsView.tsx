@@ -88,7 +88,14 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                     className="px-6 py-10 text-center text-xs text-slate-400"
                   >
                     No staffing vendors found. Click{' '}
-                    <span className="font-semibold text-slate-600">Add Vendor</span> to register a sub-tier partner.
+                    <button
+                      type="button"
+                      onClick={onOpenAddVendor}
+                      className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                    >
+                      Add Vendor
+                    </button>{' '}
+                    to register a sub-tier partner.
                   </td>
                 </tr>
               ) : (

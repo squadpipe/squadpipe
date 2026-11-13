@@ -1,7 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { apiClient } from '../../config/api.config';
 import { Requirement, Client, User } from '../../types';
 import { useCurrency } from '../../utils/currency';
+
+const cleanField = (val?: any) =>
+  String(val || '')
+    .replace(/\*+/g, '')
+    .replace(/[_`~]+/g, '')
+    .replace(/^[\s:•\-–—]+|[\s*]+$/g, '')
+    .trim();
 
 interface EmailParserModalProps {
   isOpen: boolean;
@@ -38,24 +45,26 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
 }) => {
   const { symbol: currencySymbol } = useCurrency();
   const [isParsing, setIsParsing] = useState(false);
+  const [hasParsed, setHasParsed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [rawEmailText, setRawEmailText] = useState<string>('');
   const [skillInput, setSkillInput] = useState<string>('');
   const [extractedReq, setExtractedReq] = useState(EMPTY_FORM);
-
-  if (!isOpen) return null;
+  const lastParsedTextRef = useRef<string>('');
 
   const parseEmailText = async (textToParse: string) => {
-    if (!textToParse.trim()) {
-      showToast('Email Required', 'Please paste an email body first before parsing.', 'fa-solid fa-triangle-exclamation text-amber-500');
+    const cleanInput = textToParse.trim();
+    if (!cleanInput) {
       return;
     }
+    if (cleanInput === lastParsedTextRef.current) return;
+    lastParsedTextRef.current = cleanInput;
     setIsParsing(true);
     try {
-      const res = await apiClient.post('/parse-email', { rawEmailText: textToParse });
+      const res = await apiClient.post('/parse-email', { rawEmailText: cleanInput });
       const d = res.data?.data?.data || res.data?.data;
       if (d) {
-        const parsedSkills = d.skillsRequired || (Array.isArray(d.skills) ? d.skills.join(', ') : d.skills);
+        const parsedSkills = cleanField(d.skillsRequired || (Array.isArray(d.skills) ? d.skills.join(', ') : d.skills));
         const parsedBillRate = Number(d.billRate || d.targetBillRate || 0);
         const parsedPayRate = Number(
           d.payRate || d.targetPayRate || (parsedBillRate > 0 ? Math.round(parsedBillRate * 0.75) : 0)
@@ -69,22 +78,22 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
 
         setExtractedReq((prev) => ({
           ...prev,
-          companyName: d.companyName || d.clientName || prev.companyName,
-          opportunityTitle: d.opportunityTitle || d.jobTitle || prev.opportunityTitle,
-          location: d.location || prev.location || 'Remote',
+          companyName: cleanField(d.companyName || d.clientName) || prev.companyName,
+          opportunityTitle: cleanField(d.opportunityTitle || d.jobTitle) || prev.opportunityTitle,
+          location: cleanField(d.location) || prev.location || 'Remote',
           workModel: detectedWorkModel,
-          clientContact: d.clientContact || d.contactName || prev.clientContact,
-          clientContactTitle: d.clientContactTitle || d.contactTitle || prev.clientContactTitle,
-          clientContactEmail: d.clientContactEmail || prev.clientContactEmail,
+          clientContact: cleanField(d.clientContact || d.contactName) || prev.clientContact,
+          clientContactTitle: cleanField(d.clientContactTitle || d.contactTitle) || prev.clientContactTitle,
+          clientContactEmail: cleanField(d.clientContactEmail) || prev.clientContactEmail,
           skillsRequired: parsedSkills || prev.skillsRequired,
-          assignedRecruiter: d.assignedRecruiter || prev.assignedRecruiter || users[0]?.name || '',
+          assignedRecruiter: cleanField(d.assignedRecruiter) || prev.assignedRecruiter || users[0]?.name || '',
           targetBillRate: parsedBillRate || prev.targetBillRate,
           targetPayRate: parsedPayRate || prev.targetPayRate,
           missingNotes: Array.isArray(d.missingFields)
             ? d.missingFields.join(', ')
-            : d.missingNotes || 'NLP extraction complete.',
+            : cleanField(d.missingNotes) || 'Extraction complete.',
         }));
-        showToast('Email Parsed Successfully', 'Extracted requisition, contact, skills, and rate details!', 'fa-solid fa-bolt text-amber-500');
+        setHasParsed(true);
       }
     } catch (err: any) {
       showToast('Parse Failed', err.response?.data?.message || err.message || 'Could not parse email right now.', 'fa-solid fa-triangle-exclamation text-rose-500');
@@ -93,9 +102,26 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
     }
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const trimmed = rawEmailText.trim();
+    if (trimmed.length <= 20) {
+      setHasParsed(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      parseEmailText(trimmed);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [rawEmailText, isOpen]);
+
+  if (!isOpen) return null;
+
   const handleClearAll = () => {
     setRawEmailText('');
     setSkillInput('');
+    setHasParsed(false);
+    lastParsedTextRef.current = '';
     setExtractedReq(EMPTY_FORM);
   };
 
@@ -214,14 +240,11 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
               <i className="fa-solid fa-envelope-open-text text-sm"></i>
             </div>
             <div>
-              <h3 className="font-bold text-white text-sm flex items-center gap-2">
+              <h3 className="font-bold text-white text-sm">
                 <span>Client Email Job Order Intake Parser</span>
-                <span className="text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                  Auto-Extract &amp; Create
-                </span>
               </h3>
               <p className="text-[11px] text-slate-400">
-                Paste any client email or try a 1-click sample — auto-extracts company, hiring lead, skills, work model &amp; rates.
+                Paste any client email — automatically extracts company, role, hiring lead, skills, work model &amp; rates.
               </p>
             </div>
           </div>
@@ -239,7 +262,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                   1. Paste Raw Client Email
                 </label>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
                   {(rawEmailText || extractedReq.companyName) && (
                     <button
                       type="button"
@@ -249,15 +272,19 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                       <i className="fa-solid fa-eraser mr-1"></i>Clear
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => parseEmailText(rawEmailText)}
-                    disabled={isParsing}
-                    className="px-3 py-1 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-md text-[11px] font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-                  >
-                    <i className={`fa-solid ${isParsing ? 'fa-spinner fa-spin' : 'fa-brain'} text-[10px]`}></i>
-                    <span>{isParsing ? 'Extracting...' : 'Parse Email (FastAPI NLP)'}</span>
-                  </button>
+                  {isParsing ? (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-brand-600">
+                      <i className="fa-solid fa-spinner fa-spin text-xs"></i>
+                      <span>Extracting...</span>
+                    </span>
+                  ) : hasParsed ? (
+                    <span
+                      title="Email parsed"
+                      className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600"
+                    >
+                      <i className="fa-solid fa-check text-[11px]"></i>
+                    </span>
+                  ) : null}
                 </div>
               </div>
               <textarea
