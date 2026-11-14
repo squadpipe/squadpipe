@@ -46,14 +46,18 @@ export function normalizePitchTone(input?: unknown): PitchTone {
  */
 export function computePromotedRequirementStage(
   submissionStages: RequirementStatus[],
-  currentStatus: RequirementStatus
+  currentStatus: string
 ): RequirementStatus | null {
-  if (currentStatus === RequirementStatus.ONBOARDING) {
+  if (
+    currentStatus === RequirementStatus.ONBOARDING ||
+    currentStatus === 'Billable' ||
+    currentStatus === 'Archived'
+  ) {
     return null;
   }
 
   let bestStage: RequirementStatus | null = null;
-  let bestRank = STAGE_RANK[currentStatus] ?? 0;
+  let bestRank = STAGE_RANK[currentStatus as RequirementStatus] ?? 0;
 
   for (const stage of submissionStages) {
     const rank = STAGE_RANK[stage] ?? -1;
@@ -351,8 +355,28 @@ export class SubmissionService {
 
     await prisma.submission.delete({ where: { id: existing.id } });
 
-    const [remainingSubsCount, activePlacementsCount] = await Promise.all([
-      prisma.submission.count({ where: { requirementId: existing.requirementId } }),
+    // If this applicant also had an active placement on this requirement, remove it so
+    // filledPositions / activePlacements and Billable Consultants stay in sync.
+    const removedPlacements = await prisma.placement.deleteMany({
+      where: {
+        tenantId,
+        requirementId: existing.requirementId,
+        status: { notIn: ['TERMINATED', 'COMPLETED'] },
+        OR: [
+          { candidateId: existing.candidateId },
+          {
+            candidateId: null,
+            resourceName: { equals: existing.candidate.fullName, mode: 'insensitive' },
+          },
+        ],
+      },
+    });
+
+    const [remainingSubs, activePlacementsCount] = await Promise.all([
+      prisma.submission.findMany({
+        where: { requirementId: existing.requirementId },
+        select: { stage: true },
+      }),
       prisma.placement.count({
         where: {
           requirementId: existing.requirementId,
@@ -361,8 +385,31 @@ export class SubmissionService {
       }),
     ]);
 
+    const openPositions = Math.max(1, existing.requirement.openPositions ?? 1);
+
     if (
-      remainingSubsCount === 0 &&
+      removedPlacements.count > 0 &&
+      activePlacementsCount < openPositions &&
+      existing.requirement.status === RequirementStatus.ONBOARDING
+    ) {
+      const activeSubStages = remainingSubs
+        .map((s) => s.stage)
+        .filter((st) => st !== RequirementStatus.CLOSED && st !== RequirementStatus.ONBOARDING);
+      let fallbackStatus: RequirementStatus = RequirementStatus.REQUIREMENT;
+      let bestRank = -1;
+      for (const st of activeSubStages) {
+        const rank = STAGE_RANK[st] ?? 0;
+        if (rank > bestRank) {
+          bestRank = rank;
+          fallbackStatus = st;
+        }
+      }
+      await prisma.requirement.update({
+        where: { id: existing.requirementId },
+        data: { status: fallbackStatus },
+      });
+    } else if (
+      remainingSubs.length === 0 &&
       activePlacementsCount === 0 &&
       existing.requirement.status === RequirementStatus.SUBMITTED
     ) {
@@ -372,26 +419,34 @@ export class SubmissionService {
       });
     }
 
-    if (existing.candidate.pipelineStage === CandidatePipelineStage.SUBMITTED) {
-      const [otherActiveSubs, otherPlacements] = await Promise.all([
-        prisma.submission.count({
-          where: {
-            candidateId: existing.candidateId,
-            stage: { not: RequirementStatus.CLOSED },
-          },
-        }),
-        prisma.placement.count({
-          where: {
-            candidateId: existing.candidateId,
-            status: { notIn: ['TERMINATED', 'COMPLETED'] },
-          },
-        }),
-      ]);
+    const [otherActiveSubs, otherPlacements] = await Promise.all([
+      prisma.submission.count({
+        where: {
+          candidateId: existing.candidateId,
+          stage: { not: RequirementStatus.CLOSED },
+        },
+      }),
+      prisma.placement.count({
+        where: {
+          candidateId: existing.candidateId,
+          status: { notIn: ['TERMINATED', 'COMPLETED'] },
+        },
+      }),
+    ]);
 
-      if (otherActiveSubs === 0 && otherPlacements === 0) {
+    if (otherPlacements === 0) {
+      if (otherActiveSubs === 0) {
         await prisma.candidate.update({
           where: { id: existing.candidateId },
           data: { pipelineStage: CandidatePipelineStage.AVAILABLE_BENCH },
+        });
+      } else if (
+        existing.candidate.pipelineStage === CandidatePipelineStage.BILLABLE ||
+        existing.candidate.pipelineStage === CandidatePipelineStage.ONBOARDING
+      ) {
+        await prisma.candidate.update({
+          where: { id: existing.candidateId },
+          data: { pipelineStage: CandidatePipelineStage.SUBMITTED },
         });
       }
     }

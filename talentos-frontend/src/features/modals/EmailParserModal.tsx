@@ -34,7 +34,7 @@ interface EmailParserModalProps {
 const EMPTY_FORM = {
   companyName: '',
   opportunityTitle: '',
-  openPositions: '' as string,
+  openPositions: '1' as string,
   location: '',
   workModel: 'Remote' as 'Remote' | 'Hybrid' | 'Onsite',
   clientContact: '',
@@ -93,7 +93,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
           ...prev,
           companyName: cleanField(d.companyName || d.clientName) || prev.companyName,
           opportunityTitle: cleanField(d.opportunityTitle || d.jobTitle) || prev.opportunityTitle,
-          openPositions: d.openPositions ? String(d.openPositions) : prev.openPositions,
+          openPositions: d.openPositions ? String(d.openPositions) : prev.openPositions || '1',
           location: cleanField(d.location) || prev.location || 'Remote',
           workModel: detectedWorkModel,
           clientContact: cleanField(d.clientContact || d.contactName) || prev.clientContact,
@@ -368,7 +368,19 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">Target Company *</label>
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Target Company *</label>
+                    {extractedReq.companyName.trim() &&
+                      !clients.some(
+                        (c) =>
+                          c.name.replace(/\s+Location:\s*.*$/i, '').trim().toLowerCase() ===
+                          extractedReq.companyName.trim().toLowerCase()
+                      ) && (
+                        <span className="text-[9px] font-semibold text-brand-600 bg-brand-50 border border-brand-200 px-1.5 py-0.5 rounded">
+                          New client (auto-saved)
+                        </span>
+                      )}
+                  </div>
                   <SearchableSelectInput
                     value={extractedReq.companyName}
                     onChange={(val) => {

@@ -324,7 +324,7 @@ model Requirement {
   targetBillRate      Decimal?           @db.Decimal(10, 2)
   maxBillRate         Decimal?           @db.Decimal(10, 2)
   targetPayRate       Decimal?           @db.Decimal(10, 2)
-  status              RequirementStatus  @default(REQUIREMENT)
+  status              String             @default("REQUIREMENT")
   vmsReqId            String?
   rawEmailText        String?            @db.Text
   missingNotes        String?            @db.Text

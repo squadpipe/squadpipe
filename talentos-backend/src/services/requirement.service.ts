@@ -1,5 +1,5 @@
 import { prisma } from '../config/prisma.config';
-import { RequirementStatus, Prisma, WorkModel, AutomationCategory } from '@prisma/client';
+import { RequirementStatus, PlacementStatus, Prisma, WorkModel, AutomationCategory } from '@prisma/client';
 import { slaEngineService } from './slaEngine.service';
 import { automationEngineService } from './automationEngine.service';
 
@@ -107,7 +107,7 @@ export class RequirementService {
       ];
     }
     if (status && status !== 'all' && status !== 'ALL') {
-      where.status = requirementStatusMap[status] || (status as RequirementStatus);
+      where.status = requirementStatusMap[status] || status;
     }
 
     return where;
@@ -191,7 +191,7 @@ export class RequirementService {
       ? raw.targetPayRate
       : Math.round(billRateNum * 0.75);
 
-    const mappedStatus = requirementStatusMap[raw.status] || RequirementStatus.REQUIREMENT;
+    const mappedStatus = requirementStatusMap[raw.status] || (typeof raw.status === 'string' && raw.status.trim() ? raw.status.trim() : RequirementStatus.REQUIREMENT);
 
     // Handle Client relationship or auto-create new client & hiring contact
     let resolvedClientId: string | null = raw.clientId || null;
@@ -328,7 +328,7 @@ export class RequirementService {
     if (raw.skillsRequired !== undefined) data.skillsRequired = String(raw.skillsRequired).trim();
     if (raw.customFields !== undefined) data.customFields = raw.customFields ?? {};
     if (raw.status !== undefined) {
-      data.status = requirementStatusMap[raw.status] || (raw.status as RequirementStatus);
+      data.status = requirementStatusMap[raw.status] || String(raw.status).trim();
     }
     if (raw.workModel !== undefined) {
       const wm = String(raw.workModel).toUpperCase();
@@ -383,56 +383,12 @@ export class RequirementService {
     }
 
     const effectiveTenantId = tenantId || existingReq.tenantId;
-    const status = requirementStatusMap[statusInput] || (statusInput as RequirementStatus);
+    const status = requirementStatusMap[statusInput] || String(statusInput).trim();
     const updated = await prisma.requirement.update({
       where: { id },
       data: { status },
       include: REQUIREMENT_INCLUDE
     });
-
-    // Automated placement creation when moving to ONBOARDING
-    if (status === RequirementStatus.ONBOARDING && resourceName) {
-      const existing = await prisma.placement.findFirst({
-        where: { resourceName, customer: updated.companyName, tenantId: updated.tenantId }
-      });
-      if (!existing) {
-        const billNum = Number(updated.targetBillRate) || 115;
-        const payNum = Number(updated.targetPayRate) || 85;
-        const hourlySpread = billNum - payNum;
-        const marginPct = billNum > 0 ? parseFloat(((hourlySpread / billNum) * 100).toFixed(2)) : 0;
-
-        const placement = await prisma.placement.create({
-          data: {
-            tenantId: updated.tenantId,
-            requirementId: updated.id,
-            clientId: updated.clientId,
-            customer: updated.companyName,
-            resourceName,
-            skillRole: updated.opportunityTitle,
-            startDate: new Date(),
-            endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
-            billRate: billNum,
-            payRate: payNum,
-            hourlySpread,
-            marginPct,
-            status: 'ACTIVE'
-          }
-        });
-
-        try {
-          await automationEngineService.recordLifecycleEvent({
-            tenantId: updated.tenantId,
-            preferredCategories: [AutomationCategory.CONTRACT],
-            ruleName: 'Placement Activation & Margin Lock',
-            target: `${placement.resourceName} @ ${placement.customer}`,
-            conditionsMet: `Bill: $${billNum}/hr | Pay: $${payNum}/hr (Spread: +$${hourlySpread.toFixed(2)}/hr)`,
-            actionDispatched: 'Registered to Billable Ledger & 30d Expiration Radar Scheduled',
-          });
-        } catch {
-          // Non-critical audit failure
-        }
-      }
-    }
 
     try {
       await slaEngineService.evaluateSlaRadar(effectiveTenantId);
@@ -446,8 +402,26 @@ export class RequirementService {
   async deleteRequirement(id: string, tenantId?: string) {
     const existing = await prisma.requirement.findUnique({ where: { id } });
     if (!existing || (tenantId && existing.tenantId !== tenantId)) {
-      throw new Error('Requirement not found or unauthorized');
+      const notFoundErr: any = new Error('Requirement not found or unauthorized');
+      notFoundErr.statusCode = 404;
+      throw notFoundErr;
     }
+
+    const activePlacementsCount = await prisma.placement.count({
+      where: {
+        tenantId: existing.tenantId,
+        requirementId: existing.id,
+        status: { in: [PlacementStatus.ACTIVE, PlacementStatus.EXTENDED, PlacementStatus.EXPIRING_SOON] },
+      },
+    });
+    if (activePlacementsCount > 0) {
+      const conflictErr: any = new Error(
+        `Cannot delete this requirement while ${activePlacementsCount} billable consultant(s) are active on it. Please release them first.`
+      );
+      conflictErr.statusCode = 409;
+      throw conflictErr;
+    }
+
     const deleted = await prisma.requirement.delete({ where: { id } });
     try {
       await slaEngineService.resolveTasksForEntity(existing.tenantId, 'requirement', id);

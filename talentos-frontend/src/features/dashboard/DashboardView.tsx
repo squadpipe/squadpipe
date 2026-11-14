@@ -7,7 +7,6 @@ import {
   CalendarCheck,
   DollarSign,
   FileSpreadsheet,
-  FileText,
   ListChecks,
   Pencil,
   Plus,
@@ -23,7 +22,6 @@ import { MaskedValue } from '../../components/shared/MaskedValue';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapRequirementFromApi } from '../../utils/entityMappers';
-import { getWorkspaceBrand, getWorkspaceBrandSlug } from '../../utils/workspaceBrand';
 
 interface DashboardViewProps {
   requirements: Requirement[];
@@ -159,33 +157,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }
   };
 
-  const handleExport = (type: 'Excel' | 'PDF') => {
-    if (type === 'Excel') {
-      const headers = ['Req Code', 'Opportunity Title', 'Client Company', 'Client Contact', 'Location', 'Skills Required', 'Assigned Resource', 'Status'];
-      const rows = filteredRequirements.map((r) => [
-        `"${r.code}"`,
-        `"${r.opportunityTitle}"`,
-        `"${r.companyName}"`,
-        `"${r.clientContact}"`,
-        `"${r.location}"`,
-        `"${r.skillsRequired.replace(/"/g, '""')}"`,
-        `"${r.resourceName || '-'}"`,
-        `"${r.status}"`,
-      ]);
-      const csv = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const brandName = getWorkspaceBrand().agencyName || 'Workspace';
-      a.download = `${getWorkspaceBrandSlug()}_Requirements_Pipeline_${new Date().toISOString().split('T')[0]}.csv`;
-      a.click();
-      showToast('Export Complete', `Downloaded ${brandName} Requirements Pipeline spreadsheet.`, 'fa-regular fa-file-excel text-emerald-600');
-    } else {
-      window.print();
-    }
-  };
-
   return (
     <section className="max-w-7xl mx-auto space-y-6">
       {/* Top Header matching prototype lines 1965-1980 */}
@@ -195,22 +166,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <p className="text-xs text-slate-500 mt-0.5">
             Real-time candidate placement pipeline, active requirements, and billable roster.
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => handleExport('Excel')}
-            className="px-3 py-1.5 rounded-md border border-slate-200 hover:bg-white text-slate-700 text-xs font-medium flex items-center gap-1.5 bg-white shadow-2xs transition-colors cursor-pointer"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Export to Excel</span>
-          </button>
-          <button
-            onClick={() => handleExport('PDF')}
-            className="px-3 py-1.5 rounded-md border border-slate-200 hover:bg-white text-slate-700 text-xs font-medium flex items-center gap-1.5 bg-white shadow-2xs transition-colors cursor-pointer"
-          >
-            <FileText className="w-3.5 h-3.5 text-rose-600" />
-            <span>Export to PDF</span>
-          </button>
         </div>
       </div>
 

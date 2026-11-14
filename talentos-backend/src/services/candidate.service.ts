@@ -1,5 +1,5 @@
 import { prisma } from '../config/prisma.config';
-import { CandidatePipelineStage, Prisma } from '@prisma/client';
+import { CandidatePipelineStage, PlacementStatus, Prisma } from '@prisma/client';
 import {
   cvStorageService,
   parseCvStorageUri,
@@ -371,6 +371,7 @@ export class CandidateService {
     const linkedPlacementsCount = await prisma.placement.count({
       where: {
         tenantId: existing.tenantId,
+        status: { in: [PlacementStatus.ACTIVE, PlacementStatus.EXTENDED, PlacementStatus.EXPIRING_SOON] },
         OR: [
           { candidateId: existing.id },
           {

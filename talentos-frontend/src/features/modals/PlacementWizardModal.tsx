@@ -11,7 +11,7 @@ interface PlacementWizardModalProps {
   candidates?: Candidate[];
   vendors?: Vendor[];
   requirement?: Requirement | null;
-  onConfirmPlacement: (placement: BillablePlacement, reqId?: string) => void;
+  onConfirmPlacement: (placement: BillablePlacement, reqId?: string) => Promise<void> | void;
   showToast: (title: string, message: string, icon?: string) => void;
 }
 
@@ -26,6 +26,12 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
   showToast,
 }) => {
   const { symbol: currencySymbol } = useCurrency();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const openPositions = requirement?.openPositions || 1;
+  const filledPositions = requirement
+    ? (requirement.filledPositions ?? requirement.activePlacements?.length ?? 0)
+    : 0;
+  const isPositionsFull = Boolean(requirement && filledPositions >= openPositions);
   const getContactStr = (c: any) => (typeof c === 'object' && c !== null ? c.fullName || c.name || '' : String(c || ''));
   const getRecruiterStr = (r: any) => (typeof r === 'object' && r !== null ? r.fullName || r.name || '' : String(r || ''));
   const parseNum = (val: any, fallback = 0) => {
@@ -129,7 +135,15 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
     }));
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    if (isPositionsFull) {
+      showToast(
+        'Positions Filled',
+        `All ${openPositions} open position(s) for this requirement are already placed (${filledPositions}/${openPositions}).`,
+        'fa-solid fa-triangle-exclamation text-amber-500'
+      );
+      return;
+    }
     if (!formData.resourceName.trim()) {
       showToast('Validation Error', 'Please enter or select a candidate resource name.', 'fa-solid fa-triangle-exclamation text-amber-500');
       return;
@@ -164,14 +178,21 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
       status: 'Active',
     };
 
-    onConfirmPlacement(newPlacement, requirement?.id);
-    onClose();
+    setIsSubmitting(true);
+    try {
+      await onConfirmPlacement(newPlacement, requirement?.id);
+      onClose();
+    } catch {
+      // Error toast already handled by onConfirmPlacement
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -428,10 +449,17 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
             <button
               type="button"
               onClick={handleConfirm}
-              className="px-4 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm shadow-emerald-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+              disabled={isPositionsFull || isSubmitting}
+              className="px-4 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg shadow-sm shadow-emerald-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
             >
               <Lock className="w-3.5 h-3.5" />
-              <span>Confirm & Lock Placement</span>
+              <span>
+                {isPositionsFull
+                  ? `All ${openPositions} Positions Filled`
+                  : isSubmitting
+                  ? 'Activating...'
+                  : 'Confirm & Lock Placement'}
+              </span>
             </button>
           </div>
         </div>

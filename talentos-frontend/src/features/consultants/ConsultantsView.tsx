@@ -79,8 +79,10 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
     const nameKey = cand.fullName.trim().toLowerCase();
     return placements.filter(
       (p) =>
-        (p.candidateId && p.candidateId === cand.id) ||
-        p.resourceName.trim().toLowerCase() === nameKey
+        p.status !== 'Completed' &&
+        p.status !== 'Terminated' &&
+        ((p.candidateId && p.candidateId === cand.id) ||
+          p.resourceName.trim().toLowerCase() === nameKey)
     );
   };
 

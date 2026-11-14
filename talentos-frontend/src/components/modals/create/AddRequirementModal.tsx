@@ -28,7 +28,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const getInitialForm = () => ({
     opportunityTitle: '',
-    openPositions: '' as string,
+    openPositions: '1' as string,
     companyName: clients[0]?.name || '',
     clientContact: clients[0]?.contacts[0]?.name || '',
     clientContactTitle: clients[0]?.contacts[0]?.designation || '',

@@ -52,7 +52,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
   const [reqForm, setReqForm] = useState({
     companyName: '',
     opportunityTitle: '',
-    openPositions: '',
+    openPositions: '1',
     location: 'Remote',
     clientContact: '',
     skillsRequired: '',

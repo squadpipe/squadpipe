@@ -90,7 +90,7 @@ export interface RequirementSubmission {
   resumeName?: string;
   resumeFormat?: string;
   resumeFileUrl?: string;
-  stage: 'Requirement' | 'Submitted' | 'Interview' | 'Selected' | 'Onboarding' | 'Closed';
+  stage: string;
   submissionDate?: string;
   interviewDate?: string;
   interviewNotes?: string;
@@ -108,7 +108,7 @@ export interface Requirement {
   clientContact: string;
   clientContactTitle?: string;
   skillsRequired: string;
-  status: 'Requirement' | 'Submitted' | 'Interview' | 'Selected' | 'Onboarding';
+  status: string;
   resourceName?: string;
   submissions?: RequirementSubmission[];
   activePlacements?: Array<{

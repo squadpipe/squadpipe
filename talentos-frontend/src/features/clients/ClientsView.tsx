@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Building2,
   ChevronRight,
+  Globe,
   MapPin,
   Pencil,
   Phone,
   Plus,
   Search,
   Trash2,
+  Users,
   X,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
@@ -38,7 +39,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
 }) => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(6);
+  const [limit, setLimit] = useState(10);
   const [serverClients, setServerClients] = useState<Client[]>([]);
   const [totalClients, setTotalClients] = useState(clients.length);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
@@ -142,146 +143,170 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
         </div>
       </div>
 
-      {/* Clients Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.length === 0 ? (
-          <div className="col-span-full bg-white rounded-xl border border-slate-200 card-shadow py-12 px-6 text-center text-xs text-slate-400">
-            {search.trim() ? (
-              <>
-                No client companies match your search.{' '}
-                <button
-                  type="button"
-                  onClick={() => setSearch('')}
-                  className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
-                >
-                  Clear Search
-                </button>
-              </>
-            ) : (
-              <>
-                No client companies found. Click{' '}
-                <button
-                  type="button"
-                  onClick={onOpenAddClient}
-                  className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
-                >
-                  Add Client
-                </button>{' '}
-                to register an enterprise account.
-              </>
-            )}
-          </div>
-        ) : (
-          filtered.map((client) => {
-          const clientReqs = requirements.filter(
-            (r) => r.companyName.toLowerCase() === client.name.toLowerCase()
-          );
-          const clientPlacements = placements.filter(
-            (p) => p.customer.toLowerCase() === client.name.toLowerCase()
-          );
-
-          return (
-            <div
-              key={client.id}
-              className="bg-white p-5 rounded-xl border border-slate-200 card-shadow hover:border-brand-500 transition-colors flex flex-col justify-between cursor-pointer"
-              onClick={() => setSelectedClient(client)}
-            >
-              <div>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-bold text-slate-900 text-sm hover:text-brand-600 transition-colors">
-                      {client.name}
-                    </h3>
-                    <span className="text-[11px] text-brand-600 mt-0.5 block">
-                      {client.website}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingClient({ ...client });
-                      }}
-                      title="Edit client"
-                      className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-brand-50 flex items-center justify-center text-slate-400 hover:text-brand-600 text-xs transition-colors cursor-pointer"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    {onDeleteClient && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteClient(client);
-                        }}
-                        title="Delete client"
-                        className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-rose-50 flex items-center justify-center text-slate-400 hover:text-rose-600 text-xs transition-colors cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
-                      <Building2 className="w-4 h-4" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3 text-xs text-slate-500 space-y-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                    <span>{client.location}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                    <span>{client.boardNumber || 'Direct Line'}</span>
-                  </div>
-                </div>
-
-                {/* Contacts List */}
-                <div className="mt-3 pt-3 border-t border-slate-100">
-                  <div className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider mb-1.5">
-                    Contacts ({client.contacts.length})
-                  </div>
-                  <div className="space-y-1.5">
-                    {client.contacts.length === 0 ? (
-                      <div className="text-[11px] text-slate-400 italic py-1">No contacts added yet.</div>
-                    ) : (
-                      client.contacts.map((contact, idx) => (
-                        <div
-                          key={idx}
-                          className="text-xs bg-slate-50 p-2 rounded flex items-center justify-between"
-                        >
-                          <div className="font-medium text-slate-800">
-                            {contact.name || (contact as any).fullName}
-                          </div>
-                          <span className="text-[10px] text-slate-400">
-                            {contact.designation}
-                          </span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer Activity Metrics */}
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-                <span className="text-[11px] text-slate-600">
-                  <strong className="text-slate-900">{clientReqs.length}</strong> Reqs &bull;{' '}
-                  <strong className="text-emerald-700 font-semibold">{clientPlacements.length}</strong> Active Placements
-                </span>
-                <span className="text-brand-600 text-xs font-semibold flex items-center gap-1 hover:underline">
-                  <span>View Details</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </span>
-              </div>
-            </div>
-          );
-        })
-        )}
-      </div>
-
-      {/* Pagination Bar */}
+      {/* Clients Table List View */}
       <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/90 border-b border-slate-200 text-[10px] font-bold uppercase text-slate-500 tracking-wider">
+                <th className="px-4 py-3">Client Company</th>
+                <th className="px-4 py-3">Primary Contact</th>
+                <th className="px-4 py-3">Phone &amp; Email</th>
+                <th className="px-4 py-3">Location</th>
+                <th className="px-4 py-3">Requisitions</th>
+                <th className="px-4 py-3">Active Placements</th>
+                <th className="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-xs">
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 px-6 text-center text-xs text-slate-400">
+                    {search.trim() ? (
+                      <>
+                        No client companies match your search.{' '}
+                        <button
+                          type="button"
+                          onClick={() => setSearch('')}
+                          className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                        >
+                          Clear Search
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        No client companies found. Click{' '}
+                        <button
+                          type="button"
+                          onClick={onOpenAddClient}
+                          className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                        >
+                          Add Client
+                        </button>{' '}
+                        to register an enterprise account.
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((client) => {
+                  const clientReqs = requirements.filter(
+                    (r) => r.companyName.toLowerCase() === client.name.toLowerCase()
+                  );
+                  const clientPlacements = placements.filter(
+                    (p) =>
+                      p.customer.toLowerCase() === client.name.toLowerCase() &&
+                      p.status !== 'Completed' &&
+                      p.status !== 'Terminated'
+                  );
+                  const primaryContact =
+                    client.contacts.find((c) => c.isPrimary) || client.contacts[0];
+                  const extraContactsCount = Math.max(0, client.contacts.length - 1);
+                  const cleanWebsite = client.website
+                    ? client.website.replace(/^https?:\/\//i, '').replace(/\/$/, '')
+                    : '';
+
+                  return (
+                    <tr
+                      key={client.id}
+                      onClick={() => setSelectedClient(client)}
+                      className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                    >
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-slate-900">{client.name}</div>
+                        {cleanWebsite && cleanWebsite !== 'https://' && (
+                          <div className="text-[10px] text-brand-600 flex items-center gap-1 mt-0.5">
+                            <Globe className="w-2.5 h-2.5 flex-shrink-0" />
+                            <span className="truncate max-w-[200px]">{cleanWebsite}</span>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-slate-800">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium">
+                            {primaryContact?.name || (primaryContact as any)?.fullName || '—'}
+                          </span>
+                          {extraContactsCount > 0 && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-semibold">
+                              <Users className="w-2.5 h-2.5" />+{extraContactsCount}
+                            </span>
+                          )}
+                        </div>
+                        {primaryContact?.designation && (
+                          <div className="text-[10px] text-slate-400">{primaryContact.designation}</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-[11px] text-slate-500">
+                        <div className="flex items-center gap-1">
+                          <Phone className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                          <span>{client.boardNumber || primaryContact?.phone || '—'}</span>
+                        </div>
+                        {primaryContact?.email && (
+                          <div className="text-[10px] text-slate-400 truncate max-w-[200px]">
+                            {primaryContact.email}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        <div className="flex items-center gap-1">
+                          <MapPin className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                          <span>{client.location || '—'}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="text-[11px] px-2 py-0.5 rounded font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                          {clientReqs.length} {clientReqs.length === 1 ? 'Req' : 'Reqs'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span
+                          className={`text-[11px] px-2 py-0.5 rounded font-semibold border ${
+                            clientPlacements.length > 0
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-slate-50 text-slate-400 border-slate-200'
+                          }`}
+                        >
+                          {clientPlacements.length} Active
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedClient(client)}
+                            title="View client details"
+                            className="px-2 py-1 rounded text-[11px] font-semibold text-brand-600 hover:bg-brand-50 inline-flex items-center gap-0.5 transition-colors cursor-pointer"
+                          >
+                            <span>View</span>
+                            <ChevronRight className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingClient({ ...client })}
+                            title="Edit client"
+                            className="p-1.5 rounded text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors cursor-pointer"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          {onDeleteClient && (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteClient(client)}
+                              title="Delete client"
+                              className="p-1.5 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
         <TablePagination
           page={page}
           limit={limit}
@@ -293,7 +318,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
           }}
           itemLabel="clients"
           isLoading={isLoadingClients}
-          pageSizeOptions={[6, 12, 24, 48]}
+          pageSizeOptions={[10, 20, 50]}
         />
       </div>
 

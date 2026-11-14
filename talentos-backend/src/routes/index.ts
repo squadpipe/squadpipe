@@ -239,8 +239,9 @@ router.post('/parse-email', async (req: Request, res: Response) => {
         .trim();
 
     const companyLine = text.match(/(?:Target\s*Company|Company(?:\s*Name)?|Client(?:\s*Company)?|Organization)\s*:\s*([^\n\r]+)/i);
-    const managerFromCompany = text.match(/(?:hiring\s*manager|contact)\s+is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+(?:from|at|with)\s+([A-Z][A-Za-z0-9&\s.-]{1,50}?)(?:\.|,|\n|$)/i);
-    const atCompany = text.match(/(?:\bat|\bfrom)\s+([A-Z][A-Za-z0-9&\s.-]{1,40}?)(?:\s*\(|,|\s+for\b|\s+in\b|\s+is\b|\s+He\b|\s+She\b|\.|\n|$)/);
+    const managerFromCompany = text.match(/(?:hiring\s*manager|contact|coming\s+from|from)\s+(?:is\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s*,\s*([A-Za-z][A-Za-z\s/&,-]{2,45}?)\s+(?:from|at|with)\s+([A-Z][A-Za-z0-9& .-]{1,50}?)(?:\.|,|\n|$)/i)
+      || text.match(/(?:hiring\s*manager|contact)\s+is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+(?:from|at|with)\s+([A-Z][A-Za-z0-9& .-]{1,50}?)(?:\.|,|\n|$)/i);
+    const atCompany = text.match(/\bat\s+([A-Z][A-Za-z0-9& .-]{1,40}?)(?:\s*\(|,|\s+for\b|\s+in\b|\s+is\b|\s+He\b|\s+She\b|\.|\n|$)/);
     const contactLine = text.match(/(?:From|Hiring\s*Manager|Contact(?:\s*Name)?)\s*:\s*([^<\n\r]+?)(?:<|$)/i);
     const emailMatch = text.match(/<([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})>/) || text.match(/\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/);
     const subjectLine = text.match(/Subject:\s*(?:Urgent:|Contract:|Open Req:|Requisition:)?\s*([^\n\r]+)/i);
@@ -248,8 +249,8 @@ router.post('/parse-email', async (req: Request, res: Response) => {
     const conversationalRole = text.match(/(?:join\s+(?:their|our|the)\s+team\s+as\s+(?:a|an)\s+|looking\s+for\s+(?:a|an)\s+|seeking\s+(?:a|an)\s+|hiring\s+(?:a|an)\s+)([A-Za-z][A-Za-z0-9\s/&+-]{2,50}?)(?:\.|,|\n|\s+(?:in|at|with|who)\b|$)/i);
     const forRole = text.match(/(?:for|seeking|hiring)\s+(?:a|an)\s+([A-Z][A-Za-z0-9\s/&+-]{3,60}?)(?:\s+at\b|\s+for\b|\s+in\b|\.|\n|$)/i);
     const locationLine = text.match(/(?:Work\s*Location|Location)\s*:\s*([^\n\r]+)/i);
-    const basedInLocation = text.match(/(?:based\s+in|located\s+in)\s+([A-Z][A-Za-z.\s,]{2,40}?)(?:\s+but\b|\s+and\b|\.|,|\n|$)/i);
-    const cityState = text.match(/\b([A-Z][a-zA-Z\s]{2,25},\s*[A-Z]{2}(?:\s*\([^)\n]+\))?)/);
+    const basedInLocation = text.match(/(?:based\s+in|located\s+in)\s+([A-Z][A-Za-z. ,]{2,40}?)(?:\s+but\b|\s+and\b|\.|,|\n|$)/i);
+    const cityState = text.match(/\b([A-Z][a-zA-Z ]{2,25},\s*[A-Z]{2}(?:\s*\([^)\n]+\))?)/);
     const contactTitleLine = text.match(/(?:Contact\s*Title|Designation|Hiring\s*Manager\s*Title|(?:^|\n)\s*Title)\s*:\s*([^\n\r]+)/i);
     const sentenceContactTitle = text.match(/(?:He|She|They)\s+(?:is|are)\s+(?:the|a|an)\s+([A-Za-z][A-Za-z\s/&,-]{2,50}?)(?:\.|,|\n|$)/i);
 
@@ -323,12 +324,12 @@ router.post('/parse-email', async (req: Request, res: Response) => {
       : undefined;
 
     return {
-      companyName: cleanCompany(companyLine?.[1] || managerFromCompany?.[2] || sigCompany || atCompany?.[1]),
+      companyName: cleanCompany(companyLine?.[1] || managerFromCompany?.[3] || managerFromCompany?.[2] || sigCompany || atCompany?.[1]),
       opportunityTitle: rawOppTitle,
       openPositions: parsedOpenPositions,
       clientContact: cleanField(contactLine?.[1] || managerFromCompany?.[1] || sigName),
       clientContactEmail: cleanField(emailMatch?.[1]),
-      clientContactTitle: cleanField(contactTitleLine?.[1] || sentenceContactTitle?.[1] || sigTitle),
+      clientContactTitle: cleanField(contactTitleLine?.[1] || (managerFromCompany?.[3] ? managerFromCompany[2] : '') || sentenceContactTitle?.[1] || sigTitle),
       location: rawLocation,
       workModel,
       targetBillRate: parsedBillRate,

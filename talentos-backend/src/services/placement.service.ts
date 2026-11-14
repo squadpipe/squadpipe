@@ -210,6 +210,45 @@ export class PlacementService {
       if (!existingReq) requirementId = null;
     }
 
+    if (requirementId && candidateId) {
+      const duplicatePlacement = await prisma.placement.findFirst({
+        where: {
+          tenantId,
+          requirementId,
+          candidateId,
+          status: { in: [PlacementStatus.ACTIVE, PlacementStatus.EXTENDED, PlacementStatus.EXPIRING_SOON] },
+        },
+        select: { id: true },
+      });
+      if (duplicatePlacement) {
+        const err: any = new Error('This consultant is already placed on this requirement.');
+        err.statusCode = 409;
+        throw err;
+      }
+    }
+
+    if (requirementId) {
+      const reqInfo = await prisma.requirement.findUnique({
+        where: { id: requirementId },
+        select: { openPositions: true },
+      });
+      const openPositions = Math.max(1, reqInfo?.openPositions ?? 1);
+      const activePlacedCount = await prisma.placement.count({
+        where: {
+          tenantId,
+          requirementId,
+          status: { in: [PlacementStatus.ACTIVE, PlacementStatus.EXTENDED, PlacementStatus.EXPIRING_SOON] },
+        },
+      });
+      if (activePlacedCount >= openPositions) {
+        const err: any = new Error(
+          `All ${openPositions} open position(s) for this requirement are already filled (${activePlacedCount}/${openPositions} placed).`
+        );
+        err.statusCode = 409;
+        throw err;
+      }
+    }
+
     let resolvedRecruiterId: string | null = payload.recruiterId || recruiterId || null;
     if (resolvedRecruiterId) {
       const existingUser = await prisma.user.findUnique({ where: { id: resolvedRecruiterId }, select: { id: true } });
@@ -271,17 +310,31 @@ export class PlacementService {
 
     if (requirementId) {
       try {
-        await prisma.requirement.update({
-          where: { id: requirementId },
-          data: { status: 'ONBOARDING' },
-        });
         if (candidateId) {
           await prisma.submission.updateMany({
             where: { tenantId, requirementId, candidateId },
             data: { stage: 'ONBOARDING', lastClientFeedbackDate: new Date() },
           });
         }
-        await slaEngineService.resolveTasksForEntity(tenantId, 'requirement', requirementId);
+        const reqInfo = await prisma.requirement.findUnique({
+          where: { id: requirementId },
+          select: { openPositions: true },
+        });
+        const openPositions = Math.max(1, reqInfo?.openPositions ?? 1);
+        const filledCount = await prisma.placement.count({
+          where: {
+            tenantId,
+            requirementId,
+            status: { in: [PlacementStatus.ACTIVE, PlacementStatus.EXTENDED, PlacementStatus.EXPIRING_SOON] },
+          },
+        });
+        if (filledCount >= openPositions) {
+          await prisma.requirement.update({
+            where: { id: requirementId },
+            data: { status: 'ONBOARDING' },
+          });
+          await slaEngineService.resolveTasksForEntity(tenantId, 'requirement', requirementId);
+        }
       } catch {
         // Non-critical stage sync failure
       }
@@ -537,6 +590,49 @@ export class PlacementService {
             where: { id: targetCandidate.id },
             data: { pipelineStage: CandidatePipelineStage.AVAILABLE_BENCH },
           });
+        }
+      }
+
+      if (existing.requirementId && targetCandidate) {
+        await prisma.submission.updateMany({
+          where: {
+            tenantId: existing.tenantId,
+            requirementId: existing.requirementId,
+            candidateId: targetCandidate.id,
+            stage: 'ONBOARDING',
+          },
+          data: { stage: 'SELECTED' },
+        });
+
+        const reqRecord = await prisma.requirement.findUnique({
+          where: { id: existing.requirementId },
+          select: { status: true, openPositions: true },
+        });
+        if (reqRecord?.status === 'ONBOARDING') {
+          const activePlaced = await prisma.placement.count({
+            where: {
+              tenantId: existing.tenantId,
+              requirementId: existing.requirementId,
+              status: { in: [PlacementStatus.ACTIVE, PlacementStatus.EXTENDED, PlacementStatus.EXPIRING_SOON] },
+            },
+          });
+          if (activePlaced < Math.max(1, reqRecord.openPositions)) {
+            const subs = await prisma.submission.findMany({
+              where: { requirementId: existing.requirementId },
+              select: { stage: true },
+            });
+            const nextStatus = subs.some((s) => s.stage === 'SELECTED')
+              ? 'SELECTED'
+              : subs.some((s) => s.stage === 'INTERVIEW')
+              ? 'INTERVIEW'
+              : subs.some((s) => s.stage === 'SUBMITTED')
+              ? 'SUBMITTED'
+              : 'REQUIREMENT';
+            await prisma.requirement.update({
+              where: { id: existing.requirementId },
+              data: { status: nextStatus },
+            });
+          }
         }
       }
 

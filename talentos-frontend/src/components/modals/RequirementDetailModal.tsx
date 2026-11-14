@@ -282,6 +282,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
   const openPositions = requirement.openPositions || 1;
   const filledPositions =
     requirement.filledPositions ?? requirement.activePlacements?.length ?? 0;
+  const isPositionsFull = filledPositions >= openPositions;
   const activeApplicantsCount = submissions.filter((s) => s.stage !== 'Closed').length;
 
   const toggleCandidateSelection = (candId: string) => {
@@ -673,6 +674,11 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                             value={sub.stage}
                             onChange={async (e) => {
                               const nextStage = e.target.value as RequirementSubmission['stage'];
+                              if (nextStage === 'Onboarding' && !placed) {
+                                onClose();
+                                onOpenPlacementWizard(requirement, candObj);
+                                return;
+                              }
                               setBusySubId(sub.id);
                               try {
                                 await onUpdateSubmissionStage(requirement, sub.id, nextStage);
@@ -704,11 +710,10 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                           </button>
                         )}
 
-                        {!placed && (
+                        {!placed && !isPositionsFull && (
                           <button
                             type="button"
                             onClick={() => {
-                              onClose();
                               onOpenPlacementWizard(requirement, candObj);
                             }}
                             className="px-2 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-semibold cursor-pointer"
@@ -782,7 +787,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
         {/* Footer Actions */}
         <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs flex-shrink-0">
           <div className="flex items-center gap-3">
-            {submissions.length > 0 && (
+            {submissions.length > 0 && !isPositionsFull && (
               <button
                 onClick={() => {
                   const firstCandidate = resolveCandidateForSubmission(
@@ -790,7 +795,6 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                       submissions.find((s) => s.stage !== 'Closed') ||
                       submissions[0]
                   );
-                  onClose();
                   onOpenPlacementWizard(requirement, firstCandidate);
                 }}
                 className="text-emerald-700 font-semibold hover:text-emerald-800 flex items-center gap-1.5 cursor-pointer"
@@ -798,6 +802,11 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                 <FileSpreadsheet className="w-3.5 h-3.5" />
                 <span>Activate Placement</span>
               </button>
+            )}
+            {isPositionsFull && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">
+                All {openPositions} {openPositions === 1 ? 'Position' : 'Positions'} Filled
+              </span>
             )}
           </div>
           <button

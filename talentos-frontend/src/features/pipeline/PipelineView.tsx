@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   AlertTriangle,
   Building2,
   Clock,
   Columns,
+  FileSpreadsheet,
   List,
   MailOpen,
   Pencil,
@@ -21,6 +22,8 @@ import { ModalPortal } from '../../components/shared/ModalPortal';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapRequirementFromApi } from '../../utils/entityMappers';
 import { useCurrency } from '../../utils/currency';
+import { getWorkspaceBrandSlug } from '../../utils/workspaceBrand';
+import { useMasterTaxonomies } from '../../components/shared/DynamicCustomFieldsSection';
 
 interface PipelineViewProps {
   requirements: Requirement[];
@@ -166,16 +169,26 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
     };
   }, [debouncedSearch, displayMode, page, limit, requirements, applyPendingStages]);
 
-  const stageOrder: Requirement['status'][] = [
-    'Requirement',
-    'Submitted',
-    'Interview',
-    'Selected',
-    'Onboarding',
-  ];
+  const taxonomies = useMasterTaxonomies(true);
+
+  const stageOrder: string[] = useMemo(() => {
+    const base =
+      Array.isArray(taxonomies.stages) && taxonomies.stages.length > 0
+        ? taxonomies.stages
+        : ['Requirement', 'Submitted', 'Interview', 'Selected', 'Onboarding'];
+    const seen = new Set(base);
+    const result = [...base];
+    for (const r of serverReqs) {
+      if (r.status && !seen.has(r.status)) {
+        seen.add(r.status);
+        result.push(r.status);
+      }
+    }
+    return result;
+  }, [taxonomies.stages, serverReqs]);
 
   const stageMeta: Record<
-    Requirement['status'],
+    string,
     { dotClass: string; pillClass: string; tableBadge: string }
   > = {
     Requirement: {
@@ -203,9 +216,66 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
       pillClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
       tableBadge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     },
+    Billable: {
+      dotClass: 'bg-teal-500',
+      pillClass: 'bg-teal-50 text-teal-700 border-teal-200',
+      tableBadge: 'bg-teal-50 text-teal-700 border-teal-200',
+    },
+    Archived: {
+      dotClass: 'bg-zinc-400',
+      pillClass: 'bg-zinc-100 text-zinc-600 border-zinc-200',
+      tableBadge: 'bg-zinc-100 text-zinc-600 border-zinc-200',
+    },
+  };
+
+  const fallbackPalettes = [
+    { dotClass: 'bg-indigo-500', pillClass: 'bg-indigo-50 text-indigo-700 border-indigo-200', tableBadge: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+    { dotClass: 'bg-cyan-500', pillClass: 'bg-cyan-50 text-cyan-700 border-cyan-200', tableBadge: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+    { dotClass: 'bg-rose-500', pillClass: 'bg-rose-50 text-rose-700 border-rose-200', tableBadge: 'bg-rose-50 text-rose-700 border-rose-200' },
+  ];
+
+  const getStageMeta = (stage: string) => {
+    if (stageMeta[stage]) return stageMeta[stage];
+    const idx = Math.max(0, stageOrder.indexOf(stage));
+    return fallbackPalettes[idx % fallbackPalettes.length];
   };
 
   const filteredReqs = serverReqs;
+
+  const handleExportExcel = () => {
+    const headers = [
+      'Req Code',
+      'Opportunity Title',
+      'Client Company',
+      'Client Contact',
+      'Open Positions',
+      'Filled',
+      'Location',
+      'Skills Required',
+      'Assigned Resource',
+      'Stage',
+    ];
+    const rows = filteredReqs.map((r) => [
+      `"${(r.code || '').replace(/"/g, '""')}"`,
+      `"${(r.opportunityTitle || '').replace(/"/g, '""')}"`,
+      `"${(r.companyName || '').replace(/"/g, '""')}"`,
+      `"${(r.clientContact || '').replace(/"/g, '""')}"`,
+      `${r.openPositions || 1}`,
+      `${r.filledPositions ?? r.activePlacements?.length ?? 0}`,
+      `"${(r.location || '').replace(/"/g, '""')}"`,
+      `"${(r.skillsRequired || '').replace(/"/g, '""')}"`,
+      `"${(r.resourceName || '-').replace(/"/g, '""')}"`,
+      `"${(r.status || '').replace(/"/g, '""')}"`,
+    ]);
+    const csv = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${getWorkspaceBrandSlug()}_Requirements_List_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const commitStageMove = useCallback(
     (req: Requirement, nextStage: Requirement['status']) => {
@@ -436,7 +506,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
   const avatarPalette = ['bg-indigo-500', 'bg-sky-500', 'bg-emerald-500'];
 
   const renderCardBody = (req: Requirement) => {
-    const meta = stageMeta[req.status] || stageMeta.Requirement;
+    const meta = getStageMeta(req.status);
     const skills = getSkillsList(req.skillsRequired);
     const visibleSkills = skills.slice(0, 3);
     const extraSkillCount = Math.max(0, skills.length - visibleSkills.length);
@@ -686,22 +756,39 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2 text-[11px] text-slate-500">
+          {displayMode === 'list' && (
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              className="px-3 py-1.5 rounded-md border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-medium flex items-center gap-1.5 bg-white shadow-2xs transition-colors cursor-pointer"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Export to Excel</span>
+            </button>
+          )}
           <span className="px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 font-medium text-slate-700">
             {totalReqs} {totalReqs === 1 ? 'Requisition' : 'Requisitions'}
           </span>
-          <span className="hidden md:inline text-slate-400">Drag cards between columns to update stage</span>
+          {displayMode === 'kanban' && (
+            <span className="hidden md:inline text-slate-400">Drag cards between columns to update stage</span>
+          )}
         </div>
       </div>
 
       {/* Kanban Mode */}
       {displayMode === 'kanban' ? (
         <div ref={boardScrollRef} className="overflow-x-auto pb-2 -mx-1 px-1">
-          <div className="grid grid-cols-5 gap-4 min-w-[1680px] items-stretch">
+          <div
+            style={{
+              gridTemplateColumns: `repeat(${Math.max(1, stageOrder.length)}, minmax(310px, 1fr))`,
+            }}
+            className="grid gap-4 items-stretch"
+          >
             {stageOrder.map((stage) => {
               const reqsInStage = filteredReqs.filter((r) => r.status === stage);
               const isDropTarget = Boolean(activeDrag && dragOverStage === stage);
               const isMovingIntoStage = Boolean(isDropTarget && activeDrag?.req.status !== stage);
-              const meta = stageMeta[stage];
+              const meta = getStageMeta(stage);
               return (
                 <div
                   key={stage}
@@ -886,7 +973,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                     <td className="py-3 px-4">
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border whitespace-nowrap ${
-                          stageMeta[req.status]?.tableBadge || 'bg-slate-100 text-slate-700 border-slate-200'
+                          getStageMeta(req.status).tableBadge
                         }`}
                       >
                         {req.status}
@@ -1087,7 +1174,10 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
       )}
 
       {/* Delete Requisition Confirmation Modal */}
-      {reqToDelete && (
+      {reqToDelete && (() => {
+        const activePlacedCount = reqToDelete.filledPositions ?? reqToDelete.activePlacements?.length ?? 0;
+        const hasBillable = activePlacedCount > 0;
+        return (
         <div
           onClick={() => setReqToDelete(null)}
           className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
@@ -1098,20 +1188,32 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
           >
             <div className="p-6 space-y-4">
               <div className="flex items-start gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center flex-shrink-0">
+                <div className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${hasBillable ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-rose-50 border-rose-200 text-rose-600'}`}>
                   <AlertTriangle className="w-4 h-4" />
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-sm font-bold text-slate-900">Delete Requirement?</h3>
-                  <p className="text-xs text-slate-500 leading-relaxed">
-                    Are you sure you want to permanently remove{' '}
-                    <span className="font-bold text-slate-800">{reqToDelete.code}</span> —{' '}
-                    <span className="font-semibold text-slate-800">{reqToDelete.opportunityTitle}</span> at{' '}
-                    <span className="font-semibold text-slate-800">{reqToDelete.companyName}</span>?
-                  </p>
-                  <p className="text-[11px] text-rose-600 font-medium pt-0.5">
-                    This action cannot be undone and removes linked submission records.
-                  </p>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    {hasBillable ? 'Cannot Delete Active Requirement' : 'Delete Requirement?'}
+                  </h3>
+                  {hasBillable ? (
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      <span className="font-bold text-slate-800">{reqToDelete.code}</span> currently has{' '}
+                      <span className="font-bold text-amber-700">{activePlacedCount} active billable consultant(s)</span>.
+                      Please release all placed consultant(s) from <span className="font-semibold text-slate-800">Billable Consultants</span> before deleting this requirement.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Are you sure you want to permanently remove{' '}
+                        <span className="font-bold text-slate-800">{reqToDelete.code}</span> —{' '}
+                        <span className="font-semibold text-slate-800">{reqToDelete.opportunityTitle}</span> at{' '}
+                        <span className="font-semibold text-slate-800">{reqToDelete.companyName}</span>?
+                      </p>
+                      <p className="text-[11px] text-rose-600 font-medium pt-0.5">
+                        This action cannot be undone and removes linked submission records.
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -1121,24 +1223,27 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                   onClick={() => setReqToDelete(null)}
                   className="px-4 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
                 >
-                  Cancel
+                  {hasBillable ? 'Close' : 'Cancel'}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onDeleteReq) onDeleteReq(reqToDelete);
-                    setReqToDelete(null);
-                  }}
-                  className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Delete Requisition</span>
-                </button>
+                {!hasBillable && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onDeleteReq) onDeleteReq(reqToDelete);
+                      setReqToDelete(null);
+                    }}
+                    className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Requisition</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Smooth 60fps Floating Drag Card Preview */}
       {activeDrag && (

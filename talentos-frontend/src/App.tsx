@@ -831,6 +831,36 @@ export const App: React.FC = () => {
 
   // Handlers
   const handleStatusChange = async (req: Requirement, newStatus: any) => {
+    if (newStatus === 'Onboarding') {
+      const hasActivePlacement = placements.some(
+        (p) =>
+          p.requirementId === req.id &&
+          p.status !== 'Completed' &&
+          p.status !== 'Terminated'
+      );
+      if (!hasActivePlacement) {
+        const subs = req.submissions || [];
+        const preferredSub =
+          subs.find((s) => s.stage === 'Selected') ||
+          subs.find((s) => s.stage === 'Interview') ||
+          subs.find((s) => s.stage !== 'Closed') ||
+          subs[0];
+        const targetCandidate =
+          preferredSub?.candidate ||
+          candidates.find(
+            (c) =>
+              (preferredSub?.candidateId && c.id === preferredSub.candidateId) ||
+              (preferredSub?.fullName && c.fullName === preferredSub.fullName) ||
+              (req.resourceName && c.fullName === req.resourceName)
+          ) ||
+          null;
+        setActiveCandidate(targetCandidate);
+        setActiveReq(req);
+        setIsPlacementWizardOpen(true);
+        return;
+      }
+    }
+
     setRequirements((prev) => {
       const existing = prev.find((r) => r.id === req.id);
       const updated = existing ? { ...existing, status: newStatus } : { ...req, status: newStatus };
@@ -920,7 +950,13 @@ export const App: React.FC = () => {
       } else {
         await fetchRequirements();
       }
-      await Promise.all([fetchCandidates(), fetchSlaTasks(), fetchAutomations()]);
+      await Promise.all([
+        fetchPlacements(),
+        fetchCandidates(),
+        fetchSidebarCounts(),
+        fetchSlaTasks(),
+        fetchAutomations(),
+      ]);
       showToast(
         'Applicant Stage Updated',
         `Updated applicant stage on ${req.code} to ${stage}.`,
@@ -944,7 +980,13 @@ export const App: React.FC = () => {
       } else {
         await fetchRequirements();
       }
-      await Promise.all([fetchCandidates(), fetchSlaTasks(), fetchAutomations()]);
+      await Promise.all([
+        fetchPlacements(),
+        fetchCandidates(),
+        fetchSidebarCounts(),
+        fetchSlaTasks(),
+        fetchAutomations(),
+      ]);
       showToast(
         'Applicant Removed',
         `Detached applicant from ${req.code}.`,
@@ -970,8 +1012,14 @@ export const App: React.FC = () => {
       fetchSidebarCounts();
       fetchSlaTasks();
       fetchAutomations();
-    } catch (e) {
-      console.warn('API confirm placement:', e);
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.message ||
+        e?.response?.data?.error ||
+        e?.message ||
+        'Could not activate placement.';
+      showToast('Placement Blocked', msg, 'fa-solid fa-triangle-exclamation text-amber-500');
+      throw e;
     }
     setPlacements((prev) => [savedPlacement, ...prev]);
     if (savedPlacement.candidateId || savedPlacement.resourceName) {
@@ -1144,9 +1192,14 @@ export const App: React.FC = () => {
       fetchSidebarCounts();
       fetchSlaTasks();
       showToast('Requisition Removed', `${req.code} (${req.opportunityTitle}) deleted.`, 'fa-solid fa-trash-can text-slate-500');
-    } catch (e) {
+    } catch (e: any) {
       console.warn('API delete requirement:', e);
-      showToast('Delete Failed', `Could not delete ${req.code}.`, 'fa-solid fa-circle-exclamation text-rose-500');
+      const msg =
+        e?.response?.data?.message ||
+        e?.response?.data?.error ||
+        `Could not delete ${req.code}.`;
+      showToast('Delete Blocked', msg, 'fa-solid fa-circle-exclamation text-rose-500');
+      throw e;
     }
   };
 
