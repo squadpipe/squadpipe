@@ -188,7 +188,7 @@ export class UserService {
       },
     });
 
-    await smtpService
+    const mailResult = await smtpService
       .sendMail({
         to: normalizedEmail,
         recipientName: resolvedName,
@@ -205,7 +205,12 @@ export class UserService {
       })
       .catch((err) => {
         console.warn('Invite email dispatch warning:', err);
+        return { success: false, error: err?.message || 'Failed to send invite email' };
       });
+
+    if (!mailResult.success) {
+      console.warn(`Invite email not dispatched for ${normalizedEmail}: ${mailResult.error}`);
+    }
 
     return invitedUser;
   }

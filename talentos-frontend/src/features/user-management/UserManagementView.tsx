@@ -43,12 +43,12 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Invited' | 'Suspended'>('All');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
-  const [tableUsers, setTableUsers] = useState<User[]>([]);
+  const [tableUsers, setTableUsers] = useState<User[]>(() => users.slice(0, 10));
   const [totalUsers, setTotalUsers] = useState(users.length);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
 
-  const debouncedSearch = useDebounce(search, 300);
+  const debouncedSearch = useDebounce(search, 150);
   const currentUserEmail = users.find((u) => u.isCurrentUser)?.email;
 
   useEffect(() => {
@@ -57,7 +57,26 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
 
   useEffect(() => {
     let active = true;
-    setIsLoadingUsers(true);
+    const q = debouncedSearch.toLowerCase();
+    const localFiltered = users.filter((u) => {
+      const matchesSearch =
+        !q ||
+        u.name.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        u.desk.toLowerCase().includes(q);
+      const matchesRole = roleFilter === 'All' || u.role === roleFilter;
+      const matchesStatus = statusFilter === 'All' || u.status === statusFilter;
+      return matchesSearch && matchesRole && matchesStatus;
+    });
+
+    if (users.length > 0) {
+      setTotalUsers(localFiltered.length);
+      setTableUsers(localFiltered.slice((page - 1) * limit, page * limit));
+      setIsLoadingUsers(false);
+    } else {
+      setIsLoadingUsers(true);
+    }
+
     apiClient
       .get('/users', {
         params: {
@@ -78,19 +97,8 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
       })
       .catch(() => {
         if (!active) return;
-        const q = debouncedSearch.toLowerCase();
-        const fallback = users.filter((u) => {
-          const matchesSearch =
-            !q ||
-            u.name.toLowerCase().includes(q) ||
-            u.email.toLowerCase().includes(q) ||
-            u.desk.toLowerCase().includes(q);
-          const matchesRole = roleFilter === 'All' || u.role === roleFilter;
-          const matchesStatus = statusFilter === 'All' || u.status === statusFilter;
-          return matchesSearch && matchesRole && matchesStatus;
-        });
-        setTotalUsers(fallback.length);
-        setTableUsers(fallback.slice((page - 1) * limit, page * limit));
+        setTotalUsers(localFiltered.length);
+        setTableUsers(localFiltered.slice((page - 1) * limit, page * limit));
       })
       .finally(() => {
         if (active) setIsLoadingUsers(false);
@@ -265,15 +273,34 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
               {filteredUsers.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-10 text-center text-xs text-slate-400">
-                    No team members match the current filters. Click{' '}
-                    <button
-                      type="button"
-                      onClick={() => setShowInviteModal(true)}
-                      className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
-                    >
-                      Invite Team Member
-                    </button>{' '}
-                    to add one.
+                    {search.trim() || roleFilter !== 'All' || statusFilter !== 'All' ? (
+                      <>
+                        No team members match the current filters.{' '}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearch('');
+                            setRoleFilter('All');
+                            setStatusFilter('All');
+                          }}
+                          className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                        >
+                          Clear Filters
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        No team members found. Click{' '}
+                        <button
+                          type="button"
+                          onClick={() => setShowInviteModal(true)}
+                          className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                        >
+                          Invite Team Member
+                        </button>{' '}
+                        to add one.
+                      </>
+                    )}
                   </td>
                 </tr>
               ) : (

@@ -69,13 +69,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
-  const [tableRows, setTableRows] = useState<Requirement[]>([]);
+  const [tableRows, setTableRows] = useState<Requirement[]>(() => requirements.slice(0, 10));
   const [totalRows, setTotalRows] = useState(requirements.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
   const [editingReq, setEditingReq] = useState<Requirement | null>(null);
   const [reqToDelete, setReqToDelete] = useState<Requirement | null>(null);
 
-  const debouncedSearch = useDebounce(tableSearch, 300);
+  const debouncedSearch = useDebounce(tableSearch, 150);
 
   useEffect(() => {
     setPage(1);
@@ -83,7 +83,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   useEffect(() => {
     let active = true;
-    setIsLoadingRows(true);
+    const q = debouncedSearch.toLowerCase();
+    const localFiltered = requirements.filter((r) => {
+      const matchesSearch =
+        !q ||
+        r.opportunityTitle.toLowerCase().includes(q) ||
+        r.companyName.toLowerCase().includes(q) ||
+        r.code.toLowerCase().includes(q) ||
+        (r.resourceName || '').toLowerCase().includes(q) ||
+        r.skillsRequired.toLowerCase().includes(q);
+      const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+
+    if (requirements.length > 0) {
+      setTotalRows(localFiltered.length);
+      setTableRows(localFiltered.slice((page - 1) * limit, page * limit));
+      setIsLoadingRows(false);
+    } else {
+      setIsLoadingRows(true);
+    }
+
     apiClient
       .get('/requirements', {
         params: {
@@ -103,20 +123,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       })
       .catch(() => {
         if (!active) return;
-        const fallback = requirements.filter((r) => {
-          const q = debouncedSearch.toLowerCase();
-          const matchesSearch =
-            !q ||
-            r.opportunityTitle.toLowerCase().includes(q) ||
-            r.companyName.toLowerCase().includes(q) ||
-            r.code.toLowerCase().includes(q) ||
-            (r.resourceName || '').toLowerCase().includes(q) ||
-            r.skillsRequired.toLowerCase().includes(q);
-          const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
-          return matchesSearch && matchesStatus;
-        });
-        setTotalRows(fallback.length);
-        setTableRows(fallback.slice((page - 1) * limit, page * limit));
+        setTotalRows(localFiltered.length);
+        setTableRows(localFiltered.slice((page - 1) * limit, page * limit));
       })
       .finally(() => {
         if (active) setIsLoadingRows(false);
@@ -366,15 +374,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               {filteredRequirements.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-10 text-center text-xs text-slate-400">
-                    No active requirements found. Click{' '}
-                    <button
-                      type="button"
-                      onClick={onOpenCreateReq}
-                      className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
-                    >
-                      Add Req
-                    </button>{' '}
-                    to create a job order.
+                    {tableSearch.trim() || statusFilter !== 'all' ? (
+                      <>
+                        No requirements match your current filters.{' '}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTableSearch('');
+                            setStatusFilter('all');
+                          }}
+                          className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                        >
+                          Clear Filters
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        No active requirements found. Click{' '}
+                        <button
+                          type="button"
+                          onClick={onOpenCreateReq}
+                          className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                        >
+                          Add Req
+                        </button>{' '}
+                        to create a job order.
+                      </>
+                    )}
                   </td>
                 </tr>
               ) : (

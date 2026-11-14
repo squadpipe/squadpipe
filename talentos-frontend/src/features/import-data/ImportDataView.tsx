@@ -8,7 +8,6 @@ import {
   FileDown,
   FileSpreadsheet,
   FileText,
-  FileUp,
   Loader2,
   X,
 } from 'lucide-react';
@@ -85,7 +84,6 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
   const brandName = (brand.agencyName || brand.legalEntityName || 'Workspace').trim();
   const [showMigrationModal, setShowMigrationModal] = useState(false);
   const [migrationStep, setMigrationStep] = useState<1 | 2 | 3>(1);
-  const [showCsvImportModal, setShowCsvImportModal] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string>('');
   const [parsedRows, setParsedRows] = useState<any[]>([]);
   const [isImporting, setIsImporting] = useState<boolean>(false);
@@ -261,7 +259,6 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
       }
 
       setMigrationStep(3);
-      setShowCsvImportModal(false);
       showToast(
         'Migration Executed',
         `Successfully mapped and imported ${count} candidates into central bench roster!`,
@@ -294,16 +291,16 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
         </p>
       </div>
 
-      {/* 2 Large Cards Grid matching Screenshot media_1794485798106_34331046.png */}
+      {/* 2 Streamlined Cards: CSV Import & Resume Parser */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Card 1: Excel & CSV Spreadsheet Import */}
+        {/* Card 1: Bulk CSV Spreadsheet Import */}
         <div className="bg-white rounded-xl border border-slate-200 card-shadow p-6 space-y-4">
           <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
             <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-            <span>Excel & CSV Spreadsheet Import</span>
+            <span>Bulk CSV Spreadsheet Import</span>
           </h3>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Upload your legacy candidate rosters, requirements trackers, and billing spreadsheets. Map spreadsheet columns to CRM fields with validation.{' '}
+            Upload candidate rosters from Excel or CSV spreadsheets and map columns to CRM fields with validation.{' '}
             <button
               type="button"
               onClick={downloadSampleCsv}
@@ -320,49 +317,29 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
             className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-brand-600 cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-all group"
           >
             <CloudUpload className="w-8 h-8 text-brand-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-            <div className="text-xs font-semibold text-slate-700">Launch Spreadsheet Column Mapper</div>
-            <div className="text-[11px] text-slate-400 mt-1">Interactive Excel preview, field mapping & validation</div>
+            <div className="text-xs font-semibold text-slate-700">Launch CSV Column Mapper</div>
+            <div className="text-[11px] text-slate-400 mt-1">Preview rows, map fields &amp; bulk import candidates</div>
           </div>
         </div>
 
-        {/* Card 2: Candidate CSV & Resume Import Engine */}
+        {/* Card 2: Resume Parser (PDF & Word) */}
         <div className="bg-white rounded-xl border border-slate-200 card-shadow p-6 space-y-4">
           <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-            <span>Candidate CSV & Resume Import Engine</span>
+            <FileText className="w-4 h-4 text-brand-600" />
+            <span>Resume Parser (PDF &amp; Word)</span>
           </h3>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Import candidate profiles in bulk via CSV spreadsheet, or extract structured candidate details directly from Word and PDF resumes using our instant pattern extractor.{' '}
-            <button
-              type="button"
-              onClick={downloadSampleCsv}
-              className="font-semibold text-brand-600 hover:text-brand-700 underline cursor-pointer"
-            >
-              Download sample CSV
-            </button>
+            Extract candidate name, contact details, skills, education, and current title directly from PDF or Word resumes using our offline NLP parser.
           </p>
-          <div className="grid grid-cols-2 gap-3 pt-1">
-            <div
-              onClick={() => {
-                setShowCsvImportModal(true);
-              }}
-              className="border border-slate-200 hover:border-emerald-500 rounded-xl p-5 text-center cursor-pointer bg-slate-50/60 hover:bg-white transition-all group shadow-2xs"
-            >
-              <FileSpreadsheet className="w-7 h-7 text-emerald-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-              <div className="text-xs font-semibold text-slate-800">Candidate CSV Import</div>
-              <div className="text-[10px] text-slate-400 mt-0.5">Bulk roster import with schema validation</div>
-            </div>
-
-            <div
-              onClick={() => {
-                if (onOpenResumeParser) onOpenResumeParser();
-              }}
-              className="border border-slate-200 hover:border-brand-500 rounded-xl p-5 text-center cursor-pointer bg-slate-50/60 hover:bg-white transition-all group shadow-2xs"
-            >
-              <FileText className="w-7 h-7 text-brand-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-              <div className="text-xs font-semibold text-slate-800">Rule-Based Parser</div>
-              <div className="text-[10px] text-slate-400 mt-0.5">Regex pattern extraction from PDF/Word</div>
-            </div>
+          <div
+            onClick={() => {
+              if (onOpenResumeParser) onOpenResumeParser();
+            }}
+            className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-brand-600 cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-all group"
+          >
+            <FileText className="w-8 h-8 text-brand-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
+            <div className="text-xs font-semibold text-slate-700">Parse Resume File</div>
+            <div className="text-[11px] text-slate-400 mt-1">Offline spaCy &amp; section-aware extraction from PDF/DOCX</div>
           </div>
         </div>
       </div>
@@ -537,81 +514,6 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
         </ModalPortal>
       )}
 
-      {/* Quick CSV Import Modal */}
-      {showCsvImportModal && (
-        <ModalPortal>
-          <div
-            onClick={() => {
-              if (!isImporting) setShowCsvImportModal(false);
-            }}
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in"
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden flex flex-col animate-scale-up"
-            >
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <div className="flex items-center gap-2">
-                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                <div>
-                  <h2 className="text-sm font-bold text-slate-900">Candidate CSV Import</h2>
-                  <div className="text-[11px] text-slate-500">Bulk roster ingestion</div>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowCsvImportModal(false)}
-                aria-label="Close modal"
-                className="text-slate-400 hover:text-slate-700 w-7 h-7 rounded flex items-center justify-center cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4 text-xs">
-              <label className="border-2 border-dashed border-emerald-300 rounded-xl p-6 text-center bg-emerald-50/30 hover:border-emerald-500 transition-colors cursor-pointer block">
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFileDrop}
-                  className="hidden"
-                />
-                <FileUp className="w-7 h-7 text-emerald-600 mx-auto mb-1.5" />
-                <div className="font-semibold text-slate-800">
-                  {uploadedFileName ? `${uploadedFileName} (${parsedRows.length} rows parsed)` : 'Click to Select CSV Roster File'}
-                </div>
-                <div className="text-[11px] text-slate-500 mt-1">Accepts UTF-8 comma-separated spreadsheets</div>
-              </label>
-
-              <div className="pt-2 flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  onClick={downloadSampleCsv}
-                  className="text-emerald-700 hover:underline font-semibold text-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <FileDown className="w-3.5 h-3.5" />
-                  <span>Sample CSV</span>
-                </button>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setShowCsvImportModal(false)}
-                    className="px-3 py-1.5 border border-slate-200 text-slate-600 rounded text-xs cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleRunMigration}
-                    disabled={isImporting || parsedRows.length === 0}
-                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded text-xs cursor-pointer"
-                  >
-                    {isImporting ? 'Uploading...' : `Upload & Ingest (${parsedRows.length})`}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        </ModalPortal>
-      )}
     </section>
   );
 };

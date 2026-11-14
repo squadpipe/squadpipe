@@ -799,20 +799,35 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               {filteredReqs.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-10 px-6 text-center text-xs text-slate-400">
-                    No requirements found.{' '}
-                    {onOpenAddReq ? (
+                    {search.trim() ? (
                       <>
-                        Click{' '}
+                        No requirements match your search.{' '}
                         <button
                           type="button"
-                          onClick={onOpenAddReq}
+                          onClick={() => setSearch('')}
                           className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
                         >
-                          Add Requirement
-                        </button>{' '}
-                        to create one.
+                          Clear Search
+                        </button>
                       </>
-                    ) : null}
+                    ) : (
+                      <>
+                        No requirements found.{' '}
+                        {onOpenAddReq ? (
+                          <>
+                            Click{' '}
+                            <button
+                              type="button"
+                              onClick={onOpenAddReq}
+                              className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                            >
+                              Add Requirement
+                            </button>{' '}
+                            to create one.
+                          </>
+                        ) : null}
+                      </>
+                    )}
                   </td>
                 </tr>
               ) : (

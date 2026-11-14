@@ -74,11 +74,11 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
   const [modelFilter, setModelFilter] = useState<'All' | 'W2 Hourly' | 'C2C Subcontractor' | '1099' | 'Full-Time'>('All');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
-  const [tableRows, setTableRows] = useState<BillablePlacement[]>([]);
+  const [tableRows, setTableRows] = useState<BillablePlacement[]>(() => placements.slice(0, 10));
   const [totalRows, setTotalRows] = useState(placements.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
 
-  const debouncedSearch = useDebounce(search, 300);
+  const debouncedSearch = useDebounce(search, 150);
 
   useEffect(() => {
     setPage(1);
@@ -86,7 +86,33 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
 
   useEffect(() => {
     let active = true;
-    setIsLoadingRows(true);
+    const q = debouncedSearch.toLowerCase();
+    const localFiltered = placements.filter((p) => {
+      const matchesSearch =
+        !q ||
+        p.resourceName.toLowerCase().includes(q) ||
+        p.customer.toLowerCase().includes(q) ||
+        p.skillRole.toLowerCase().includes(q) ||
+        p.recruiter.toLowerCase().includes(q) ||
+        (p.purchaseOrderNumber || '').toLowerCase().includes(q) ||
+        (p.vendorName || '').toLowerCase().includes(q);
+      const effStatus = getEffectiveStatus(p);
+      const matchesStatus =
+        statusFilter === 'All' ||
+        (statusFilter === 'Ended' ? effStatus === 'Completed' || effStatus === 'Terminated' : effStatus === statusFilter);
+      const pModel = p.placementType || 'C2C Subcontractor';
+      const matchesModel = modelFilter === 'All' || pModel.toLowerCase().includes(modelFilter.toLowerCase());
+      return matchesSearch && matchesStatus && matchesModel;
+    });
+
+    if (placements.length > 0) {
+      setTotalRows(localFiltered.length);
+      setTableRows(localFiltered.slice((page - 1) * limit, page * limit));
+      setIsLoadingRows(false);
+    } else {
+      setIsLoadingRows(true);
+    }
+
     apiClient
       .get('/placements', {
         params: {
@@ -107,26 +133,8 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
       })
       .catch(() => {
         if (!active) return;
-        const q = debouncedSearch.toLowerCase();
-        const fallback = placements.filter((p) => {
-          const matchesSearch =
-            !q ||
-            p.resourceName.toLowerCase().includes(q) ||
-            p.customer.toLowerCase().includes(q) ||
-            p.skillRole.toLowerCase().includes(q) ||
-            p.recruiter.toLowerCase().includes(q) ||
-            (p.purchaseOrderNumber || '').toLowerCase().includes(q) ||
-            (p.vendorName || '').toLowerCase().includes(q);
-          const effStatus = getEffectiveStatus(p);
-          const matchesStatus =
-            statusFilter === 'All' ||
-            (statusFilter === 'Ended' ? effStatus === 'Completed' || effStatus === 'Terminated' : effStatus === statusFilter);
-          const pModel = p.placementType || 'C2C Subcontractor';
-          const matchesModel = modelFilter === 'All' || pModel.toLowerCase().includes(modelFilter.toLowerCase());
-          return matchesSearch && matchesStatus && matchesModel;
-        });
-        setTotalRows(fallback.length);
-        setTableRows(fallback.slice((page - 1) * limit, page * limit));
+        setTotalRows(localFiltered.length);
+        setTableRows(localFiltered.slice((page - 1) * limit, page * limit));
       })
       .finally(() => {
         if (active) setIsLoadingRows(false);
@@ -463,15 +471,34 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-10 text-center text-slate-400 text-xs">
-                    No billable placements found. Click{' '}
-                    <button
-                      type="button"
-                      onClick={onOpenNewPlacement}
-                      className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
-                    >
-                      New Placement
-                    </button>{' '}
-                    to register one.
+                    {search.trim() || statusFilter !== 'All' || modelFilter !== 'All' ? (
+                      <>
+                        No billable placements match your current filters.{' '}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearch('');
+                            setStatusFilter('All');
+                            setModelFilter('All');
+                          }}
+                          className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                        >
+                          Clear Filters
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        No billable placements found. Click{' '}
+                        <button
+                          type="button"
+                          onClick={onOpenNewPlacement}
+                          className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                        >
+                          New Placement
+                        </button>{' '}
+                        to register one.
+                      </>
+                    )}
                   </td>
                 </tr>
               ) : (

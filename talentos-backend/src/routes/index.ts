@@ -7,10 +7,7 @@ import { resumeParserClientService } from '../services/resumeParserClient.servic
 import { smtpService } from '../services/smtp.service';
 import {
   getTenantSettings,
-  isSmtpConfigured,
-  redactSmtpSettings,
   saveGeneralSettings,
-  saveSmtpSettings,
 } from '../config/smtp.config';
 import { DEFAULT_TAXONOMIES } from '../config/taxonomies.config';
 import { prisma } from '../config/prisma.config';
@@ -553,21 +550,8 @@ router.post('/smtp/send', emailRateLimiter, async (req: Request, res: Response) 
       return res.status(400).json({ success: false, message: 'Recipient email address is required.' });
     }
 
-    const { general, smtp } = await getTenantSettings(tenantId);
+    const { general } = await getTenantSettings(tenantId);
     const brandName = (general.agencyName || general.legalEntityName || req.user?.agencyName || 'Staffing Agency').trim();
-
-    if (!isSmtpConfigured(smtp)) {
-      const msg = !smtp.enabled
-        ? 'Email dispatch is paused. Please enable Outbound SMTP in Settings → Email Setup (SMTP) to dispatch emails.'
-        : 'Email (SMTP) is not configured. Please configure your SMTP settings in Settings → Email Setup (SMTP) to dispatch emails.';
-      return res.status(400).json({
-        success: false,
-        delivered: false,
-        configured: false,
-        code: 'SMTP_NOT_CONFIGURED',
-        message: msg,
-      });
-    }
 
     const rawSubject = subject || `Candidate Submission: ${candidateName || 'Consultant'} for ${requirementTitle || 'Role'} (${clientName || 'Client'})`;
     const resolvedSubject = String(rawSubject).replace(/[\r\n]+/g, ' ').trim();
@@ -597,7 +581,7 @@ router.post('/smtp/send', emailRateLimiter, async (req: Request, res: Response) 
     });
 
     if (!result.success) {
-      const isUnconfigured = (result as any).code === 'SMTP_NOT_CONFIGURED' || !isSmtpConfigured(smtp);
+      const isUnconfigured = (result as any).code === 'SMTP_NOT_CONFIGURED';
       return res.status(400).json({
         success: false,
         delivered: false,

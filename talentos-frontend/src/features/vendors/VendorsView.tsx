@@ -22,12 +22,12 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
-  const [tableRows, setTableRows] = useState<Vendor[]>([]);
+  const [tableRows, setTableRows] = useState<Vendor[]>(() => vendors.slice(0, 10));
   const [totalRows, setTotalRows] = useState(vendors.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
 
-  const debouncedSearch = useDebounce(search, 300);
+  const debouncedSearch = useDebounce(search, 150);
 
   useEffect(() => {
     setPage(1);
@@ -35,7 +35,24 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
 
   useEffect(() => {
     let active = true;
-    setIsLoadingRows(true);
+    const q = debouncedSearch.toLowerCase();
+    const localFiltered = vendors.filter(
+      (v) =>
+        !q ||
+        v.name.toLowerCase().includes(q) ||
+        v.skillSpecialization.toLowerCase().includes(q) ||
+        v.contactName.toLowerCase().includes(q) ||
+        v.location.toLowerCase().includes(q)
+    );
+
+    if (vendors.length > 0) {
+      setTotalRows(localFiltered.length);
+      setTableRows(localFiltered.slice((page - 1) * limit, page * limit));
+      setIsLoadingRows(false);
+    } else {
+      setIsLoadingRows(true);
+    }
+
     apiClient
       .get('/vendors', {
         params: {
@@ -54,17 +71,8 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
       })
       .catch(() => {
         if (!active) return;
-        const q = debouncedSearch.toLowerCase();
-        const fallback = vendors.filter(
-          (v) =>
-            !q ||
-            v.name.toLowerCase().includes(q) ||
-            v.skillSpecialization.toLowerCase().includes(q) ||
-            v.contactName.toLowerCase().includes(q) ||
-            v.location.toLowerCase().includes(q)
-        );
-        setTotalRows(fallback.length);
-        setTableRows(fallback.slice((page - 1) * limit, page * limit));
+        setTotalRows(localFiltered.length);
+        setTableRows(localFiltered.slice((page - 1) * limit, page * limit));
       })
       .finally(() => {
         if (active) setIsLoadingRows(false);
@@ -137,15 +145,30 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                     colSpan={onUpdateVendor || onDeleteVendor ? 9 : 8}
                     className="px-6 py-10 text-center text-xs text-slate-400"
                   >
-                    No staffing vendors found. Click{' '}
-                    <button
-                      type="button"
-                      onClick={onOpenAddVendor}
-                      className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
-                    >
-                      Add Vendor
-                    </button>{' '}
-                    to register a sub-tier partner.
+                    {search.trim() ? (
+                      <>
+                        No staffing vendors match your search.{' '}
+                        <button
+                          type="button"
+                          onClick={() => setSearch('')}
+                          className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                        >
+                          Clear Search
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        No staffing vendors found. Click{' '}
+                        <button
+                          type="button"
+                          onClick={onOpenAddVendor}
+                          className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                        >
+                          Add Vendor
+                        </button>{' '}
+                        to register a sub-tier partner.
+                      </>
+                    )}
                   </td>
                 </tr>
               ) : (

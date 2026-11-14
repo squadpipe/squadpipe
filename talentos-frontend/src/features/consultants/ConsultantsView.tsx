@@ -57,7 +57,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
   const [workAuthFilter, setWorkAuthFilter] = useState('All');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
-  const [tableRows, setTableRows] = useState<Candidate[]>([]);
+  const [tableRows, setTableRows] = useState<Candidate[]>(() => candidates.slice(0, 10));
   const [totalRows, setTotalRows] = useState(candidates.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
@@ -87,7 +87,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
   const isConsultantBillable = (cand: Candidate): boolean =>
     cand.pipelineStage === 'Billable' || getLinkedPlacements(cand).length > 0;
 
-  const debouncedSearch = useDebounce(search, 300);
+  const debouncedSearch = useDebounce(search, 150);
 
   useEffect(() => {
     setPage(1);
@@ -95,7 +95,25 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
 
   useEffect(() => {
     let active = true;
-    setIsLoadingRows(true);
+    const q = debouncedSearch.toLowerCase();
+    const localFiltered = candidates.filter((c) => {
+      const matchesSearch =
+        !q ||
+        c.fullName.toLowerCase().includes(q) ||
+        c.skillset.toLowerCase().includes(q) ||
+        c.currentTitle.toLowerCase().includes(q);
+      const matchesAuth = workAuthFilter === 'All' || c.workAuth.includes(workAuthFilter);
+      return matchesSearch && matchesAuth;
+    });
+
+    if (candidates.length > 0) {
+      setTotalRows(localFiltered.length);
+      setTableRows(localFiltered.slice((page - 1) * limit, page * limit));
+      setIsLoadingRows(false);
+    } else {
+      setIsLoadingRows(true);
+    }
+
     apiClient
       .get('/candidates', {
         params: {
@@ -115,18 +133,8 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
       })
       .catch(() => {
         if (!active) return;
-        const q = debouncedSearch.toLowerCase();
-        const fallback = candidates.filter((c) => {
-          const matchesSearch =
-            !q ||
-            c.fullName.toLowerCase().includes(q) ||
-            c.skillset.toLowerCase().includes(q) ||
-            c.currentTitle.toLowerCase().includes(q);
-          const matchesAuth = workAuthFilter === 'All' || c.workAuth.includes(workAuthFilter);
-          return matchesSearch && matchesAuth;
-        });
-        setTotalRows(fallback.length);
-        setTableRows(fallback.slice((page - 1) * limit, page * limit));
+        setTotalRows(localFiltered.length);
+        setTableRows(localFiltered.slice((page - 1) * limit, page * limit));
       })
       .finally(() => {
         if (active) setIsLoadingRows(false);
@@ -253,27 +261,45 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                     colSpan={8}
                     className="px-6 py-10 text-center text-xs text-slate-400"
                   >
-                    No consultants found in the roster. Click{' '}
-                    {onOpenAddConsultant && (
+                    {search.trim() || workAuthFilter !== 'All' ? (
                       <>
+                        No consultants match your current filters.{' '}
                         <button
                           type="button"
-                          onClick={onOpenAddConsultant}
+                          onClick={() => {
+                            setSearch('');
+                            setWorkAuthFilter('All');
+                          }}
                           className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
                         >
-                          Add Consultant
+                          Clear Filters
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        No consultants found in the roster. Click{' '}
+                        {onOpenAddConsultant && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={onOpenAddConsultant}
+                              className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                            >
+                              Add Consultant
+                            </button>{' '}
+                            or{' '}
+                          </>
+                        )}
+                        <button
+                          type="button"
+                          onClick={onOpenResumeParser}
+                          className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                        >
+                          Upload Resume
                         </button>{' '}
-                        or{' '}
+                        to add talent.
                       </>
                     )}
-                    <button
-                      type="button"
-                      onClick={onOpenResumeParser}
-                      className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
-                    >
-                      Upload Resume
-                    </button>{' '}
-                    to add talent.
                   </td>
                 </tr>
               ) : (

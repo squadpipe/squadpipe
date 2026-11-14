@@ -47,7 +47,7 @@ export class SmtpService {
   async sendMail(options: SendMailOptions) {
     const { to, recipientName, subject, html, text, tenantId } = options;
     const resolvedTenantId = tenantId || 'talentos-agency';
-    const { general, smtp } = await getTenantSettings(resolvedTenantId);
+    const { general } = await getTenantSettings(resolvedTenantId);
 
     // Create log record as PENDING
     const log = await prisma.emailLog.create({
@@ -61,7 +61,7 @@ export class SmtpService {
       },
     });
 
-    const effectiveSmtp = isSmtpConfigured(smtp) ? smtp : resolveEnvSmtpSettings();
+    const effectiveSmtp = resolveEnvSmtpSettings();
 
     if (!effectiveSmtp || !isSmtpConfigured(effectiveSmtp)) {
       const msg =
