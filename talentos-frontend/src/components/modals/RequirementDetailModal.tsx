@@ -14,6 +14,7 @@ import { Requirement, Candidate, RequirementSubmission } from '../../types';
 import { useCurrency } from '../../utils/currency';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapCandidateFromApi, mapRequirementFromApi } from '../../utils/entityMappers';
+import { SkillTagInput } from '../shared/SkillTagInput';
 
 interface RequirementDetailModalProps {
   isOpen: boolean;
@@ -543,11 +544,9 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">Required Competencies</label>
-                <input
-                  type="text"
+                <SkillTagInput
                   value={editForm.skillsRequired}
-                  onChange={(e) => setEditForm({ ...editForm, skillsRequired: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none"
+                  onChange={(nextCsv) => setEditForm({ ...editForm, skillsRequired: nextCsv })}
                 />
               </div>
               <div className="flex justify-end gap-2 pt-1">

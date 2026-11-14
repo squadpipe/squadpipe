@@ -14,6 +14,7 @@ import { Requirement, Client, User } from '../../types';
 import { useCurrency } from '../../utils/currency';
 import { mapRequirementFromApi } from '../../utils/entityMappers';
 import { SearchableSelectInput } from '../../components/shared/SearchableSelectInput';
+import { MULTI_INDUSTRY_SKILLS_TAXONOMY } from '../../utils/skillsTaxonomy';
 
 const cleanField = (val?: any) =>
   String(val || '')
@@ -62,6 +63,8 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [rawEmailText, setRawEmailText] = useState<string>('');
   const [skillInput, setSkillInput] = useState<string>('');
+  const [showSkillSuggestions, setShowSkillSuggestions] = useState(false);
+  const [highlightedSkillIdx, setHighlightedSkillIdx] = useState<number>(-1);
   const [extractedReq, setExtractedReq] = useState(EMPTY_FORM);
   const lastParsedTextRef = useRef<string>('');
 
@@ -159,15 +162,50 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
     .map((s) => s.trim())
     .filter(Boolean);
 
-  const handleAddSkillTag = (raw: string) => {
-    const clean = raw.trim();
-    if (!clean) return;
-    if (!skillTags.some((t) => t.toLowerCase() === clean.toLowerCase())) {
-      setExtractedReq((prev) => ({
-        ...prev,
-        skillsRequired: [...skillTags, clean].join(', '),
-      }));
+  const selectedSkillSet = new Set(skillTags.map((t) => t.toLowerCase()));
+  const skillQuery = skillInput.trim().toLowerCase();
+  const skillSuggestions = React.useMemo(() => {
+    const available = MULTI_INDUSTRY_SKILLS_TAXONOMY.filter(
+      (s) => !selectedSkillSet.has(s.toLowerCase())
+    );
+    if (!skillQuery) return available.slice(0, 12);
+    const startsWith: string[] = [];
+    const contains: string[] = [];
+    for (const s of available) {
+      const lower = s.toLowerCase();
+      if (lower.startsWith(skillQuery)) startsWith.push(s);
+      else if (lower.includes(skillQuery)) contains.push(s);
     }
+    return [...startsWith, ...contains].slice(0, 12);
+  }, [skillQuery, extractedReq.skillsRequired]);
+
+  const mergeSkillTags = (existingCsv: string, rawToAdd: string): string => {
+    const existing = existingCsv
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const additions = rawToAdd
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (additions.length === 0) return existing.join(', ');
+    const seen = new Set(existing.map((t) => t.toLowerCase()));
+    const merged = [...existing];
+    for (const item of additions) {
+      if (!seen.has(item.toLowerCase())) {
+        seen.add(item.toLowerCase());
+        merged.push(item);
+      }
+    }
+    return merged.join(', ');
+  };
+
+  const handleAddSkillTag = (raw: string) => {
+    if (!raw.trim()) return;
+    setExtractedReq((prev) => ({
+      ...prev,
+      skillsRequired: mergeSkillTags(prev.skillsRequired, raw),
+    }));
     setSkillInput('');
   };
 
@@ -209,6 +247,8 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
       ? resolvedLocation
       : `${resolvedLocation} (${extractedReq.workModel})`;
 
+    const finalSkillsRequired = mergeSkillTags(extractedReq.skillsRequired, skillInput);
+
     let newReq: Requirement = {
       id: 'req_' + Date.now(),
       code: 'REQ-' + Math.floor(1004 + Math.random() * 50),
@@ -218,7 +258,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
       location: formattedLocation,
       clientContact: extractedReq.clientContact.trim(),
       clientContactTitle: extractedReq.clientContactTitle.trim(),
-      skillsRequired: extractedReq.skillsRequired.trim(),
+      skillsRequired: finalSkillsRequired,
       status: extractedReq.initialStage,
       assignedRecruiter: extractedReq.assignedRecruiter.trim(),
       targetBillRate: Number(extractedReq.targetBillRate) || 115,
@@ -576,20 +616,77 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                     ))}
                   </div>
                 )}
-                <div className="flex gap-1.5">
-                  <input
-                    type="text"
-                    value={skillInput}
-                    onChange={(e) => setSkillInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ',') {
-                        e.preventDefault();
-                        handleAddSkillTag(skillInput);
-                      }
-                    }}
-                    placeholder="Type skill & press Enter (or edit comma list below)..."
-                    className="flex-1 px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 focus:border-brand-600 focus:outline-none"
-                  />
+                <div className="relative flex gap-1.5">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={skillInput}
+                      onFocus={() => setShowSkillSuggestions(true)}
+                      onBlur={() => setTimeout(() => setShowSkillSuggestions(false), 120)}
+                      onChange={(e) => {
+                        setSkillInput(e.target.value);
+                        setShowSkillSuggestions(true);
+                        setHighlightedSkillIdx(-1);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'ArrowDown' && skillSuggestions.length > 0) {
+                          e.preventDefault();
+                          setShowSkillSuggestions(true);
+                          setHighlightedSkillIdx((prev) => (prev + 1) % skillSuggestions.length);
+                        } else if (e.key === 'ArrowUp' && skillSuggestions.length > 0) {
+                          e.preventDefault();
+                          setHighlightedSkillIdx((prev) =>
+                            prev <= 0 ? skillSuggestions.length - 1 : prev - 1
+                          );
+                        } else if (e.key === 'Escape') {
+                          setShowSkillSuggestions(false);
+                          setHighlightedSkillIdx(-1);
+                        } else if (e.key === 'Enter' || e.key === ',') {
+                          e.preventDefault();
+                          if (
+                            e.key === 'Enter' &&
+                            showSkillSuggestions &&
+                            highlightedSkillIdx >= 0 &&
+                            skillSuggestions[highlightedSkillIdx]
+                          ) {
+                            handleAddSkillTag(skillSuggestions[highlightedSkillIdx]);
+                            setHighlightedSkillIdx(-1);
+                          } else {
+                            handleAddSkillTag(skillInput);
+                          }
+                        }
+                      }}
+                      placeholder="Type skill & press Enter (or pick from suggestions)..."
+                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 focus:border-brand-600 focus:outline-none"
+                    />
+                    {showSkillSuggestions && skillSuggestions.length > 0 && (
+                      <div className="absolute left-0 right-0 mt-1 z-30 bg-white border border-slate-200 rounded-xl shadow-xl p-2 max-h-48 overflow-y-auto">
+                        <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 px-1 pb-1.5">
+                          Suggested Skills ({skillSuggestions.length})
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {skillSuggestions.map((suggestion, idx) => (
+                            <button
+                              key={suggestion}
+                              type="button"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                handleAddSkillTag(suggestion);
+                                setHighlightedSkillIdx(-1);
+                              }}
+                              className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
+                                idx === highlightedSkillIdx
+                                  ? 'bg-brand-600 text-white border-brand-600'
+                                  : 'bg-slate-50 hover:bg-brand-50 text-slate-700 hover:text-brand-700 border-slate-200 hover:border-brand-200'
+                              }`}
+                            >
+                              + {suggestion}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={() => handleAddSkillTag(skillInput)}

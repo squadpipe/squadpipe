@@ -289,10 +289,33 @@ export class RequirementService {
     return req;
   }
 
+  private async generateNextReqCode(tenantId: string, preferredCode?: string): Promise<string> {
+    if (preferredCode && typeof preferredCode === 'string' && preferredCode.trim()) {
+      const candidate = preferredCode.trim();
+      const exists = await prisma.requirement.findFirst({
+        where: { tenantId, code: candidate },
+        select: { id: true },
+      });
+      if (!exists) return candidate;
+    }
+    const existingCodes = await prisma.requirement.findMany({
+      where: { tenantId },
+      select: { code: true },
+    });
+    let maxNum = 1000;
+    for (const row of existingCodes) {
+      const match = /^REQ-(\d+)$/i.exec(row.code || '');
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+    return `REQ-${maxNum + 1}`;
+  }
+
   async createRequirement(raw: any, tenantId: string = 'talentos-agency', recruiterId?: string) {
     const openPositions = parseOpenPositions(raw.openPositions);
-    const count = await prisma.requirement.count({ where: { tenantId } });
-    const code = raw.code || `REQ-${1000 + count + 1}`;
+    const code = await this.generateNextReqCode(tenantId, raw.code);
 
     const billRateNum = typeof raw.targetBillRate === 'number' && raw.targetBillRate > 0
       ? raw.targetBillRate

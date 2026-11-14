@@ -19,6 +19,7 @@ import { apiClient } from '../../config/api.config';
 import { Requirement, Candidate } from '../../types';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { ModalPortal } from '../../components/shared/ModalPortal';
+import { SkillTagInput } from '../../components/shared/SkillTagInput';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapRequirementFromApi } from '../../utils/entityMappers';
 import { useCurrency } from '../../utils/currency';
@@ -1310,11 +1311,9 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
 
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">Required Skills</label>
-                <input
-                  type="text"
+                <SkillTagInput
                   value={editingReq.skillsRequired}
-                  onChange={(e) => setEditingReq({ ...editingReq, skillsRequired: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  onChange={(nextCsv) => setEditingReq({ ...editingReq, skillsRequired: nextCsv })}
                 />
               </div>
 

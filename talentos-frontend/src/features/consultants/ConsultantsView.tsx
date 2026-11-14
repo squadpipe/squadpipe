@@ -20,6 +20,7 @@ import { BillablePlacement, Candidate } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { ModalPortal } from '../../components/shared/ModalPortal';
+import { SkillTagInput } from '../../components/shared/SkillTagInput';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapCandidateFromApi } from '../../utils/entityMappers';
 import {
@@ -592,11 +593,9 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
 
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">Key Skillset</label>
-                <input
-                  type="text"
+                <SkillTagInput
                   value={editingCandidate.skillset}
-                  onChange={(e) => setEditingCandidate({ ...editingCandidate, skillset: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  onChange={(nextCsv) => setEditingCandidate({ ...editingCandidate, skillset: nextCsv })}
                 />
               </div>
 
