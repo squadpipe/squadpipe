@@ -8,7 +8,6 @@ import {
   GripVertical,
   List,
   MailOpen,
-  MapPin,
   Pencil,
   Plus,
   Search,
@@ -208,12 +207,6 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
       tableBadge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     },
   };
-
-  const getSkillsList = (skillsStr?: string) =>
-    String(skillsStr || '')
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
 
   const filteredReqs = serverReqs;
 
@@ -415,98 +408,53 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
     return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
   };
 
-  const extractWorkModel = (location?: string): string | null => {
-    const match = String(location || '').match(/\b(remote|hybrid|on-?site)\b/i);
-    if (!match) return null;
-    const raw = match[1].toLowerCase();
-    if (raw === 'hybrid') return 'Hybrid';
-    if (raw === 'remote') return 'Remote';
-    return 'Onsite';
-  };
-
   const renderCardBody = (req: Requirement) => {
-    const skills = getSkillsList(req.skillsRequired);
     const stageIdx = stageOrder.indexOf(req.status);
-    const workModel = extractWorkModel(req.location);
-    const visibleSkills = skills.slice(0, 3);
-    const remainingSkillCount = Math.max(0, skills.length - visibleSkills.length);
-    const openPositions = req.openPositions || 1;
-    const filledPositions = req.filledPositions ?? req.activePlacements?.length ?? 0;
     const activeSubs = (req.submissions || []).filter((s) => s.stage !== 'Closed');
     const totalApplicants = activeSubs.length > 0 ? activeSubs.length : req.resourceName ? 1 : 0;
 
     return (
       <>
         {/* Card Top Meta Row */}
-        <div className="flex items-center justify-between gap-x-2 gap-y-1.5 flex-wrap">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <button
-              type="button"
-              data-allow-drag="true"
-              onClick={() => handleCardTitleClick(req)}
-              className="text-[10.5px] font-mono font-semibold px-2 py-0.5 rounded-md bg-slate-50 text-slate-600 border border-slate-200/80 cursor-pointer hover:bg-brand-50 hover:text-brand-700 hover:border-brand-200 transition-colors inline-flex items-center gap-1 whitespace-nowrap flex-shrink-0"
-            >
-              <GripVertical className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" />
-              <span>{req.code}</span>
-            </button>
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            data-allow-drag="true"
+            onClick={() => handleCardTitleClick(req)}
+            className="text-[10.5px] font-mono font-semibold px-2 py-0.5 rounded-md bg-slate-50 text-slate-600 border border-slate-200/80 cursor-pointer hover:bg-brand-50 hover:text-brand-700 hover:border-brand-200 transition-colors inline-flex items-center gap-1 whitespace-nowrap flex-shrink-0"
+          >
+            <GripVertical className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" />
+            <span>{req.code}</span>
+          </button>
 
-            <span
-              title={`${filledPositions} placed out of ${openPositions} open position(s)`}
-              className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold whitespace-nowrap border ${
-                filledPositions > 0
-                  ? filledPositions >= openPositions
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
-                    : 'bg-blue-50 text-blue-700 border-blue-200/80'
-                  : 'bg-indigo-50/80 text-indigo-700 border-indigo-200/70'
-              }`}
-            >
-              {filledPositions > 0 ? `${filledPositions}/${openPositions} Filled` : `${openPositions} Open`}
+          {!rateMasked && Boolean(req.targetBillRate) && (
+            <span className="text-[11px] font-semibold text-slate-700 tabular-nums whitespace-nowrap">
+              {currencySymbol}
+              {req.targetBillRate}/hr
             </span>
-          </div>
-
-          <div className="flex items-center gap-1.5 min-w-0 justify-end">
-            {workModel && (
-              <span className="px-1.5 py-0.5 rounded-md bg-slate-100/90 text-slate-600 text-[10px] font-medium whitespace-nowrap">
-                {workModel}
-              </span>
-            )}
-            {!rateMasked && Boolean(req.targetBillRate) && (
-              <span className="text-[10.5px] font-semibold text-slate-600 tabular-nums whitespace-nowrap">
-                {currencySymbol}
-                {req.targetBillRate}/hr
-              </span>
-            )}
-          </div>
+          )}
         </div>
 
-        {/* Role Title + Client & Full Location */}
-        <div className="space-y-1.5">
+        {/* Role Title + Client */}
+        <div className="space-y-1">
           <h4
             onClick={() => handleCardTitleClick(req)}
             title={req.opportunityTitle}
-            className="font-semibold text-[13px] text-slate-900 leading-[1.38] line-clamp-2 tracking-[-0.01em] cursor-pointer hover:text-brand-600 transition-colors"
+            className="font-semibold text-[13px] text-slate-900 leading-snug line-clamp-2 tracking-[-0.01em] cursor-pointer hover:text-brand-600 transition-colors"
           >
             {req.opportunityTitle}
           </h4>
-          <div className="space-y-0.5 text-[11px] min-w-0">
-            <div className="flex items-center gap-1.5 text-slate-600 font-medium min-w-0">
-              <Building2 className="w-3 h-3 text-slate-400 flex-shrink-0" />
-              <span className="truncate" title={req.companyName}>
-                {req.companyName}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 text-slate-400 min-w-0">
-              <MapPin className="w-3 h-3 text-slate-300 flex-shrink-0" />
-              <span className="truncate" title={req.location || 'Remote'}>
-                {req.location || 'Remote'}
-              </span>
-            </div>
+          <div className="flex items-center gap-1.5 text-[11.5px] text-slate-500 font-medium min-w-0">
+            <Building2 className="w-3 h-3 text-slate-400 flex-shrink-0" />
+            <span className="truncate" title={req.companyName}>
+              {req.companyName}
+            </span>
           </div>
         </div>
 
-        {/* Multi-Applicant Strip or Bench Matcher */}
+        {/* Clean Applicant Strip or Bench Matcher */}
         {totalApplicants > 0 ? (
-          <div className="px-2.5 py-1.5 rounded-lg bg-slate-50/90 border border-slate-200/80 flex items-center justify-between gap-2">
+          <div className="px-2.5 py-1.5 rounded-lg bg-slate-50/90 border border-slate-200/75 flex items-center justify-between gap-2">
             <button
               type="button"
               onClick={() => handleCardTitleClick(req)}
@@ -519,10 +467,10 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             >
               {totalApplicants === 1 ? (
                 <>
-                  <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[9px] font-bold flex items-center justify-center flex-shrink-0 shadow-2xs">
+                  <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[9px] font-bold flex items-center justify-center flex-shrink-0">
                     {getInitials(activeSubs[0]?.fullName || req.resourceName)}
                   </span>
-                  <span className="text-[11.5px] font-semibold text-slate-800 group-hover:text-brand-600 truncate transition-colors">
+                  <span className="text-[11.5px] font-medium text-slate-700 group-hover:text-brand-600 truncate transition-colors">
                     {activeSubs[0]?.fullName || req.resourceName}
                   </span>
                 </>
@@ -544,41 +492,24 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                       </span>
                     ))}
                   </div>
-                  <span className="text-[11px] font-semibold text-slate-800 group-hover:text-brand-600 truncate transition-colors">
+                  <span className="text-[11.5px] font-medium text-slate-700 group-hover:text-brand-600 truncate transition-colors">
                     {totalApplicants} Applicants
                   </span>
                 </>
               )}
             </button>
 
-            <div className="flex items-center gap-1 flex-shrink-0">
-              {totalApplicants === 1 && (
-                <span className="inline-flex items-center gap-1 text-[9.5px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-1.5 py-0.5 rounded-md whitespace-nowrap">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  <span>{activeSubs[0]?.stage || 'Assigned'}</span>
-                </span>
-              )}
-              {totalApplicants >= 2 && (
-                <button
-                  type="button"
-                  onClick={() => handleCardTitleClick(req)}
-                  className="text-[9.5px] font-semibold text-brand-700 bg-brand-50 border border-brand-200/80 px-1.5 py-0.5 rounded-md whitespace-nowrap cursor-pointer hover:bg-brand-100 transition-colors"
-                >
-                  View All
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenMatcher(req);
-                }}
-                title="Attach more applicants from bench"
-                className="p-1 rounded-md text-slate-500 hover:text-brand-600 hover:bg-brand-50 border border-transparent hover:border-brand-200 transition-colors cursor-pointer"
-              >
-                <UserPlus className="w-3 h-3" />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenMatcher(req);
+              }}
+              title="Attach consultant from bench"
+              className="p-1 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors cursor-pointer flex-shrink-0"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+            </button>
           </div>
         ) : (
           <button
@@ -591,31 +522,8 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
           </button>
         )}
 
-        {/* Single-Row Skills Strip */}
-        {skills.length > 0 && (
-          <div className="flex items-center gap-1 flex-nowrap overflow-hidden">
-            {visibleSkills.map((sk) => (
-              <span
-                key={sk}
-                title={sk}
-                className="px-2 py-0.5 rounded-md bg-slate-100/90 text-slate-600 text-[10px] font-medium min-w-0 max-w-[86px] truncate"
-              >
-                {sk}
-              </span>
-            ))}
-            {remainingSkillCount > 0 && (
-              <span
-                title={skills.slice(visibleSkills.length).join(', ')}
-                className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 text-[10px] font-semibold whitespace-nowrap flex-shrink-0"
-              >
-                +{remainingSkillCount}
-              </span>
-            )}
-          </div>
-        )}
-
         {/* Clean Card Action Footer */}
-        <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2 text-[11px]">
+        <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-[11px]">
           <div className="inline-flex items-center rounded-lg border border-slate-200/80 bg-slate-50/80 divide-x divide-slate-200/80 overflow-hidden flex-shrink-0">
             <button
               type="button"
@@ -832,7 +740,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                           <div
                             key={req.id}
                             onPointerDown={(e) => handleCardPointerDown(e, req)}
-                            className={`p-3.5 rounded-xl border space-y-3 select-none transition-all duration-150 ${
+                            className={`p-3.5 rounded-xl border space-y-2.5 select-none transition-all duration-150 ${
                               isBeingDragged
                                 ? 'opacity-30 border-dashed border-brand-300 bg-brand-50/30 shadow-none pointer-events-none'
                                 : 'bg-white border-slate-200/90 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_4px_12px_rgba(15,23,42,0.06)] hover:border-slate-300/90 cursor-grab active:cursor-grabbing'
@@ -1210,7 +1118,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               transform: `translate3d(${activeDrag.initialX}px, ${activeDrag.initialY}px, 0) rotate(1.2deg)`,
               willChange: 'transform',
             }}
-            className="fixed top-0 left-0 z-[9990] pointer-events-none select-none bg-white p-3.5 rounded-xl border border-brand-400 shadow-2xl ring-2 ring-brand-500/20 space-y-3 opacity-95"
+            className="fixed top-0 left-0 z-[9990] pointer-events-none select-none bg-white p-3.5 rounded-xl border border-brand-400 shadow-2xl ring-2 ring-brand-500/20 space-y-2.5 opacity-95"
           >
             {renderCardBody(activeDrag.req)}
           </div>

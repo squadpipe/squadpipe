@@ -252,7 +252,13 @@ export const App: React.FC = () => {
       const saved =
         localStorage.getItem('talentos_current_user') ||
         sessionStorage.getItem('talentos_current_user');
-      return saved ? JSON.parse(saved) : null;
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      return {
+        ...parsed,
+        role: formatUserRole(parsed.role),
+        status: formatUserStatus(parsed.status),
+      };
     } catch {
       return null;
     }
@@ -410,7 +416,7 @@ export const App: React.FC = () => {
 
   const fetchCandidates = async () => {
     try {
-      const res = await apiClient.get('/candidates');
+      const res = await apiClient.get('/candidates', { params: { page: 1, limit: 50 } });
       if (res.data?.data) {
         const raw = res.data.data;
         const mapped = raw.map((c: any) => ({
@@ -430,8 +436,9 @@ export const App: React.FC = () => {
           pipelineStage: formatCandidateStage(c.pipelineStage),
           rawSnippet: c.rawSnippet || '',
         }));
+        const totalConsultants = res.data.pagination?.total ?? mapped.length;
         setCandidates(mapped);
-        setSidebarCounts((prev) => ({ ...prev, consultants: mapped.length }));
+        setSidebarCounts((prev) => ({ ...prev, consultants: totalConsultants }));
         loadedEntities.current.add('candidates');
       }
     } catch (e) {
@@ -1404,7 +1411,7 @@ export const App: React.FC = () => {
 
   const computedSidebarCounts = {
     requirements: requirements.length || sidebarCounts.requirements,
-    consultants: candidates.length || sidebarCounts.consultants,
+    consultants: sidebarCounts.consultants || candidates.length,
     clients: clients.length || sidebarCounts.clients,
     vendors: vendors.length || sidebarCounts.vendors,
     billable: placements.length || sidebarCounts.billable,

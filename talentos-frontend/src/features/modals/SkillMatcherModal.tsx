@@ -1,7 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Check, Send, UsersRound, X } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Check, Search, Send, UsersRound, X } from 'lucide-react';
+import { apiClient } from '../../config/api.config';
 import { Requirement, Candidate } from '../../types';
 import { useCurrency } from '../../utils/currency';
+import { useDebounce } from '../../utils/useDebounce';
+import { mapCandidateFromApi } from '../../utils/entityMappers';
+
+const MATCHER_PAGE_SIZE = 50;
 
 interface SkillMatcherModalProps {
   isOpen: boolean;
@@ -30,14 +35,154 @@ export const SkillMatcherModal: React.FC<SkillMatcherModalProps> = ({
   );
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 250);
+  const [pagedCandidates, setPagedCandidates] = useState<Candidate[]>(() =>
+    candidates.slice(0, MATCHER_PAGE_SIZE)
+  );
+  const [totalCount, setTotalCount] = useState<number>(candidates.length);
+  const [page, setPage] = useState<number>(1);
+  const [hasMore, setHasMore] = useState<boolean>(candidates.length > MATCHER_PAGE_SIZE);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const knownCandidatesRef = useRef<Map<string, Candidate>>(new Map());
+  const activeSearchRef = useRef<string>('');
+
+  useEffect(() => {
+    for (const c of candidates) {
+      if (c?.id) knownCandidatesRef.current.set(c.id, c);
+    }
+  }, [candidates]);
 
   useEffect(() => {
     if (isOpen) {
       setSelectedReqId(initialRequirement?.id || requirements[0]?.id || '');
       setSelectedIds([]);
       setIsSubmitting(false);
+      setSearch('');
+      setPage(1);
+      setPagedCandidates(candidates.slice(0, MATCHER_PAGE_SIZE));
+      setTotalCount(candidates.length);
+      setHasMore(candidates.length > MATCHER_PAGE_SIZE);
     }
   }, [isOpen, initialRequirement?.id, requirements]);
+
+  const filteredLocalCandidates = useMemo(() => {
+    const q = debouncedSearch.trim().toLowerCase();
+    return candidates.filter((c) => {
+      if (!q) return true;
+      return (
+        c.fullName.toLowerCase().includes(q) ||
+        (c.currentTitle || '').toLowerCase().includes(q) ||
+        (c.skillset || '').toLowerCase().includes(q) ||
+        (c.workAuth || '').toLowerCase().includes(q)
+      );
+    });
+  }, [candidates, debouncedSearch]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+    const searchTerm = debouncedSearch.trim();
+    activeSearchRef.current = searchTerm;
+    setIsLoading(true);
+
+    apiClient
+      .get('/candidates', {
+        params: {
+          page: 1,
+          limit: MATCHER_PAGE_SIZE,
+          search: searchTerm || undefined,
+        },
+      })
+      .then((res) => {
+        if (!active) return;
+        const raw = Array.isArray(res.data?.data) ? res.data.data : [];
+        const mapped: Candidate[] = raw.map(mapCandidateFromApi);
+        for (const c of mapped) {
+          if (c?.id) knownCandidatesRef.current.set(c.id, c);
+        }
+        const pagination = res.data?.pagination;
+        const total = typeof pagination?.total === 'number' ? pagination.total : mapped.length;
+        const totalPages = typeof pagination?.totalPages === 'number' ? pagination.totalPages : 1;
+        setPagedCandidates(mapped);
+        setPage(1);
+        setTotalCount(total);
+        setHasMore(1 < totalPages);
+      })
+      .catch(() => {
+        if (!active) return;
+        const slice = filteredLocalCandidates.slice(0, MATCHER_PAGE_SIZE);
+        setPagedCandidates(slice);
+        setPage(1);
+        setTotalCount(filteredLocalCandidates.length);
+        setHasMore(filteredLocalCandidates.length > slice.length);
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen, debouncedSearch]);
+
+  const handleScroll = useCallback(
+    (e: React.UIEvent<HTMLDivElement>) => {
+      const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+      if (
+        scrollHeight - scrollTop - clientHeight > 80 ||
+        isLoading ||
+        isLoadingMore ||
+        !hasMore
+      ) {
+        return;
+      }
+
+      const nextPage = page + 1;
+      const searchTerm = debouncedSearch.trim();
+      setIsLoadingMore(true);
+
+      apiClient
+        .get('/candidates', {
+          params: {
+            page: nextPage,
+            limit: MATCHER_PAGE_SIZE,
+            search: searchTerm || undefined,
+          },
+        })
+        .then((res) => {
+          if (activeSearchRef.current !== searchTerm) return;
+          const raw = Array.isArray(res.data?.data) ? res.data.data : [];
+          const mapped: Candidate[] = raw.map(mapCandidateFromApi);
+          for (const c of mapped) {
+            if (c?.id) knownCandidatesRef.current.set(c.id, c);
+          }
+          const pagination = res.data?.pagination;
+          const total = typeof pagination?.total === 'number' ? pagination.total : undefined;
+          const totalPages = typeof pagination?.totalPages === 'number' ? pagination.totalPages : nextPage;
+          setPagedCandidates((prev) => {
+            const seen = new Set(prev.map((p) => p.id));
+            const extra = mapped.filter((c) => !seen.has(c.id));
+            return [...prev, ...extra];
+          });
+          setPage(nextPage);
+          if (typeof total === 'number') setTotalCount(total);
+          setHasMore(nextPage < totalPages);
+        })
+        .catch(() => {
+          if (activeSearchRef.current !== searchTerm) return;
+          const nextSlice = filteredLocalCandidates.slice(0, nextPage * MATCHER_PAGE_SIZE);
+          setPagedCandidates(nextSlice);
+          setPage(nextPage);
+          setHasMore(filteredLocalCandidates.length > nextSlice.length);
+        })
+        .finally(() => {
+          setIsLoadingMore(false);
+        });
+    },
+    [page, debouncedSearch, filteredLocalCandidates, hasMore, isLoading, isLoadingMore]
+  );
 
   const currentReq = requirements.find((r) => r.id === selectedReqId) || requirements[0];
 
@@ -55,7 +200,7 @@ export const SkillMatcherModal: React.FC<SkillMatcherModalProps> = ({
     ? currentReq.skillsRequired.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
     : [];
 
-  const candidateMatches = candidates.map((c) => {
+  const candidateMatches = pagedCandidates.map((c) => {
     const cSkills = c.skillset.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
     const matched = reqSkills.filter((rs) =>
       cSkills.some((cs) => cs.includes(rs) || rs.includes(cs))
@@ -101,7 +246,7 @@ export const SkillMatcherModal: React.FC<SkillMatcherModalProps> = ({
         await onAttachCandidates(currentReq, selectedIds);
       } else {
         for (const id of selectedIds) {
-          const cand = candidates.find((c) => c.id === id);
+          const cand = candidates.find((c) => c.id === id) || knownCandidatesRef.current.get(id);
           if (cand) await onSubmitCandidate(cand, currentReq);
         }
       }
@@ -131,7 +276,7 @@ export const SkillMatcherModal: React.FC<SkillMatcherModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto space-y-5">
+        <div onScroll={handleScroll} className="p-6 overflow-y-auto space-y-5">
           {/* Requisition Selector */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
             <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -174,29 +319,49 @@ export const SkillMatcherModal: React.FC<SkillMatcherModalProps> = ({
 
           {/* Matches List */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="text-xs font-bold text-slate-700">
-                Ranked Bench Matches ({candidateMatches.length})
+                Ranked Bench Matches ({totalCount} total
+                {pagedCandidates.length < totalCount ? ` • showing ${pagedCandidates.length}` : ''})
               </div>
-              {selectedIds.length > 0 && (
-                <button
-                  type="button"
-                  disabled={isSubmitting}
-                  onClick={handleBatchAttach}
-                  className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white shadow-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Send className="w-3 h-3" />
-                  <span>Attach {selectedIds.length} Selected Applicant{selectedIds.length === 1 ? '' : 's'}</span>
-                </button>
-              )}
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="relative w-56">
+                  <Search className="w-3 h-3 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Filter name, title, skill..."
+                    className="w-full pl-7 pr-2.5 py-1.5 text-[11px] bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-brand-600"
+                  />
+                </div>
+                {selectedIds.length > 0 && (
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={handleBatchAttach}
+                    className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Send className="w-3 h-3" />
+                    <span>Attach {selectedIds.length} Selected Applicant{selectedIds.length === 1 ? '' : 's'}</span>
+                  </button>
+                )}
+              </div>
             </div>
 
-            {candidateMatches.length === 0 ? (
+            {isLoading && candidateMatches.length === 0 ? (
               <div className="py-10 px-6 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                No bench candidates available to match yet. Add consultants to see skill matches here.
+                {search.trim() ? 'Searching bench consultants...' : 'Loading bench matches...'}
+              </div>
+            ) : candidateMatches.length === 0 ? (
+              <div className="py-10 px-6 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                {search.trim()
+                  ? 'No bench consultants match your filter.'
+                  : 'No bench candidates available to match yet. Add consultants to see skill matches here.'}
               </div>
             ) : (
-              candidateMatches.map((m) => {
+              <>
+                {candidateMatches.map((m) => {
                 const isAttached = Boolean(m.attachedStage);
                 const isSelected = isAttached || selectedIds.includes(m.candidate.id);
                 return (
@@ -287,7 +452,18 @@ export const SkillMatcherModal: React.FC<SkillMatcherModalProps> = ({
                     </div>
                   </div>
                 );
-              })
+              })}
+              {isLoadingMore && (
+                <div className="py-2 text-center text-[11px] font-medium text-slate-400">
+                  Loading next {MATCHER_PAGE_SIZE} consultants...
+                </div>
+              )}
+              {!isLoadingMore && hasMore && (
+                <div className="py-2 text-center text-[11px] text-slate-400">
+                  Scroll down to load more ({candidateMatches.length} of {totalCount})
+                </div>
+              )}
+            </>
             )}
           </div>
         </div>

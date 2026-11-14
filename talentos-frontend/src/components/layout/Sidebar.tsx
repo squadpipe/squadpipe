@@ -18,7 +18,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { User } from '../../types';
-import { useWorkspaceBrand } from '../../utils/workspaceBrand';
+import { formatUserRole } from '../../utils/entityMappers';
 
 interface SidebarProps {
   currentView: string;
@@ -47,10 +47,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSignOut,
 }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const brand = useWorkspaceBrand();
-  const brandName = (brand.agencyName || currentUser?.agencyName || 'TalentOS').trim();
+  const displayRole = formatUserRole(currentUser?.role);
 
-  const userInitials = (currentUser?.name || `${brandName} User`)
+  const userInitials = (currentUser?.name || 'TalentOS User')
     .split(' ')
     .map((n) => n[0])
     .join('')
@@ -59,12 +58,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside className="w-64 flex flex-col flex-shrink-0 z-20 bg-[#0B0F17] text-slate-300 border-r border-white/10 select-none h-screen">
-      {/* Header with Organization Logo, CRM Badge & Live Sync Pulse */}
+      {/* Header with App Logo & CRM Badge */}
       <div className="h-14 flex items-center px-4 border-b border-white/10 bg-[#080C13] justify-between flex-shrink-0">
         <div
           className="flex items-center gap-2.5 cursor-pointer group min-w-0"
           onClick={() => onNavigate('dashboard')}
-          title={`${brandName} Dashboard`}
+          title="TalentOS Dashboard"
         >
           <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-brand-600 to-indigo-500 flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform flex-shrink-0">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -72,16 +71,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </svg>
           </div>
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="font-bold text-white text-[14px] tracking-tight truncate max-w-[115px]">{brandName}</span>
+            <span className="font-bold text-white text-[14px] tracking-tight truncate">TalentOS</span>
             <span className="text-[9px] font-bold bg-brand-500/20 text-brand-300 border border-brand-500/30 px-1.5 py-0.5 rounded tracking-wider flex-shrink-0">
               CRM
             </span>
           </div>
-        </div>
-
-        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-400">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span className="text-[9px]">Live Sync</span>
         </div>
       </div>
 
@@ -381,8 +375,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {currentUser?.email || 'admin@talentos-agency.com'}
               </div>
               <div className="mt-1.5 flex items-center gap-1.5">
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  {currentUser?.role || 'Administrator'}
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-white/[0.06] text-slate-300 border border-white/10">
+                  {displayRole}
                 </span>
                 <span className="text-[10px] text-slate-400">&bull; Active Session</span>
               </div>
@@ -436,9 +430,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="text-xs font-semibold text-slate-200 group-hover:text-white transition-colors truncate">
                 {currentUser?.name || 'Administrator'}
               </div>
-              <div className="text-[10px] text-emerald-400 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                <span>{currentUser?.role || 'Administrator'}</span>
+              <div className="text-[10px] text-slate-400 font-normal truncate mt-0.5">
+                {displayRole}
               </div>
             </div>
           </div>

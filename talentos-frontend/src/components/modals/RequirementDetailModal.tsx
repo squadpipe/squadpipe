@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   Check,
   FileSpreadsheet,
@@ -10,8 +10,11 @@ import {
   UsersRound,
   X,
 } from 'lucide-react';
+import { apiClient } from '../../config/api.config';
 import { Requirement, Candidate, RequirementSubmission } from '../../types';
 import { useCurrency } from '../../utils/currency';
+import { useDebounce } from '../../utils/useDebounce';
+import { mapCandidateFromApi } from '../../utils/entityMappers';
 
 interface RequirementDetailModalProps {
   isOpen: boolean;
@@ -31,6 +34,8 @@ interface RequirementDetailModalProps {
   onOpenPlacementWizard: (req: Requirement, candidate?: Candidate | null) => void;
   onUpdateReq?: (req: Requirement) => void;
 }
+
+const BENCH_PAGE_SIZE = 50;
 
 const SUBMISSION_STAGES: RequirementSubmission['stage'][] = [
   'Submitted',
@@ -74,12 +79,29 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
   const { formatRate } = useCurrency();
   const [showBenchPicker, setShowBenchPicker] = useState(false);
   const [benchSearch, setBenchSearch] = useState('');
+  const debouncedBenchSearch = useDebounce(benchSearch, 250);
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
   const [isAttaching, setIsAttaching] = useState(false);
   const [busySubId, setBusySubId] = useState<string | null>(null);
   const [confirmDetachId, setConfirmDetachId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Requirement | null>(requirement);
+  const [pagedCandidates, setPagedCandidates] = useState<Candidate[]>(() =>
+    candidates.slice(0, BENCH_PAGE_SIZE)
+  );
+  const [totalBenchCount, setTotalBenchCount] = useState<number>(candidates.length);
+  const [benchPage, setBenchPage] = useState<number>(1);
+  const [hasMoreBench, setHasMoreBench] = useState<boolean>(candidates.length > BENCH_PAGE_SIZE);
+  const [isLoadingBench, setIsLoadingBench] = useState<boolean>(false);
+  const [isLoadingMoreBench, setIsLoadingMoreBench] = useState<boolean>(false);
+  const knownCandidatesRef = useRef<Map<string, Candidate>>(new Map());
+  const activeSearchRef = useRef<string>('');
+
+  useEffect(() => {
+    for (const c of candidates) {
+      if (c?.id) knownCandidatesRef.current.set(c.id, c);
+    }
+  }, [candidates]);
 
   useEffect(() => {
     setEditForm(requirement);
@@ -88,6 +110,10 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
     setSelectedCandidateIds([]);
     setBenchSearch('');
     setConfirmDetachId(null);
+    setBenchPage(1);
+    setPagedCandidates(candidates.slice(0, BENCH_PAGE_SIZE));
+    setTotalBenchCount(candidates.length);
+    setHasMoreBench(candidates.length > BENCH_PAGE_SIZE);
   }, [requirement?.id, isOpen]);
 
   useEffect(() => {
@@ -126,17 +152,131 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
     [submissions]
   );
 
-  const filteredBenchCandidates = useMemo(() => {
-    const q = benchSearch.trim().toLowerCase();
+  const filteredLocalCandidates = useMemo(() => {
+    const q = debouncedBenchSearch.trim().toLowerCase();
     return candidates.filter((c) => {
       if (!q) return true;
       return (
         c.fullName.toLowerCase().includes(q) ||
         (c.currentTitle || '').toLowerCase().includes(q) ||
-        (c.skillset || '').toLowerCase().includes(q)
+        (c.skillset || '').toLowerCase().includes(q) ||
+        (c.workAuth || '').toLowerCase().includes(q)
       );
     });
-  }, [candidates, benchSearch]);
+  }, [candidates, debouncedBenchSearch]);
+
+  const pickerActive = Boolean(isOpen && requirement && (showBenchPicker || submissions.length === 0));
+
+  useEffect(() => {
+    if (!pickerActive) return;
+    let active = true;
+    const searchTerm = debouncedBenchSearch.trim();
+    activeSearchRef.current = searchTerm;
+    setIsLoadingBench(true);
+
+    apiClient
+      .get('/candidates', {
+        params: {
+          page: 1,
+          limit: BENCH_PAGE_SIZE,
+          search: searchTerm || undefined,
+        },
+      })
+      .then((res) => {
+        if (!active) return;
+        const raw = Array.isArray(res.data?.data) ? res.data.data : [];
+        const mapped: Candidate[] = raw.map(mapCandidateFromApi);
+        for (const c of mapped) {
+          if (c?.id) knownCandidatesRef.current.set(c.id, c);
+        }
+        const pagination = res.data?.pagination;
+        const total = typeof pagination?.total === 'number' ? pagination.total : mapped.length;
+        const totalPages = typeof pagination?.totalPages === 'number' ? pagination.totalPages : 1;
+        setPagedCandidates(mapped);
+        setBenchPage(1);
+        setTotalBenchCount(total);
+        setHasMoreBench(1 < totalPages);
+      })
+      .catch(() => {
+        if (!active) return;
+        const slice = filteredLocalCandidates.slice(0, BENCH_PAGE_SIZE);
+        setPagedCandidates(slice);
+        setBenchPage(1);
+        setTotalBenchCount(filteredLocalCandidates.length);
+        setHasMoreBench(filteredLocalCandidates.length > slice.length);
+      })
+      .finally(() => {
+        if (active) setIsLoadingBench(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [pickerActive, debouncedBenchSearch]);
+
+  const handleBenchScroll = useCallback(
+    (e: React.UIEvent<HTMLDivElement>) => {
+      const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+      if (
+        scrollHeight - scrollTop - clientHeight > 48 ||
+        isLoadingBench ||
+        isLoadingMoreBench ||
+        !hasMoreBench
+      ) {
+        return;
+      }
+
+      const nextPage = benchPage + 1;
+      const searchTerm = debouncedBenchSearch.trim();
+      setIsLoadingMoreBench(true);
+
+      apiClient
+        .get('/candidates', {
+          params: {
+            page: nextPage,
+            limit: BENCH_PAGE_SIZE,
+            search: searchTerm || undefined,
+          },
+        })
+        .then((res) => {
+          if (activeSearchRef.current !== searchTerm) return;
+          const raw = Array.isArray(res.data?.data) ? res.data.data : [];
+          const mapped: Candidate[] = raw.map(mapCandidateFromApi);
+          for (const c of mapped) {
+            if (c?.id) knownCandidatesRef.current.set(c.id, c);
+          }
+          const pagination = res.data?.pagination;
+          const total = typeof pagination?.total === 'number' ? pagination.total : undefined;
+          const totalPages = typeof pagination?.totalPages === 'number' ? pagination.totalPages : nextPage;
+          setPagedCandidates((prev) => {
+            const seen = new Set(prev.map((p) => p.id));
+            const extra = mapped.filter((c) => !seen.has(c.id));
+            return [...prev, ...extra];
+          });
+          setBenchPage(nextPage);
+          if (typeof total === 'number') setTotalBenchCount(total);
+          setHasMoreBench(nextPage < totalPages);
+        })
+        .catch(() => {
+          if (activeSearchRef.current !== searchTerm) return;
+          const nextSlice = filteredLocalCandidates.slice(0, nextPage * BENCH_PAGE_SIZE);
+          setPagedCandidates(nextSlice);
+          setBenchPage(nextPage);
+          setHasMoreBench(filteredLocalCandidates.length > nextSlice.length);
+        })
+        .finally(() => {
+          setIsLoadingMoreBench(false);
+        });
+    },
+    [
+      benchPage,
+      debouncedBenchSearch,
+      filteredLocalCandidates,
+      hasMoreBench,
+      isLoadingBench,
+      isLoadingMoreBench,
+    ]
+  );
 
   if (!isOpen || !requirement) return null;
 
@@ -160,7 +300,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
         await onAttachCandidates(requirement, selectedCandidateIds);
       } else {
         for (const id of selectedCandidateIds) {
-          const cand = candidates.find((c) => c.id === id);
+          const cand = candidates.find((c) => c.id === id) || knownCandidatesRef.current.get(id);
           if (cand) onAssignCandidate(requirement, cand);
         }
       }
@@ -194,6 +334,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
           (sub.candidateId && c.id === sub.candidateId) ||
           c.fullName.toLowerCase() === sub.fullName.toLowerCase()
       ) ||
+      (sub.candidateId ? knownCandidatesRef.current.get(sub.candidateId) : undefined) ||
       null
     );
   };
@@ -651,7 +792,11 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
               <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-                    Select Consultants to Attach ({candidates.length} total)
+                    Select Consultants to Attach ({totalBenchCount} total
+                    {pagedCandidates.length < totalBenchCount
+                      ? ` • showing ${pagedCandidates.length}`
+                      : ''}
+                    )
                   </div>
                   <div className="relative w-full sm:w-56">
                     <Search className="w-3 h-3 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -665,73 +810,92 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                   </div>
                 </div>
 
-                <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
-                  {filteredBenchCandidates.length === 0 ? (
+                <div
+                  onScroll={handleBenchScroll}
+                  className="max-h-56 overflow-y-auto space-y-1.5 pr-1"
+                >
+                  {isLoadingBench && pagedCandidates.length === 0 ? (
                     <div className="py-5 text-center text-xs text-slate-400 bg-white rounded-lg border border-dashed border-slate-200">
-                      {candidates.length === 0
-                        ? 'No bench consultants available to assign yet.'
-                        : 'No consultants match your filter.'}
+                      Loading consultants...
+                    </div>
+                  ) : pagedCandidates.length === 0 ? (
+                    <div className="py-5 text-center text-xs text-slate-400 bg-white rounded-lg border border-dashed border-slate-200">
+                      {benchSearch.trim()
+                        ? 'No consultants match your filter.'
+                        : 'No bench consultants available to assign yet.'}
                     </div>
                   ) : (
-                    filteredBenchCandidates.map((con) => {
-                      const alreadyAttached = attachedCandidateIdSet.has(con.id);
-                      const isChecked = alreadyAttached || selectedCandidateIds.includes(con.id);
+                    <>
+                      {pagedCandidates.map((con) => {
+                        const alreadyAttached = attachedCandidateIdSet.has(con.id);
+                        const isChecked = alreadyAttached || selectedCandidateIds.includes(con.id);
 
-                      return (
-                        <div
-                          key={con.id}
-                          onClick={() => !alreadyAttached && toggleCandidateSelection(con.id)}
-                          className={`p-2.5 rounded-lg border flex items-center justify-between gap-2 transition-all ${
-                            alreadyAttached
-                              ? 'bg-emerald-50/40 border-emerald-200/70 opacity-75 cursor-default'
-                              : isChecked
-                              ? 'bg-brand-50/60 border-brand-500 cursor-pointer'
-                              : 'bg-white border-slate-200 hover:border-brand-400 cursor-pointer'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span
-                              className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
-                                alreadyAttached
-                                  ? 'bg-emerald-600 border-emerald-600 text-white'
-                                  : isChecked
-                                  ? 'bg-brand-600 border-brand-600 text-white'
-                                  : 'bg-white border-slate-300'
-                              }`}
-                            >
-                              {isChecked && <Check className="w-3 h-3" strokeWidth={3} />}
-                            </span>
-                            <div className="min-w-0">
-                              <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5 flex-wrap">
-                                <span className="truncate">{con.fullName}</span>
-                                <span className="text-[9px] font-normal text-slate-400">({con.workAuth})</span>
-                              </div>
-                              <div className="text-[10px] text-slate-500 mt-0.5 truncate">
-                                {con.currentTitle} &bull; {formatRate(con.hourlyRate)}
+                        return (
+                          <div
+                            key={con.id}
+                            onClick={() => !alreadyAttached && toggleCandidateSelection(con.id)}
+                            className={`p-2.5 rounded-lg border flex items-center justify-between gap-2 transition-all ${
+                              alreadyAttached
+                                ? 'bg-emerald-50/40 border-emerald-200/70 opacity-75 cursor-default'
+                                : isChecked
+                                ? 'bg-brand-50/60 border-brand-500 cursor-pointer'
+                                : 'bg-white border-slate-200 hover:border-brand-400 cursor-pointer'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span
+                                className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
+                                  alreadyAttached
+                                    ? 'bg-emerald-600 border-emerald-600 text-white'
+                                    : isChecked
+                                    ? 'bg-brand-600 border-brand-600 text-white'
+                                    : 'bg-white border-slate-300'
+                                }`}
+                              >
+                                {isChecked && <Check className="w-3 h-3" strokeWidth={3} />}
+                              </span>
+                              <div className="min-w-0">
+                                <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5 flex-wrap">
+                                  <span className="truncate">{con.fullName}</span>
+                                  <span className="text-[9px] font-normal text-slate-400">({con.workAuth})</span>
+                                </div>
+                                <div className="text-[10px] text-slate-500 mt-0.5 truncate">
+                                  {con.currentTitle} &bull; {formatRate(con.hourlyRate)}
+                                </div>
                               </div>
                             </div>
-                          </div>
 
-                          {alreadyAttached ? (
-                            <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px] font-semibold flex-shrink-0">
-                              Attached
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={isAttaching}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleQuickSingleAttach(con);
-                              }}
-                              className="px-2.5 py-1 rounded bg-white hover:bg-brand-600 text-brand-700 hover:text-white border border-brand-200 text-[10px] font-semibold transition-colors flex-shrink-0 cursor-pointer"
-                            >
-                              Quick Attach
-                            </button>
-                          )}
+                            {alreadyAttached ? (
+                              <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px] font-semibold flex-shrink-0">
+                                Attached
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={isAttaching}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleQuickSingleAttach(con);
+                                }}
+                                className="px-2.5 py-1 rounded bg-white hover:bg-brand-600 text-brand-700 hover:text-white border border-brand-200 text-[10px] font-semibold transition-colors flex-shrink-0 cursor-pointer"
+                              >
+                                Quick Attach
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {isLoadingMoreBench && (
+                        <div className="py-2 text-center text-[10px] font-medium text-slate-400">
+                          Loading next {BENCH_PAGE_SIZE} consultants...
                         </div>
-                      );
-                    })
+                      )}
+                      {!isLoadingMoreBench && hasMoreBench && (
+                        <div className="py-1.5 text-center text-[10px] text-slate-400">
+                          Scroll to load more ({pagedCandidates.length} of {totalBenchCount})
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 
