@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "info"
     MAX_FILE_SIZE_MB: int = 15
     CORS_ORIGINS: str = ""
+    INTERNAL_API_KEY: str = ""
 
     def get_allowed_origins(self) -> list[str]:
         configured = [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]

@@ -88,7 +88,13 @@ export function createRateLimiter(options: RateLimiterOptions) {
   pruneInterval.unref();
 
   return (req: Request, res: Response, next: NextFunction) => {
-    const identity = req.user?.id || req.ip || req.socket.remoteAddress || 'anonymous';
+    const cfConnectingIp = req.headers['cf-connecting-ip'];
+    const clientIp =
+      (Array.isArray(cfConnectingIp) ? cfConnectingIp[0] : cfConnectingIp)?.trim() ||
+      req.ip ||
+      req.socket.remoteAddress ||
+      'anonymous';
+    const identity = req.user?.id || clientIp;
     const key = `${options.keyPrefix}:${identity}`;
     const now = Date.now();
     const existing = buckets.get(key);
