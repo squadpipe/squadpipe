@@ -20,6 +20,12 @@ async function executeScheduledJobsWithLock() {
         }
         await runSlaRadarJob();
         await runComplianceWatchJob();
+
+        // Enforce 30-day retention on automation audit logs
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        await tx.automationAuditLog.deleteMany({
+          where: { createdAt: { lt: thirtyDaysAgo } },
+        });
       },
       { maxWait: 5000, timeout: 120000 }
     );

@@ -1,46 +1,156 @@
 import re
+from functools import lru_cache
 from typing import List
+from spacy.matcher import PhraseMatcher
+from app.extractors.nlp_engine import get_nlp, split_resume_sections
 
-TECH_SKILLS_TAXONOMY = [
+MULTI_INDUSTRY_SKILLS_TAXONOMY = [
     # Cloud & DevOps
     "AWS", "Amazon Web Services", "Azure", "GCP", "Google Cloud", "Kubernetes", "Docker", "Terraform",
     "Helm", "Ansible", "CI/CD", "GitLab", "GitHub Actions", "Jenkins", "FedRAMP", "IAM", "VPC", "EKS",
+    "Linux", "Nginx", "Prometheus", "Grafana",
     # Data & Analytics
-    "Snowflake", "Databricks", "PySpark", "Apache Spark", "Airflow", "dbt", "Kafka", "Hadoop", "Flink",
-    "SQL", "PostgreSQL", "MySQL", "MongoDB", "Cassandra", "DynamoDB", "BigQuery", "Redshift",
+    "Snowflake", "Databricks", "PySpark", "Apache Spark", "Airflow", "Apache Airflow", "dbt", "Kafka",
+    "Hadoop", "Flink", "SQL", "PostgreSQL", "MySQL", "MongoDB", "Cassandra", "DynamoDB", "BigQuery",
+    "Redshift", "Power BI", "Tableau", "Snowpark", "ETL",
     # Programming & Frameworks
     "Python", "Java", "Java 17", "Spring Boot", "Spring Cloud", "Node.js", "TypeScript", "JavaScript",
-    "React", "Vue", "Angular", "Go", "Golang", "C++", "C#", ".NET", "Rust", "Scala", "PHP",
-    # Architecture & Enterprise
-    "Microservices", "REST API", "GraphQL", "SAP", "SAP FICO", "S/4HANA", "Salesforce",
-    "Cyber Security", "SIEM", "Splunk", "EDR", "MITRE ATT&CK", "Threat Hunting", "DevSecOps"
+    "React", "Next.js", "Vue", "Angular", "Go", "Golang", "C++", "C#", ".NET", "Rust", "Scala", "PHP",
+    "FastAPI", "Django", "Flask",
+    # Architecture, Enterprise & SaaS
+    "Microservices", "REST API", "GraphQL", "SAP", "SAP FICO", "S/4HANA", "Salesforce", "ServiceNow",
+    "ITSM", "Flow Designer", "Workday", "Jira", "Confluence",
+    "Cyber Security", "SIEM", "Splunk", "EDR", "MITRE ATT&CK", "Threat Hunting", "DevSecOps",
+    # Finance, Accounting & Consulting
+    "GAAP", "IFRS", "FP&A", "QuickBooks", "Financial Modeling", "Audit", "Taxation", "Accounts Payable",
+    "Accounts Receivable", "Payroll", "Microsoft Excel", "Excel", "Bloomberg", "Risk Management",
+    # Healthcare & Clinical
+    "HIPAA", "EHR", "EMR", "Epic", "Cerner", "BLS", "ACLS", "ICD-10", "Patient Care", "Clinical Trials",
+    "Phlebotomy", "Triage",
+    # HR, Operations, Project Management & Sales
+    "Project Management", "PMP", "Agile", "Scrum", "Six Sigma", "Lean", "Supply Chain", "Procurement",
+    "Recruiting", "Talent Acquisition", "Onboarding", "CRM", "HubSpot", "B2B Sales", "Account Management",
 ]
 
+SYNONYM_MAP = {
+    "amazon web services": "AWS",
+    "google cloud": "GCP",
+    "apache airflow": "Airflow",
+    "microsoft excel": "Excel",
+}
+
+TITLE_KEYWORDS = (
+    "architect", "engineer", "developer", "lead", "director", "manager",
+    "specialist", "consultant", "coordinator", "analyst", "accountant",
+    "controller", "auditor", "nurse", "therapist", "pharmacist", "physician",
+    "recruiter", "administrator", "executive", "officer", "supervisor",
+    "technician", "designer", "scientist", "associate", "partner",
+)
+
+
+@lru_cache(maxsize=1)
+def _get_skill_matcher():
+    nlp = get_nlp()
+    matcher = PhraseMatcher(nlp.vocab, attr="LOWER")
+    canonical_by_lower = {}
+    patterns = []
+    for skill in MULTI_INDUSTRY_SKILLS_TAXONOMY:
+        canonical = SYNONYM_MAP.get(skill.lower(), skill)
+        canonical_by_lower[skill.lower()] = canonical
+        patterns.append(nlp.make_doc(skill))
+    matcher.add("SKILLS", patterns)
+    return nlp, matcher, canonical_by_lower
+
+
+def _extract_skills_from_section_lines(lines: List[str]) -> List[str]:
+    """Extracts explicit comma/pipe/bullet-separated skills from Skills/Certifications sections."""
+    extracted: List[str] = []
+    for line in lines:
+        # Strip category prefix like "Cloud Platforms: AWS, GCP"
+        if ":" in line:
+            _, rhs = line.split(":", 1)
+            candidate_text = rhs.strip()
+        else:
+            candidate_text = line
+
+        tokens = re.split(r"[,•|;/]+", candidate_text)
+        for raw_token in tokens:
+            token = raw_token.strip(" .-•\t()")
+            # Expand parenthetical sub-items like "AWS (EKS, VPC, IAM)"
+            paren_match = re.match(r"^([A-Za-z0-9.+&/#\s-]+?)\s*\(([^)]+)\)$", raw_token.strip())
+            if paren_match:
+                base = paren_match.group(1).strip()
+                inner = [p.strip() for p in paren_match.group(2).split(",") if p.strip()]
+                for item in [base, *inner]:
+                    if 2 <= len(item) <= 35 and len(item.split()) <= 4:
+                        extracted.append(item)
+                continue
+
+            if 2 <= len(token) <= 35 and len(token.split()) <= 4 and not token.isdigit():
+                extracted.append(token)
+    return extracted
+
+
 def extract_skills(text: str) -> List[str]:
-    """Finds matching technical competencies from text."""
-    found = []
-    text_lower = text.lower()
-    for skill in TECH_SKILLS_TAXONOMY:
-        # Match as full word
-        pattern = r'(?<![a-zA-Z0-9])' + re.escape(skill.lower()) + r'(?![a-zA-Z0-9])'
-        if re.search(pattern, text_lower):
-            # Normalize synonyms
-            normalized = skill
-            if skill in ["Amazon Web Services", "Google Cloud"]:
-                normalized = "AWS" if skill == "Amazon Web Services" else "GCP"
-            if normalized not in found:
-                found.append(normalized)
-    return found[:25] # Return top matched competencies
+    """Finds matching competencies via spaCy PhraseMatcher + section-aware Skills extraction."""
+    found: List[str] = []
+    seen_lower = set()
+
+    def add_skill(skill_name: str):
+        clean = skill_name.strip()
+        key = clean.lower()
+        if clean and key not in seen_lower:
+            seen_lower.add(key)
+            found.append(clean)
+
+    # 1. Fast spaCy PhraseMatcher over the full document
+    nlp, matcher, canonical_by_lower = _get_skill_matcher()
+    doc = nlp(text)
+    for _, start, end in matcher(doc):
+        matched_text = doc[start:end].text.lower()
+        add_skill(canonical_by_lower.get(matched_text, doc[start:end].text))
+
+    # 2. Section-aware extraction for non-IT / niche skills listed in Skills or Certifications
+    sections = split_resume_sections(text)
+    section_lines = sections["skills"] + sections["certifications"]
+    for item in _extract_skills_from_section_lines(section_lines):
+        # Normalize known synonyms if matched
+        normalized = SYNONYM_MAP.get(item.lower(), item)
+        add_skill(normalized)
+
+    return found[:25]
+
+
+def _looks_like_title(line: str) -> bool:
+    line_clean = line.lower()
+    if "@" in line_clean or "http" in line_clean:
+        return False
+    if len(line.split()) > 8:
+        return False
+    if line_clean.startswith(("summary", "experience", "education", "skills")):
+        return False
+    return any(re.search(rf"\b{kw}s?\b", line_clean) for kw in TITLE_KEYWORDS)
+
 
 def extract_current_title(text: str, default_skills: List[str]) -> str:
-    """Heuristic to determine current candidate job title."""
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
-    for line in lines[:10]:
-        line_clean = line.lower()
-        if any(keyword in line_clean for keyword in ["architect", "engineer", "lead", "developer", "specialist", "consultant", "director", "manager"]):
-            if len(line.split()) <= 7 and not line_clean.startswith("summary") and not line_clean.startswith("experience"):
-                return line.strip(" |•-")
-                
+    """Determines current candidate job title from header, latest Experience role, or skills fallback."""
+    sections = split_resume_sections(text)
+    header_lines = sections["header"][:10] if sections["header"] else [
+        line.strip() for line in text.splitlines() if line.strip()
+    ][:10]
+
+    for line in header_lines:
+        if _looks_like_title(line):
+            return line.strip(" |•-")
+
+    # Check the top lines of Experience section (first/most recent role)
+    for line in sections["experience"][:8]:
+        # Strip trailing date ranges like " | 2021 - Present" or " (2022–2025)"
+        candidate = re.split(r"\s*[|•]\s*(?:\d{4}|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)", line, flags=re.IGNORECASE)[0]
+        candidate = re.sub(r"\s*\(?\b(?:19|20)\d{2}\s*[-–—]\s*(?:Present|Current|(?:19|20)\d{2})\)?$", "", candidate, flags=re.IGNORECASE).strip()
+        if _looks_like_title(candidate):
+            return candidate.strip(" |•-")
+
     # Fallback based on top skills
     if "Snowflake" in default_skills or "Databricks" in default_skills:
         return "Senior Data Platform Engineer"
@@ -48,6 +158,9 @@ def extract_current_title(text: str, default_skills: List[str]) -> str:
         return "Lead Cloud DevOps Architect"
     if "Java" in default_skills or "Spring Boot" in default_skills:
         return "Senior Full-Stack Java Engineer"
-        
-    return "Senior Technical Consultant"
+    if any(s in default_skills for s in ("GAAP", "FP&A", "QuickBooks", "Audit")):
+        return "Senior Financial Analyst"
+    if any(s in default_skills for s in ("HIPAA", "Epic", "Cerner", "Patient Care")):
+        return "Healthcare Clinical Specialist"
 
+    return "Professional Consultant"

@@ -235,7 +235,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   currentView === 'automation' ? 'text-amber-400' : 'text-slate-400 group-hover:text-slate-200'
                 }`}
               />
-              <span>Automations</span>
+              <span>Smart Reminders</span>
             </div>
             <span className="text-[9px] font-bold text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">
               {counts.activeRules} Active

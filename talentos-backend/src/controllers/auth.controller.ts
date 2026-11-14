@@ -358,7 +358,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
       'Workspace'
     ).trim();
 
-    await smtpService.sendMail({
+    const mailResult = await smtpService.sendMail({
       to: normalizedEmail,
       recipientName: user.fullName,
       subject: `${brandName} Password Reset Verification Code`,
@@ -372,6 +372,17 @@ export const forgotPassword = async (req: Request, res: Response) => {
       `,
       tenantId
     });
+
+    if (!mailResult.success) {
+      res.status(503).json({
+        success: false,
+        message:
+          mailResult.code === 'SMTP_NOT_CONFIGURED'
+            ? 'Password reset email service is not configured on the server. Please configure SMTP_* environment variables.'
+            : 'Unable to send password reset email right now. Please try again later.'
+      });
+      return;
+    }
 
     res.json({
       success: true,

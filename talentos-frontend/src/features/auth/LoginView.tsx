@@ -564,11 +564,15 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
 
           {/* 4. RESET PASSWORD FORM */}
           {authMode === 'reset' && (
-            <form onSubmit={handleResetPassword} className="space-y-4 text-xs">
+            <form key="reset-password-form" onSubmit={handleResetPassword} className="space-y-4 text-xs">
               <div>
                 <label className="block text-slate-700 font-medium mb-1.5">Verification code *</label>
                 <input
+                  key="reset-verification-code"
                   type="text"
+                  name="verificationCode"
+                  autoComplete="one-time-code"
+                  inputMode="numeric"
                   value={resetCode}
                   onChange={(e) => setResetCode(e.target.value)}
                   placeholder="6-digit reset code"

@@ -1,6 +1,38 @@
-import { createDynamicSmtpTransporter, getTenantSettings, isSmtpConfigured } from '../config/smtp.config';
+import {
+  createDynamicSmtpTransporter,
+  getTenantSettings,
+  isSmtpConfigured,
+  SmtpSettings,
+} from '../config/smtp.config';
 import { prisma } from '../config/prisma.config';
 import { EmailStatus } from '@prisma/client';
+
+function resolveEnvSmtpSettings(): SmtpSettings | null {
+  const host = process.env.SMTP_HOST?.trim() || '';
+  const username = process.env.SMTP_USER?.trim() || '';
+  const password = process.env.SMTP_PASS || '';
+  const fromEmail = process.env.SMTP_FROM_EMAIL?.trim() || username;
+
+  if (!host || !username || !password || !fromEmail) {
+    return null;
+  }
+
+  const parsedPort = Number(process.env.SMTP_PORT || 587);
+  const port = Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : 587;
+  const isSecure = String(process.env.SMTP_SECURE || '').toLowerCase() === 'true' || port === 465;
+
+  return {
+    enabled: true,
+    host,
+    port,
+    encryption: isSecure ? 'SSL' : 'STARTTLS',
+    username,
+    password,
+    fromName: process.env.SMTP_FROM_NAME?.trim() || '',
+    fromEmail,
+    replyToEmail: fromEmail,
+  };
+}
 
 export interface SendMailOptions {
   to: string;
@@ -29,10 +61,11 @@ export class SmtpService {
       },
     });
 
-    if (!isSmtpConfigured(smtp)) {
-      const msg = !smtp.enabled
-        ? 'Email dispatch is paused. Please enable Outbound SMTP in Settings → Email Setup (SMTP) to dispatch emails.'
-        : 'Email (SMTP) is not configured. Please configure your SMTP settings in Settings → Email Setup (SMTP) to dispatch emails.';
+    const effectiveSmtp = isSmtpConfigured(smtp) ? smtp : resolveEnvSmtpSettings();
+
+    if (!effectiveSmtp || !isSmtpConfigured(effectiveSmtp)) {
+      const msg =
+        'Email (SMTP) is not configured. Please configure SMTP_HOST, SMTP_USER, SMTP_PASS, and SMTP_FROM_EMAIL in the server environment.';
 
       await prisma.emailLog.update({
         where: { id: log.id },
@@ -47,14 +80,14 @@ export class SmtpService {
 
     const brandName = (general.agencyName || general.legalEntityName || 'Workspace').trim();
     const fromName =
-      smtp.fromName?.trim() && smtp.fromName.trim() !== 'TalentOS Recruitment Desk'
-        ? smtp.fromName.trim()
+      effectiveSmtp.fromName?.trim() && effectiveSmtp.fromName.trim() !== 'TalentOS Recruitment Desk'
+        ? effectiveSmtp.fromName.trim()
         : `${brandName} Recruitment Desk`;
-    const fromEmail = smtp.fromEmail.trim();
-    const replyTo = smtp.replyToEmail?.trim() || fromEmail;
+    const fromEmail = effectiveSmtp.fromEmail.trim();
+    const replyTo = effectiveSmtp.replyToEmail?.trim() || fromEmail;
 
     try {
-      const transporter = createDynamicSmtpTransporter(smtp);
+      const transporter = createDynamicSmtpTransporter(effectiveSmtp);
       const info = await transporter.sendMail({
         from: `"${fromName}" <${fromEmail}>`,
         replyTo,

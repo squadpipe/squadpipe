@@ -57,6 +57,41 @@ def test_title_heuristic():
     assert "Architect" in title or "Senior" in title, f"Expected architect title, got {title}"
     print("✅ Job Title Heuristic: PASSED")
 
+def test_spacy_and_international_contact():
+    text = "CONFIDENTIAL RESUME\nPriya Nair | Bengaluru, India\n+91 98765 43210 | priya.nair@finserv.in"
+    name, email, phone = extract_contacts(text)
+    assert name == "Priya Nair", f"Expected Priya Nair, got {name}"
+    assert email == "priya.nair@finserv.in", f"Expected priya.nair@finserv.in, got {email}"
+    assert phone and "+91" in phone, f"Expected +91 phone, got {phone}"
+    print("✅ spaCy Header & International Phone: PASSED")
+
+def test_non_it_healthcare_and_finance():
+    nurse_text = """
+    Sarah Jenkins
+    Boston, MA | sarah.j@careclinic.org | (617) 555-0192
+
+    Skills
+    Epic EHR, HIPAA Compliance, Patient Triage, BLS, ACLS, IV Therapy
+
+    Experience
+    Registered Nurse | 2021 - Present
+    Boston Medical Center
+
+    Education
+    Bachelor of Science in Nursing (BSN)
+    """
+    skills = extract_skills(nurse_text)
+    assert "Epic" in skills or "Epic EHR" in skills, f"Expected Epic skill, got {skills}"
+    assert "HIPAA" in skills or "HIPAA Compliance" in skills, f"Expected HIPAA skill, got {skills}"
+    assert "IV Therapy" in skills, f"Expected section-extracted IV Therapy, got {skills}"
+
+    title = extract_current_title(nurse_text, skills)
+    assert "Registered Nurse" in title, f"Expected Registered Nurse from Experience, got {title}"
+
+    edu = extract_education(nurse_text)
+    assert "BSN" in edu or "Nursing" in edu, f"Expected Nursing degree, got {edu}"
+    print("✅ Non-IT Section-Aware Extraction: PASSED")
+
 if __name__ == "__main__":
     print("========================================================")
     print("TalentOS Python NLP Resume Parser Test Suite")
@@ -66,6 +101,8 @@ if __name__ == "__main__":
     test_skills_extractor()
     test_education_extractor()
     test_title_heuristic()
+    test_spacy_and_international_contact()
+    test_non_it_healthcare_and_finance()
     print("\n========================================================")
     print("🎉 ALL PYTHON NLP EXTRACTOR TESTS PASSED (100% Success)")
     print("========================================================")

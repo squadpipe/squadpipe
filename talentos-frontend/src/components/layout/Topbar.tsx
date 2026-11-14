@@ -36,7 +36,7 @@ export const Topbar: React.FC<TopbarProps> = ({ currentView, onOpenCreateModal }
       case 'custom_fields':
         return 'Custom Fields & Master Taxonomy';
       case 'automation':
-        return 'Workflow Automations';
+        return 'Smart Reminders';
       case 'import_data':
         return 'Data Import & Migration';
       case 'settings_general':

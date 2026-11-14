@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   Check,
   FileSpreadsheet,
-  PenTool,
   Pencil,
   Search,
   Trash2,
@@ -711,17 +710,6 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                           </button>
                         )}
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onClose();
-                            onOpenPitchWriter(requirement, candObj);
-                          }}
-                          className="px-2 py-1 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-semibold cursor-pointer"
-                        >
-                          Pitch
-                        </button>
-
                         {!placed && (
                           <button
                             type="button"
@@ -935,16 +923,6 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
         {/* Footer Actions */}
         <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs flex-shrink-0">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                onClose();
-                onOpenPitchWriter(requirement, null);
-              }}
-              className="text-brand-600 font-semibold hover:text-brand-700 flex items-center gap-1.5 cursor-pointer"
-            >
-              <PenTool className="w-3.5 h-3.5" />
-              <span>Compose Pitch</span>
-            </button>
             {submissions.length > 0 && (
               <button
                 onClick={() => {
