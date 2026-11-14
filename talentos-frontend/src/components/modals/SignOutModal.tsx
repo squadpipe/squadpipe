@@ -1,6 +1,7 @@
 import React from 'react';
 import { LogOut } from 'lucide-react';
 import { User } from '../../types';
+import { useWorkspaceBrand } from '../../utils/workspaceBrand';
 
 interface SignOutModalProps {
   isOpen: boolean;
@@ -15,7 +16,9 @@ export const SignOutModal: React.FC<SignOutModalProps> = ({
   currentUser,
   onConfirm,
 }) => {
+  const brand = useWorkspaceBrand();
   if (!isOpen || !currentUser) return null;
+  const brandName = (brand.agencyName || currentUser.agencyName || 'your workspace').trim();
 
   return (
     <div
@@ -32,7 +35,7 @@ export const SignOutModal: React.FC<SignOutModalProps> = ({
           </div>
 
           <div>
-            <h3 className="text-base font-bold text-slate-900">Sign Out of TalentOS?</h3>
+            <h3 className="text-base font-bold text-slate-900">Sign Out of {brandName}?</h3>
             <p className="text-xs text-slate-500 mt-1">
               You will be signed out of your current session as <strong>{currentUser.name}</strong>.
             </p>

@@ -272,7 +272,7 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full border border-slate-200/90 flex flex-col max-h-[88vh]"
+          className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full border border-slate-200/90 flex flex-col max-h-[90vh]"
         >
           {/* Fixed Top Header + Candidate Identity Bar */}
           <div className="shrink-0 rounded-t-2xl bg-white border-b border-slate-200">

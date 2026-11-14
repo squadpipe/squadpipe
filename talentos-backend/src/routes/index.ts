@@ -1,10 +1,18 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { placementService } from '../services/placement.service';
+import { submissionService } from '../services/submission.service';
 import { csvImporterService } from '../services/csvImporter.service';
 import { resumeParserClientService } from '../services/resumeParserClient.service';
 import { smtpService } from '../services/smtp.service';
-import { getTenantSettings, redactSmtpSettings, saveGeneralSettings, saveSmtpSettings } from '../config/smtp.config';
+import {
+  getTenantSettings,
+  isSmtpConfigured,
+  redactSmtpSettings,
+  saveGeneralSettings,
+  saveSmtpSettings,
+} from '../config/smtp.config';
+import { DEFAULT_TAXONOMIES } from '../config/taxonomies.config';
 import { prisma } from '../config/prisma.config';
 import { authenticateJwt, requireRole } from '../middlewares/auth.middleware';
 import { rateMaskMiddleware } from '../middlewares/rateMask.middleware';
@@ -206,7 +214,7 @@ router.post('/parse-resume', uploadRateLimiter, upload.single('file'), async (re
         relocation: /\brelocate|open\b/i.test(rawText) ? 'Open' : 'Remote / Negotiable',
         page_count: 2,
         confidence_score: 0.78,
-        raw_text_snippet: rawText.slice(0, 1200) || `Extracted from uploaded file: ${file.originalname}`
+        raw_text_snippet: rawText.slice(0, 8000) || `Extracted from uploaded file: ${file.originalname}`
       });
     }
   } catch (error: any) {
@@ -311,9 +319,16 @@ router.post('/parse-email', async (req: Request, res: Response) => {
       || (workModel === 'Remote' ? 'Remote' : workModel)
     );
 
+    const positionsMatch = text.match(/(?:open\s*positions?|openings?|headcount|positions?\s*open|roles?\s*open|no\.?\s*of\s*positions?)\s*[:\-]?\s*(\d{1,3})\b/i)
+      || text.match(/\b(\d{1,3})\s*(?:open\s*positions?|openings?|headcount)\b/i);
+    const parsedOpenPositions = positionsMatch
+      ? Math.max(1, Math.min(1000, parseInt(positionsMatch[1], 10)))
+      : undefined;
+
     return {
       companyName: cleanCompany(companyLine?.[1] || managerFromCompany?.[2] || sigCompany || atCompany?.[1]),
       opportunityTitle: rawOppTitle,
+      openPositions: parsedOpenPositions,
       clientContact: cleanField(contactLine?.[1] || managerFromCompany?.[1] || sigName),
       clientContactEmail: cleanField(emailMatch?.[1]),
       clientContactTitle: cleanField(contactTitleLine?.[1] || sentenceContactTitle?.[1] || sigTitle),
@@ -351,6 +366,7 @@ router.post('/parse-email', async (req: Request, res: Response) => {
       ...parsed,
       companyName: (parsedCompany && parsedCompany !== 'Not Specified' ? parsedCompany : '') || fallback.companyName,
       opportunityTitle: (cleanField(parsed.opportunityTitle || parsed.jobTitle) || fallback.opportunityTitle),
+      openPositions: parsed.openPositions || fallback.openPositions,
       clientContact: cleanField(parsed.clientContact || parsed.contactName) || fallback.clientContact,
       clientContactEmail: cleanField(parsed.clientContactEmail) || fallback.clientContactEmail,
       clientContactTitle: cleanField(parsed.clientContactTitle || parsed.contactTitle) || fallback.clientContactTitle,
@@ -396,66 +412,87 @@ router.put('/requirements/:id', requirementController.updateRequirement);
 router.patch('/requirements/:id/stage', requirementController.updateRequirementStage);
 router.delete('/requirements/:id', requirementController.deleteRequirement);
 
-// Submissions (Candidate to Requirement)
+// Submissions (Candidates / Applicants to Requirement — One-to-Many)
 router.post('/submissions', async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
     const recruiterId = req.user?.id;
-    const { requirementId, candidateId, pitchEmailSubject, pitchEmailBody, pitchTone } = req.body;
+    const {
+      requirementId,
+      candidateId,
+      candidateIds,
+      pitchEmailSubject,
+      pitchEmailBody,
+      pitchTone,
+    } = req.body;
 
-    const [requirement, candidate] = await Promise.all([
-      prisma.requirement.findFirst({ where: { id: requirementId, tenantId } }),
-      prisma.candidate.findFirst({ where: { id: candidateId, tenantId } }),
-    ]);
-    if (!requirement || !candidate) {
-      return res.status(404).json({ success: false, message: 'Requirement or candidate not found for tenant' });
-    }
-
-    const submission = await prisma.submission.create({
-      data: {
-        tenantId,
-        requirementId,
-        candidateId,
-        recruiterId,
-        pitchEmailSubject,
-        pitchEmailBody,
-        pitchTone: pitchTone || 'PROFESSIONAL',
-        stage: 'SUBMITTED'
-      }
+    const result = await submissionService.attachCandidates({
+      tenantId,
+      recruiterId,
+      requirementId,
+      candidateId,
+      candidateIds,
+      pitchEmailSubject,
+      pitchEmailBody,
+      pitchTone,
     });
 
-    // Update candidate pipeline stage
-    await prisma.candidate.update({
-      where: { id: candidateId },
-      data: { pipelineStage: 'SUBMITTED' }
+    res.status(result.statusCode).json({
+      success: true,
+      data: result.data,
+      submissions: result.createdSubmissions,
+      requirement: result.requirement,
+      addedCount: result.addedCount,
+      skippedDuplicatesCount: result.skippedDuplicatesCount,
     });
-
-    // Update requirement status
-    await prisma.requirement.update({
-      where: { id: requirementId },
-      data: { status: 'SUBMITTED' }
-    });
-
-    try {
-      await slaEngineService.resolveTasksForEntity(tenantId, 'requirement', requirementId, [
-        SlaCategory.STALE_REQUIREMENT,
-      ]);
-      await automationEngineService.recordLifecycleEvent({
-        tenantId,
-        preferredCategories: [AutomationCategory.FEEDBACK, AutomationCategory.STALE_REQ],
-        ruleName: 'Direct Candidate Submittal',
-        target: `${candidate.fullName} → ${requirement.code} (${requirement.companyName})`,
-        conditionsMet: `Skillset Match: ${candidate.skillset}`,
-        actionDispatched: 'Advanced to Client Review & Cleared Unsourced SLA Alert',
-      });
-      await slaEngineService.evaluateSlaRadar(tenantId);
-    } catch {
-      // Non-critical automation hook
-    }
-
-    res.status(201).json({ success: true, data: submission });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Submission failed' });
+    const status = error?.statusCode || 500;
+    res.status(status).json({ success: false, message: error.message || 'Submission failed' });
+  }
+});
+
+router.patch('/submissions/:id/stage', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const { id } = req.params;
+    const { stage, status, interviewDate, interviewNotes } = req.body;
+    const stageInput = stage || status;
+
+    const result = await submissionService.updateSubmissionStage({
+      submissionId: id,
+      tenantId,
+      stageInput,
+      interviewDate,
+      interviewNotes,
+    });
+
+    res.json({
+      success: true,
+      data: result.submission,
+      requirement: result.requirement,
+    });
+  } catch (error: any) {
+    const status = error?.statusCode || 500;
+    res.status(status).json({ success: false, message: error.message || 'Failed to update applicant stage' });
+  }
+});
+
+router.delete('/submissions/:id', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const result = await submissionService.detachSubmission({
+      submissionId: req.params.id,
+      tenantId,
+    });
+
+    res.json({
+      success: true,
+      message: 'Applicant detached from requirement',
+      data: result,
+    });
+  } catch (error: any) {
+    const status = error?.statusCode || 500;
+    res.status(status).json({ success: false, message: error.message || 'Failed to detach applicant' });
   }
 });
 
@@ -516,6 +553,22 @@ router.post('/smtp/send', emailRateLimiter, async (req: Request, res: Response) 
       return res.status(400).json({ success: false, message: 'Recipient email address is required.' });
     }
 
+    const { general, smtp } = await getTenantSettings(tenantId);
+    const brandName = (general.agencyName || general.legalEntityName || req.user?.agencyName || 'Staffing Agency').trim();
+
+    if (!isSmtpConfigured(smtp)) {
+      const msg = !smtp.enabled
+        ? 'Email dispatch is paused. Please enable Outbound SMTP in Settings → Email Setup (SMTP) to dispatch emails.'
+        : 'Email (SMTP) is not configured. Please configure your SMTP settings in Settings → Email Setup (SMTP) to dispatch emails.';
+      return res.status(400).json({
+        success: false,
+        delivered: false,
+        configured: false,
+        code: 'SMTP_NOT_CONFIGURED',
+        message: msg,
+      });
+    }
+
     const rawSubject = subject || `Candidate Submission: ${candidateName || 'Consultant'} for ${requirementTitle || 'Role'} (${clientName || 'Client'})`;
     const resolvedSubject = String(rawSubject).replace(/[\r\n]+/g, ' ').trim();
     const rawCustomHtml = html || bodyHtml;
@@ -531,7 +584,7 @@ router.post('/smtp/send', emailRateLimiter, async (req: Request, res: Response) 
           <li><strong>Bill Rate:</strong> ${escapeHtml(rate || 'Competitive')}</li>
           <li><strong>Location:</strong> ${escapeHtml(location || 'Remote / Hybrid')}</li>
         </ul>
-        <p>Best regards,<br/>${escapeHtml(req.user?.fullName || 'TalentOS Recruitment Desk')}</p>
+        <p>Best regards,<br/>${escapeHtml(req.user?.fullName || `${brandName} Recruitment Desk`)}<br/>${escapeHtml(brandName)}</p>
       </div>
     `;
 
@@ -543,12 +596,27 @@ router.post('/smtp/send', emailRateLimiter, async (req: Request, res: Response) 
       tenantId
     });
 
+    if (!result.success) {
+      const isUnconfigured = (result as any).code === 'SMTP_NOT_CONFIGURED' || !isSmtpConfigured(smtp);
+      return res.status(400).json({
+        success: false,
+        delivered: false,
+        configured: !isUnconfigured,
+        code: isUnconfigured ? 'SMTP_NOT_CONFIGURED' : 'SMTP_SEND_FAILED',
+        message:
+          result.error ||
+          (isUnconfigured
+            ? 'Email (SMTP) is not configured. Please configure your SMTP settings in Settings → Email Setup (SMTP) to dispatch emails.'
+            : 'Failed to dispatch email via SMTP.'),
+        data: result,
+      });
+    }
+
     res.json({
       success: true,
-      delivered: result.success,
-      message: result.success
-        ? `Submission email sent to ${targetEmail}`
-        : `Submission logged for ${targetEmail} (SMTP relay notice: ${result.error || 'unconfigured'})`,
+      delivered: true,
+      configured: true,
+      message: `Submission email sent to ${targetEmail}`,
       data: result
     });
   } catch (error: any) {
@@ -814,42 +882,23 @@ const mapTaxonomyCategory = (category?: string): 'WORK_AUTH' | 'PAYMENT_TERMS' |
   return (category && map[category]) || null;
 };
 
-const DEFAULT_TAXONOMIES: Array<{ category: 'WORK_AUTH' | 'PAYMENT_TERMS' | 'EDUCATION' | 'STAGES'; optionValue: string; sortOrder: number }> = [
-  ...['US Citizen', 'Green Card (Permanent Resident)', 'H-1B Specialty Occupation', 'TN Visa (NAFTA)', 'OPT / CPT EAD'].map((v, i) => ({
-    category: 'WORK_AUTH' as const,
-    optionValue: v,
-    sortOrder: i,
-  })),
-  ...['Net 30 Days', 'Net 45 Days', 'Net 60 Days', 'Net 15 Days', 'Due on Receipt'].map((v, i) => ({
-    category: 'PAYMENT_TERMS' as const,
-    optionValue: v,
-    sortOrder: i,
-  })),
-  ...["Master's Degree (MS/MBA)", "Bachelor's Degree (BS/B.Tech)", 'Doctorate / Ph.D.', 'Associate Degree'].map((v, i) => ({
-    category: 'EDUCATION' as const,
-    optionValue: v,
-    sortOrder: i,
-  })),
-  ...['Requirement', 'Submitted', 'Interview', 'Selected', 'Onboarding'].map((v, i) => ({
-    category: 'STAGES' as const,
-    optionValue: v,
-    sortOrder: i,
-  })),
-];
-
 router.get('/taxonomies', async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
-    let rows = await prisma.masterTaxonomy.findMany({
-      where: { tenantId, active: true },
+    const allRows = await prisma.masterTaxonomy.findMany({
+      where: { tenantId },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
 
-    const existingCats = new Set(rows.map((r) => r.category));
-    const missingDefaults = DEFAULT_TAXONOMIES.filter((d) => !existingCats.has(d.category)).map((d) => ({
+    const existingKeySet = new Set(allRows.map((r) => `${r.category}:${r.optionValue}`));
+    const missingDefaults = DEFAULT_TAXONOMIES.filter(
+      (d) => !existingKeySet.has(`${d.category}:${d.optionValue}`)
+    ).map((d) => ({
       ...d,
       tenantId,
     }));
+
+    let rows = allRows.filter((r) => r.active);
     if (missingDefaults.length > 0) {
       await prisma.masterTaxonomy.createMany({
         data: missingDefaults,
@@ -922,8 +971,9 @@ router.delete('/taxonomies', requireRole([UserRole.ADMINISTRATOR]), async (req: 
     if (!mappedCat || !trimmed) {
       return res.status(400).json({ success: false, message: 'Valid category and optionValue are required' });
     }
-    await prisma.masterTaxonomy.deleteMany({
+    await prisma.masterTaxonomy.updateMany({
       where: { tenantId, category: mappedCat, optionValue: trimmed },
+      data: { active: false },
     });
     res.json({ success: true });
   } catch (error: any) {
@@ -1080,6 +1130,7 @@ router.get('/settings', async (req: Request, res: Response) => {
               fromEmail: '',
               replyToEmail: '',
               hasPassword: false,
+              configured: isSmtpConfigured(settings.smtp),
             },
         emailLogs,
       },
@@ -1120,14 +1171,16 @@ router.post('/settings/smtp/test', requireRole([UserRole.ADMINISTRATOR]), async 
     if (smtp && typeof smtp === 'object') {
       await saveSmtpSettings(tenantId, smtp);
     }
+    const { general } = await getTenantSettings(tenantId);
+    const brandName = (general.agencyName || general.legalEntityName || req.user?.agencyName || 'Workspace').trim();
     const result = await smtpService.sendMail({
       to: targetEmail,
-      subject: 'TalentOS Custom SMTP Connection Test',
+      subject: `${brandName} Custom SMTP Connection Test`,
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.6; color: #1e293b;">
-          <h3 style="margin: 0 0 8px;">TalentOS SMTP Test Successful</h3>
+          <h3 style="margin: 0 0 8px;">${escapeHtml(brandName)} SMTP Test Successful</h3>
           <p>Your custom outbound SMTP server configuration is active and delivering messages.</p>
-          <p style="font-size: 12px; color: #64748b;">Sent from TalentOS Workspace Settings</p>
+          <p style="font-size: 12px; color: #64748b;">Sent from ${escapeHtml(brandName)} Workspace Settings</p>
         </div>
       `,
       tenantId,

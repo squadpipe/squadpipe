@@ -18,6 +18,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { User } from '../../types';
+import { useWorkspaceBrand } from '../../utils/workspaceBrand';
 
 interface SidebarProps {
   currentView: string;
@@ -46,8 +47,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSignOut,
 }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const brand = useWorkspaceBrand();
+  const brandName = (brand.agencyName || currentUser?.agencyName || 'TalentOS').trim();
 
-  const userInitials = (currentUser?.name || 'TalentOS User')
+  const userInitials = (currentUser?.name || `${brandName} User`)
     .split(' ')
     .map((n) => n[0])
     .join('')
@@ -56,21 +59,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside className="w-64 flex flex-col flex-shrink-0 z-20 bg-[#0B0F17] text-slate-300 border-r border-white/10 select-none h-screen">
-      {/* Header with TalentOS Logo, CRM Badge & Live Sync Pulse */}
+      {/* Header with Organization Logo, CRM Badge & Live Sync Pulse */}
       <div className="h-14 flex items-center px-4 border-b border-white/10 bg-[#080C13] justify-between flex-shrink-0">
         <div
-          className="flex items-center gap-2.5 cursor-pointer group"
+          className="flex items-center gap-2.5 cursor-pointer group min-w-0"
           onClick={() => onNavigate('dashboard')}
-          title="TalentOS Dashboard"
+          title={`${brandName} Dashboard`}
         >
           <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-brand-600 to-indigo-500 flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform flex-shrink-0">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z" />
             </svg>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="font-bold text-white text-[15px] tracking-tight">TalentOS</span>
-            <span className="text-[9px] font-bold bg-brand-500/20 text-brand-300 border border-brand-500/30 px-1.5 py-0.5 rounded tracking-wider">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="font-bold text-white text-[14px] tracking-tight truncate max-w-[115px]">{brandName}</span>
+            <span className="text-[9px] font-bold bg-brand-500/20 text-brand-300 border border-brand-500/30 px-1.5 py-0.5 rounded tracking-wider flex-shrink-0">
               CRM
             </span>
           </div>

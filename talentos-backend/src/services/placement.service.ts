@@ -275,6 +275,12 @@ export class PlacementService {
           where: { id: requirementId },
           data: { status: 'ONBOARDING' },
         });
+        if (candidateId) {
+          await prisma.submission.updateMany({
+            where: { tenantId, requirementId, candidateId },
+            data: { stage: 'ONBOARDING', lastClientFeedbackDate: new Date() },
+          });
+        }
         await slaEngineService.resolveTasksForEntity(tenantId, 'requirement', requirementId);
       } catch {
         // Non-critical stage sync failure

@@ -20,6 +20,7 @@ import { MaskedValue } from '../../components/shared/MaskedValue';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapRequirementFromApi } from '../../utils/entityMappers';
+import { getWorkspaceBrand, getWorkspaceBrandSlug } from '../../utils/workspaceBrand';
 
 interface DashboardViewProps {
   requirements: Requirement[];
@@ -160,9 +161,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `TalentOS_Requirements_Pipeline_${new Date().toISOString().split('T')[0]}.csv`;
+      const brandName = getWorkspaceBrand().agencyName || 'Workspace';
+      a.download = `${getWorkspaceBrandSlug()}_Requirements_Pipeline_${new Date().toISOString().split('T')[0]}.csv`;
       a.click();
-      showToast('Export Complete', 'Downloaded TalentOS Requirements Pipeline spreadsheet.', 'fa-regular fa-file-excel text-emerald-600');
+      showToast('Export Complete', `Downloaded ${brandName} Requirements Pipeline spreadsheet.`, 'fa-regular fa-file-excel text-emerald-600');
     } else {
       window.print();
     }

@@ -17,6 +17,7 @@ import { User } from '../../types';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapUserFromApi } from '../../utils/entityMappers';
+import { getWorkspaceBrandSlug } from '../../utils/workspaceBrand';
 
 interface UserManagementViewProps {
   users: User[];
@@ -163,7 +164,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `TalentOS_Team_Roster_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `${getWorkspaceBrandSlug()}_Team_Roster_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     showToast('Export Generated', 'Team roster exported to CSV.');
   };

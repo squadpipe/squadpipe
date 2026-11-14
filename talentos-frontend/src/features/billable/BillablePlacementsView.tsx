@@ -24,6 +24,7 @@ import { TablePagination } from '../../components/shared/TablePagination';
 import { useCurrency } from '../../utils/currency';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapPlacementFromApi } from '../../utils/entityMappers';
+import { getWorkspaceBrandSlug } from '../../utils/workspaceBrand';
 
 interface ExtensionData {
   newEndDate: string;
@@ -239,7 +240,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `TalentOS_Billable_Placements_Ledger_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `${getWorkspaceBrandSlug()}_Billable_Placements_Ledger_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     if (showToast) {
       showToast('Export Generated', 'Billable placements ledger exported to CSV file.', 'fa-regular fa-file-excel text-emerald-600');

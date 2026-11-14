@@ -52,6 +52,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
   const [reqForm, setReqForm] = useState({
     companyName: '',
     opportunityTitle: '',
+    openPositions: '',
     location: 'Remote',
     clientContact: '',
     skillsRequired: '',
@@ -129,8 +130,9 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
       });
       showToast('Candidate Registered', `${conForm.fullName} added to bench!`, 'fa-solid fa-circle-check text-emerald-400');
     } else if (activeTab === 'requirement') {
-      if (!reqForm.companyName || !reqForm.opportunityTitle) {
-        showToast('Required Fields', 'Company Name and Title are required.');
+      const openPosNum = Number(reqForm.openPositions);
+      if (!reqForm.companyName || !reqForm.opportunityTitle || !Number.isInteger(openPosNum) || openPosNum < 1) {
+        showToast('Required Fields', 'Company Name, Title, and Open Positions (>= 1) are required.');
         return;
       }
       onSaveRequirement({
@@ -138,6 +140,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
         code: 'REQ-' + Math.floor(1005 + Math.random() * 50),
         companyName: reqForm.companyName,
         opportunityTitle: reqForm.opportunityTitle,
+        openPositions: openPosNum,
         location: reqForm.location,
         clientContact: reqForm.clientContact || '',
         skillsRequired: reqForm.skillsRequired,
@@ -333,7 +336,20 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                   className="mt-1 w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
                 />
               </div>
-              <div className="col-span-2">
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase">No. of Open Positions *</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={1000}
+                  step={1}
+                  value={reqForm.openPositions}
+                  onChange={(e) => setReqForm({ ...reqForm, openPositions: e.target.value })}
+                  placeholder="e.g. 2"
+                  className="mt-1 w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
+                />
+              </div>
+              <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Required Skillset</label>
                 <input
                   type="text"

@@ -12,6 +12,7 @@ import {
 import { apiClient } from '../../config/api.config';
 import { Requirement, Client, User } from '../../types';
 import { useCurrency } from '../../utils/currency';
+import { mapRequirementFromApi } from '../../utils/entityMappers';
 import { SearchableSelectInput } from '../../components/shared/SearchableSelectInput';
 
 const cleanField = (val?: any) =>
@@ -33,6 +34,7 @@ interface EmailParserModalProps {
 const EMPTY_FORM = {
   companyName: '',
   opportunityTitle: '',
+  openPositions: '' as string,
   location: '',
   workModel: 'Remote' as 'Remote' | 'Hybrid' | 'Onsite',
   clientContact: '',
@@ -91,6 +93,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
           ...prev,
           companyName: cleanField(d.companyName || d.clientName) || prev.companyName,
           opportunityTitle: cleanField(d.opportunityTitle || d.jobTitle) || prev.opportunityTitle,
+          openPositions: d.openPositions ? String(d.openPositions) : prev.openPositions,
           location: cleanField(d.location) || prev.location || 'Remote',
           workModel: detectedWorkModel,
           clientContact: cleanField(d.clientContact || d.contactName) || prev.clientContact,
@@ -188,6 +191,17 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
       return;
     }
 
+    const openPosStr = String(extractedReq.openPositions || '').trim();
+    const openPosNum = Number(openPosStr);
+    if (!openPosStr || !/^\d+$/.test(openPosStr) || !Number.isInteger(openPosNum) || openPosNum < 1 || openPosNum > 1000) {
+      showToast(
+        'Open Positions Required',
+        'Please enter the required No. of Open Positions (whole number >= 1).',
+        'fa-solid fa-triangle-exclamation text-amber-500'
+      );
+      return;
+    }
+
     setIsSaving(true);
     const resolvedLocation =
       extractedReq.location.trim() || extractedReq.workModel;
@@ -195,11 +209,12 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
       ? resolvedLocation
       : `${resolvedLocation} (${extractedReq.workModel})`;
 
-    const newReq: Requirement = {
+    let newReq: Requirement = {
       id: 'req_' + Date.now(),
       code: 'REQ-' + Math.floor(1004 + Math.random() * 50),
       companyName: extractedReq.companyName.trim(),
       opportunityTitle: extractedReq.opportunityTitle.trim(),
+      openPositions: openPosNum,
       location: formattedLocation,
       clientContact: extractedReq.clientContact.trim(),
       clientContactTitle: extractedReq.clientContactTitle.trim(),
@@ -214,6 +229,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
       const res = await apiClient.post('/requirements', {
         companyName: newReq.companyName,
         opportunityTitle: newReq.opportunityTitle,
+        openPositions: openPosNum,
         location: newReq.location,
         workModel: extractedReq.workModel.toUpperCase(),
         skillsRequired: newReq.skillsRequired,
@@ -228,8 +244,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
         missingNotes: extractedReq.missingNotes,
       });
       if (res.data?.data) {
-        newReq.id = res.data.data.id || newReq.id;
-        newReq.code = res.data.data.code || newReq.code;
+        newReq = mapRequirementFromApi(res.data.data);
       }
       onApprove(newReq);
       handleClearAll();
@@ -419,7 +434,23 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">No. of Open Positions *</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={1000}
+                    step={1}
+                    required
+                    value={extractedReq.openPositions}
+                    onChange={(e) => setExtractedReq({ ...extractedReq, openPositions: e.target.value })}
+                    placeholder="e.g. 2"
+                    className={`mt-0.5 w-full px-2.5 py-1.5 text-xs bg-white border rounded-lg text-slate-800 font-semibold focus:border-brand-600 focus:outline-none ${
+                      !extractedReq.openPositions ? 'border-amber-300 bg-amber-50/30' : 'border-slate-200'
+                    }`}
+                  />
+                </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase">Location</label>
                   <input

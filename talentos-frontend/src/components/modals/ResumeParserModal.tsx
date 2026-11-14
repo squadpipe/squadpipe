@@ -256,7 +256,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
 
   return (
     <div onClick={handleClose} className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-fade-in select-none">
-      <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-scale-up">
+      <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-xl shadow-2xl max-w-5xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-scale-up">
         {/* Modal Header matching Prototype lines 760-776 */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
           <div className="flex items-center gap-3">

@@ -14,6 +14,7 @@ import {
   Search,
   Send,
   Trash2,
+  UserPlus,
   UsersRound,
   X,
 } from 'lucide-react';
@@ -429,20 +430,39 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
     const workModel = extractWorkModel(req.location);
     const visibleSkills = skills.slice(0, 3);
     const remainingSkillCount = Math.max(0, skills.length - visibleSkills.length);
+    const openPositions = req.openPositions || 1;
+    const filledPositions = req.filledPositions ?? req.activePlacements?.length ?? 0;
+    const activeSubs = (req.submissions || []).filter((s) => s.stage !== 'Closed');
+    const totalApplicants = activeSubs.length > 0 ? activeSubs.length : req.resourceName ? 1 : 0;
 
     return (
       <>
         {/* Card Top Meta Row */}
-        <div className="flex items-center justify-between gap-2">
-          <button
-            type="button"
-            data-allow-drag="true"
-            onClick={() => handleCardTitleClick(req)}
-            className="text-[10.5px] font-mono font-semibold px-2 py-0.5 rounded-md bg-slate-50 text-slate-600 border border-slate-200/80 cursor-pointer hover:bg-brand-50 hover:text-brand-700 hover:border-brand-200 transition-colors inline-flex items-center gap-1 whitespace-nowrap flex-shrink-0"
-          >
-            <GripVertical className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" />
-            <span>{req.code}</span>
-          </button>
+        <div className="flex items-center justify-between gap-x-2 gap-y-1.5 flex-wrap">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <button
+              type="button"
+              data-allow-drag="true"
+              onClick={() => handleCardTitleClick(req)}
+              className="text-[10.5px] font-mono font-semibold px-2 py-0.5 rounded-md bg-slate-50 text-slate-600 border border-slate-200/80 cursor-pointer hover:bg-brand-50 hover:text-brand-700 hover:border-brand-200 transition-colors inline-flex items-center gap-1 whitespace-nowrap flex-shrink-0"
+            >
+              <GripVertical className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" />
+              <span>{req.code}</span>
+            </button>
+
+            <span
+              title={`${filledPositions} placed out of ${openPositions} open position(s)`}
+              className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold whitespace-nowrap border ${
+                filledPositions > 0
+                  ? filledPositions >= openPositions
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
+                    : 'bg-blue-50 text-blue-700 border-blue-200/80'
+                  : 'bg-indigo-50/80 text-indigo-700 border-indigo-200/70'
+              }`}
+            >
+              {filledPositions > 0 ? `${filledPositions}/${openPositions} Filled` : `${openPositions} Open`}
+            </span>
+          </div>
 
           <div className="flex items-center gap-1.5 min-w-0 justify-end">
             {workModel && (
@@ -484,24 +504,81 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
           </div>
         </div>
 
-        {/* Assignee Strip or Bench Matcher */}
-        {req.resourceName ? (
-          <div className="px-2.5 py-2 rounded-lg bg-slate-50/90 border border-slate-200/80 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[9px] font-bold flex items-center justify-center flex-shrink-0 shadow-2xs">
-                {getInitials(req.resourceName)}
-              </span>
-              <span
-                className="text-[11.5px] font-semibold text-slate-800 truncate"
-                title={req.resourceName}
+        {/* Multi-Applicant Strip or Bench Matcher */}
+        {totalApplicants > 0 ? (
+          <div className="px-2.5 py-1.5 rounded-lg bg-slate-50/90 border border-slate-200/80 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => handleCardTitleClick(req)}
+              title={
+                activeSubs.length > 0
+                  ? activeSubs.map((s) => `${s.fullName} (${s.stage})`).join(', ')
+                  : req.resourceName
+              }
+              className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer group"
+            >
+              {totalApplicants === 1 ? (
+                <>
+                  <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[9px] font-bold flex items-center justify-center flex-shrink-0 shadow-2xs">
+                    {getInitials(activeSubs[0]?.fullName || req.resourceName)}
+                  </span>
+                  <span className="text-[11.5px] font-semibold text-slate-800 group-hover:text-brand-600 truncate transition-colors">
+                    {activeSubs[0]?.fullName || req.resourceName}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center -space-x-1.5 flex-shrink-0">
+                    {activeSubs.slice(0, 3).map((sub, idx) => (
+                      <span
+                        key={sub.id}
+                        className={`w-5 h-5 rounded-full text-white text-[8.5px] font-bold flex items-center justify-center ring-2 ring-white ${
+                          idx === 0
+                            ? 'bg-emerald-600'
+                            : idx === 1
+                            ? 'bg-brand-600'
+                            : 'bg-indigo-600'
+                        }`}
+                      >
+                        {getInitials(sub.fullName)}
+                      </span>
+                    ))}
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-800 group-hover:text-brand-600 truncate transition-colors">
+                    {totalApplicants} Applicants
+                  </span>
+                </>
+              )}
+            </button>
+
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {totalApplicants === 1 && (
+                <span className="inline-flex items-center gap-1 text-[9.5px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-1.5 py-0.5 rounded-md whitespace-nowrap">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span>{activeSubs[0]?.stage || 'Assigned'}</span>
+                </span>
+              )}
+              {totalApplicants >= 2 && (
+                <button
+                  type="button"
+                  onClick={() => handleCardTitleClick(req)}
+                  className="text-[9.5px] font-semibold text-brand-700 bg-brand-50 border border-brand-200/80 px-1.5 py-0.5 rounded-md whitespace-nowrap cursor-pointer hover:bg-brand-100 transition-colors"
+                >
+                  View All
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenMatcher(req);
+                }}
+                title="Attach more applicants from bench"
+                className="p-1 rounded-md text-slate-500 hover:text-brand-600 hover:bg-brand-50 border border-transparent hover:border-brand-200 transition-colors cursor-pointer"
               >
-                {req.resourceName}
-              </span>
+                <UserPlus className="w-3 h-3" />
+              </button>
             </div>
-            <span className="inline-flex items-center gap-1 text-[9.5px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-1.5 py-0.5 rounded-md whitespace-nowrap flex-shrink-0">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>Assigned</span>
-            </span>
           </div>
         ) : (
           <button
@@ -781,7 +858,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                 <th className="py-2.5 px-4">Code & Role</th>
                 <th className="py-2.5 px-4">Client Company</th>
                 <th className="py-2.5 px-4">Required Skills</th>
-                <th className="py-2.5 px-4">Candidate</th>
+                <th className="py-2.5 px-4">Openings & Applicants</th>
                 <th className="py-2.5 px-4">Stage</th>
                 <th className="py-2.5 px-4 text-right">Actions</th>
               </tr>
@@ -824,7 +901,41 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                     <td className="py-3 px-4 text-slate-600 text-[11px] max-w-xs truncate">
                       {req.skillsRequired}
                     </td>
-                    <td className="py-3 px-4">{req.resourceName || <span className="text-slate-400 italic">Unassigned</span>}</td>
+                    <td className="py-3 px-4">
+                      {(() => {
+                        const openPos = req.openPositions || 1;
+                        const filledPos = req.filledPositions ?? req.activePlacements?.length ?? 0;
+                        const activeSubs = (req.submissions || []).filter((s) => s.stage !== 'Closed');
+                        return (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200/70 text-[10px] font-semibold">
+                                {filledPos > 0 ? `${filledPos}/${openPos} Filled` : `${openPos} Open`}
+                              </span>
+                              <span className="text-[10px] font-medium text-slate-500">
+                                {activeSubs.length} {activeSubs.length === 1 ? 'Applicant' : 'Applicants'}
+                              </span>
+                            </div>
+                            {activeSubs.length > 0 ? (
+                              <button
+                                type="button"
+                                onClick={() => onSelectReq && onSelectReq(req)}
+                                className="text-left text-[11px] font-semibold text-slate-800 hover:text-brand-600 truncate max-w-[200px] block cursor-pointer"
+                                title={activeSubs.map((s) => `${s.fullName} (${s.stage})`).join(', ')}
+                              >
+                                {activeSubs.length === 1
+                                  ? activeSubs[0].fullName
+                                  : `${activeSubs[0].fullName} +${activeSubs.length - 1} more`}
+                              </button>
+                            ) : req.resourceName ? (
+                              <span className="text-[11px] font-medium text-slate-700">{req.resourceName}</span>
+                            ) : (
+                              <span className="text-[11px] text-slate-400 italic">Unassigned</span>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </td>
                     <td className="py-3 px-4">
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border whitespace-nowrap ${
@@ -950,7 +1061,25 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">No. of Open Positions *</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={1000}
+                    step={1}
+                    required
+                    value={editingReq.openPositions || 1}
+                    onChange={(e) =>
+                      setEditingReq({
+                        ...editingReq,
+                        openPositions: Math.max(1, parseInt(e.target.value || '1', 10) || 1),
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  />
+                </div>
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Location</label>
                   <input

@@ -7,6 +7,7 @@ import { LoginSchema } from '../dtos/auth.dto';
 import { AuthenticatedUser } from '../middlewares/auth.middleware';
 import { UserRole, UserStatus } from '@prisma/client';
 import { getJwtAccessExpiry, getJwtAccessSecret } from '../config/jwt.config';
+import { getTenantSettings, saveGeneralSettings } from '../config/smtp.config';
 import { smtpService } from '../services/smtp.service';
 import { escapeHtml } from '../utils/cryptoSecret';
 
@@ -52,13 +53,17 @@ export const login = async (req: Request, res: Response) => {
     });
   }
 
+  const tenantId = user.tenantId || `tenant_${user.id}`;
+  const settings = await getTenantSettings(tenantId);
+  const resolvedAgencyName = settings.general.agencyName?.trim() || user.agencyName || 'TalentOS Staffing';
+
   // Build authenticated payload
   const authPayload: AuthenticatedUser = {
     id: user.id,
     email: user.email,
     fullName: user.fullName,
-    agencyName: user.agencyName || 'TalentOS Staffing',
-    tenantId: user.tenantId || `tenant_${user.id}`,
+    agencyName: resolvedAgencyName,
+    tenantId,
     role: user.role,
     rateMasked: user.rateMasked,
     tokenVersion: user.tokenVersion
@@ -85,7 +90,7 @@ export const login = async (req: Request, res: Response) => {
       id: user.id,
       name: user.fullName,
       email: user.email,
-      agencyName: user.agencyName || 'TalentOS Staffing',
+      agencyName: resolvedAgencyName,
       tenantId: authPayload.tenantId,
       role: user.role,
       desk: user.desk,
@@ -111,14 +116,18 @@ export const me = async (req: Request, res: Response) => {
     return res.status(404).json({ success: false, message: 'User record not found' });
   }
 
+  const tenantId = user.tenantId || req.user.tenantId;
+  const settings = await getTenantSettings(tenantId);
+  const resolvedAgencyName = settings.general.agencyName?.trim() || user.agencyName || 'TalentOS Staffing';
+
   res.json({
     success: true,
     user: {
       id: user.id,
       name: user.fullName,
       email: user.email,
-      agencyName: user.agencyName || 'TalentOS Staffing',
-      tenantId: user.tenantId || req.user.tenantId,
+      agencyName: resolvedAgencyName,
+      tenantId,
       role: user.role,
       desk: user.desk,
       rateMasked: user.rateMasked,
@@ -264,9 +273,11 @@ export const signup = async (req: Request, res: Response) => {
       expiresIn: getJwtAccessExpiry() as jwt.SignOptions['expiresIn']
     });
 
+    await saveGeneralSettings(tenantId, { agencyName: resolvedAgencyName }).catch(() => {});
+
     res.status(201).json({
       success: true,
-      message: `Account created successfully! Welcome to TalentOS, ${user.fullName}.`,
+      message: `Account created successfully! Welcome to ${user.agencyName}, ${user.fullName}.`,
       token,
       user: {
         id: user.id,
@@ -338,19 +349,28 @@ export const forgotPassword = async (req: Request, res: Response) => {
       }
     });
 
+    const tenantId = user.tenantId || 'talentos-agency';
+    const settings = await getTenantSettings(tenantId);
+    const brandName = (
+      settings.general.agencyName ||
+      settings.general.legalEntityName ||
+      user.agencyName ||
+      'Workspace'
+    ).trim();
+
     await smtpService.sendMail({
       to: normalizedEmail,
       recipientName: user.fullName,
-      subject: 'TalentOS Password Reset Verification Code',
+      subject: `${brandName} Password Reset Verification Code`,
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.6; color: #1e293b;">
           <p>Hello ${escapeHtml(user.fullName)},</p>
-          <p>Your TalentOS password reset verification code is:</p>
+          <p>Your ${escapeHtml(brandName)} password reset verification code is:</p>
           <p style="font-size: 20px; font-weight: 700; letter-spacing: 2px; color: #2563eb;">${resetCode}</p>
           <p style="font-size: 12px; color: #64748b;">This code expires in 15 minutes. If you did not request a reset, you can safely ignore this message.</p>
         </div>
       `,
-      tenantId: user.tenantId || 'talentos-agency'
+      tenantId
     });
 
     res.json({

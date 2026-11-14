@@ -300,6 +300,7 @@ model Requirement {
   clientContactId     String?
   clientContact       ClientContact?     @relation(fields: [clientContactId], references: [id], onDelete: SetNull)
   opportunityTitle    String
+  openPositions       Int                @default(1)
   skillsRequired      String             @db.Text
   location            String
   workModel           WorkModel          @default(REMOTE)
@@ -347,6 +348,7 @@ model Submission {
   createdAt              DateTime          @default(now())
   updatedAt              DateTime          @updatedAt
 
+  @@unique([requirementId, candidateId])
   @@index([requirementId])
   @@index([candidateId])
   @@index([stage])

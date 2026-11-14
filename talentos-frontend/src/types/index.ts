@@ -1,6 +1,7 @@
 export interface User {
   id: string;
   tenantId?: string;
+  agencyName?: string;
   name: string;
   email: string;
   role: string;
@@ -66,17 +67,46 @@ export interface Vendor {
   customFields?: Record<string, any>;
 }
 
+export interface RequirementSubmission {
+  id: string;
+  candidateId: string;
+  fullName: string;
+  email?: string;
+  phone?: string;
+  currentTitle?: string;
+  workAuth?: string;
+  skillset?: string;
+  hourlyRate?: string;
+  resumeName?: string;
+  resumeFormat?: string;
+  resumeFileUrl?: string;
+  stage: 'Requirement' | 'Submitted' | 'Interview' | 'Selected' | 'Onboarding' | 'Closed';
+  submissionDate?: string;
+  interviewDate?: string;
+  interviewNotes?: string;
+  candidate?: Candidate;
+}
+
 export interface Requirement {
   id: string;
   code: string;
   companyName: string;
   opportunityTitle: string;
+  openPositions: number;
+  filledPositions?: number;
   location: string;
   clientContact: string;
   clientContactTitle?: string;
   skillsRequired: string;
   status: 'Requirement' | 'Submitted' | 'Interview' | 'Selected' | 'Onboarding';
   resourceName?: string;
+  submissions?: RequirementSubmission[];
+  activePlacements?: Array<{
+    id: string;
+    candidateId?: string | null;
+    resourceName: string;
+    status: string;
+  }>;
   assignedRecruiter: string;
   targetBillRate?: number;
   targetPayRate?: number;

@@ -1,7 +1,7 @@
 import { prisma } from '../config/prisma.config';
 import { AuditStatus, AutomationCategory, Prisma, TriggerEvent } from '@prisma/client';
 
-const DEFAULT_TENANT_RULES: Array<{
+export const DEFAULT_TENANT_RULES: Array<{
   name: string;
   category: AutomationCategory;
   triggerEvent: TriggerEvent;

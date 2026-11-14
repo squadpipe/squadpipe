@@ -21,7 +21,7 @@ export const DEFAULT_MASTER_TAXONOMIES: MasterTaxonomies = {
   ],
   paymentTerms: ['Net 30 Days', 'Net 45 Days', 'Net 60 Days', 'Net 15 Days', 'Due on Receipt'],
   education: ["Master's Degree (MS/MBA)", "Bachelor's Degree (BS/B.Tech)", 'Doctorate / Ph.D.', 'Associate Degree'],
-  stages: ['Requirement', 'Submitted', 'Interview', 'Selected', 'Onboarding'],
+  stages: ['Requirement', 'Submitted', 'Interview', 'Selected', 'Onboarding', 'Billable', 'Archived'],
 };
 
 let cachedTaxonomies: MasterTaxonomies | null = null;

@@ -3,7 +3,13 @@ import { X } from 'lucide-react';
 import { AppIcon } from './components/shared/AppIcon';
 import { apiClient, AUTH_EXPIRED_EVENT } from './config/api.config';
 import { formatRateDisplay, getCurrencySymbol, initWorkspaceCurrency } from './utils/currency';
-import { mapCandidateFromApi } from './utils/entityMappers';
+import {
+  DEFAULT_WORKSPACE_BRAND,
+  getWorkspaceBrand,
+  initWorkspaceBrand,
+  setWorkspaceBrand,
+} from './utils/workspaceBrand';
+import { mapCandidateFromApi, mapRequirementFromApi } from './utils/entityMappers';
 import { buildCandidateFormData } from './utils/cvFiles';
 
 import { Sidebar } from './components/layout/Sidebar';
@@ -74,6 +80,7 @@ import { RequirementDetailModal } from './components/modals/RequirementDetailMod
 import {
   Candidate,
   Requirement,
+  RequirementSubmission,
   Client,
   Vendor,
   BillablePlacement,
@@ -436,31 +443,7 @@ export const App: React.FC = () => {
     try {
       const res = await apiClient.get('/requirements');
       if (res.data?.data) {
-        const raw = res.data.data;
-        const mapped = raw.map((r: any) => ({
-          id: r.id,
-          code: r.code || '',
-          companyName: r.companyName || r.client?.name || '',
-          opportunityTitle: r.opportunityTitle || '',
-          location: r.location || '',
-          clientContact:
-            r.clientContact?.fullName ||
-            r.clientContact?.name ||
-            (typeof r.clientContact === 'string' ? r.clientContact : ''),
-          clientContactTitle:
-            r.clientContact?.designation ||
-            (typeof r.clientContactTitle === 'string' ? r.clientContactTitle : ''),
-          skillsRequired: r.skillsRequired || '',
-          status: formatRequirementStatus(r.status),
-          resourceName: r.resourceName || r.submissions?.[0]?.candidate?.fullName || '',
-          assignedRecruiter:
-            r.assignedRecruiter?.fullName ||
-            r.assignedRecruiter?.name ||
-            (typeof r.assignedRecruiter === 'string' ? r.assignedRecruiter : ''),
-          targetBillRate: r.targetBillRate,
-          targetPayRate: r.targetPayRate,
-          createdAt: safeIsoDate(r.createdAt, new Date().toISOString().split('T')[0]),
-        }));
+        const mapped = res.data.data.map(mapRequirementFromApi);
         setRequirements(mapped);
         setSidebarCounts((prev) => ({ ...prev, requirements: mapped.length }));
         loadedEntities.current.add('requirements');
@@ -703,11 +686,18 @@ export const App: React.FC = () => {
     }
   };
 
-  // 1. Fetch lightweight navigation counts and workspace currency once on authentication
+  // 1. Fetch lightweight navigation counts, workspace currency, and workspace brand once on authentication
   useEffect(() => {
     if (!authToken && !currentUser) return;
+    if (
+      currentUser?.agencyName &&
+      getWorkspaceBrand().agencyName === DEFAULT_WORKSPACE_BRAND.agencyName
+    ) {
+      setWorkspaceBrand({ agencyName: currentUser.agencyName });
+    }
     fetchSidebarCounts();
     initWorkspaceCurrency();
+    initWorkspaceBrand(true);
   }, [authToken]);
 
   // 2. ON-DEMAND / VIEW-SCOPED FETCHING: Only call APIs for the active view when opened!
@@ -833,10 +823,13 @@ export const App: React.FC = () => {
       prev.map((r) => (r.id === req.id ? { ...r, status: newStatus } : r))
     );
     try {
-      await apiClient.patch(`/requirements/${req.id}/stage`, {
+      const res = await apiClient.patch(`/requirements/${req.id}/stage`, {
         status: newStatus,
         resourceName: req.resourceName,
       });
+      if (res.data?.data) {
+        syncUpdatedRequirement(mapRequirementFromApi(res.data.data));
+      }
       fetchSidebarCounts();
       fetchSlaTasks();
       fetchAutomations();
@@ -851,36 +844,112 @@ export const App: React.FC = () => {
     );
   };
 
-  const handleAssignCandidate = async (req: Requirement, candidate: Candidate) => {
-    setRequirements((prev) =>
-      prev.map((r) =>
-        r.id === req.id
-          ? { ...r, resourceName: candidate.fullName, status: 'Submitted' }
-          : r
-      )
-    );
-    setCandidates((prev) =>
-      prev.map((c) =>
-        c.id === candidate.id ? { ...c, pipelineStage: 'Submitted' } : c
-      )
-    );
+  const syncUpdatedRequirement = (mapped: Requirement) => {
+    setRequirements((prev) => prev.map((r) => (r.id === mapped.id ? mapped : r)));
+    setSelectedReqForDetail((prev) => (prev && prev.id === mapped.id ? mapped : prev));
+    setActiveReq((prev) => (prev && prev.id === mapped.id ? mapped : prev));
+  };
+
+  const handleAttachCandidates = async (req: Requirement, candidateIds: string[]) => {
+    const uniqueIds = Array.from(new Set(candidateIds.filter(Boolean)));
+    if (uniqueIds.length === 0) return;
+
     try {
-      await apiClient.post('/submissions', {
+      const res = await apiClient.post('/submissions', {
         requirementId: req.id,
-        candidateId: candidate.id,
+        candidateIds: uniqueIds,
       });
+
+      if (res.data?.requirement) {
+        syncUpdatedRequirement(mapRequirementFromApi(res.data.requirement));
+      } else {
+        await fetchRequirements();
+      }
+
+      const attachedSet = new Set(uniqueIds);
+      setCandidates((prev) =>
+        prev.map((c) =>
+          attachedSet.has(c.id) && c.pipelineStage === 'Available / Bench'
+            ? { ...c, pipelineStage: 'Submitted' }
+            : c
+        )
+      );
+
       fetchSidebarCounts();
       fetchSlaTasks();
       fetchAutomations();
-    } catch (e) {
-      console.warn('API assign candidate:', e);
-    }
 
-    showToast(
-      'Candidate Assigned',
-      `${candidate.fullName} submitted to ${req.code}!`,
-      'fa-solid fa-circle-check text-emerald-400'
-    );
+      const addedCount = res.data?.addedCount ?? uniqueIds.length;
+      const singleCand =
+        uniqueIds.length === 1 ? candidates.find((c) => c.id === uniqueIds[0]) : null;
+      showToast(
+        addedCount > 1 ? 'Applicants Attached' : 'Candidate Assigned',
+        singleCand
+          ? `${singleCand.fullName} submitted to ${req.code}!`
+          : `${addedCount} applicant${addedCount === 1 ? '' : 's'} submitted to ${req.code}!`,
+        'fa-solid fa-circle-check text-emerald-400'
+      );
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || 'Could not attach applicant(s) to requirement.';
+      showToast('Attachment Notice', msg, 'fa-solid fa-triangle-exclamation text-amber-500');
+      throw e;
+    }
+  };
+
+  const handleAssignCandidate = async (req: Requirement, candidate: Candidate) => {
+    await handleAttachCandidates(req, [candidate.id]);
+  };
+
+  const handleUpdateSubmissionStage = async (
+    req: Requirement,
+    submissionId: string,
+    stage: RequirementSubmission['stage']
+  ) => {
+    try {
+      const res = await apiClient.patch(`/submissions/${submissionId}/stage`, { stage });
+      if (res.data?.requirement) {
+        syncUpdatedRequirement(mapRequirementFromApi(res.data.requirement));
+      } else {
+        await fetchRequirements();
+      }
+      await Promise.all([fetchCandidates(), fetchSlaTasks(), fetchAutomations()]);
+      showToast(
+        'Applicant Stage Updated',
+        `Updated applicant stage on ${req.code} to ${stage}.`,
+        'fa-solid fa-circle-check text-brand-600'
+      );
+    } catch (e: any) {
+      showToast(
+        'Update Failed',
+        e?.response?.data?.message || 'Could not update applicant stage.',
+        'fa-solid fa-circle-exclamation text-rose-500'
+      );
+      throw e;
+    }
+  };
+
+  const handleDetachSubmission = async (req: Requirement, submissionId: string) => {
+    try {
+      const res = await apiClient.delete(`/submissions/${submissionId}`);
+      if (res.data?.data?.requirement) {
+        syncUpdatedRequirement(mapRequirementFromApi(res.data.data.requirement));
+      } else {
+        await fetchRequirements();
+      }
+      await Promise.all([fetchCandidates(), fetchSlaTasks(), fetchAutomations()]);
+      showToast(
+        'Applicant Removed',
+        `Detached applicant from ${req.code}.`,
+        'fa-solid fa-trash-can text-slate-500'
+      );
+    } catch (e: any) {
+      showToast(
+        'Detach Failed',
+        e?.response?.data?.message || 'Could not remove applicant from requirement.',
+        'fa-solid fa-circle-exclamation text-rose-500'
+      );
+      throw e;
+    }
   };
 
   const handleConfirmPlacement = async (newPlacement: BillablePlacement, reqId?: string) => {
@@ -917,16 +986,9 @@ export const App: React.FC = () => {
             : r
         )
       );
-      apiClient
-        .patch(`/requirements/${resolvedReqId}/stage`, {
-          status: 'Onboarding',
-          resourceName: savedPlacement.resourceName,
-        })
-        .then(() => {
-          fetchSlaTasks();
-          fetchAutomations();
-        })
-        .catch((e) => console.warn('API update requirement status:', e));
+      fetchRequirements();
+      fetchSlaTasks();
+      fetchAutomations();
     }
     showToast(
       'Placement Activated',
@@ -977,13 +1039,14 @@ export const App: React.FC = () => {
   const handleUpdateRequirement = async (updated: Requirement) => {
     try {
       const res = await apiClient.put(`/requirements/${updated.id}`, updated);
-      const saved: Requirement = res.data?.data ?? updated;
-      setRequirements((prev) => prev.map((r) => (r.id === saved.id ? { ...r, ...saved } : r)));
-      setSelectedReqForDetail((prev) => (prev && prev.id === saved.id ? { ...prev, ...saved } : prev));
+      const saved: Requirement = res.data?.data
+        ? mapRequirementFromApi(res.data.data)
+        : updated;
+      syncUpdatedRequirement(saved);
       showToast('Requirement Updated', `${saved.opportunityTitle} saved.`, 'fa-solid fa-circle-check text-emerald-500');
     } catch (e: any) {
       console.warn('API update requirement failed:', e);
-      showToast('Update Failed', e?.response?.data?.error || `Could not update ${updated.opportunityTitle}.`, 'fa-solid fa-circle-exclamation text-rose-500');
+      showToast('Update Failed', e?.response?.data?.message || e?.response?.data?.error || `Could not update ${updated.opportunityTitle}.`, 'fa-solid fa-circle-exclamation text-rose-500');
       throw e;
     }
   };
@@ -1234,7 +1297,7 @@ export const App: React.FC = () => {
     setShowSignOutModal(false);
     showToast(
       'Signed Out',
-      'You have been signed out of TalentOS.',
+      `You have been signed out of ${getWorkspaceBrand().agencyName || 'your workspace'}.`,
       'fa-solid fa-arrow-right-from-bracket text-slate-700'
     );
   };
@@ -1445,10 +1508,12 @@ export const App: React.FC = () => {
                 setIsMatcherModalOpen(true);
               }}
               onOpenPitchWriter={(req) => {
+                setActiveCandidate(null);
                 setActiveReq(req);
                 setIsPitchModalOpen(true);
               }}
               onOpenPlacementWizard={(req) => {
+                setActiveCandidate(null);
                 setActiveReq(req);
                 setIsPlacementWizardOpen(true);
               }}
@@ -1684,34 +1749,32 @@ export const App: React.FC = () => {
         requirements={requirements}
         rateMasked={rateMasked}
         onSubmitToReq={(candidate, req) => {
-          handleAssignCandidate(req, candidate);
-          showToast(
-            'Candidate Submitted',
-            `${candidate.fullName} submitted to ${req.code} (${req.opportunityTitle})!`,
-            'fa-solid fa-bolt text-amber-500'
-          );
+          handleAssignCandidate(req, candidate).catch(() => {});
         }}
         showToast={showToast}
       />
 
-      {/* Job Requisition Detail & Inline Bench Matcher Modal */}
+      {/* Job Requisition Detail & Inline Multi-Applicant Bench Matcher Modal */}
       <RequirementDetailModal
         isOpen={Boolean(selectedReqForDetail)}
         onClose={() => setSelectedReqForDetail(null)}
-        requirement={selectedReqForDetail}
+        requirement={
+          requirements.find((r) => r.id === selectedReqForDetail?.id) ||
+          selectedReqForDetail
+        }
         candidates={candidates}
-        onAssignCandidate={(req, cand) => {
-          handleAssignCandidate(req, cand);
-          setSelectedReqForDetail((prev) =>
-            prev ? { ...prev, resourceName: cand.fullName, status: 'Submitted' } : null
-          );
-        }}
+        onAssignCandidate={handleAssignCandidate}
+        onAttachCandidates={handleAttachCandidates}
+        onUpdateSubmissionStage={handleUpdateSubmissionStage}
+        onDetachSubmission={handleDetachSubmission}
         onOpenResumePreview={(cand) => setSelectedResumeCand(cand)}
-        onOpenPitchWriter={(req) => {
+        onOpenPitchWriter={(req, cand) => {
+          setActiveCandidate(cand || null);
           setActiveReq(req);
           setIsPitchModalOpen(true);
         }}
-        onOpenPlacementWizard={(req) => {
+        onOpenPlacementWizard={(req, cand) => {
+          setActiveCandidate(cand || null);
           setActiveReq(req);
           setIsPlacementWizardOpen(true);
         }}
@@ -1753,10 +1816,13 @@ export const App: React.FC = () => {
         onClose={() => setIsMatcherModalOpen(false)}
         requirements={requirements}
         candidates={candidates}
-        initialRequirement={activeReq}
+        initialRequirement={
+          requirements.find((r) => r.id === activeReq?.id) || activeReq
+        }
         onSubmitCandidate={(candidate, requirement) =>
           handleAssignCandidate(requirement, candidate)
         }
+        onAttachCandidates={handleAttachCandidates}
         showToast={showToast}
       />
 
@@ -1765,7 +1831,14 @@ export const App: React.FC = () => {
         onClose={() => setIsPitchModalOpen(false)}
         candidate={activeCandidate}
         candidates={candidates}
-        requirement={activeReq}
+        requirement={
+          requirements.find((r) => r.id === activeReq?.id) || activeReq
+        }
+        clients={clients}
+        onConfigureEmail={() => {
+          setIsPitchModalOpen(false);
+          setCurrentView('settings_smtp');
+        }}
         showToast={showToast}
       />
 
@@ -1775,7 +1848,9 @@ export const App: React.FC = () => {
         candidate={activeCandidate}
         candidates={candidates}
         vendors={vendors}
-        requirement={activeReq}
+        requirement={
+          requirements.find((r) => r.id === activeReq?.id) || activeReq
+        }
         onConfirmPlacement={handleConfirmPlacement}
         showToast={showToast}
       />
@@ -1819,23 +1894,11 @@ export const App: React.FC = () => {
         clients={clients}
         users={users}
         onSave={async (r) => {
-          let saved = r;
-          try {
-            const res = await apiClient.post('/requirements', r);
-            if (res.data?.data) {
-              saved = {
-                ...r,
-                id: res.data.data.id || r.id,
-                code: res.data.data.code || r.code,
-                status: formatRequirementStatus(res.data.data.status || r.status),
-              };
-            }
-            fetchSidebarCounts();
-            fetchSlaTasks();
-            fetchAutomations();
-          } catch (e) {
-            console.warn('API save requirement:', e);
-          }
+          const res = await apiClient.post('/requirements', r);
+          const saved = res.data?.data ? mapRequirementFromApi(res.data.data) : r;
+          fetchSidebarCounts();
+          fetchSlaTasks();
+          fetchAutomations();
           setRequirements((prev) => [saved, ...prev]);
         }}
         showToast={showToast}

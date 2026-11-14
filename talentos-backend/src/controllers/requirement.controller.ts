@@ -28,8 +28,9 @@ export const createRequirement = async (req: Request, res: Response) => {
     const requirement = await requirementService.createRequirement(req.body, tenantId, recruiterId);
     res.status(201).json({ success: true, data: requirement });
   } catch (error: any) {
-    console.error('Error creating requirement:', error);
-    res.status(500).json({ success: false, message: error.message || 'Failed to create requirement' });
+    const status = error?.statusCode || 500;
+    if (status >= 500) console.error('Error creating requirement:', error);
+    res.status(status).json({ success: false, message: error.message || 'Failed to create requirement' });
   }
 };
 
@@ -40,7 +41,8 @@ export const updateRequirement = async (req: Request, res: Response) => {
     const updated = await requirementService.updateRequirement(id, req.body, tenantId);
     res.json({ success: true, data: updated });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Failed to update requirement' });
+    const status = error?.statusCode || 500;
+    res.status(status).json({ success: false, message: error.message || 'Failed to update requirement' });
   }
 };
 

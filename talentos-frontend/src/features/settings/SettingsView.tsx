@@ -65,12 +65,12 @@ interface SettingsViewProps {
 }
 
 const DEFAULT_GENERAL: GeneralSettings = {
-  agencyName: 'TalentOS Staffing',
-  legalEntityName: 'TalentOS Staffing Solutions LLC',
-  website: 'https://talentos-agency.com',
-  supportEmail: 'desk@talentos-agency.com',
-  supportPhone: '+1 (800) 555-0199',
-  headquarters: 'Austin, TX',
+  agencyName: '',
+  legalEntityName: '',
+  website: '',
+  supportEmail: '',
+  supportPhone: '',
+  headquarters: '',
   timezone: 'America/Chicago (CST/CDT)',
   dateFormat: 'MM/DD/YYYY',
   currency: 'USD ($)',
@@ -87,7 +87,7 @@ const DEFAULT_SMTP: SmtpSettings = {
   encryption: 'STARTTLS',
   username: '',
   password: '',
-  fromName: 'TalentOS Recruitment Desk',
+  fromName: '',
   fromEmail: '',
   replyToEmail: '',
 };
@@ -299,6 +299,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   type="text"
                   value={general.website}
                   onChange={(e) => setGeneral({ ...general, website: e.target.value })}
+                  placeholder="https://your-agency.com"
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:border-brand-600 focus:outline-none"
                 />
               </div>
@@ -308,6 +309,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   type="text"
                   value={general.headquarters}
                   onChange={(e) => setGeneral({ ...general, headquarters: e.target.value })}
+                  placeholder="City, State / Country"
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:border-brand-600 focus:outline-none"
                 />
               </div>
@@ -317,6 +319,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   type="email"
                   value={general.supportEmail}
                   onChange={(e) => setGeneral({ ...general, supportEmail: e.target.value })}
+                  placeholder="desk@your-agency.com"
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:border-brand-600 focus:outline-none"
                 />
               </div>
@@ -326,6 +329,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   type="text"
                   value={general.supportPhone}
                   onChange={(e) => setGeneral({ ...general, supportPhone: e.target.value })}
+                  placeholder="+1 (555) 010-9900"
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:border-brand-600 focus:outline-none"
                 />
               </div>
@@ -491,7 +495,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <div className="text-[11px] opacity-80">
                   {isSmtpConfigured
                     ? 'Outbound candidate submittals, alerts, and test emails use your configured SMTP server.'
-                    : 'Enter your own SMTP server host, port, and credentials below. TalentOS never overrides this with server env variables.'}
+                    : 'Enter your own SMTP server host, port, and credentials below. Custom settings are never overridden with server env variables.'}
                 </div>
               </div>
             </div>
@@ -621,7 +625,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     required
                     value={smtp.fromName}
                     onChange={(e) => setSmtp({ ...smtp, fromName: e.target.value })}
-                    placeholder="TalentOS Recruitment Desk"
+                    placeholder={`${general.agencyName?.trim() || 'Your Agency'} Recruitment Desk`}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:border-brand-600 focus:outline-none"
                   />
                 </div>

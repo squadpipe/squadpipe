@@ -34,6 +34,18 @@ export interface SmtpSettings {
 
 export interface RedactedSmtpSettings extends SmtpSettings {
   hasPassword: boolean;
+  configured: boolean;
+}
+
+export function isSmtpConfigured(smtp?: Partial<SmtpSettings> | null): boolean {
+  if (!smtp) return false;
+  return Boolean(
+    smtp.enabled &&
+      smtp.host?.trim() &&
+      smtp.username?.trim() &&
+      smtp.password?.trim() &&
+      smtp.fromEmail?.trim()
+  );
 }
 
 export function redactSmtpSettings(smtp: SmtpSettings): RedactedSmtpSettings {
@@ -42,6 +54,7 @@ export function redactSmtpSettings(smtp: SmtpSettings): RedactedSmtpSettings {
     ...smtp,
     password: hasPassword ? MASKED_SECRET_PLACEHOLDER : '',
     hasPassword,
+    configured: isSmtpConfigured(smtp),
   };
 }
 
@@ -84,7 +97,7 @@ export const DEFAULT_SMTP_SETTINGS: SmtpSettings = {
   encryption: 'STARTTLS',
   username: '',
   password: '',
-  fromName: 'TalentOS Recruitment Desk',
+  fromName: '',
   fromEmail: '',
   replyToEmail: '',
 };
@@ -105,6 +118,42 @@ async function ensureTenantSettingsTable() {
   tableInitialized = true;
 }
 
+async function resolveTenantBrandDefaults(
+  tenantId: string,
+  general: GeneralSettings,
+  smtp: SmtpSettings
+): Promise<TenantSettingsBundle> {
+  let resolvedAgencyName = (general.agencyName || '').trim();
+  if (!resolvedAgencyName) {
+    try {
+      const owner = await prisma.user.findFirst({
+        where: { tenantId },
+        orderBy: { createdAt: 'asc' },
+        select: { agencyName: true },
+      });
+      resolvedAgencyName = owner?.agencyName?.trim() || 'TalentOS Staffing';
+    } catch {
+      resolvedAgencyName = 'TalentOS Staffing';
+    }
+  }
+
+  const resolvedFromName =
+    smtp.fromName?.trim() && smtp.fromName.trim() !== 'TalentOS Recruitment Desk'
+      ? smtp.fromName.trim()
+      : `${resolvedAgencyName} Recruitment Desk`;
+
+  return {
+    general: {
+      ...general,
+      agencyName: resolvedAgencyName,
+    },
+    smtp: {
+      ...smtp,
+      fromName: resolvedFromName,
+    },
+  };
+}
+
 export async function getTenantSettings(tenantId = 'talentos-agency'): Promise<TenantSettingsBundle> {
   const key = tenantId || 'talentos-agency';
   try {
@@ -118,22 +167,24 @@ export async function getTenantSettings(tenantId = 'talentos-agency'): Promise<T
 
     if (rows && rows.length > 0) {
       const rawSmtp = rows[0].smtp_config || {};
-      const bundle: TenantSettingsBundle = {
-        general: { ...DEFAULT_GENERAL_SETTINGS, ...(rows[0].general_config || {}) },
-        smtp: {
+      const bundle = await resolveTenantBrandDefaults(
+        key,
+        { ...DEFAULT_GENERAL_SETTINGS, ...(rows[0].general_config || {}) },
+        {
           ...DEFAULT_SMTP_SETTINGS,
           ...rawSmtp,
           password: safeDecryptSmtpPassword(rawSmtp.password),
-        },
-      };
+        }
+      );
       settingsMemoryCache.set(key, bundle);
       return bundle;
     }
 
-    const initialBundle: TenantSettingsBundle = {
-      general: { ...DEFAULT_GENERAL_SETTINGS },
-      smtp: { ...DEFAULT_SMTP_SETTINGS },
-    };
+    const initialBundle = await resolveTenantBrandDefaults(
+      key,
+      { ...DEFAULT_GENERAL_SETTINGS },
+      { ...DEFAULT_SMTP_SETTINGS }
+    );
     await prisma.$executeRawUnsafe(
       `INSERT INTO tenant_settings (tenant_id, general_config, smtp_config, updated_at)
        VALUES ($1, $2::jsonb, $3::jsonb, NOW())
@@ -187,6 +238,16 @@ export async function saveGeneralSettings(
     JSON.stringify(nextGeneral),
     JSON.stringify(persistedSmtp)
   );
+  if (nextGeneral.agencyName?.trim()) {
+    try {
+      await prisma.user.updateMany({
+        where: { tenantId: key },
+        data: { agencyName: nextGeneral.agencyName.trim() },
+      });
+    } catch {
+      // Ignore if DB user sync is not available in unit/mock contexts
+    }
+  }
   settingsMemoryCache.set(key, { general: nextGeneral, smtp: current.smtp });
   return nextGeneral;
 }

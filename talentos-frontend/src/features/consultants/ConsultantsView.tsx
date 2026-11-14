@@ -149,7 +149,10 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
       case 'Selected':
         return 'bg-purple-50 text-purple-700 border-purple-200';
       case 'Placed':
+      case 'Billable':
         return 'bg-emerald-100 text-emerald-800 border-emerald-300';
+      case 'Archived':
+        return 'bg-slate-100 text-slate-600 border-slate-300';
       default:
         return 'bg-slate-100 text-slate-700 border-slate-200';
     }
@@ -413,7 +416,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up flex flex-col max-h-[90vh]"
+              className="bg-white rounded-xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up flex flex-col max-h-[90vh]"
             >
             <div className="shrink-0 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
@@ -553,6 +556,8 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                   <option value="Interview">Interview</option>
                   <option value="Selected">Selected</option>
                   <option value="Onboarding">Onboarding</option>
+                  <option value="Billable">Billable</option>
+                  <option value="Archived">Archived</option>
                   <option value="Placed">Placed</option>
                 </select>
               </div>

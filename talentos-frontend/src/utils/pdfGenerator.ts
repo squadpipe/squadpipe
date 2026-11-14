@@ -10,10 +10,10 @@ type RgbColor = [number, number, number];
 
 const PAGE_WIDTH = 612; // US Letter width (pt)
 const PAGE_HEIGHT = 792; // US Letter height (pt)
-const MARGIN_X = 44;
-const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_X * 2; // 524pt
-const RIGHT_X = PAGE_WIDTH - MARGIN_X; // 568pt
-const BOTTOM_LIMIT_Y = 66;
+const MARGIN_X = 42;
+const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_X * 2; // 528pt
+const RIGHT_X = PAGE_WIDTH - MARGIN_X; // 570pt
+const BOTTOM_LIMIT_Y = 64;
 
 const PALETTE = {
   navy: [15, 23, 42] as RgbColor,
@@ -23,8 +23,8 @@ const PALETTE = {
   mutedText: [100, 116, 139] as RgbColor,
   softText: [148, 163, 184] as RgbColor,
   lightSlateText: [203, 213, 225] as RgbColor,
-  brandIndigo: [67, 97, 238] as RgbColor,
-  brandIndigoSoft: [191, 208, 253] as RgbColor,
+  brandIndigo: [79, 70, 229] as RgbColor,
+  brandIndigoSoft: [199, 210, 254] as RgbColor,
   surfaceSubtle: [248, 250, 252] as RgbColor,
   pillBg: [241, 245, 249] as RgbColor,
   borderLight: [226, 232, 240] as RgbColor,
@@ -48,11 +48,57 @@ const SUMMARY_SECTION_TITLES = new Set([
   'objective',
 ]);
 
+const DEMO_PLACEHOLDER_VALUES = new Set([
+  'talentos-agency.com',
+  'https://talentos-agency.com',
+  'desk@talentos-agency.com',
+  '+1 (800) 555-0199',
+  'austin, tx',
+]);
+
 /**
- * Normalizes text to ASCII-safe printable WinAnsi characters and escapes PDF string literals.
+ * Standard Adobe Type1 Helvetica character widths (in 1/1000 em units).
+ */
+const HELVETICA_WIDTHS: Record<string, number> = {
+  ' ': 278, '!': 278, '"': 355, '#': 556, '$': 556, '%': 889, '&': 667, "'": 191,
+  '(': 333, ')': 333, '*': 389, '+': 584, ',': 278, '-': 333, '.': 278, '/': 278,
+  '0': 556, '1': 556, '2': 556, '3': 556, '4': 556, '5': 556, '6': 556, '7': 556, '8': 556, '9': 556,
+  ':': 278, ';': 278, '<': 584, '=': 584, '>': 584, '?': 556, '@': 1015,
+  'A': 667, 'B': 667, 'C': 722, 'D': 722, 'E': 667, 'F': 611, 'G': 778, 'H': 722, 'I': 278, 'J': 500,
+  'K': 667, 'L': 556, 'M': 833, 'N': 722, 'O': 778, 'P': 667, 'Q': 778, 'R': 722, 'S': 667, 'T': 611,
+  'U': 722, 'V': 667, 'W': 944, 'X': 667, 'Y': 667, 'Z': 611,
+  '[': 278, '\\': 278, ']': 278, '^': 469, '_': 556, '`': 333,
+  'a': 556, 'b': 556, 'c': 500, 'd': 556, 'e': 556, 'f': 278, 'g': 556, 'h': 556, 'i': 222, 'j': 222,
+  'k': 500, 'l': 222, 'm': 833, 'n': 556, 'o': 556, 'p': 556, 'q': 556, 'r': 333, 's': 500, 't': 278,
+  'u': 556, 'v': 500, 'w': 722, 'x': 500, 'y': 500, 'z': 500,
+  '{': 334, '|': 260, '}': 334, '~': 584,
+};
+
+const HELVETICA_BOLD_WIDTHS: Record<string, number> = {
+  ' ': 278, '!': 333, '"': 474, '#': 556, '$': 556, '%': 889, '&': 722, "'": 238,
+  '(': 333, ')': 333, '*': 389, '+': 584, ',': 278, '-': 333, '.': 278, '/': 278,
+  '0': 556, '1': 556, '2': 556, '3': 556, '4': 556, '5': 556, '6': 556, '7': 556, '8': 556, '9': 556,
+  ':': 333, ';': 333, '<': 584, '=': 584, '>': 584, '?': 611, '@': 975,
+  'A': 722, 'B': 722, 'C': 722, 'D': 722, 'E': 667, 'F': 611, 'G': 778, 'H': 722, 'I': 278, 'J': 556,
+  'K': 722, 'L': 611, 'M': 833, 'N': 722, 'O': 778, 'P': 667, 'Q': 778, 'R': 722, 'S': 667, 'T': 611,
+  'U': 722, 'V': 667, 'W': 944, 'X': 667, 'Y': 667, 'Z': 611,
+  '[': 333, '\\': 278, ']': 333, '^': 584, '_': 556, '`': 333,
+  'a': 556, 'b': 611, 'c': 556, 'd': 611, 'e': 556, 'f': 333, 'g': 611, 'h': 611, 'i': 278, 'j': 278,
+  'k': 556, 'l': 278, 'm': 889, 'n': 611, 'o': 611, 'p': 611, 'q': 611, 'r': 389, 's': 556, 't': 333,
+  'u': 611, 'v': 556, 'w': 778, 'x': 556, 'y': 556, 'z': 500,
+  '{': 389, '|': 280, '}': 389, '~': 584,
+};
+
+/**
+ * Converts text into ASCII-safe WinAnsi characters and escapes PDF string literals.
  */
 function sanitizePdfText(input: string): string {
-  const ascii = String(input || '')
+  const ascii = toPrintableAscii(input);
+  return ascii.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+}
+
+function toPrintableAscii(input: string): string {
+  return String(input || '')
     .replace(/\u20B9/g, 'INR ')
     .replace(/\u20AC/g, 'EUR ')
     .replace(/\u00A3/g, 'GBP ')
@@ -65,8 +111,6 @@ function sanitizePdfText(input: string): string {
     .replace(/[^\x20-\x7E]/g, ' ')
     .replace(/[ \t]{2,}/g, ' ')
     .trim();
-
-  return ascii.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
 }
 
 function rgbStr(color: RgbColor): string {
@@ -74,27 +118,25 @@ function rgbStr(color: RgbColor): string {
 }
 
 /**
- * Estimates Helvetica / Helvetica-Bold string width in points for precise wrapping and pill layout.
+ * Computes exact Helvetica / Helvetica-Bold string width in points.
  */
-function estimateTextWidth(text: string, size: number, bold: boolean): number {
-  let factor = 0;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if ('ilI.,;:\'|! '.includes(ch)) factor += 0.28;
-    else if ('mwMW@%'.includes(ch)) factor += 0.78;
-    else if (ch >= 'A' && ch <= 'Z') factor += 0.65;
-    else factor += 0.51;
+function measurePdfTextWidth(text: string, size: number, bold: boolean): number {
+  const clean = toPrintableAscii(text);
+  const table = bold ? HELVETICA_BOLD_WIDTHS : HELVETICA_WIDTHS;
+  let units = 0;
+  for (let i = 0; i < clean.length; i++) {
+    units += table[clean[i]] ?? 556;
   }
-  return factor * size * (bold ? 1.05 : 1);
+  return (units / 1000) * size;
 }
 
 function truncateTextToWidth(text: string, maxWidth: number, size: number, bold: boolean): string {
   const clean = String(text || '').trim();
-  if (estimateTextWidth(clean, size, bold) <= maxWidth) return clean;
+  if (measurePdfTextWidth(clean, size, bold) <= maxWidth) return clean;
   let out = '';
   for (let i = 0; i < clean.length; i++) {
     const candidate = `${out}${clean[i]}...`;
-    if (estimateTextWidth(candidate, size, bold) > maxWidth) {
+    if (measurePdfTextWidth(candidate, size, bold) > maxWidth) {
       return `${out.trimEnd()}...`;
     }
     out += clean[i];
@@ -117,14 +159,14 @@ function wrapText(text: string, maxWidth: number, size: number, bold: boolean): 
     let current = '';
     for (const word of words) {
       const next = current ? `${current} ${word}` : word;
-      if (estimateTextWidth(next, size, bold) <= maxWidth) {
+      if (measurePdfTextWidth(next, size, bold) <= maxWidth) {
         current = next;
       } else {
         if (current) result.push(current);
-        if (estimateTextWidth(word, size, bold) > maxWidth) {
+        if (measurePdfTextWidth(word, size, bold) > maxWidth) {
           let chunk = '';
           for (const ch of word) {
-            if (estimateTextWidth(chunk + ch, size, bold) > maxWidth && chunk) {
+            if (measurePdfTextWidth(chunk + ch, size, bold) > maxWidth && chunk) {
               result.push(chunk);
               chunk = ch;
             } else {
@@ -188,9 +230,9 @@ function drawText(
   align: 'left' | 'right' | 'center' = 'left'
 ) {
   const font = bold ? 'F2' : 'F1';
-  const raw = String(text || '').trim();
+  const raw = toPrintableAscii(text);
   if (!raw) return;
-  const textW = estimateTextWidth(raw, size, bold);
+  const textW = measurePdfTextWidth(raw, size, bold);
   let actualX = x;
   if (align === 'right') actualX = x - textW;
   else if (align === 'center') actualX = x - textW / 2;
@@ -208,6 +250,15 @@ function cleanDisplayUrl(url?: string): string {
     .replace(/\/+$/, '');
 }
 
+function sanitizeBrandContact(value: string | undefined, isDefaultBrand: boolean): string {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return '';
+  if (!isDefaultBrand && DEMO_PLACEHOLDER_VALUES.has(trimmed.toLowerCase())) {
+    return '';
+  }
+  return trimmed;
+}
+
 function getStageColors(stage?: string): { bg: RgbColor; border: RgbColor; text: RgbColor } {
   const key = (stage || '').trim().toLowerCase();
   if (key.includes('available') || key.includes('bench')) {
@@ -223,7 +274,7 @@ function getStageColors(stage?: string): { bg: RgbColor; border: RgbColor; text:
 }
 
 /**
- * Generates a branded, non-CV executive Consultant Profile Brief PDF using the active
+ * Generates an executive, clean, non-CV Consultant Profile Brief PDF using the active
  * organization brand configured in General Settings.
  */
 export function generateCandidateResumePdf(
@@ -235,8 +286,13 @@ export function generateCandidateResumePdf(
     ...getWorkspaceBrand(),
     ...(brandOverride || {}),
   };
-  const brandName = (brand.agencyName || brand.legalEntityName || 'TalentOS Staffing').trim();
+  const brandName = (brand.agencyName || brand.legalEntityName || 'Staffing Agency').trim();
+  const isDefaultBrand = brandName.toLowerCase() === 'talentos staffing';
   const brandLegal = (brand.legalEntityName || '').trim();
+  const brandWebsite = cleanDisplayUrl(sanitizeBrandContact(brand.website, isDefaultBrand));
+  const brandEmail = sanitizeBrandContact(brand.supportEmail, isDefaultBrand);
+  const brandPhone = sanitizeBrandContact(brand.supportPhone, isDefaultBrand);
+  const brandHq = sanitizeBrandContact(brand.headquarters, isDefaultBrand);
 
   const skills = (candidate.skillset || '')
     .split(',')
@@ -273,16 +329,15 @@ export function generateCandidateResumePdf(
     pages.push(nextCmds);
     cmds = nextCmds;
 
-    // Subtle running corporate header bar on continuation pages
-    drawRect(cmds, 0, PAGE_HEIGHT - 38, PAGE_WIDTH, 38, PALETTE.surfaceSubtle);
-    drawLine(cmds, 0, PAGE_HEIGHT - 38, PAGE_WIDTH, PAGE_HEIGHT - 38, PALETTE.borderLight, 0.8);
-    drawLine(cmds, 0, PAGE_HEIGHT - 40, PAGE_WIDTH, PAGE_HEIGHT - 40, PALETTE.brandIndigo, 1.5);
+    drawRect(cmds, 0, PAGE_HEIGHT - 40, PAGE_WIDTH, 40, PALETTE.surfaceSubtle);
+    drawLine(cmds, 0, PAGE_HEIGHT - 40, PAGE_WIDTH, PAGE_HEIGHT - 40, PALETTE.borderLight, 0.8);
+    drawRect(cmds, 0, PAGE_HEIGHT - 42, PAGE_WIDTH, 2, PALETTE.brandIndigo);
     drawText(
       cmds,
-      `${truncateTextToWidth(brandName, 240, 8.5, true)}  |  Consultant Profile Brief`,
+      `${truncateTextToWidth(brandName, 250, 8.8, true)}  |  Executive Consultant Profile`,
       MARGIN_X,
-      PAGE_HEIGHT - 24,
-      8.5,
+      PAGE_HEIGHT - 25,
+      8.8,
       true,
       PALETTE.navy
     );
@@ -290,14 +345,14 @@ export function generateCandidateResumePdf(
       cmds,
       truncateTextToWidth(`${candidate.fullName || 'Consultant'} (Continued)`, 220, 8.2, false),
       RIGHT_X,
-      PAGE_HEIGHT - 24,
+      PAGE_HEIGHT - 25,
       8.2,
       false,
       PALETTE.mutedText,
       'right'
     );
 
-    cursorY = PAGE_HEIGHT - 64;
+    cursorY = PAGE_HEIGHT - 66;
   };
 
   const ensureSpace = (neededHeight: number) => {
@@ -306,16 +361,22 @@ export function generateCandidateResumePdf(
     }
   };
 
-  // =========================================================================
-  // 1. TOP BRANDED AGENCY HEADER BANNER (Page 1)
-  // =========================================================================
-  drawRect(cmds, 0, 714, PAGE_WIDTH, 78, PALETTE.navy);
-  drawRect(cmds, 0, 710, PAGE_WIDTH, 4, PALETTE.brandIndigo);
+  const preparedDate = new Date().toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 
-  const brandSize = estimateTextWidth(brandName, 15, true) > 280 ? 12.5 : 15;
+  // =========================================================================
+  // 1. TOP EXECUTIVE HEADER BANNER (Page 1)
+  // =========================================================================
+  drawRect(cmds, 0, 718, PAGE_WIDTH, 74, PALETTE.navy);
+  drawRect(cmds, 0, 715, PAGE_WIDTH, 3, PALETTE.brandIndigo);
+
+  const brandSize = measurePdfTextWidth(brandName, 17, true) > 280 ? 13.5 : 17;
   drawText(
     cmds,
-    truncateTextToWidth(brandName, 295, brandSize, true),
+    truncateTextToWidth(brandName, 300, brandSize, true),
     MARGIN_X,
     756,
     brandSize,
@@ -325,122 +386,149 @@ export function generateCandidateResumePdf(
 
   const subtitleText =
     brandLegal && brandLegal.toLowerCase() !== brandName.toLowerCase()
-      ? `${brandLegal}  |  Consultant Profile Brief`
-      : 'Consultant Profile Brief  |  Client Submittal Summary';
+      ? `${brandLegal}  •  Executive Consultant Profile Brief`
+      : 'Executive Consultant Profile Brief  •  Client Submittal';
   drawText(
     cmds,
-    truncateTextToWidth(subtitleText, 305, 8.2, false),
+    truncateTextToWidth(subtitleText, 320, 8.4, false),
     MARGIN_X,
-    738,
-    8.2,
+    737,
+    8.4,
     false,
-    PALETTE.softText
+    PALETTE.lightSlateText
   );
 
-  // Top-right badge + agency contact metadata
-  drawRect(cmds, RIGHT_X - 134, 753, 134, 19, PALETTE.navyAlt, PALETTE.slateBorderDark, 0.7);
+  // Right side: Pill badge + optional agency metadata / prepared date
+  const headerBadgeW = 128;
+  drawRect(
+    cmds,
+    RIGHT_X - headerBadgeW,
+    755,
+    headerBadgeW,
+    18,
+    PALETTE.navyAlt,
+    PALETTE.slateBorderDark,
+    0.75
+  );
   drawText(
     cmds,
     'CONSULTANT BRIEF',
-    RIGHT_X - 67,
-    759.8,
-    7.4,
+    RIGHT_X - headerBadgeW / 2,
+    761.2,
+    7.2,
     true,
     PALETTE.brandIndigoSoft,
     'center'
   );
 
-  const brandLocationLine = [brand.headquarters, cleanDisplayUrl(brand.website)]
-    .filter(Boolean)
-    .join('  |  ');
-  const brandContactLine = [brand.supportEmail, brand.supportPhone].filter(Boolean).join('  |  ');
+  const brandLocationLine = [brandHq, brandWebsite].filter(Boolean).join('  |  ');
+  const brandContactLine = [brandEmail, brandPhone].filter(Boolean).join('  |  ');
 
-  if (brandLocationLine) {
+  if (brandLocationLine || brandContactLine) {
+    if (brandLocationLine) {
+      drawText(
+        cmds,
+        truncateTextToWidth(brandLocationLine, 210, 7.6, false),
+        RIGHT_X,
+        740,
+        7.6,
+        false,
+        PALETTE.lightSlateText,
+        'right'
+      );
+    }
+    if (brandContactLine) {
+      drawText(
+        cmds,
+        truncateTextToWidth(brandContactLine, 210, 7.6, false),
+        RIGHT_X,
+        brandLocationLine ? 729 : 740,
+        7.6,
+        false,
+        PALETTE.softText,
+        'right'
+      );
+    }
+  } else {
     drawText(
       cmds,
-      truncateTextToWidth(brandLocationLine, 210, 7.6, false),
+      `Prepared ${preparedDate}`,
       RIGHT_X,
       738,
-      7.6,
+      8.0,
       false,
       PALETTE.lightSlateText,
       'right'
     );
   }
-  if (brandContactLine) {
-    drawText(
-      cmds,
-      truncateTextToWidth(brandContactLine, 210, 7.6, false),
-      RIGHT_X,
-      726,
+
+  // =========================================================================
+  // 2. SUBTLE DOCUMENT CLASSIFICATION STRIP (Clean, honest summary disclosure)
+  // =========================================================================
+  drawRect(cmds, MARGIN_X, 682, CONTENT_WIDTH, 22, PALETTE.surfaceSubtle, PALETTE.borderLight, 0.7);
+  drawRect(cmds, MARGIN_X, 682, 2.8, 22, PALETTE.brandIndigo);
+  drawText(
+    cmds,
+    truncateTextToWidth(
+      `Prepared by ${brandName}  -  Structured CRM Profile Summary (Not original candidate CV)`,
+      395,
       7.6,
-      false,
-      PALETTE.softText,
-      'right'
-    );
-  }
-
-  // =========================================================================
-  // 2. EXPLICIT BRIEF NOTICE CALLOUT (Not Original CV)
-  // =========================================================================
-  drawRect(cmds, MARGIN_X, 678, CONTENT_WIDTH, 22, PALETTE.surfaceSubtle, PALETTE.borderLight, 0.75);
-  drawRect(cmds, MARGIN_X, 678, 3, 22, PALETTE.brandIndigo);
-
-  const preparedDate = new Date().toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-  const noticeText = truncateTextToWidth(
-    `Notice: Branded summary brief prepared by ${brandName} ( Not original CV document).`,
-    410,
+      false
+    ),
+    MARGIN_X + 10,
+    690.2,
     7.6,
-    false
+    false,
+    PALETTE.slateText
   );
-  drawText(cmds, noticeText, MARGIN_X + 10, 686.2, 7.6, false, PALETTE.slateText);
-  drawText(cmds, `Prepared ${preparedDate}`, RIGHT_X - 9, 686.2, 7.6, true, PALETTE.mutedText, 'right');
+  drawText(cmds, `Date: ${preparedDate}`, RIGHT_X - 10, 690.2, 7.6, true, PALETTE.mutedText, 'right');
 
   // =========================================================================
   // 3. PRESENTED CANDIDATE SPOTLIGHT CARD
   // =========================================================================
-  drawRect(cmds, MARGIN_X, 606, CONTENT_WIDTH, 62, PALETTE.white, PALETTE.borderMedium, 0.8);
+  const cardTop = 670;
+  const cardHeight = 64;
+  const cardBottom = cardTop - cardHeight; // 606
+  drawRect(cmds, MARGIN_X, cardBottom, CONTENT_WIDTH, cardHeight, PALETTE.white, PALETTE.borderMedium, 0.8);
+  drawRect(cmds, MARGIN_X, cardBottom, 3.2, cardHeight, PALETTE.brandIndigo);
 
   // Monogram square
-  drawRect(cmds, MARGIN_X + 14, 617, 40, 40, PALETTE.navy);
-  drawText(cmds, initials || 'C', MARGIN_X + 34, 632.3, 13, true, PALETTE.white, 'center');
+  drawRect(cmds, MARGIN_X + 14, cardBottom + 11, 42, 42, PALETTE.navy);
+  drawText(cmds, initials || 'C', MARGIN_X + 35, cardBottom + 27, 13.5, true, PALETTE.white, 'center');
 
   // Identity lines
-  drawText(cmds, 'PRESENTED CONSULTANT', MARGIN_X + 66, 650, 7.2, true, PALETTE.brandIndigo);
+  drawText(cmds, 'PRESENTED CONSULTANT', MARGIN_X + 68, cardBottom + 46.5, 6.8, true, PALETTE.brandIndigo);
   drawText(
     cmds,
-    truncateTextToWidth(candidate.fullName || 'Consultant Profile', 285, 14.5, true),
-    MARGIN_X + 66,
-    632,
-    14.5,
+    truncateTextToWidth(candidate.fullName || 'Consultant Profile', 285, 15.5, true),
+    MARGIN_X + 68,
+    cardBottom + 27.5,
+    15.5,
     true,
     PALETTE.navy
   );
   drawText(
     cmds,
-    truncateTextToWidth(candidate.currentTitle || 'Technology Consultant', 285, 9.2, true),
-    MARGIN_X + 66,
-    617,
-    9.2,
+    truncateTextToWidth(candidate.currentTitle || 'Technology Consultant', 285, 9.4, true),
+    MARGIN_X + 68,
+    cardBottom + 12.5,
+    9.4,
     true,
     PALETTE.slateText
   );
 
-  // Stage badge + rate on right of spotlight card
+  // Right-aligned stage badge + rate
   const stageLabel = candidate.pipelineStage || 'Available / Bench';
   const stagePalette = getStageColors(stageLabel);
-  const stagePillW = Math.min(148, Math.max(88, estimateTextWidth(stageLabel, 7.8, true) + 22));
+  const stageTextW = measurePdfTextWidth(stageLabel, 7.8, true);
+  const stagePillW = Math.min(156, Math.max(82, stageTextW + 24));
   const stagePillX = RIGHT_X - 14 - stagePillW;
-  drawRect(cmds, stagePillX, 637, stagePillW, 18, stagePalette.bg, stagePalette.border, 0.7);
+  drawRect(cmds, stagePillX, cardBottom + 34, stagePillW, 18.5, stagePalette.bg, stagePalette.border, 0.7);
   drawText(
     cmds,
-    truncateTextToWidth(stageLabel, stagePillW - 12, 7.8, true),
+    truncateTextToWidth(stageLabel, stagePillW - 14, 7.8, true),
     stagePillX + stagePillW / 2,
-    643.2,
+    cardBottom + 40.4,
     7.8,
     true,
     stagePalette.text,
@@ -450,9 +538,9 @@ export function generateCandidateResumePdf(
   if (formattedRate) {
     drawText(
       cmds,
-      truncateTextToWidth(`Rate: ${formattedRate}`, 155, 8.2, true),
+      truncateTextToWidth(`Bill / Target Rate: ${formattedRate}`, 170, 8.2, true),
       RIGHT_X - 14,
-      620,
+      cardBottom + 16.5,
       8.2,
       true,
       PALETTE.slateText,
@@ -461,125 +549,160 @@ export function generateCandidateResumePdf(
   }
 
   // =========================================================================
-  // 4. EXECUTIVE 2-COLUMN ATTRIBUTES MATRIX
+  // 4. EXECUTIVE ATTRIBUTES MATRIX (Full-width Education so degrees never clip)
   // =========================================================================
-  const metadataRows: Array<[string, string, string, string]> = [
-    [
-      'EMAIL ADDRESS',
-      candidate.email || 'On request',
-      'DIRECT PHONE',
-      candidate.phone || 'On request',
-    ],
-    [
-      'WORK AUTHORIZATION',
-      candidate.workAuth || 'Authorized',
-      'RELOCATION PREFERENCE',
-      candidate.relocation || 'Open',
-    ],
-    [
-      'EDUCATION',
-      resolvedEducation,
-      'REPRESENTING RECRUITER',
-      candidate.assignedRecruiter || brandName,
-    ],
+  let matrixY = cardBottom - 10; // 596
+
+  // Row 1: 3-column Eligibility & Ownership Strip
+  const col3W = CONTENT_WIDTH / 3; // 176pt
+  const row1H = 34;
+  matrixY -= row1H;
+  const row1Cells: Array<[string, string]> = [
+    ['WORK AUTHORIZATION', candidate.workAuth || 'Authorized'],
+    ['RELOCATION', candidate.relocation || 'Open'],
+    ['REPRESENTING RECRUITER', candidate.assignedRecruiter || brandName],
   ];
-
-  const colW = CONTENT_WIDTH / 2; // 262pt
-  const rowH = 33;
-  let tableTopY = 596;
-
-  metadataRows.forEach(([labelL, valL, labelR, valR], rIdx) => {
-    const yBot = tableTopY - (rIdx + 1) * rowH;
-    const rowBg = rIdx % 2 === 0 ? PALETTE.surfaceSubtle : PALETTE.white;
-
-    drawRect(cmds, MARGIN_X, yBot, colW, rowH, rowBg, PALETTE.borderLight, 0.7);
-    drawRect(cmds, MARGIN_X + colW, yBot, colW, rowH, rowBg, PALETTE.borderLight, 0.7);
-
-    drawText(cmds, labelL, MARGIN_X + 10, yBot + 21, 6.8, true, PALETTE.mutedText);
+  row1Cells.forEach(([label, value], cIdx) => {
+    const cx = MARGIN_X + cIdx * col3W;
+    drawRect(cmds, cx, matrixY, col3W, row1H, PALETTE.surfaceSubtle, PALETTE.borderLight, 0.7);
+    drawText(cmds, label, cx + 10, matrixY + 22, 6.6, true, PALETTE.mutedText);
     drawText(
       cmds,
-      truncateTextToWidth(valL, colW - 20, 8.6, true),
-      MARGIN_X + 10,
-      yBot + 8.5,
-      8.6,
-      true,
-      PALETTE.navy
-    );
-
-    drawText(cmds, labelR, MARGIN_X + colW + 10, yBot + 21, 6.8, true, PALETTE.mutedText);
-    drawText(
-      cmds,
-      truncateTextToWidth(valR, colW - 20, 8.6, true),
-      MARGIN_X + colW + 10,
-      yBot + 8.5,
+      truncateTextToWidth(value, col3W - 20, 8.6, true),
+      cx + 10,
+      matrixY + 9,
       8.6,
       true,
       PALETTE.navy
     );
   });
 
-  cursorY = tableTopY - metadataRows.length * rowH - 22;
+  // Row 2: 2-column Contact Strip
+  const col2W = CONTENT_WIDTH / 2; // 264pt
+  const row2H = 34;
+  matrixY -= row2H;
+  const row2Cells: Array<[string, string]> = [
+    ['EMAIL ADDRESS', candidate.email || 'Available upon request'],
+    ['DIRECT PHONE', candidate.phone || 'Available upon request'],
+  ];
+  row2Cells.forEach(([label, value], cIdx) => {
+    const cx = MARGIN_X + cIdx * col2W;
+    drawRect(cmds, cx, matrixY, col2W, row2H, PALETTE.white, PALETTE.borderLight, 0.7);
+    drawText(cmds, label, cx + 10, matrixY + 22, 6.6, true, PALETTE.mutedText);
+    drawText(
+      cmds,
+      truncateTextToWidth(value, col2W - 20, 8.6, true),
+      cx + 10,
+      matrixY + 9,
+      8.6,
+      true,
+      PALETTE.navy
+    );
+  });
+
+  // Row 3: Full-width Education & Academic Credentials (auto-wraps cleanly, never clipped)
+  const eduLines = wrapText(resolvedEducation, CONTENT_WIDTH - 24, 8.8, true).slice(0, 3);
+  const eduRowH = Math.max(34, 21 + Math.max(1, eduLines.length) * 12);
+  matrixY -= eduRowH;
+  drawRect(cmds, MARGIN_X, matrixY, CONTENT_WIDTH, eduRowH, PALETTE.surfaceSubtle, PALETTE.borderLight, 0.7);
+  drawText(
+    cmds,
+    'EDUCATION & ACADEMIC CREDENTIALS',
+    MARGIN_X + 10,
+    matrixY + eduRowH - 11.5,
+    6.6,
+    true,
+    PALETTE.mutedText
+  );
+  eduLines.forEach((line, idx) => {
+    drawText(
+      cmds,
+      line,
+      MARGIN_X + 10,
+      matrixY + eduRowH - 24 - idx * 12,
+      8.8,
+      true,
+      PALETTE.navy
+    );
+  });
+
+  cursorY = matrixY - 22;
 
   // =========================================================================
   // 5. STRUCTURED BODY SECTIONS (Paginated cleanly)
   // =========================================================================
   let sectionCounter = 1;
-  const drawSectionHeader = (title: string) => {
-    ensureSpace(36);
+  const drawSectionHeader = (title: string, rightPillText?: string) => {
+    ensureSpace(40);
     const numLabel = String(sectionCounter++).padStart(2, '0');
-    drawRect(cmds, MARGIN_X, cursorY - 2.5, 14, 14, PALETTE.brandIndigo);
-    drawText(cmds, numLabel, MARGIN_X + 7, cursorY + 1.8, 7.2, true, PALETTE.white, 'center');
-    drawText(cmds, title.toUpperCase(), MARGIN_X + 21, cursorY + 1, 9.6, true, PALETTE.navy);
-    drawLine(cmds, MARGIN_X, cursorY - 8, RIGHT_X, cursorY - 8, PALETTE.borderLight, 0.85);
+    drawRect(cmds, MARGIN_X, cursorY - 3, 15, 15, PALETTE.brandIndigo);
+    drawText(cmds, numLabel, MARGIN_X + 7.5, cursorY + 1.6, 7.2, true, PALETTE.white, 'center');
+    drawText(cmds, title.toUpperCase(), MARGIN_X + 22, cursorY + 1, 9.6, true, PALETTE.navy);
+
+    if (rightPillText) {
+      const rpW = Math.max(46, measurePdfTextWidth(rightPillText, 7.2, true) + 14);
+      drawRect(cmds, RIGHT_X - rpW, cursorY - 2, rpW, 14, PALETTE.pillBg, PALETTE.borderLight, 0.6);
+      drawText(
+        cmds,
+        rightPillText,
+        RIGHT_X - rpW / 2,
+        cursorY + 2.2,
+        7.2,
+        true,
+        PALETTE.slateText,
+        'center'
+      );
+    }
+
+    drawLine(cmds, MARGIN_X, cursorY - 9, RIGHT_X, cursorY - 9, PALETTE.borderLight, 0.85);
     cursorY -= 24;
   };
 
-  // 01. CONSULTANT OVERVIEW
+  // 01. EXECUTIVE PROFILE SUMMARY (Contained in a clean card with continuous left stripe)
   drawSectionHeader('Consultant Profile Summary');
   const overviewLines =
     summarySection && summarySection.items.length > 0
       ? summarySection.items.map((l) => cleanExtractedResumeText(l.replace(/^[•\-\s]+/, '')))
       : [
-        `${candidate.currentTitle || 'Technology Consultant'}${skills.length > 0 ? ` specializing in ${skills.slice(0, 6).join(', ')}` : ''
-        }. Prepared by ${brandName} as a structured client submittal summary.`,
-      ];
+          `${candidate.currentTitle || 'Technology Consultant'}${
+            skills.length > 0 ? ` specializing in ${skills.slice(0, 6).join(', ')}` : ''
+          }. Prepared by ${brandName} as a structured client submittal summary.`,
+        ];
 
   for (const para of overviewLines) {
-    const wrapped = wrapText(para, CONTENT_WIDTH - 10, 9.4, false);
+    const wrapped = wrapText(para, CONTENT_WIDTH - 24, 9.4, false);
     if (wrapped.length === 0) continue;
-    const blockHeight = wrapped.length * 14;
-    ensureSpace(blockHeight + 4);
-    const barTop = cursorY + 9;
+    const cardH = wrapped.length * 14.5 + 16;
+    ensureSpace(cardH + 6);
+    const boxBottom = cursorY - cardH + 10;
+    drawRect(cmds, MARGIN_X, boxBottom, CONTENT_WIDTH, cardH, PALETTE.surfaceSubtle, PALETTE.borderLight, 0.7);
+    drawRect(cmds, MARGIN_X, boxBottom, 2.8, cardH, PALETTE.brandIndigo);
+
+    let lineY = cursorY - 4;
     for (const wrappedLine of wrapped) {
       if (wrappedLine) {
-        drawText(cmds, wrappedLine, MARGIN_X + 10, cursorY, 9.4, false, PALETTE.slateText);
+        drawText(cmds, wrappedLine, MARGIN_X + 12, lineY, 9.4, false, PALETTE.slateText);
       }
-      cursorY -= 14;
+      lineY -= 14.5;
     }
-    const barBottom = cursorY + 11;
-    drawRect(
-      cmds,
-      MARGIN_X,
-      barBottom,
-      2.4,
-      Math.max(10, barTop - barBottom),
-      PALETTE.brandIndigo
-    );
+    cursorY = boxBottom - 16;
   }
-  cursorY -= 12;
 
-  // 02. TECHNICAL COMPETENCIES (Rendered as crisp vector pill badges)
+  // 02. CORE COMPETENCIES & TECHNICAL STACK
   if (skills.length > 0) {
-    drawSectionHeader('Core Competencies & Technical Stack');
+    drawSectionHeader(
+      'Core Competencies & Technical Stack',
+      `${skills.length} ${skills.length === 1 ? 'skill' : 'skills'}`
+    );
     let pillX = MARGIN_X;
-    const pillHeight = 18;
+    const pillHeight = 19;
     const gapX = 6;
-    const rowStep = 24;
+    const rowStep = 25;
 
     ensureSpace(pillHeight + 8);
     for (const skill of skills) {
-      const safeLabel = truncateTextToWidth(skill, CONTENT_WIDTH - 24, 8.2, true);
-      const pillW = Math.min(CONTENT_WIDTH, estimateTextWidth(safeLabel, 8.2, true) + 18);
+      const safeLabel = truncateTextToWidth(skill, CONTENT_WIDTH - 28, 8.2, true);
+      const pillW = Math.min(CONTENT_WIDTH, measurePdfTextWidth(safeLabel, 8.2, true) + 20);
 
       if (pillX + pillW > RIGHT_X && pillX > MARGIN_X) {
         cursorY -= rowStep;
@@ -588,16 +711,16 @@ export function generateCandidateResumePdf(
       }
 
       const pillBottom = cursorY - pillHeight + 11;
-      drawRect(cmds, pillX, pillBottom, pillW, pillHeight, PALETTE.pillBg, PALETTE.borderMedium, 0.6);
-      drawText(cmds, safeLabel, pillX + pillW / 2, pillBottom + 6.0, 8.2, true, PALETTE.navyAlt, 'center');
+      drawRect(cmds, pillX, pillBottom, pillW, pillHeight, PALETTE.white, PALETTE.borderMedium, 0.7);
+      drawText(cmds, safeLabel, pillX + pillW / 2, pillBottom + 6.4, 8.2, true, PALETTE.navyAlt, 'center');
       pillX += pillW + gapX;
     }
     cursorY -= 32;
   }
 
-  // 03. EXTRACTED HIGHLIGHTS OR CRM SUBMISSION SCOPE
+  // 03. EXTRACTED HIGHLIGHTS OR SUBMITTAL READINESS SUMMARY
   if (detailSections.length > 0) {
-    drawSectionHeader('Extracted Profile Highlights & Background');
+    drawSectionHeader('Extracted Profile Highlights & Experience');
     for (const section of detailSections) {
       ensureSpace(26);
       drawText(cmds, section.title.toUpperCase(), MARGIN_X, cursorY, 8.4, true, PALETTE.brandIndigo);
@@ -627,45 +750,66 @@ export function generateCandidateResumePdf(
               PALETTE.slateText
             );
           }
-          cursorY -= 13.5;
+          cursorY -= 13.8;
         });
       }
       cursorY -= 8;
     }
   } else {
-    drawSectionHeader('Submittal Scope & Record Notes');
-    const noteLines = [
-      `This document is a structured consultant brief generated by ${brandName} from CRM profile records.`,
-      'It intentionally summarizes candidate readiness, eligibility, and core technical stack rather than reproducing a personal CV format.',
+    drawSectionHeader('Submittal Readiness & Agency Endorsement');
+    const summaryPairs: Array<[string, string]> = [
+      ['Primary Specialization', candidate.currentTitle || 'Technology Consultant'],
+      ['Pipeline Readiness', stageLabel],
+      ['Work Eligibility', candidate.workAuth || 'Authorized'],
+      ['Relocation Flexibility', candidate.relocation || 'Open'],
     ];
-    if (educationSection && educationSection.items.length > 0) {
-      noteLines.push(
-        `Education Record: ${educationSection.items
-          .map((i) => cleanExtractedResumeText(i.replace(/^[•\-\s]+/, '')))
-          .join(' | ')}`
-      );
-    }
-    const wrappedNote: string[] = [];
-    noteLines.forEach((n) => wrappedNote.push(...wrapText(n, CONTENT_WIDTH - 20, 8.8, false)));
 
-    const boxHeight = wrappedNote.length * 13 + 16;
-    ensureSpace(boxHeight + 6);
-    drawRect(
-      cmds,
-      MARGIN_X,
-      cursorY - boxHeight + 10,
-      CONTENT_WIDTH,
-      boxHeight,
-      PALETTE.surfaceSubtle,
-      PALETTE.borderLight,
-      0.75
-    );
-    let innerY = cursorY - 4;
-    for (const line of wrappedNote) {
-      drawText(cmds, line, MARGIN_X + 10, innerY, 8.8, false, PALETTE.slateText);
-      innerY -= 13;
+    const halfW = CONTENT_WIDTH / 2;
+    const itemH = 30;
+    ensureSpace(itemH * 2 + 12);
+    summaryPairs.forEach(([lbl, val], idx) => {
+      const col = idx % 2;
+      const row = Math.floor(idx / 2);
+      const cellX = MARGIN_X + col * halfW;
+      const cellY = cursorY - (row + 1) * itemH + 10;
+      drawRect(
+        cmds,
+        cellX,
+        cellY,
+        halfW,
+        itemH,
+        row % 2 === 0 ? PALETTE.surfaceSubtle : PALETTE.white,
+        PALETTE.borderLight,
+        0.65
+      );
+      drawText(cmds, lbl.toUpperCase(), cellX + 10, cellY + 19, 6.6, true, PALETTE.mutedText);
+      drawText(
+        cmds,
+        truncateTextToWidth(val, halfW - 20, 8.6, true),
+        cellX + 10,
+        cellY + 7,
+        8.6,
+        true,
+        PALETTE.navy
+      );
+    });
+    cursorY -= itemH * 2 + 14;
+
+    if (educationSection && educationSection.items.length > 0) {
+      const eduNotes = educationSection.items
+        .map((i) => cleanExtractedResumeText(i.replace(/^[•\-\s]+/, '')))
+        .filter((line) => line.toLowerCase() !== resolvedEducation.toLowerCase())
+        .join('  •  ');
+      if (eduNotes) {
+        const wrappedEdu = wrapText(`Academic Details: ${eduNotes}`, CONTENT_WIDTH - 16, 8.8, false);
+        ensureSpace(wrappedEdu.length * 13 + 8);
+        for (const line of wrappedEdu) {
+          drawText(cmds, line, MARGIN_X + 4, cursorY, 8.8, false, PALETTE.slateText);
+          cursorY -= 13;
+        }
+        cursorY -= 4;
+      }
     }
-    cursorY -= boxHeight + 10;
   }
 
   // 04. ADDITIONAL CUSTOM ATTRIBUTES (if present)
@@ -676,7 +820,7 @@ export function generateCandidateResumePdf(
     drawSectionHeader('Additional Profile Attributes');
     for (const [k, v] of customEntries) {
       const labelPrefix = `${k}: `;
-      const prefixW = estimateTextWidth(labelPrefix, 8.8, true);
+      const prefixW = measurePdfTextWidth(labelPrefix, 8.8, true);
       const valLines = wrapText(String(v), Math.max(180, CONTENT_WIDTH - prefixW - 8), 8.8, false);
       valLines.forEach((vl, idx) => {
         ensureSpace(14);
@@ -693,41 +837,39 @@ export function generateCandidateResumePdf(
   // 6. CONSISTENT BRANDED FOOTER ACROSS ALL PAGES
   // =========================================================================
   const totalPages = pages.length;
-  const footerMeta = [brandName, cleanDisplayUrl(brand.website), brand.supportEmail]
-    .filter(Boolean)
-    .join('  |  ');
+  const footerMeta = [brandName, brandWebsite, brandEmail].filter(Boolean).join('  |  ');
 
   pages.forEach((pageCmds, idx) => {
-    drawLine(pageCmds, MARGIN_X, 48, RIGHT_X, 48, PALETTE.borderLight, 0.75);
+    drawLine(pageCmds, MARGIN_X, 46, RIGHT_X, 46, PALETTE.borderLight, 0.75);
     drawText(
       pageCmds,
-      truncateTextToWidth(footerMeta, 420, 7.6, true),
+      truncateTextToWidth(footerMeta || brandName, 420, 7.8, true),
       MARGIN_X,
-      34,
-      7.6,
+      32,
+      7.8,
       true,
       PALETTE.slateText
     );
     drawText(
       pageCmds,
       truncateTextToWidth(
-        `Summary brief generated by ${brandName} (Not an original candidate CV)`,
-        420,
+        `Structured consultant brief prepared by ${brandName} (CRM summary - not original candidate CV)`,
+        430,
         7.0,
         false
       ),
       MARGIN_X,
-      23,
+      21,
       7.0,
       false,
-      PALETTE.softText
+      PALETTE.mutedText
     );
     drawText(
       pageCmds,
       `Page ${idx + 1} of ${totalPages}`,
       RIGHT_X,
-      34,
-      7.6,
+      32,
+      7.8,
       true,
       PALETTE.mutedText,
       'right'

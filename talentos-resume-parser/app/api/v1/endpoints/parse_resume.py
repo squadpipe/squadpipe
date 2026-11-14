@@ -112,7 +112,7 @@ async def parse_resume(
         relocation="Yes",
         recruiter=None,
         fileName=filename,
-        rawSnippet=text[:400]
+        rawSnippet=text[:8000]
     )
 
     return ResumeParseResponse(success=True, data=profile)

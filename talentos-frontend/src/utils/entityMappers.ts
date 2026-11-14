@@ -1,5 +1,6 @@
 import {
   Requirement,
+  RequirementSubmission,
   Candidate,
   Client,
   Vendor,
@@ -62,31 +63,83 @@ export const formatUserStatus = (status?: string): User['status'] => {
   return (status && map[status]) || (status as User['status']) || 'Active';
 };
 
-export const mapRequirementFromApi = (r: any): Requirement & { createdAt?: string } => ({
-  id: r.id,
-  code: r.code || '',
-  companyName: r.companyName || r.client?.name || '',
-  opportunityTitle: r.opportunityTitle || '',
-  location: r.location || '',
-  clientContact:
-    r.clientContact?.fullName ||
-    r.clientContact?.name ||
-    (typeof r.clientContact === 'string' ? r.clientContact : ''),
-  clientContactTitle:
-    r.clientContact?.designation ||
-    (typeof r.clientContactTitle === 'string' ? r.clientContactTitle : ''),
-  skillsRequired: r.skillsRequired || '',
-  status: formatRequirementStatus(r.status),
-  resourceName: r.resourceName || r.submissions?.[0]?.candidate?.fullName || '',
-  assignedRecruiter:
-    r.assignedRecruiter?.fullName ||
-    r.assignedRecruiter?.name ||
-    (typeof r.assignedRecruiter === 'string' ? r.assignedRecruiter : ''),
-  targetBillRate: r.targetBillRate,
-  targetPayRate: r.targetPayRate,
-  customFields: r.customFields,
-  createdAt: safeIsoDate(r.createdAt, new Date().toISOString().split('T')[0]),
-});
+export const formatSubmissionStage = (stage?: string): RequirementSubmission['stage'] => {
+  const s = String(stage || '').toUpperCase().trim();
+  if (s === 'CLOSED' || s === 'REJECTED') return 'Closed';
+  if (stage === 'Closed') return 'Closed';
+  return formatRequirementStatus(stage);
+};
+
+export const mapSubmissionFromApi = (s: any): RequirementSubmission => {
+  const mappedCand = s?.candidate ? mapCandidateFromApi(s.candidate) : undefined;
+  return {
+    id: s.id,
+    candidateId: s.candidateId || mappedCand?.id || '',
+    fullName: mappedCand?.fullName || s.candidate?.fullName || 'Applicant',
+    email: mappedCand?.email || s.candidate?.email || '',
+    phone: mappedCand?.phone || s.candidate?.phone || '',
+    currentTitle: mappedCand?.currentTitle || s.candidate?.currentTitle || '',
+    workAuth: mappedCand?.workAuth || s.candidate?.workAuth || '',
+    skillset: mappedCand?.skillset || s.candidate?.skillset || '',
+    hourlyRate: mappedCand?.hourlyRate || s.candidate?.hourlyRateDisplay || '',
+    resumeName: mappedCand?.resumeName || s.candidate?.resumeFileName || '',
+    resumeFormat: mappedCand?.resumeFormat || s.candidate?.resumeFormat || '',
+    resumeFileUrl: mappedCand?.resumeFileUrl || s.candidate?.resumeFileUrl || undefined,
+    stage: formatSubmissionStage(s.stage),
+    submissionDate: safeIsoDate(s.submissionDate || s.createdAt),
+    interviewDate: safeIsoDate(s.interviewDate),
+    interviewNotes: s.interviewNotes || '',
+    candidate: mappedCand,
+  };
+};
+
+export const mapRequirementFromApi = (r: any): Requirement & { createdAt?: string } => {
+  const submissions: RequirementSubmission[] = Array.isArray(r.submissions)
+    ? r.submissions.map(mapSubmissionFromApi)
+    : [];
+  const activePlacements = Array.isArray(r.placements)
+    ? r.placements
+        .filter((p: any) => !['TERMINATED', 'COMPLETED'].includes(String(p.status || '').toUpperCase()))
+        .map((p: any) => ({
+          id: p.id,
+          candidateId: p.candidateId || null,
+          resourceName: p.resourceName || '',
+          status: p.status || 'ACTIVE',
+        }))
+    : [];
+  const openPositionsNum = Number(r.openPositions);
+  const openPositions = Number.isInteger(openPositionsNum) && openPositionsNum >= 1 ? openPositionsNum : 1;
+
+  return {
+    id: r.id,
+    code: r.code || '',
+    companyName: r.companyName || r.client?.name || '',
+    opportunityTitle: r.opportunityTitle || '',
+    openPositions,
+    filledPositions: activePlacements.length,
+    location: r.location || '',
+    clientContact:
+      r.clientContact?.fullName ||
+      r.clientContact?.name ||
+      (typeof r.clientContact === 'string' ? r.clientContact : ''),
+    clientContactTitle:
+      r.clientContact?.designation ||
+      (typeof r.clientContactTitle === 'string' ? r.clientContactTitle : ''),
+    skillsRequired: r.skillsRequired || '',
+    status: formatRequirementStatus(r.status),
+    resourceName: r.resourceName || submissions.find((s) => s.stage !== 'Closed')?.fullName || submissions[0]?.fullName || '',
+    submissions,
+    activePlacements,
+    assignedRecruiter:
+      r.assignedRecruiter?.fullName ||
+      r.assignedRecruiter?.name ||
+      (typeof r.assignedRecruiter === 'string' ? r.assignedRecruiter : ''),
+    targetBillRate: r.targetBillRate,
+    targetPayRate: r.targetPayRate,
+    customFields: r.customFields,
+    createdAt: safeIsoDate(r.createdAt, new Date().toISOString().split('T')[0]),
+  };
+};
 
 export const mapCandidateFromApi = (c: any): Candidate => ({
   id: c.id,

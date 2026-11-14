@@ -1,6 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { FileSpreadsheet, PenTool, Pencil, UserPlus, X } from 'lucide-react';
-import { Requirement, Candidate } from '../../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Check,
+  FileSpreadsheet,
+  PenTool,
+  Pencil,
+  Search,
+  Trash2,
+  UserPlus,
+  UsersRound,
+  X,
+} from 'lucide-react';
+import { Requirement, Candidate, RequirementSubmission } from '../../types';
 import { useCurrency } from '../../utils/currency';
 
 interface RequirementDetailModalProps {
@@ -9,11 +19,43 @@ interface RequirementDetailModalProps {
   requirement: Requirement | null;
   candidates: Candidate[];
   onAssignCandidate: (req: Requirement, candidate: Candidate) => void;
+  onAttachCandidates?: (req: Requirement, candidateIds: string[]) => Promise<void> | void;
+  onUpdateSubmissionStage?: (
+    req: Requirement,
+    submissionId: string,
+    stage: RequirementSubmission['stage']
+  ) => Promise<void> | void;
+  onDetachSubmission?: (req: Requirement, submissionId: string) => Promise<void> | void;
   onOpenResumePreview: (candidate: Candidate) => void;
-  onOpenPitchWriter: (req: Requirement) => void;
-  onOpenPlacementWizard: (req: Requirement) => void;
+  onOpenPitchWriter: (req: Requirement, candidate?: Candidate | null) => void;
+  onOpenPlacementWizard: (req: Requirement, candidate?: Candidate | null) => void;
   onUpdateReq?: (req: Requirement) => void;
 }
+
+const SUBMISSION_STAGES: RequirementSubmission['stage'][] = [
+  'Submitted',
+  'Interview',
+  'Selected',
+  'Onboarding',
+  'Closed',
+];
+
+const getSubStageClass = (stage: RequirementSubmission['stage']) => {
+  switch (stage) {
+    case 'Submitted':
+      return 'bg-blue-50 text-blue-700 border-blue-200';
+    case 'Interview':
+      return 'bg-amber-50 text-amber-700 border-amber-200';
+    case 'Selected':
+      return 'bg-purple-50 text-purple-700 border-purple-200';
+    case 'Onboarding':
+      return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    case 'Closed':
+      return 'bg-rose-50 text-rose-700 border-rose-200';
+    default:
+      return 'bg-slate-100 text-slate-700 border-slate-200';
+  }
+};
 
 export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
   isOpen,
@@ -21,6 +63,9 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
   requirement,
   candidates,
   onAssignCandidate,
+  onAttachCandidates,
+  onUpdateSubmissionStage,
+  onDetachSubmission,
   onOpenResumePreview,
   onOpenPitchWriter,
   onOpenPlacementWizard,
@@ -28,19 +73,139 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
 }) => {
   const { formatRate } = useCurrency();
   const [showBenchPicker, setShowBenchPicker] = useState(false);
+  const [benchSearch, setBenchSearch] = useState('');
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
+  const [isAttaching, setIsAttaching] = useState(false);
+  const [busySubId, setBusySubId] = useState<string | null>(null);
+  const [confirmDetachId, setConfirmDetachId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Requirement | null>(requirement);
 
   useEffect(() => {
     setEditForm(requirement);
     setIsEditing(false);
+    setShowBenchPicker(false);
+    setSelectedCandidateIds([]);
+    setBenchSearch('');
+    setConfirmDetachId(null);
+  }, [requirement?.id, isOpen]);
+
+  useEffect(() => {
+    if (isOpen && requirement) {
+      setEditForm(requirement);
+    }
   }, [requirement, isOpen]);
+
+  const submissions = useMemo<RequirementSubmission[]>(() => {
+    if (!requirement) return [];
+    if (Array.isArray(requirement.submissions) && requirement.submissions.length > 0) {
+      return requirement.submissions;
+    }
+    if (requirement.resourceName) {
+      const legacyCand = candidates.find(
+        (c) => c.fullName.toLowerCase() === requirement.resourceName!.toLowerCase()
+      );
+      return [
+        {
+          id: `legacy_${requirement.id}`,
+          candidateId: legacyCand?.id || '',
+          fullName: requirement.resourceName,
+          currentTitle: legacyCand?.currentTitle,
+          workAuth: legacyCand?.workAuth,
+          hourlyRate: legacyCand?.hourlyRate,
+          stage: requirement.status === 'Requirement' ? 'Submitted' : requirement.status,
+          candidate: legacyCand,
+        },
+      ];
+    }
+    return [];
+  }, [requirement, candidates]);
+
+  const attachedCandidateIdSet = useMemo(
+    () => new Set(submissions.map((s) => s.candidateId).filter(Boolean)),
+    [submissions]
+  );
+
+  const filteredBenchCandidates = useMemo(() => {
+    const q = benchSearch.trim().toLowerCase();
+    return candidates.filter((c) => {
+      if (!q) return true;
+      return (
+        c.fullName.toLowerCase().includes(q) ||
+        (c.currentTitle || '').toLowerCase().includes(q) ||
+        (c.skillset || '').toLowerCase().includes(q)
+      );
+    });
+  }, [candidates, benchSearch]);
 
   if (!isOpen || !requirement) return null;
 
-  const assignedCand = candidates.find(
-    (c) => c.fullName.toLowerCase() === (requirement.resourceName || '').toLowerCase()
-  );
+  const openPositions = requirement.openPositions || 1;
+  const filledPositions =
+    requirement.filledPositions ?? requirement.activePlacements?.length ?? 0;
+  const activeApplicantsCount = submissions.filter((s) => s.stage !== 'Closed').length;
+
+  const toggleCandidateSelection = (candId: string) => {
+    if (attachedCandidateIdSet.has(candId)) return;
+    setSelectedCandidateIds((prev) =>
+      prev.includes(candId) ? prev.filter((id) => id !== candId) : [...prev, candId]
+    );
+  };
+
+  const handleBatchAttach = async () => {
+    if (selectedCandidateIds.length === 0) return;
+    setIsAttaching(true);
+    try {
+      if (onAttachCandidates) {
+        await onAttachCandidates(requirement, selectedCandidateIds);
+      } else {
+        for (const id of selectedCandidateIds) {
+          const cand = candidates.find((c) => c.id === id);
+          if (cand) onAssignCandidate(requirement, cand);
+        }
+      }
+      setSelectedCandidateIds([]);
+      setShowBenchPicker(false);
+    } finally {
+      setIsAttaching(false);
+    }
+  };
+
+  const handleQuickSingleAttach = async (cand: Candidate) => {
+    if (attachedCandidateIdSet.has(cand.id)) return;
+    setIsAttaching(true);
+    try {
+      if (onAttachCandidates) {
+        await onAttachCandidates(requirement, [cand.id]);
+      } else {
+        onAssignCandidate(requirement, cand);
+      }
+      setSelectedCandidateIds((prev) => prev.filter((id) => id !== cand.id));
+    } finally {
+      setIsAttaching(false);
+    }
+  };
+
+  const resolveCandidateForSubmission = (sub: RequirementSubmission): Candidate | null => {
+    return (
+      sub.candidate ||
+      candidates.find(
+        (c) =>
+          (sub.candidateId && c.id === sub.candidateId) ||
+          c.fullName.toLowerCase() === sub.fullName.toLowerCase()
+      ) ||
+      null
+    );
+  };
+
+  const isPlacedApplicant = (sub: RequirementSubmission): boolean => {
+    const placements = requirement.activePlacements || [];
+    return placements.some(
+      (p) =>
+        (sub.candidateId && p.candidateId === sub.candidateId) ||
+        p.resourceName.trim().toLowerCase() === sub.fullName.trim().toLowerCase()
+    );
+  };
 
   const getStatusBadge = (status: Requirement['status']) => {
     switch (status) {
@@ -68,7 +233,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden flex flex-col animate-fade-in max-h-[85vh]"
+        className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col animate-fade-in max-h-[90vh]"
       >
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
@@ -152,7 +317,25 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">No. of Open Positions *</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={1000}
+                    step={1}
+                    required
+                    value={editForm.openPositions || 1}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        openPositions: Math.max(1, parseInt(e.target.value || '1', 10) || 1),
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none"
+                  />
+                </div>
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Stage</label>
                   <select
@@ -243,20 +426,49 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
             </div>
           </div>
 
-          {/* Lifecycle Stage */}
-          <div>
-            <span className="font-bold text-slate-800 text-[11px] block mb-1">Current Lifecycle Stage</span>
-            <span className={`px-2.5 py-1 rounded text-xs font-bold border inline-block ${getStatusBadge(requirement.status)}`}>
-              {requirement.status}
-            </span>
+          {/* Headcount & Lifecycle Summary */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Open Positions</span>
+              <span className="text-xs font-extrabold text-slate-900">
+                {openPositions} {openPositions === 1 ? 'Position' : 'Positions'}
+              </span>
+            </div>
+            <div className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Filled / Placed</span>
+              <span
+                className={`text-xs font-bold px-2 py-0.5 rounded-md border ${
+                  filledPositions >= openPositions
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : 'bg-white text-slate-700 border-slate-200'
+                }`}
+              >
+                {filledPositions} / {openPositions} Placed
+              </span>
+            </div>
+            <div className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Req Stage</span>
+              <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${getStatusBadge(requirement.status)}`}>
+                {requirement.status}
+              </span>
+            </div>
           </div>
 
-          {/* Submitted Candidate Section */}
-          <div className="pt-2">
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-bold text-slate-800 text-[11px]">Submitted Candidates</span>
+          {/* Multi-Applicant Roster & Submissions Section */}
+          <div className="pt-1 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <UsersRound className="w-3.5 h-3.5 text-brand-600" />
+                <span className="font-bold text-slate-800 text-[11px]">
+                  Submitted Applicants ({submissions.length})
+                </span>
+                {submissions.length > 0 && activeApplicantsCount !== submissions.length && (
+                  <span className="text-[10px] text-slate-400">({activeApplicantsCount} active)</span>
+                )}
+              </div>
               <button
-                onClick={() => setShowBenchPicker(!showBenchPicker)}
+                type="button"
+                onClick={() => setShowBenchPicker((prev) => !prev)}
                 className="text-brand-600 hover:text-brand-700 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
               >
                 {showBenchPicker ? (
@@ -266,86 +478,280 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                 )}
                 <span>
                   {showBenchPicker
-                    ? 'Cancel Selection'
-                    : requirement.resourceName
-                    ? 'Reassign from Bench'
-                    : 'Match Bench Candidate'}
+                    ? 'Close Picker'
+                    : submissions.length > 0
+                    ? 'Attach More Applicants'
+                    : 'Attach Bench Applicants'}
                 </span>
               </button>
             </div>
 
-            {/* Currently Assigned Candidate */}
-            {requirement.resourceName && !showBenchPicker && (
-              <div className="bg-white border border-slate-200 rounded-xl p-3.5 flex items-center justify-between shadow-2xs">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-full bg-brand-50 text-brand-700 border border-brand-200 flex items-center justify-center font-bold text-xs">
-                    {requirement.resourceName
-                      .split(' ')
-                      .map((n) => n[0])
-                      .join('')
-                      .slice(0, 2)
-                      .toUpperCase()}
-                  </div>
-                  <div>
-                    <span className="font-bold text-slate-900 text-xs block">{requirement.resourceName}</span>
-                    <span className="text-[10px] text-slate-400">
-                      Recruiter: {requirement.assignedRecruiter}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {assignedCand && (
-                    <button
-                      onClick={() => onOpenResumePreview(assignedCand)}
-                      className="text-xs text-brand-600 hover:text-brand-700 hover:underline font-semibold"
+            {/* Attached Applicants List */}
+            {submissions.length > 0 && (
+              <div className="space-y-2">
+                {submissions.map((sub) => {
+                  const candObj = resolveCandidateForSubmission(sub);
+                  const placed = isPlacedApplicant(sub);
+                  const isLegacy = sub.id.startsWith('legacy_');
+                  const initials = sub.fullName
+                    .split(' ')
+                    .map((n) => n[0])
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase();
+
+                  return (
+                    <div
+                      key={sub.id}
+                      className="bg-white border border-slate-200 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-2xs hover:border-slate-300 transition-colors"
                     >
-                      View Resume
-                    </button>
-                  )}
-                  <span className="text-[10px] text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded font-semibold">
-                    Client Review
-                  </span>
-                </div>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-full bg-brand-50 text-brand-700 border border-brand-200 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                          {initials}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-slate-900 text-xs truncate">{sub.fullName}</span>
+                            {sub.workAuth && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 font-medium">
+                                {sub.workAuth}
+                              </span>
+                            )}
+                            {placed && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
+                                Active Placement
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-slate-500 mt-0.5 truncate">
+                            {sub.currentTitle || 'Consultant'}
+                            {sub.hourlyRate ? ` • ${formatRate(sub.hourlyRate)}` : ''}
+                            {sub.submissionDate ? ` • Attached ${sub.submissionDate}` : ''}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        {!isLegacy && onUpdateSubmissionStage ? (
+                          <select
+                            aria-label={`Stage for ${sub.fullName}`}
+                            disabled={busySubId === sub.id}
+                            value={sub.stage}
+                            onChange={async (e) => {
+                              const nextStage = e.target.value as RequirementSubmission['stage'];
+                              setBusySubId(sub.id);
+                              try {
+                                await onUpdateSubmissionStage(requirement, sub.id, nextStage);
+                              } finally {
+                                setBusySubId(null);
+                              }
+                            }}
+                            className={`text-[10px] font-semibold px-2 py-1 rounded-md border cursor-pointer focus:outline-none ${getSubStageClass(sub.stage)}`}
+                          >
+                            {SUBMISSION_STAGES.map((st) => (
+                              <option key={st} value={st} className="bg-white text-slate-800">
+                                {st}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${getSubStageClass(sub.stage)}`}>
+                            {sub.stage}
+                          </span>
+                        )}
+
+                        {candObj && (
+                          <button
+                            type="button"
+                            onClick={() => onOpenResumePreview(candObj)}
+                            className="px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-semibold cursor-pointer"
+                          >
+                            Profile
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onClose();
+                            onOpenPitchWriter(requirement, candObj);
+                          }}
+                          className="px-2 py-1 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-semibold cursor-pointer"
+                        >
+                          Pitch
+                        </button>
+
+                        {!placed && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onClose();
+                              onOpenPlacementWizard(requirement, candObj);
+                            }}
+                            className="px-2 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-semibold cursor-pointer"
+                          >
+                            Place
+                          </button>
+                        )}
+
+                        {!isLegacy && onDetachSubmission && (
+                          confirmDetachId === sub.id ? (
+                            <div className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 rounded-md px-1.5 py-0.5">
+                              <button
+                                type="button"
+                                disabled={busySubId === sub.id}
+                                onClick={async () => {
+                                  setBusySubId(sub.id);
+                                  try {
+                                    await onDetachSubmission(requirement, sub.id);
+                                    setConfirmDetachId(null);
+                                  } finally {
+                                    setBusySubId(null);
+                                  }
+                                }}
+                                className="text-[9px] font-bold text-rose-700 hover:underline cursor-pointer"
+                              >
+                                Remove
+                              </button>
+                              <span className="text-slate-300">|</span>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDetachId(null)}
+                                className="text-[9px] text-slate-500 hover:text-slate-700 cursor-pointer"
+                              >
+                                No
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDetachId(sub.id)}
+                              title={`Detach ${sub.fullName} from requirement`}
+                              className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
-            {/* Inline Bench Consultant Picker */}
-            {(showBenchPicker || !requirement.resourceName) && (
-              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                  Select Available Bench Consultant:
+            {submissions.length === 0 && !showBenchPicker && (
+              <div className="py-4 px-3 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                No applicants attached yet. Select bench consultants below to submit to this requirement.
+              </div>
+            )}
+
+            {/* Inline Multi-Select Bench Consultant Picker */}
+            {(showBenchPicker || submissions.length === 0) && (
+              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                    Select Consultants to Attach ({candidates.length} total)
+                  </div>
+                  <div className="relative w-full sm:w-56">
+                    <Search className="w-3 h-3 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={benchSearch}
+                      onChange={(e) => setBenchSearch(e.target.value)}
+                      placeholder="Filter name, title, skill..."
+                      className="w-full pl-7 pr-2.5 py-1 text-[11px] bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-brand-600"
+                    />
+                  </div>
                 </div>
+
                 <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
-                  {candidates.length === 0 ? (
-                    <div className="py-6 text-center text-xs text-slate-400 bg-white rounded-lg border border-dashed border-slate-200">
-                      No bench consultants available to assign yet.
+                  {filteredBenchCandidates.length === 0 ? (
+                    <div className="py-5 text-center text-xs text-slate-400 bg-white rounded-lg border border-dashed border-slate-200">
+                      {candidates.length === 0
+                        ? 'No bench consultants available to assign yet.'
+                        : 'No consultants match your filter.'}
                     </div>
                   ) : (
-                    candidates.map((con) => (
-                      <div
-                        key={con.id}
-                        onClick={() => {
-                          onAssignCandidate(requirement, con);
-                          setShowBenchPicker(false);
-                        }}
-                        className="p-2.5 bg-white hover:bg-brand-50/50 rounded-lg border border-slate-200 hover:border-brand-500 cursor-pointer flex items-center justify-between transition-all group"
-                      >
-                        <div>
-                          <div className="font-bold text-slate-900 group-hover:text-brand-600 text-xs flex items-center gap-1.5">
-                            <span>{con.fullName}</span>
-                            <span className="text-[9px] font-normal text-slate-400">({con.workAuth})</span>
+                    filteredBenchCandidates.map((con) => {
+                      const alreadyAttached = attachedCandidateIdSet.has(con.id);
+                      const isChecked = alreadyAttached || selectedCandidateIds.includes(con.id);
+
+                      return (
+                        <div
+                          key={con.id}
+                          onClick={() => !alreadyAttached && toggleCandidateSelection(con.id)}
+                          className={`p-2.5 rounded-lg border flex items-center justify-between gap-2 transition-all ${
+                            alreadyAttached
+                              ? 'bg-emerald-50/40 border-emerald-200/70 opacity-75 cursor-default'
+                              : isChecked
+                              ? 'bg-brand-50/60 border-brand-500 cursor-pointer'
+                              : 'bg-white border-slate-200 hover:border-brand-400 cursor-pointer'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span
+                              className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
+                                alreadyAttached
+                                  ? 'bg-emerald-600 border-emerald-600 text-white'
+                                  : isChecked
+                                  ? 'bg-brand-600 border-brand-600 text-white'
+                                  : 'bg-white border-slate-300'
+                              }`}
+                            >
+                              {isChecked && <Check className="w-3 h-3" strokeWidth={3} />}
+                            </span>
+                            <div className="min-w-0">
+                              <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5 flex-wrap">
+                                <span className="truncate">{con.fullName}</span>
+                                <span className="text-[9px] font-normal text-slate-400">({con.workAuth})</span>
+                              </div>
+                              <div className="text-[10px] text-slate-500 mt-0.5 truncate">
+                                {con.currentTitle} &bull; {formatRate(con.hourlyRate)}
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-[10px] text-slate-500 mt-0.5">
-                            {con.currentTitle} &bull; {formatRate(con.hourlyRate)}
-                          </div>
+
+                          {alreadyAttached ? (
+                            <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px] font-semibold flex-shrink-0">
+                              Attached
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={isAttaching}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleQuickSingleAttach(con);
+                              }}
+                              className="px-2.5 py-1 rounded bg-white hover:bg-brand-600 text-brand-700 hover:text-white border border-brand-200 text-[10px] font-semibold transition-colors flex-shrink-0 cursor-pointer"
+                            >
+                              Quick Attach
+                            </button>
+                          )}
                         </div>
-                        <button className="px-2.5 py-1 rounded bg-brand-600 text-white text-[10px] font-semibold group-hover:bg-brand-700 transition-colors shadow-2xs">
-                          Assign & Submit
-                        </button>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
+
+                {selectedCandidateIds.length > 0 && (
+                  <div className="pt-2 border-t border-slate-200 flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-semibold text-slate-700">
+                      {selectedCandidateIds.length} consultant{selectedCandidateIds.length === 1 ? '' : 's'} selected
+                    </span>
+                    <button
+                      type="button"
+                      disabled={isAttaching}
+                      onClick={handleBatchAttach}
+                      className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-[11px] font-semibold shadow-2xs transition-colors cursor-pointer"
+                    >
+                      {isAttaching
+                        ? 'Attaching...'
+                        : `Attach ${selectedCandidateIds.length} Applicant${selectedCandidateIds.length === 1 ? '' : 's'}`}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -357,18 +763,23 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
             <button
               onClick={() => {
                 onClose();
-                onOpenPitchWriter(requirement);
+                onOpenPitchWriter(requirement, null);
               }}
               className="text-brand-600 font-semibold hover:text-brand-700 flex items-center gap-1.5 cursor-pointer"
             >
               <PenTool className="w-3.5 h-3.5" />
               <span>Compose Pitch</span>
             </button>
-            {requirement.resourceName && (
+            {submissions.length > 0 && (
               <button
                 onClick={() => {
+                  const firstCandidate = resolveCandidateForSubmission(
+                    submissions.find((s) => s.stage === 'Selected') ||
+                      submissions.find((s) => s.stage !== 'Closed') ||
+                      submissions[0]
+                  );
                   onClose();
-                  onOpenPlacementWizard(requirement);
+                  onOpenPlacementWizard(requirement, firstCandidate);
                 }}
                 className="text-emerald-700 font-semibold hover:text-emerald-800 flex items-center gap-1.5 cursor-pointer"
               >

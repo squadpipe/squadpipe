@@ -121,7 +121,7 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden flex flex-col animate-fade-in max-h-[92vh]"
+        className="bg-white rounded-xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col animate-fade-in max-h-[92vh]"
       >
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
@@ -288,8 +288,12 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
                   className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600"
                 >
                   <option value="Available / Bench">Available / Bench</option>
-                  <option value="Submitted">Submitted to Client</option>
-                  <option value="Interview">Interview Scheduled</option>
+                  <option value="Submitted">Submitted</option>
+                  <option value="Interview">Interview</option>
+                  <option value="Selected">Selected</option>
+                  <option value="Onboarding">Onboarding</option>
+                  <option value="Billable">Billable</option>
+                  <option value="Archived">Archived</option>
                 </select>
               </div>
             </div>

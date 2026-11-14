@@ -15,6 +15,7 @@ import {
 import { apiClient } from '../../config/api.config';
 import { Candidate } from '../../types';
 import { useCurrency } from '../../utils/currency';
+import { getWorkspaceBrandSlug, useWorkspaceBrand } from '../../utils/workspaceBrand';
 import { ModalPortal } from '../../components/shared/ModalPortal';
 
 interface ImportDataViewProps {
@@ -23,8 +24,6 @@ interface ImportDataViewProps {
   onNavigate?: (view: string) => void;
   showToast: (title: string, message: string, icon?: string) => void;
 }
-
-const SAMPLE_CSV_FILENAME = 'TalentOS_Sample_Candidates_Template.csv';
 
 const SAMPLE_CSV_HEADERS = [
   'Candidate_Name',
@@ -82,6 +81,8 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
   showToast,
 }) => {
   const { symbol: currencySymbol } = useCurrency();
+  const brand = useWorkspaceBrand();
+  const brandName = (brand.agencyName || brand.legalEntityName || 'Workspace').trim();
   const [showMigrationModal, setShowMigrationModal] = useState(false);
   const [migrationStep, setMigrationStep] = useState<1 | 2 | 3>(1);
   const [showCsvImportModal, setShowCsvImportModal] = useState(false);
@@ -149,15 +150,16 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
+    const sampleCsvFilename = `${getWorkspaceBrandSlug()}_Sample_Candidates_Template.csv`;
     link.href = url;
-    link.download = SAMPLE_CSV_FILENAME;
+    link.download = sampleCsvFilename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     showToast(
       'Sample CSV Downloaded',
-      `Downloaded ${SAMPLE_CSV_FILENAME} template with 3 formatted sample candidates.`,
+      `Downloaded ${sampleCsvFilename} template with 3 formatted sample candidates.`,
       'fa-solid fa-file-csv text-emerald-500'
     );
   };
@@ -288,7 +290,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
       <div>
         <h2 className="text-lg font-bold text-slate-900 tracking-tight">Data Import &amp; Legacy Migration</h2>
         <p className="text-xs text-slate-500 mt-0.5">
-          Migrate legacy Excel sheets, Google Sheets, and candidate resume folders into TalentOS CRM.
+          Migrate legacy Excel sheets, Google Sheets, and candidate resume folders into {brandName} CRM.
         </p>
       </div>
 
@@ -447,7 +449,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
               {migrationStep === 2 && (
                 <div className="space-y-4">
                   <div className="font-semibold text-slate-800 text-xs">
-                    Verify Column Mapping from Excel to TalentOS CRM:
+                    Verify Column Mapping from Excel to {brandName} CRM:
                   </div>
                   <table className="w-full text-left text-xs border border-slate-200 rounded-lg overflow-hidden">
                     <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-semibold text-slate-600 uppercase">

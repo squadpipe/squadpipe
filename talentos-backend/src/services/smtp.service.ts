@@ -1,4 +1,4 @@
-import { createDynamicSmtpTransporter, getTenantSettings } from '../config/smtp.config';
+import { createDynamicSmtpTransporter, getTenantSettings, isSmtpConfigured } from '../config/smtp.config';
 import { prisma } from '../config/prisma.config';
 import { EmailStatus } from '@prisma/client';
 
@@ -15,7 +15,7 @@ export class SmtpService {
   async sendMail(options: SendMailOptions) {
     const { to, recipientName, subject, html, text, tenantId } = options;
     const resolvedTenantId = tenantId || 'talentos-agency';
-    const { smtp } = await getTenantSettings(resolvedTenantId);
+    const { general, smtp } = await getTenantSettings(resolvedTenantId);
 
     // Create log record as PENDING
     const log = await prisma.emailLog.create({
@@ -29,10 +29,10 @@ export class SmtpService {
       },
     });
 
-    if (!smtp.enabled || !smtp.host?.trim() || !smtp.username?.trim() || !smtp.password || !smtp.fromEmail?.trim()) {
+    if (!isSmtpConfigured(smtp)) {
       const msg = !smtp.enabled
-        ? 'Outbound SMTP is currently paused in Email Setup (SMTP).'
-        : 'SMTP is not configured. Please enter your SMTP credentials in Settings -> Email Setup (SMTP).';
+        ? 'Email dispatch is paused. Please enable Outbound SMTP in Settings → Email Setup (SMTP) to dispatch emails.'
+        : 'Email (SMTP) is not configured. Please configure your SMTP settings in Settings → Email Setup (SMTP) to dispatch emails.';
 
       await prisma.emailLog.update({
         where: { id: log.id },
@@ -42,10 +42,14 @@ export class SmtpService {
         },
       });
 
-      return { success: false, error: msg };
+      return { success: false, configured: false, code: 'SMTP_NOT_CONFIGURED', error: msg };
     }
 
-    const fromName = smtp.fromName?.trim() || 'TalentOS Recruitment Desk';
+    const brandName = (general.agencyName || general.legalEntityName || 'Workspace').trim();
+    const fromName =
+      smtp.fromName?.trim() && smtp.fromName.trim() !== 'TalentOS Recruitment Desk'
+        ? smtp.fromName.trim()
+        : `${brandName} Recruitment Desk`;
     const fromEmail = smtp.fromEmail.trim();
     const replyTo = smtp.replyToEmail?.trim() || fromEmail;
 

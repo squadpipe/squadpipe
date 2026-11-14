@@ -54,12 +54,26 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      const reqSubCandIds = new Set(
+        (requirement?.submissions || []).map((s) => s.candidateId).filter(Boolean)
+      );
+      const preferredSub =
+        requirement?.submissions?.find((s) => s.stage === 'Selected') ||
+        requirement?.submissions?.find((s) => s.stage !== 'Closed') ||
+        requirement?.submissions?.[0];
+
       const matchedCandidate =
         candidate ||
+        (preferredSub?.candidateId
+          ? candidates.find((c) => c.id === preferredSub.candidateId)
+          : undefined) ||
+        preferredSub?.candidate ||
         candidates.find(
           (c) =>
-            requirement?.resourceName &&
-            c.fullName.trim().toLowerCase() === requirement.resourceName.trim().toLowerCase()
+            (preferredSub?.fullName &&
+              c.fullName.trim().toLowerCase() === preferredSub.fullName.trim().toLowerCase()) ||
+            (requirement?.resourceName &&
+              c.fullName.trim().toLowerCase() === requirement.resourceName.trim().toLowerCase())
         ) ||
         null;
 
@@ -68,12 +82,12 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
         (matchedCandidate?.hourlyRate ? parseNum(matchedCandidate.hourlyRate, 0) : 0);
 
       setFormData({
-        candidateId: matchedCandidate?.id || '',
-        resourceName: matchedCandidate?.fullName || requirement?.resourceName || '',
+        candidateId: matchedCandidate?.id || (reqSubCandIds.size === 1 ? Array.from(reqSubCandIds)[0] : ''),
+        resourceName: matchedCandidate?.fullName || preferredSub?.fullName || requirement?.resourceName || '',
         customer: requirement?.companyName || '',
         customerContact: getContactStr(requirement?.clientContact),
-        phone: matchedCandidate?.phone || '',
-        email: matchedCandidate?.email || '',
+        phone: matchedCandidate?.phone || preferredSub?.phone || '',
+        email: matchedCandidate?.email || preferredSub?.email || '',
         skillRole: requirement?.opportunityTitle || matchedCandidate?.currentTitle || '',
         deployment: 'Onshore',
         startDate: new Date().toISOString().split('T')[0],
@@ -161,7 +175,7 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl max-w-3xl w-full border border-slate-200 card-shadow overflow-hidden flex flex-col max-h-[90vh]"
+        className="bg-white rounded-2xl max-w-4xl w-full border border-slate-200 card-shadow overflow-hidden flex flex-col max-h-[90vh]"
       >
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
@@ -187,23 +201,63 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
         <div className="p-6 overflow-y-auto space-y-5">
           {/* Select Consultant Dropdown */}
           {candidates.length > 0 && (
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5">
-              <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                <UserCheck className="w-3.5 h-3.5 text-brand-600" />
-                <span>Select / Switch Placed Consultant</span>
-              </label>
-              <select
-                value={formData.candidateId}
-                onChange={(e) => handleSelectCandidate(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 cursor-pointer focus:border-brand-600 focus:outline-none"
-              >
-                <option value="">-- Choose consultant from roster (optional) --</option>
-                {candidates.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.fullName} — {c.currentTitle} ({c.pipelineStage})
-                  </option>
-                ))}
-              </select>
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                  <UserCheck className="w-3.5 h-3.5 text-brand-600" />
+                  <span>Select / Switch Placed Consultant</span>
+                </label>
+                {requirement && (
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                      (requirement.filledPositions ?? requirement.activePlacements?.length ?? 0) >=
+                      (requirement.openPositions || 1)
+                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                    }`}
+                  >
+                    Positions: {requirement.filledPositions ?? requirement.activePlacements?.length ?? 0} /{' '}
+                    {requirement.openPositions || 1} Filled
+                  </span>
+                )}
+              </div>
+              {(() => {
+                const attachedIds = new Set(
+                  (requirement?.submissions || []).map((s) => s.candidateId).filter(Boolean)
+                );
+                const subStageByCandId = new Map(
+                  (requirement?.submissions || []).map((s) => [s.candidateId, s.stage])
+                );
+                const attachedCandidates = candidates.filter((c) => attachedIds.has(c.id));
+                const otherCandidates = candidates.filter((c) => !attachedIds.has(c.id));
+                return (
+                  <select
+                    value={formData.candidateId}
+                    onChange={(e) => handleSelectCandidate(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 cursor-pointer focus:border-brand-600 focus:outline-none"
+                  >
+                    <option value="">-- Choose consultant from roster (optional) --</option>
+                    {attachedCandidates.length > 0 && (
+                      <optgroup label={`Attached Applicants for ${requirement?.code || 'Requirement'}`}>
+                        {attachedCandidates.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.fullName} — {c.currentTitle} ({subStageByCandId.get(c.id) || c.pipelineStage})
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {otherCandidates.length > 0 && (
+                      <optgroup label={attachedCandidates.length > 0 ? 'Other Roster Consultants' : 'All Consultants'}>
+                        {otherCandidates.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.fullName} — {c.currentTitle} ({c.pipelineStage})
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                );
+              })()}
             </div>
           )}
 

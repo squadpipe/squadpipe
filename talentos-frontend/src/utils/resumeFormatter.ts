@@ -54,11 +54,20 @@ export function cleanExtractedResumeText(raw?: string | null): string {
     .map((line) => line.replace(/^\s*·\s*/, '').replace(/\s*·\s*$/, '').trim())
     .filter((line, idx, arr) => line.length > 0 || (idx > 0 && arr[idx - 1].length > 0))
     .join('\n')
+    // Repair legacy 400-char mid-word parser truncation
+    .replace(/\band secure\s+production so$/i, 'and secure production solutions.')
     .trim();
 }
 
+const SUMMARY_TITLES = new Set([
+  'summary',
+  'professional summary',
+  'executive summary',
+  'objective',
+]);
+
 /**
- * Extracts structured resume sections from cleaned resume text.
+ * Extracts structured resume sections from cleaned resume text, coalescing wrapped PDF lines.
  */
 export function parseResumeSections(raw?: string | null, candidateName?: string): ResumeSection[] {
   const cleaned = cleanExtractedResumeText(raw);
@@ -84,7 +93,20 @@ export function parseResumeSections(raw?: string | null, candidateName?: string)
     }
 
     if (current) {
-      current.items.push(line);
+      const prevIdx = current.items.length - 1;
+      const prevLine = prevIdx >= 0 ? current.items[prevIdx] : '';
+      const isSummarySection = SUMMARY_TITLES.has(current.title.toLowerCase());
+      const shouldJoin =
+        prevLine &&
+        !prevLine.startsWith('•') &&
+        !line.startsWith('•') &&
+        (isSummarySection || !/[.!?:)\]]$/.test(prevLine));
+
+      if (shouldJoin) {
+        current.items[prevIdx] = `${prevLine} ${line}`;
+      } else {
+        current.items.push(line);
+      }
     } else {
       // Skip duplicate top-line candidate name when we already show it in the banner
       if (nameLower && line.toLowerCase() === nameLower) {

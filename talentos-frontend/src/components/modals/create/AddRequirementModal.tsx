@@ -8,7 +8,7 @@ import { SearchableSelectInput } from '../../shared/SearchableSelectInput';
 interface AddRequirementModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (req: Requirement) => void;
+  onSave: (req: Requirement) => Promise<void> | void;
   clients: Client[];
   users?: User[];
   showToast: (title: string, message: string, icon?: string) => void;
@@ -25,8 +25,10 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
   const { symbol: currencySymbol } = useCurrency();
   const taxonomies = useMasterTaxonomies(isOpen);
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
   const getInitialForm = () => ({
     opportunityTitle: '',
+    openPositions: '' as string,
     companyName: clients[0]?.name || '',
     clientContact: clients[0]?.contacts[0]?.name || '',
     clientContactTitle: clients[0]?.contacts[0]?.designation || '',
@@ -43,15 +45,23 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
     if (isOpen) {
       setForm(getInitialForm());
       setCustomValues({});
+      setIsSaving(false);
     }
   }, [currencySymbol, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.opportunityTitle.trim() || !form.companyName.trim()) {
       showToast('Validation Error', 'Role Title and Client Company are required.', 'fa-solid fa-triangle-exclamation text-amber-500');
+      return;
+    }
+
+    const openPosStr = String(form.openPositions || '').trim();
+    const openPosNum = Number(openPosStr);
+    if (!openPosStr || !/^\d+$/.test(openPosStr) || !Number.isInteger(openPosNum) || openPosNum < 1 || openPosNum > 1000) {
+      showToast('Validation Error', 'No. of Open Positions is required and must be a whole number (minimum 1).', 'fa-solid fa-triangle-exclamation text-amber-500');
       return;
     }
 
@@ -62,6 +72,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
       id: 'req_' + Date.now(),
       code: nextCode,
       opportunityTitle: form.opportunityTitle.trim(),
+      openPositions: openPosNum,
       companyName: form.companyName.trim(),
       clientContact: form.clientContact.trim() || 'Primary Hiring Lead',
       clientContactTitle: form.clientContactTitle.trim() || 'Engineering Director',
@@ -74,11 +85,22 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
       customFields: customValues,
     };
 
-    onSave(newReq);
-    setForm(getInitialForm());
-    setCustomValues({});
-    showToast('Requirement Created', `${newReq.code} (${newReq.opportunityTitle}) added to pipeline!`, 'fa-solid fa-circle-check text-blue-500');
-    onClose();
+    setIsSaving(true);
+    try {
+      await onSave(newReq);
+      setForm(getInitialForm());
+      setCustomValues({});
+      showToast('Requirement Created', `${newReq.opportunityTitle} (${openPosNum} open ${openPosNum === 1 ? 'position' : 'positions'}) added to pipeline!`, 'fa-solid fa-circle-check text-blue-500');
+      onClose();
+    } catch (err: any) {
+      showToast(
+        'Save Failed',
+        err?.response?.data?.message || err?.message || 'Could not create requirement.',
+        'fa-solid fa-triangle-exclamation text-rose-500'
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -88,7 +110,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden flex flex-col animate-fade-in max-h-[92vh]"
+        className="bg-white rounded-xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col animate-fade-in max-h-[92vh]"
       >
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
@@ -178,7 +200,21 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">No. of Open Positions *</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={1000}
+                  step={1}
+                  value={form.openPositions}
+                  onChange={(e) => setForm({ ...form, openPositions: e.target.value })}
+                  placeholder="e.g. 2"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600 focus:outline-none"
+                  required
+                />
+              </div>
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Work Location & Mode *</label>
                 <input
@@ -274,10 +310,11 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              disabled={isSaving}
+              className="px-5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-60 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
-              <span>Create Requirement & Add to Pipeline</span>
+              <span>{isSaving ? 'Creating...' : 'Create Requirement & Add to Pipeline'}</span>
             </button>
           </div>
         </form>

@@ -3,6 +3,7 @@ import { UserStatus, UserRole, Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { smtpService } from './smtp.service';
+import { getTenantSettings } from '../config/smtp.config';
 import { escapeHtml } from '../utils/cryptoSecret';
 
 export interface UserFilterParams {
@@ -142,7 +143,9 @@ export class UserService {
     const tempPasswordHash = await bcrypt.hash(temporaryRandomSecret, 12);
     const setupCode = crypto.randomInt(100000, 1000000).toString();
     const resolvedName = (data.fullName || data.name || 'Team Member').trim();
-    const resolvedAgencyName = agencyName || 'TalentOS Staffing';
+    const settings = await getTenantSettings(tenantId);
+    const resolvedAgencyName =
+      settings.general.agencyName?.trim() || agencyName || 'TalentOS Staffing';
     const roleUpper = String(data.role || 'TECHNICAL_RECRUITER').toUpperCase().replace(/[\s-]/g, '_');
     const validRole = Object.values(UserRole).includes(roleUpper as UserRole)
       ? (roleUpper as UserRole)
@@ -189,7 +192,7 @@ export class UserService {
       .sendMail({
         to: normalizedEmail,
         recipientName: resolvedName,
-        subject: `You're invited to ${resolvedAgencyName} on TalentOS`,
+        subject: `You're invited to ${resolvedAgencyName}`,
         html: `
           <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.6; color: #1e293b;">
             <p>Hello ${escapeHtml(resolvedName)},</p>

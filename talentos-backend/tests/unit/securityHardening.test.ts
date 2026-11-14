@@ -9,8 +9,11 @@ import {
 import {
   DEFAULT_SMTP_SETTINGS,
   MASKED_SECRET_PLACEHOLDER,
+  isSmtpConfigured,
   redactSmtpSettings,
 } from '../../src/config/smtp.config';
+import { DEFAULT_TAXONOMIES } from '../../src/config/taxonomies.config';
+import { MasterTaxonomyCategory } from '@prisma/client';
 import { getAllowedCorsOrigins } from '../../src/middlewares/security.middleware';
 import { sanitizeErrorMessage, sanitizeThrownError } from '../../src/utils/errorSanitizer';
 import {
@@ -89,17 +92,43 @@ export const runSecurityHardeningTests = () => {
     }
   );
 
-  // 3. SMTP password redaction
+  // 3. SMTP password redaction & configuration check
   const redactedSet = redactSmtpSettings({
     ...DEFAULT_SMTP_SETTINGS,
     password: 'my-real-smtp-password',
   });
   assert.equal(redactedSet.password, MASKED_SECRET_PLACEHOLDER);
   assert.equal(redactedSet.hasPassword, true);
+  assert.equal(redactedSet.configured, false);
 
   const redactedEmpty = redactSmtpSettings({ ...DEFAULT_SMTP_SETTINGS, password: '' });
   assert.equal(redactedEmpty.password, '');
   assert.equal(redactedEmpty.hasPassword, false);
+  assert.equal(redactedEmpty.configured, false);
+
+  assert.equal(isSmtpConfigured(DEFAULT_SMTP_SETTINGS), false);
+  assert.equal(
+    isSmtpConfigured({
+      ...DEFAULT_SMTP_SETTINGS,
+      enabled: true,
+      host: 'smtp.gmail.com',
+      username: 'recruiting@acme.com',
+      password: 'app-password',
+      fromEmail: 'recruiting@acme.com',
+    }),
+    true
+  );
+  assert.equal(
+    isSmtpConfigured({
+      ...DEFAULT_SMTP_SETTINGS,
+      enabled: false,
+      host: 'smtp.gmail.com',
+      username: 'recruiting@acme.com',
+      password: 'app-password',
+      fromEmail: 'recruiting@acme.com',
+    }),
+    false
+  );
 
   // 4. Email HTML escaping & XSS sanitization
   assert.equal(
@@ -141,6 +170,13 @@ export const runSecurityHardeningTests = () => {
   const keyB = buildUniqueCvObjectKey('tenant-acme', 'John Doe Resume.pdf', 'application/pdf');
   assert.ok(keyA.objectKey.startsWith('tenants/tenant-acme/cvs/'));
   assert.notEqual(keyA.objectKey, keyB.objectKey, 'Successive uploads must have unique keys');
+
+  // 8. Default taxonomy STAGES include Billable and Archived
+  const defaultStageOptions = DEFAULT_TAXONOMIES
+    .filter((item) => item.category === MasterTaxonomyCategory.STAGES)
+    .map((item) => item.optionValue);
+  assert.ok(defaultStageOptions.includes('Billable'), 'Default STAGES taxonomy must include Billable');
+  assert.ok(defaultStageOptions.includes('Archived'), 'Default STAGES taxonomy must include Archived');
 
   console.log('✅ Security, Encryption, CORS & Storage Hardening: PASSED');
 };

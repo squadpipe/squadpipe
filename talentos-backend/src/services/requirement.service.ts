@@ -26,6 +26,65 @@ export const requirementStatusMap: Record<string, RequirementStatus> = {
   'CLOSED': RequirementStatus.CLOSED,
 };
 
+export const REQUIREMENT_INCLUDE = {
+  client: true,
+  clientContact: true,
+  assignedRecruiter: {
+    select: { id: true, fullName: true, role: true, desk: true },
+  },
+  submissions: {
+    include: { candidate: true },
+    orderBy: { createdAt: 'desc' as const },
+  },
+  placements: {
+    where: {
+      status: { notIn: ['TERMINATED' as const, 'COMPLETED' as const] },
+    },
+    select: {
+      id: true,
+      candidateId: true,
+      resourceName: true,
+      status: true,
+    },
+    orderBy: { createdAt: 'desc' as const },
+  },
+};
+
+/**
+ * Validates and normalizes `openPositions` as a whole integer >= 1 (capped at 1000).
+ * Throws an HTTP 400 error if missing or invalid.
+ */
+export function parseOpenPositions(value: unknown): number {
+  const createHttpError = (msg: string) => {
+    const err: any = new Error(msg);
+    err.statusCode = 400;
+    return err;
+  };
+
+  if (value === undefined || value === null || (typeof value === 'string' && value.trim() === '')) {
+    throw createHttpError('Number of open positions is required and must be a whole number >= 1');
+  }
+
+  let parsed: number;
+  if (typeof value === 'number') {
+    parsed = value;
+  } else if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!/^-?\d+$/.test(trimmed)) {
+      throw createHttpError('Number of open positions must be a whole number >= 1');
+    }
+    parsed = Number(trimmed);
+  } else {
+    throw createHttpError('Number of open positions must be a whole number >= 1');
+  }
+
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 1000) {
+    throw createHttpError('Number of open positions must be a whole number between 1 and 1000');
+  }
+
+  return parsed;
+}
+
 export class RequirementService {
   private buildWhereClause(params: RequirementFilterParams): Prisma.RequirementWhereInput {
     const { search, status, tenantId } = params;
@@ -58,17 +117,7 @@ export class RequirementService {
     const where = this.buildWhereClause(params);
     return prisma.requirement.findMany({
       where,
-      include: {
-        client: true,
-        clientContact: true,
-        assignedRecruiter: {
-          select: { id: true, fullName: true, role: true, desk: true }
-        },
-        submissions: {
-          include: { candidate: true },
-          orderBy: { createdAt: 'desc' }
-        }
-      },
+      include: REQUIREMENT_INCLUDE,
       orderBy: { createdAt: 'desc' }
     });
   }
@@ -79,22 +128,10 @@ export class RequirementService {
     const page = params.page ? Math.max(1, params.page) : 1;
     const limit = params.limit ? Math.max(1, Math.min(100, params.limit)) : 10;
 
-    const include = {
-      client: true,
-      clientContact: true,
-      assignedRecruiter: {
-        select: { id: true, fullName: true, role: true, desk: true }
-      },
-      submissions: {
-        include: { candidate: true },
-        orderBy: { createdAt: 'desc' as const }
-      }
-    };
-
     if (!hasPagination) {
       const data = await prisma.requirement.findMany({
         where,
-        include,
+        include: REQUIREMENT_INCLUDE,
         orderBy: { createdAt: 'desc' }
       });
       return {
@@ -112,7 +149,7 @@ export class RequirementService {
       prisma.requirement.count({ where }),
       prisma.requirement.findMany({
         where,
-        include,
+        include: REQUIREMENT_INCLUDE,
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit
@@ -133,12 +170,7 @@ export class RequirementService {
   async getRequirementById(id: string, tenantId?: string) {
     const req = await prisma.requirement.findUnique({
       where: { id },
-      include: {
-        client: true,
-        clientContact: true,
-        assignedRecruiter: true,
-        submissions: { include: { candidate: true } }
-      }
+      include: REQUIREMENT_INCLUDE
     });
 
     if (req && tenantId && req.tenantId !== tenantId) {
@@ -148,6 +180,7 @@ export class RequirementService {
   }
 
   async createRequirement(raw: any, tenantId: string = 'talentos-agency', recruiterId?: string) {
+    const openPositions = parseOpenPositions(raw.openPositions);
     const count = await prisma.requirement.count({ where: { tenantId } });
     const code = raw.code || `REQ-${1000 + count + 1}`;
 
@@ -254,6 +287,7 @@ export class RequirementService {
         tenantId,
         code,
         opportunityTitle: raw.opportunityTitle?.trim() || 'Software Engineer Requisition',
+        openPositions,
         companyName: raw.companyName?.trim() || 'Partner Enterprise',
         clientId: resolvedClientId,
         clientContactId: resolvedContactId,
@@ -265,19 +299,10 @@ export class RequirementService {
         status: mappedStatus,
         rawEmailText: raw.rawEmailText || null,
         missingNotes: raw.missingNotes || null,
+        customFields: raw.customFields ?? {},
         assignedRecruiterId: resolvedRecruiterId
       },
-      include: {
-        client: true,
-        clientContact: true,
-        assignedRecruiter: {
-          select: { id: true, fullName: true, role: true, desk: true }
-        },
-        submissions: {
-          include: { candidate: true },
-          orderBy: { createdAt: 'desc' }
-        }
-      }
+      include: REQUIREMENT_INCLUDE
     });
 
     try {
@@ -297,9 +322,11 @@ export class RequirementService {
 
     const data: Prisma.RequirementUpdateInput = {};
     if (raw.opportunityTitle !== undefined) data.opportunityTitle = String(raw.opportunityTitle).trim();
+    if (raw.openPositions !== undefined) data.openPositions = parseOpenPositions(raw.openPositions);
     if (raw.companyName !== undefined) data.companyName = String(raw.companyName).trim();
     if (raw.location !== undefined) data.location = String(raw.location).trim();
     if (raw.skillsRequired !== undefined) data.skillsRequired = String(raw.skillsRequired).trim();
+    if (raw.customFields !== undefined) data.customFields = raw.customFields ?? {};
     if (raw.status !== undefined) {
       data.status = requirementStatusMap[raw.status] || (raw.status as RequirementStatus);
     }
@@ -345,17 +372,7 @@ export class RequirementService {
     return prisma.requirement.update({
       where: { id },
       data,
-      include: {
-        client: true,
-        clientContact: true,
-        assignedRecruiter: {
-          select: { id: true, fullName: true, role: true, desk: true }
-        },
-        submissions: {
-          include: { candidate: true },
-          orderBy: { createdAt: 'desc' }
-        }
-      }
+      include: REQUIREMENT_INCLUDE
     });
   }
 
@@ -369,7 +386,8 @@ export class RequirementService {
     const status = requirementStatusMap[statusInput] || (statusInput as RequirementStatus);
     const updated = await prisma.requirement.update({
       where: { id },
-      data: { status }
+      data: { status },
+      include: REQUIREMENT_INCLUDE
     });
 
     // Automated placement creation when moving to ONBOARDING
