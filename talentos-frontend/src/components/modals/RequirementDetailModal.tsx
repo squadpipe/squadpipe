@@ -13,7 +13,7 @@ import { apiClient } from '../../config/api.config';
 import { Requirement, Candidate, RequirementSubmission } from '../../types';
 import { useCurrency } from '../../utils/currency';
 import { useDebounce } from '../../utils/useDebounce';
-import { mapCandidateFromApi } from '../../utils/entityMappers';
+import { mapCandidateFromApi, mapRequirementFromApi } from '../../utils/entityMappers';
 
 interface RequirementDetailModalProps {
   isOpen: boolean;
@@ -91,6 +91,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
   const [totalBenchCount, setTotalBenchCount] = useState<number>(candidates.length);
   const [editOpenPositions, setEditOpenPositions] = useState<string>('1');
   const [editOpenPosError, setEditOpenPosError] = useState<string>('');
+  const [hydratedReq, setHydratedReq] = useState<Requirement | null>(null);
   const [benchPage, setBenchPage] = useState<number>(1);
   const [hasMoreBench, setHasMoreBench] = useState<boolean>(candidates.length > BENCH_PAGE_SIZE);
   const [isLoadingBench, setIsLoadingBench] = useState<boolean>(false);
@@ -120,35 +121,60 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
   }, [requirement?.id, isOpen]);
 
   useEffect(() => {
+    setHydratedReq(null);
+    if (!isOpen || !requirement?.id) return;
+    if ((!requirement.submissions || requirement.submissions.length === 0) && (requirement.submissionCount ?? 0) > 0) {
+      let active = true;
+      apiClient
+        .get(`/requirements/${requirement.id}`)
+        .then((res) => {
+          if (active && res.data?.success && res.data.data) {
+            setHydratedReq(mapRequirementFromApi(res.data.data));
+          }
+        })
+        .catch(() => {});
+      return () => {
+        active = false;
+      };
+    }
+  }, [requirement?.id, isOpen]);
+
+  useEffect(() => {
     if (isOpen && requirement) {
       setEditForm(requirement);
+      if (Array.isArray(requirement.submissions) && requirement.submissions.length > 0) {
+        setHydratedReq(null);
+      }
     }
   }, [requirement, isOpen]);
 
+  const effectiveRequirement =
+    hydratedReq && requirement && hydratedReq.id === requirement.id ? hydratedReq : requirement;
+
   const submissions = useMemo<RequirementSubmission[]>(() => {
-    if (!requirement) return [];
-    if (Array.isArray(requirement.submissions) && requirement.submissions.length > 0) {
-      return requirement.submissions;
+    if (!effectiveRequirement) return [];
+    if (Array.isArray(effectiveRequirement.submissions) && effectiveRequirement.submissions.length > 0) {
+      return effectiveRequirement.submissions;
     }
-    if (requirement.resourceName) {
+    if (effectiveRequirement.resourceName) {
       const legacyCand = candidates.find(
-        (c) => c.fullName.toLowerCase() === requirement.resourceName!.toLowerCase()
+        (c) => c.fullName.toLowerCase() === effectiveRequirement.resourceName!.toLowerCase()
       );
       return [
         {
-          id: `legacy_${requirement.id}`,
+          id: `legacy_${effectiveRequirement.id}`,
           candidateId: legacyCand?.id || '',
-          fullName: requirement.resourceName,
+          fullName: effectiveRequirement.resourceName,
           currentTitle: legacyCand?.currentTitle,
           workAuth: legacyCand?.workAuth,
           hourlyRate: legacyCand?.hourlyRate,
-          stage: requirement.status === 'Requirement' ? 'Submitted' : requirement.status,
+          stage: effectiveRequirement.status === 'Requirement' ? 'Submitted' : effectiveRequirement.status,
           candidate: legacyCand,
         },
       ];
     }
     return [];
-  }, [requirement, candidates]);
+  }, [effectiveRequirement, candidates]);
 
   const attachedCandidateIdSet = useMemo(
     () => new Set(submissions.map((s) => s.candidateId).filter(Boolean)),

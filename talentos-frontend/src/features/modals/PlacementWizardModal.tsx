@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { DollarSign, Lock, X, UserCheck } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Check, ChevronDown, DollarSign, Lock, Search, X, UserCheck } from 'lucide-react';
 import { BillablePlacement, Requirement, Candidate, Vendor } from '../../types';
 import { useCurrency } from '../../utils/currency';
 import { SearchableSelectInput } from '../../components/shared/SearchableSelectInput';
@@ -27,6 +27,9 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
 }) => {
   const { symbol: currencySymbol } = useCurrency();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [consultantMenuOpen, setConsultantMenuOpen] = useState(false);
+  const [consultantSearch, setConsultantSearch] = useState('');
+  const consultantMenuRef = useRef<HTMLDivElement | null>(null);
   const openPositions = requirement?.openPositions || 1;
   const filledPositions = requirement
     ? (requirement.filledPositions ?? requirement.activePlacements?.length ?? 0)
@@ -108,6 +111,24 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
     }
   }, [isOpen, candidate, requirement, candidates]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      setConsultantMenuOpen(false);
+      setConsultantSearch('');
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!consultantMenuOpen) return;
+    const onOutside = (e: MouseEvent) => {
+      if (consultantMenuRef.current && !consultantMenuRef.current.contains(e.target as Node)) {
+        setConsultantMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onOutside);
+    return () => document.removeEventListener('mousedown', onOutside);
+  }, [consultantMenuOpen]);
+
   if (!isOpen) return null;
 
   const bill = Number(formData.billRate) || 0;
@@ -116,8 +137,8 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
   const marginPct = bill > 0 ? ((spread / bill) * 100).toFixed(1) : '0.0';
   const monthlyGrossProfit = Math.round(spread * 160).toLocaleString();
 
-  const handleSelectCandidate = (candidateId: string) => {
-    const sel = candidates.find((c) => c.id === candidateId);
+  const handleSelectCandidate = (candidateId: string, fallbackCandidate?: Candidate | null) => {
+    const sel = candidates.find((c) => c.id === candidateId) || fallbackCandidate || null;
     if (!sel) {
       setFormData((prev) => ({ ...prev, candidateId: '' }));
       return;
@@ -243,40 +264,166 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
                 )}
               </div>
               {(() => {
-                const attachedIds = new Set(
-                  (requirement?.submissions || []).map((s) => s.candidateId).filter(Boolean)
+                const placedIds = new Set(
+                  (requirement?.activePlacements || []).map((p) => p.candidateId).filter(Boolean)
                 );
-                const subStageByCandId = new Map(
-                  (requirement?.submissions || []).map((s) => [s.candidateId, s.stage])
+                const placedNames = new Set(
+                  (requirement?.activePlacements || []).map((p) => p.resourceName.trim().toLowerCase())
                 );
-                const attachedCandidates = candidates.filter((c) => attachedIds.has(c.id));
-                const otherCandidates = candidates.filter((c) => !attachedIds.has(c.id));
+                const submittedList: Array<{ candidate: Candidate; stage: string }> = requirement
+                  ? (requirement.submissions || [])
+                      .filter((s) => s.stage !== 'Closed')
+                      .map((s) => {
+                        const candObj =
+                          s.candidate ||
+                          candidates.find(
+                            (c) =>
+                              (s.candidateId && c.id === s.candidateId) ||
+                              c.fullName.trim().toLowerCase() === s.fullName.trim().toLowerCase()
+                          ) ||
+                          ({
+                            id: s.candidateId || s.id,
+                            fullName: s.fullName,
+                            email: s.email || '',
+                            phone: s.phone || '',
+                            currentTitle: s.currentTitle || '',
+                            workAuth: s.workAuth || '',
+                            education: '',
+                            skillset: s.skillset || '',
+                            hourlyRate: s.hourlyRate || '',
+                            relocation: '',
+                            assignedRecruiter: '',
+                            pipelineStage: s.stage,
+                          } as Candidate);
+                        return { candidate: candObj, stage: s.stage };
+                      })
+                      .filter(
+                        ({ candidate: c }) =>
+                          !placedIds.has(c.id) &&
+                          !placedNames.has(c.fullName.trim().toLowerCase())
+                      )
+                  : candidates.map((c) => ({ candidate: c, stage: c.pipelineStage }));
+
+                const q = consultantSearch.trim().toLowerCase();
+                const filteredList = submittedList.filter(
+                  ({ candidate: c, stage }) =>
+                    !q ||
+                    c.fullName.toLowerCase().includes(q) ||
+                    (c.currentTitle || '').toLowerCase().includes(q) ||
+                    stage.toLowerCase().includes(q)
+                );
+
+                const selectedEntry = submittedList.find(
+                  ({ candidate: c }) => c.id === formData.candidateId
+                );
+
                 return (
-                  <select
-                    value={formData.candidateId}
-                    onChange={(e) => handleSelectCandidate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 cursor-pointer focus:border-brand-600 focus:outline-none"
-                  >
-                    <option value="">-- Choose consultant from roster (optional) --</option>
-                    {attachedCandidates.length > 0 && (
-                      <optgroup label={`Attached Applicants for ${requirement?.code || 'Requirement'}`}>
-                        {attachedCandidates.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.fullName} — {c.currentTitle} ({subStageByCandId.get(c.id) || c.pipelineStage})
-                          </option>
-                        ))}
-                      </optgroup>
+                  <div ref={consultantMenuRef} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setConsultantMenuOpen((prev) => !prev)}
+                      className="w-full px-3.5 py-2.5 text-xs bg-white border border-slate-200 hover:border-brand-300 rounded-xl text-left flex items-center justify-between gap-2 transition-colors cursor-pointer focus:outline-none focus:border-brand-500"
+                    >
+                      {selectedEntry ? (
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="w-6 h-6 rounded-full bg-brand-50 border border-brand-200 text-brand-700 font-bold text-[10px] flex items-center justify-center flex-shrink-0">
+                            {selectedEntry.candidate.fullName.charAt(0).toUpperCase()}
+                          </span>
+                          <div className="min-w-0">
+                            <span className="font-semibold text-slate-900">
+                              {selectedEntry.candidate.fullName}
+                            </span>
+                            {selectedEntry.candidate.currentTitle && (
+                              <span className="text-slate-400 ml-1.5">
+                                — {selectedEntry.candidate.currentTitle}
+                              </span>
+                            )}
+                          </div>
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 flex-shrink-0">
+                            {selectedEntry.stage}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">
+                          {requirement
+                            ? `Select from ${submittedList.length} submitted applicant(s)...`
+                            : 'Select consultant from roster...'}
+                        </span>
+                      )}
+                      <ChevronDown
+                        className={`w-4 h-4 text-slate-400 flex-shrink-0 transition-transform ${
+                          consultantMenuOpen ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </button>
+
+                    {consultantMenuOpen && (
+                      <div className="absolute left-0 right-0 mt-1.5 z-30 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
+                        <div className="p-2 border-b border-slate-100 bg-slate-50/70">
+                          <div className="relative">
+                            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            <input
+                              type="text"
+                              value={consultantSearch}
+                              onChange={(e) => setConsultantSearch(e.target.value)}
+                              placeholder="Search submitted applicants..."
+                              autoFocus
+                              className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-brand-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="max-h-56 overflow-y-auto divide-y divide-slate-100">
+                          {filteredList.length === 0 ? (
+                            <div className="py-5 px-4 text-center text-[11px] text-slate-400">
+                              {requirement
+                                ? 'No unplaced submitted applicants found for this requirement.'
+                                : 'No matching consultants found.'}
+                            </div>
+                          ) : (
+                            filteredList.map(({ candidate: c, stage }) => {
+                              const isSelected = c.id === formData.candidateId;
+                              return (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onClick={() => {
+                                    handleSelectCandidate(c.id, c);
+                                    setConsultantMenuOpen(false);
+                                    setConsultantSearch('');
+                                  }}
+                                  className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                                    isSelected ? 'bg-brand-50/70' : 'hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <span className="w-6 h-6 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[10px] flex items-center justify-center flex-shrink-0">
+                                      {c.fullName.charAt(0).toUpperCase()}
+                                    </span>
+                                    <div className="min-w-0">
+                                      <div className="text-xs font-semibold text-slate-900 truncate">
+                                        {c.fullName}
+                                      </div>
+                                      {c.currentTitle && (
+                                        <div className="text-[10px] text-slate-500 truncate">
+                                          {c.currentTitle}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 flex-shrink-0">
+                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                      {stage}
+                                    </span>
+                                    {isSelected && <Check className="w-3.5 h-3.5 text-brand-600" />}
+                                  </div>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
                     )}
-                    {otherCandidates.length > 0 && (
-                      <optgroup label={attachedCandidates.length > 0 ? 'Other Roster Consultants' : 'All Consultants'}>
-                        {otherCandidates.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.fullName} — {c.currentTitle} ({c.pipelineStage})
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                  </select>
+                  </div>
                 );
               })()}
             </div>

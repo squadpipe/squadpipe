@@ -111,6 +111,7 @@ export interface Requirement {
   status: string;
   resourceName?: string;
   submissions?: RequirementSubmission[];
+  submissionCount?: number;
   activePlacements?: Array<{
     id: string;
     candidateId?: string | null;

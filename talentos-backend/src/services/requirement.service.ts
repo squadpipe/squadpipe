@@ -9,7 +9,39 @@ export interface RequirementFilterParams {
   status?: string;
   page?: number;
   limit?: number;
+  view?: 'full' | 'kanban';
 }
+
+export const KANBAN_CARD_SELECT = {
+  id: true,
+  code: true,
+  opportunityTitle: true,
+  openPositions: true,
+  skillsRequired: true,
+  location: true,
+  workModel: true,
+  targetBillRate: true,
+  targetPayRate: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+  client: { select: { id: true, name: true } },
+  clientContact: { select: { id: true, fullName: true, designation: true } },
+  assignedRecruiter: { select: { id: true, fullName: true } },
+  _count: { select: { submissions: true } },
+  placements: {
+    where: {
+      status: { notIn: ['TERMINATED' as const, 'COMPLETED' as const] },
+    },
+    select: {
+      id: true,
+      candidateId: true,
+      resourceName: true,
+      status: true,
+    },
+    orderBy: { createdAt: 'desc' as const },
+  },
+};
 
 export const requirementStatusMap: Record<string, RequirementStatus> = {
   'Requirement': RequirementStatus.REQUIREMENT,
@@ -145,15 +177,24 @@ export class RequirementService {
       };
     }
 
+    const isKanbanView = params.view === 'kanban';
     const [total, data] = await Promise.all([
       prisma.requirement.count({ where }),
-      prisma.requirement.findMany({
-        where,
-        include: REQUIREMENT_INCLUDE,
-        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
-        skip: (page - 1) * limit,
-        take: limit
-      })
+      isKanbanView
+        ? prisma.requirement.findMany({
+            where,
+            select: KANBAN_CARD_SELECT,
+            orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+            skip: (page - 1) * limit,
+            take: limit,
+          })
+        : prisma.requirement.findMany({
+            where,
+            include: REQUIREMENT_INCLUDE,
+            orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+            skip: (page - 1) * limit,
+            take: limit,
+          }),
     ]);
 
     return {
@@ -164,6 +205,75 @@ export class RequirementService {
         total,
         totalPages: Math.max(1, Math.ceil(total / limit))
       }
+    };
+  }
+
+  async getKanbanBoard(params: {
+    tenantId?: string;
+    stages: string[];
+    search?: string;
+    perColumnLimit?: number;
+  }) {
+    const perColumnLimit = Math.max(1, Math.min(50, params.perColumnLimit || 25));
+    const baseWhere = this.buildWhereClause({
+      tenantId: params.tenantId,
+      search: params.search,
+    });
+
+    const groupedCounts = await prisma.requirement.groupBy({
+      by: ['status'],
+      where: baseWhere,
+      _count: { _all: true },
+    });
+
+    const dbToDisplay: Record<string, string> = {
+      REQUIREMENT: 'Requirement',
+      SUBMITTED: 'Submitted',
+      INTERVIEW: 'Interview',
+      SELECTED: 'Selected',
+      ONBOARDING: 'Onboarding',
+      CLOSED: 'Onboarding',
+    };
+
+    const countByStage = new Map<string, number>();
+    for (const row of groupedCounts) {
+      const displayStage = dbToDisplay[row.status] || row.status;
+      countByStage.set(displayStage, (countByStage.get(displayStage) || 0) + row._count._all);
+    }
+
+    const stageList = [...params.stages];
+    for (const st of countByStage.keys()) {
+      if (!stageList.includes(st)) stageList.push(st);
+    }
+
+    const columns = await Promise.all(
+      stageList.map(async (stage) => {
+        const dbStatus = requirementStatusMap[stage] || stage;
+        const stageWhere = {
+          ...baseWhere,
+          status: dbStatus,
+        };
+        const items = await prisma.requirement.findMany({
+          where: stageWhere,
+          select: KANBAN_CARD_SELECT,
+          orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+          take: perColumnLimit,
+        });
+        const total = countByStage.get(stage) || 0;
+        return {
+          stage,
+          total,
+          items,
+          hasMore: items.length < total,
+        };
+      })
+    );
+
+    const totalRequirements = Array.from(countByStage.values()).reduce((sum, n) => sum + n, 0);
+    return {
+      total: totalRequirements,
+      perColumnLimit,
+      columns,
     };
   }
 

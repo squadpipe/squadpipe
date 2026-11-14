@@ -62,6 +62,14 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
   const [serverReqs, setServerReqs] = useState<Requirement[]>(requirements);
   const [totalReqs, setTotalReqs] = useState(requirements.length);
   const [isLoadingReqs, setIsLoadingReqs] = useState(false);
+  const KANBAN_PAGE_SIZE = 25;
+  const [kanbanColumns, setKanbanColumns] = useState<
+    Record<
+      string,
+      { items: Requirement[]; total: number; page: number; hasMore: boolean; loadingMore: boolean }
+    >
+  >({});
+  const [useServerKanban, setUseServerKanban] = useState(false);
   const [activeDrag, setActiveDrag] = useState<{
     req: Requirement;
     width: number;
@@ -124,27 +132,82 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
     setPage(1);
   }, [debouncedSearch, displayMode]);
 
+  const taxonomies = useMasterTaxonomies(true);
+
   useEffect(() => {
-    // When showing the full Kanban board without search, sync instantaneously from parent state
-    if (displayMode === 'kanban' && !debouncedSearch.trim() && requirements.length > 0) {
-      const synced = applyPendingStages(requirements);
-      setServerReqs(synced);
-      setTotalReqs(synced.length);
-      setIsLoadingReqs(false);
-      return;
+    let active = true;
+
+    if (displayMode === 'kanban') {
+      const stagesParam = (
+        Array.isArray(taxonomies.stages) && taxonomies.stages.length > 0
+          ? taxonomies.stages
+          : ['Requirement', 'Submitted', 'Interview', 'Selected', 'Onboarding']
+      ).join(',');
+
+      apiClient
+        .get('/requirements/kanban', {
+          params: {
+            stages: stagesParam,
+            search: debouncedSearch.trim() || undefined,
+            limit: KANBAN_PAGE_SIZE,
+          },
+        })
+        .then((res) => {
+          if (!active) return;
+          if (res.data?.success && res.data.data?.columns) {
+            const nextCols: Record<
+              string,
+              { items: Requirement[]; total: number; page: number; hasMore: boolean; loadingMore: boolean }
+            > = {};
+            const flatItems: Requirement[] = [];
+            for (const col of res.data.data.columns) {
+              const mappedItems = applyPendingStages(
+                (col.items || []).map(mapRequirementFromApi)
+              );
+              nextCols[col.stage] = {
+                items: mappedItems,
+                total: Number(col.total || 0),
+                page: 1,
+                hasMore: Boolean(col.hasMore),
+                loadingMore: false,
+              };
+              flatItems.push(...mappedItems);
+            }
+            setKanbanColumns(nextCols);
+            setUseServerKanban(true);
+            setServerReqs(flatItems);
+            setTotalReqs(Number(res.data.data.total ?? flatItems.length));
+          }
+        })
+        .catch(() => {
+          if (!active) return;
+          setUseServerKanban(false);
+          const q = debouncedSearch.toLowerCase();
+          const fallback = applyPendingStages(requirements).filter(
+            (r) =>
+              !q ||
+              r.opportunityTitle.toLowerCase().includes(q) ||
+              r.companyName.toLowerCase().includes(q) ||
+              r.skillsRequired.toLowerCase().includes(q)
+          );
+          setServerReqs(fallback);
+          setTotalReqs(fallback.length);
+        })
+        .finally(() => {
+          if (active) setIsLoadingReqs(false);
+        });
+
+      return () => {
+        active = false;
+      };
     }
 
-    let active = true;
-    if (displayMode === 'list') {
-      setIsLoadingReqs(true);
-    }
+    setIsLoadingReqs(true);
     const params: Record<string, any> = {
       search: debouncedSearch.trim() || undefined,
+      page,
+      limit,
     };
-    if (displayMode === 'list') {
-      params.page = page;
-      params.limit = limit;
-    }
 
     apiClient
       .get('/requirements', { params })
@@ -167,7 +230,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             r.skillsRequired.toLowerCase().includes(q)
         );
         setTotalReqs(fallback.length);
-        setServerReqs(displayMode === 'list' ? fallback.slice((page - 1) * limit, page * limit) : fallback);
+        setServerReqs(fallback.slice((page - 1) * limit, page * limit));
       })
       .finally(() => {
         if (active) setIsLoadingReqs(false);
@@ -176,9 +239,55 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
     return () => {
       active = false;
     };
-  }, [debouncedSearch, displayMode, page, limit, requirements, applyPendingStages]);
+  }, [debouncedSearch, displayMode, page, limit, requirements, taxonomies.stages, applyPendingStages]);
 
-  const taxonomies = useMasterTaxonomies(true);
+  const handleLoadMoreStage = useCallback(
+    async (stage: string) => {
+      const col = kanbanColumns[stage];
+      if (!col || col.loadingMore || !col.hasMore) return;
+      const nextPage = col.page + 1;
+      setKanbanColumns((prev) => ({
+        ...prev,
+        [stage]: { ...prev[stage], loadingMore: true },
+      }));
+      try {
+        const res = await apiClient.get('/requirements', {
+          params: {
+            status: stage,
+            search: debouncedSearch.trim() || undefined,
+            page: nextPage,
+            limit: KANBAN_PAGE_SIZE,
+            view: 'kanban',
+          },
+        });
+        if (res.data?.success && Array.isArray(res.data.data)) {
+          const nextItems = applyPendingStages(res.data.data.map(mapRequirementFromApi));
+          setKanbanColumns((prev) => {
+            const current = prev[stage];
+            if (!current) return prev;
+            const existingIds = new Set(current.items.map((i) => i.id));
+            const merged = [...current.items, ...nextItems.filter((i) => !existingIds.has(i.id))];
+            const total = res.data.pagination?.total ?? current.total;
+            return {
+              ...prev,
+              [stage]: {
+                items: merged,
+                total,
+                page: nextPage,
+                hasMore: merged.length < total,
+                loadingMore: false,
+              },
+            };
+          });
+        }
+      } catch {
+        setKanbanColumns((prev) =>
+          prev[stage] ? { ...prev, [stage]: { ...prev[stage], loadingMore: false } } : prev
+        );
+      }
+    },
+    [kanbanColumns, debouncedSearch, applyPendingStages]
+  );
 
   const stageOrder: string[] = useMemo(() => {
     const base =
@@ -289,18 +398,36 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
   const commitStageMove = useCallback(
     (req: Requirement, nextStage: Requirement['status']) => {
       if (req.status === nextStage) return;
+      const fromStage = req.status;
       pendingStageMapRef.current.set(req.id, { stage: nextStage, until: Date.now() + 2500 });
       setServerReqs((prev) => {
         const existing = prev.find((r) => r.id === req.id);
         const updatedReq = existing ? { ...existing, status: nextStage } : { ...req, status: nextStage };
         return [updatedReq, ...prev.filter((r) => r.id !== req.id)];
       });
+      setKanbanColumns((prev) => {
+        if (!prev[fromStage] && !prev[nextStage]) return prev;
+        const next = { ...prev };
+        const movedCard = { ...(prev[fromStage]?.items.find((r) => r.id === req.id) || req), status: nextStage };
+        if (next[fromStage]) {
+          next[fromStage] = {
+            ...next[fromStage],
+            items: next[fromStage].items.filter((r) => r.id !== req.id),
+            total: Math.max(0, next[fromStage].total - 1),
+          };
+        }
+        if (next[nextStage]) {
+          next[nextStage] = {
+            ...next[nextStage],
+            items: [movedCard, ...next[nextStage].items.filter((r) => r.id !== req.id)],
+            total: next[nextStage].total + 1,
+          };
+        }
+        return next;
+      });
       onStatusChange(req, nextStage);
-      if (nextStage === 'Onboarding') {
-        onOpenPlacementWizard({ ...req, status: nextStage });
-      }
     },
-    [onStatusChange, onOpenPlacementWizard]
+    [onStatusChange]
   );
 
   const hitTestStage = useCallback((clientX: number, clientY: number): Requirement['status'] | null => {
@@ -520,7 +647,8 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
     const visibleSkills = skills.slice(0, 3);
     const extraSkillCount = Math.max(0, skills.length - visibleSkills.length);
     const activeSubs = (req.submissions || []).filter((s) => s.stage !== 'Closed');
-    const totalApplicants = activeSubs.length > 0 ? activeSubs.length : req.resourceName ? 1 : 0;
+    const totalApplicants =
+      activeSubs.length > 0 ? activeSubs.length : (req.submissionCount ?? (req.resourceName ? 1 : 0));
     const singleApplicantName = activeSubs[0]?.fullName || req.resourceName || 'Applicant';
     const timeLabel = formatRelativeTime(req.createdAt);
     const footerColsClass =
@@ -794,7 +922,13 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             className="grid gap-4 items-stretch"
           >
             {stageOrder.map((stage) => {
-              const reqsInStage = filteredReqs.filter((r) => r.status === stage);
+              const serverCol = useServerKanban ? kanbanColumns[stage] : undefined;
+              const reqsInStage = serverCol
+                ? serverCol.items
+                : filteredReqs.filter((r) => r.status === stage);
+              const colTotal = serverCol ? serverCol.total : reqsInStage.length;
+              const colHasMore = serverCol ? serverCol.hasMore : false;
+              const colLoadingMore = serverCol ? serverCol.loadingMore : false;
               const isDropTarget = Boolean(activeDrag && dragOverStage === stage);
               const isMovingIntoStage = Boolean(isDropTarget && activeDrag?.req.status !== stage);
               const meta = getStageMeta(stage);
@@ -824,7 +958,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex-shrink-0 ${meta.pillClass}`}
                     >
-                      {reqsInStage.length}
+                      {colTotal}
                     </span>
                   </div>
 
@@ -870,6 +1004,18 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                           </div>
                         );
                       })
+                    )}
+                    {colHasMore && (
+                      <button
+                        type="button"
+                        disabled={colLoadingMore}
+                        onClick={() => handleLoadMoreStage(stage)}
+                        className="w-full py-2 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-semibold text-slate-600 hover:text-brand-600 transition-colors cursor-pointer disabled:opacity-60 flex-shrink-0"
+                      >
+                        {colLoadingMore
+                          ? 'Loading more...'
+                          : `Load more (${Math.max(0, colTotal - reqsInStage.length)} remaining)`}
+                      </button>
                     )}
                   </div>
                 </div>

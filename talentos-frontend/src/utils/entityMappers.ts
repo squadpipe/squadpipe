@@ -129,6 +129,7 @@ export const mapRequirementFromApi = (r: any): Requirement & { createdAt?: strin
     status: formatRequirementStatus(r.status),
     resourceName: r.resourceName || submissions.find((s) => s.stage !== 'Closed')?.fullName || submissions[0]?.fullName || '',
     submissions,
+    submissionCount: r._count?.submissions ?? submissions.length,
     activePlacements,
     assignedRecruiter:
       r.assignedRecruiter?.fullName ||

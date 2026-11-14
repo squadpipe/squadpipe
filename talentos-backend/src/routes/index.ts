@@ -405,6 +405,8 @@ router.post('/generate-pitch', async (req: Request, res: Response) => {
 
 // Requirements
 router.get('/requirements', requirementController.getRequirements);
+router.get('/requirements/kanban', requirementController.getKanbanBoard);
+router.get('/requirements/:id', requirementController.getRequirementById);
 router.post('/requirements', requirementController.createRequirement);
 router.put('/requirements/:id', requirementController.updateRequirement);
 router.patch('/requirements/:id/stage', requirementController.updateRequirementStage);
