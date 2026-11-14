@@ -1088,35 +1088,11 @@ router.get('/settings', async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
     const settings = await getTenantSettings(tenantId);
-    const isAdmin = req.user?.role === UserRole.ADMINISTRATOR;
-    const emailLogs = isAdmin
-      ? await prisma.emailLog.findMany({
-          where: { tenantId },
-          orderBy: { createdAt: 'desc' },
-          take: 15,
-        })
-      : [];
 
     res.json({
       success: true,
       data: {
         general: settings.general,
-        smtp: isAdmin
-          ? redactSmtpSettings(settings.smtp)
-          : {
-              enabled: settings.smtp.enabled,
-              host: '',
-              port: 587,
-              encryption: 'STARTTLS',
-              username: '',
-              password: '',
-              fromName: settings.smtp.fromName,
-              fromEmail: '',
-              replyToEmail: '',
-              hasPassword: false,
-              configured: isSmtpConfigured(settings.smtp),
-            },
-        emailLogs,
       },
     });
   } catch (error: any) {
@@ -1131,60 +1107,6 @@ router.put('/settings/general', requireRole([UserRole.ADMINISTRATOR]), async (re
     res.json({ success: true, data: updated, message: 'General settings updated' });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'Failed to save general settings' });
-  }
-});
-
-router.put('/settings/smtp', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
-  try {
-    const tenantId = req.user?.tenantId || 'talentos-agency';
-    const updated = await saveSmtpSettings(tenantId, req.body || {});
-    res.json({ success: true, data: redactSmtpSettings(updated), message: 'SMTP settings saved' });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Failed to save SMTP settings' });
-  }
-});
-
-router.post('/settings/smtp/test', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
-  try {
-    const tenantId = req.user?.tenantId || 'talentos-agency';
-    const { recipientEmail, smtp } = req.body || {};
-    const targetEmail = String(recipientEmail || '').trim();
-    if (!targetEmail) {
-      return res.status(400).json({ success: false, message: 'Test recipient email address is required' });
-    }
-    if (smtp && typeof smtp === 'object') {
-      await saveSmtpSettings(tenantId, smtp);
-    }
-    const { general } = await getTenantSettings(tenantId);
-    const brandName = (general.agencyName || general.legalEntityName || req.user?.agencyName || 'Workspace').trim();
-    const result = await smtpService.sendMail({
-      to: targetEmail,
-      subject: `${brandName} Custom SMTP Connection Test`,
-      html: `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.6; color: #1e293b;">
-          <h3 style="margin: 0 0 8px;">${escapeHtml(brandName)} SMTP Test Successful</h3>
-          <p>Your custom outbound SMTP server configuration is active and delivering messages.</p>
-          <p style="font-size: 12px; color: #64748b;">Sent from ${escapeHtml(brandName)} Workspace Settings</p>
-        </div>
-      `,
-      tenantId,
-    });
-    const emailLogs = await prisma.emailLog.findMany({
-      where: { tenantId },
-      orderBy: { createdAt: 'desc' },
-      take: 15,
-    });
-    res.json({
-      success: true,
-      delivered: result.success,
-      message: result.success
-        ? `Test email delivered to ${targetEmail}`
-        : result.error || 'SMTP test delivery failed',
-      data: result,
-      emailLogs,
-    });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'SMTP test failed' });
   }
 });
 

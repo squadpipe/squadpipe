@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { PrismaClient, UserRole, UserStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { DEFAULT_TAXONOMIES } from '../src/config/taxonomies.config';
-import { DEFAULT_GENERAL_SETTINGS, DEFAULT_SMTP_SETTINGS } from '../src/config/smtp.config';
+import { DEFAULT_GENERAL_SETTINGS } from '../src/config/smtp.config';
 import { DEFAULT_TENANT_RULES } from '../src/services/automationEngine.service';
 
 const prisma = new PrismaClient();
@@ -104,7 +104,6 @@ async function ensureTenantSettings(tenantId: string, agencyName: string): Promi
         ...DEFAULT_GENERAL_SETTINGS,
         agencyName,
       },
-      smtpConfig: { ...DEFAULT_SMTP_SETTINGS },
     },
   });
 }

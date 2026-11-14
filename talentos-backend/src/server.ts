@@ -5,7 +5,6 @@ import http from 'http';
 import app from './app';
 import { getJwtAccessSecret } from './config/jwt.config';
 import { connectWithRetry, prisma } from './config/prisma.config';
-import { verifySmtpConnection } from './config/smtp.config';
 import { initBackgroundScheduler, stopBackgroundScheduler } from './jobs/cron.scheduler';
 
 const PORT = process.env.PORT || 5000;
@@ -50,13 +49,10 @@ async function bootstrap() {
   // 1. Resilient database connection with retries
   await connectWithRetry(10, 3000);
 
-  // 2. Verify SMTP connection
-  await verifySmtpConnection();
-
-  // 3. Initialize background deterministic SLA & compliance scanner
+  // 2. Initialize background deterministic SLA & compliance scanner
   initBackgroundScheduler();
 
-  // 4. Start HTTP server
+  // 3. Start HTTP server
   httpServer = app.listen(PORT, () => {
     console.log(`TalentOS API server listening at http://localhost:${PORT}/api/v1`);
   });

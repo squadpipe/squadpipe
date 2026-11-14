@@ -72,6 +72,9 @@ async function ensureTenantSettingsTable() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE tenant_settings DROP COLUMN IF EXISTS smtp_config
+  `);
   tableInitialized = true;
 }
 

@@ -519,7 +519,6 @@ model MasterTaxonomy {
 model TenantSettings {
   tenantId      String   @id @map("tenant_id")
   generalConfig Json     @default("{}") @map("general_config")
-  smtpConfig    Json     @default("{}") @map("smtp_config")
   updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("tenant_settings")
