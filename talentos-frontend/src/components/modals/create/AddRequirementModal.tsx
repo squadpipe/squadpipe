@@ -61,7 +61,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
     const openPosStr = String(form.openPositions || '').trim();
     const openPosNum = Number(openPosStr);
     if (!openPosStr || !/^\d+$/.test(openPosStr) || !Number.isInteger(openPosNum) || openPosNum < 1 || openPosNum > 1000) {
-      showToast('Validation Error', 'No. of Open Positions is required and must be a whole number (minimum 1).', 'fa-solid fa-triangle-exclamation text-amber-500');
+      showToast('Required Field', 'Please enter at least 1 open position.', 'fa-solid fa-triangle-exclamation text-amber-500');
       return;
     }
 

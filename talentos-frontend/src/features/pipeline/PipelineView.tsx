@@ -71,7 +71,16 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
   } | null>(null);
   const [dragOverStage, setDragOverStage] = useState<Requirement['status'] | null>(null);
   const [editingReq, setEditingReq] = useState<Requirement | null>(null);
+  const [editOpenPositions, setEditOpenPositions] = useState<string>('1');
+  const [editOpenPosError, setEditOpenPosError] = useState<string>('');
   const [reqToDelete, setReqToDelete] = useState<Requirement | null>(null);
+
+  useEffect(() => {
+    if (editingReq) {
+      setEditOpenPositions(String(editingReq.openPositions || 1));
+      setEditOpenPosError('');
+    }
+  }, [editingReq?.id]);
 
   const boardScrollRef = useRef<HTMLDivElement | null>(null);
   const columnRefs = useRef<Partial<Record<Requirement['status'], HTMLDivElement | null>>>({});
@@ -1049,9 +1058,17 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             </div>
 
             <form
+              noValidate
               onSubmit={(e) => {
                 e.preventDefault();
-                if (onUpdateReq) onUpdateReq(editingReq);
+                const trimmed = editOpenPositions.trim();
+                const parsed = Number(trimmed);
+                if (!trimmed || !/^\d+$/.test(trimmed) || !Number.isInteger(parsed) || parsed < 1 || parsed > 1000) {
+                  setEditOpenPosError('Please enter at least 1 open position.');
+                  return;
+                }
+                if (onUpdateReq) onUpdateReq({ ...editingReq, openPositions: parsed });
+                setEditOpenPosError('');
                 setEditingReq(null);
               }}
               className="p-6 space-y-3.5 text-xs"
@@ -1097,16 +1114,18 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                     min={1}
                     max={1000}
                     step={1}
-                    required
-                    value={editingReq.openPositions || 1}
-                    onChange={(e) =>
-                      setEditingReq({
-                        ...editingReq,
-                        openPositions: Math.max(1, parseInt(e.target.value || '1', 10) || 1),
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                    value={editOpenPositions}
+                    onChange={(e) => {
+                      setEditOpenPositions(e.target.value);
+                      if (editOpenPosError) setEditOpenPosError('');
+                    }}
+                    className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
+                      editOpenPosError ? 'border-rose-400 focus:border-rose-500' : 'border-slate-200 focus:border-brand-600'
+                    }`}
                   />
+                  {editOpenPosError && (
+                    <p className="text-[10px] font-semibold text-rose-600 mt-1">{editOpenPosError}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Location</label>

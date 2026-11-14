@@ -196,7 +196,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
     if (!openPosStr || !/^\d+$/.test(openPosStr) || !Number.isInteger(openPosNum) || openPosNum < 1 || openPosNum > 1000) {
       showToast(
         'Open Positions Required',
-        'Please enter the required No. of Open Positions (whole number >= 1).',
+        'Please enter at least 1 open position.',
         'fa-solid fa-triangle-exclamation text-amber-500'
       );
       return;

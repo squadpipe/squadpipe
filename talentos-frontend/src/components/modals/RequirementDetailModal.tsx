@@ -89,6 +89,8 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
     candidates.slice(0, BENCH_PAGE_SIZE)
   );
   const [totalBenchCount, setTotalBenchCount] = useState<number>(candidates.length);
+  const [editOpenPositions, setEditOpenPositions] = useState<string>('1');
+  const [editOpenPosError, setEditOpenPosError] = useState<string>('');
   const [benchPage, setBenchPage] = useState<number>(1);
   const [hasMoreBench, setHasMoreBench] = useState<boolean>(candidates.length > BENCH_PAGE_SIZE);
   const [isLoadingBench, setIsLoadingBench] = useState<boolean>(false);
@@ -104,6 +106,8 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
 
   useEffect(() => {
     setEditForm(requirement);
+    setEditOpenPositions(requirement ? String(requirement.openPositions || 1) : '1');
+    setEditOpenPosError('');
     setIsEditing(false);
     setShowBenchPicker(false);
     setSelectedCandidateIds([]);
@@ -394,6 +398,8 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
               <button
                 onClick={() => {
                   setEditForm(requirement);
+                  setEditOpenPositions(String(requirement.openPositions || 1));
+                  setEditOpenPosError('');
                   setIsEditing((prev) => !prev);
                 }}
                 className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
@@ -420,9 +426,17 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
         <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1 min-h-0">
           {isEditing && editForm ? (
             <form
+              noValidate
               onSubmit={(e) => {
                 e.preventDefault();
-                if (onUpdateReq) onUpdateReq(editForm);
+                const trimmed = editOpenPositions.trim();
+                const parsed = Number(trimmed);
+                if (!trimmed || !/^\d+$/.test(trimmed) || !Number.isInteger(parsed) || parsed < 1 || parsed > 1000) {
+                  setEditOpenPosError('Please enter at least 1 open position.');
+                  return;
+                }
+                if (onUpdateReq) onUpdateReq({ ...editForm, openPositions: parsed });
+                setEditOpenPosError('');
                 setIsEditing(false);
               }}
               className="space-y-3.5 bg-slate-50 p-4 rounded-xl border border-slate-200"
@@ -466,16 +480,18 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                     min={1}
                     max={1000}
                     step={1}
-                    required
-                    value={editForm.openPositions || 1}
-                    onChange={(e) =>
-                      setEditForm({
-                        ...editForm,
-                        openPositions: Math.max(1, parseInt(e.target.value || '1', 10) || 1),
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none"
+                    value={editOpenPositions}
+                    onChange={(e) => {
+                      setEditOpenPositions(e.target.value);
+                      if (editOpenPosError) setEditOpenPosError('');
+                    }}
+                    className={`w-full px-3 py-2 border rounded-lg text-xs bg-white focus:outline-none ${
+                      editOpenPosError ? 'border-rose-400 focus:border-rose-500' : 'border-slate-200 focus:border-brand-600'
+                    }`}
                   />
+                  {editOpenPosError && (
+                    <p className="text-[10px] font-semibold text-rose-600 mt-1">{editOpenPosError}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Stage</label>
