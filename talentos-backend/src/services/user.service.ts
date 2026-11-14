@@ -62,7 +62,7 @@ export class UserService {
       const data = await prisma.user.findMany({
         where,
         select,
-        orderBy: { createdAt: 'asc' }
+        orderBy: { createdAt: 'desc' }
       });
       return {
         data,
@@ -77,7 +77,7 @@ export class UserService {
       prisma.user.findMany({
         where,
         select,
-        orderBy: { createdAt: 'asc' },
+        orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit
       })

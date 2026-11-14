@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { Pencil, Plus, Search, Star, Trash2, Users, X } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
-import { Vendor } from '../../types';
+import { Vendor, VendorContact } from '../../types';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapVendorFromApi } from '../../utils/entityMappers';
@@ -120,7 +120,7 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
             <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase">
               <tr>
                 <th className="px-4 py-3">Vendor Company</th>
-                <th className="px-4 py-3">Primary Contact</th>
+                <th className="px-4 py-3">Contacts</th>
                 <th className="px-4 py-3">Phone & Email</th>
                 <th className="px-4 py-3">Location</th>
                 <th className="px-4 py-3">Specialization</th>
@@ -151,13 +151,36 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
               ) : (
                 filtered.map((v) => {
                 const isMsaExecuted = v.msa === 'Yes' || v.msa === 'Active';
+                const contactList: VendorContact[] =
+                  v.contacts && v.contacts.length > 0
+                    ? v.contacts
+                    : v.contactName || v.email
+                    ? [{ fullName: v.contactName, phone: v.phone, email: v.email, isPrimary: true }]
+                    : [];
+                const primaryContact = contactList.find((c) => c.isPrimary) || contactList[0];
+                const extraCount = Math.max(0, contactList.length - 1);
                 return (
                   <tr key={v.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="px-4 py-3 font-semibold text-slate-900">{v.name}</td>
-                    <td className="px-4 py-3 text-slate-800">{v.contactName}</td>
+                    <td className="px-4 py-3 text-slate-800">
+                      <div
+                        className="flex items-center gap-1.5"
+                        title={contactList.map((c) => `${c.fullName}${c.email ? ` (${c.email})` : ''}`).join(', ')}
+                      >
+                        <span className="font-medium">{primaryContact?.fullName || v.contactName || '—'}</span>
+                        {extraCount > 0 && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-semibold">
+                            <Users className="w-2.5 h-2.5" />+{extraCount}
+                          </span>
+                        )}
+                      </div>
+                      {primaryContact?.designation && (
+                        <div className="text-[10px] text-slate-400">{primaryContact.designation}</div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-[11px] text-slate-500">
-                      {v.phone} <br />
-                      {v.email}
+                      {primaryContact?.phone || v.phone || '—'} <br />
+                      {primaryContact?.email || v.email || '—'}
                     </td>
                     <td className="px-4 py-3 text-slate-600">{v.location}</td>
                     <td className="px-4 py-3 text-[10px]">{v.skillSpecialization}</td>
@@ -179,7 +202,21 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                         <div className="inline-flex items-center gap-1">
                           {onUpdateVendor && (
                             <button
-                              onClick={() => setEditingVendor({ ...v })}
+                              onClick={() => {
+                                const initialContacts: VendorContact[] =
+                                  v.contacts && v.contacts.length > 0
+                                    ? v.contacts.map((c) => ({ ...c }))
+                                    : [
+                                        {
+                                          fullName: v.contactName || '',
+                                          designation: '',
+                                          phone: v.phone || '',
+                                          email: v.email || '',
+                                          isPrimary: true,
+                                        },
+                                      ];
+                                setEditingVendor({ ...v, contacts: initialContacts });
+                              }}
                               title="Edit vendor"
                               className="p-1.5 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer"
                             >
@@ -227,9 +264,9 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up"
+            className="bg-white rounded-xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up max-h-[90vh] flex flex-col"
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Edit Vendor</h3>
                 <p className="text-[11px] text-slate-500 mt-0.5">{editingVendor.name}</p>
@@ -245,12 +282,23 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                if (onUpdateVendor) onUpdateVendor(editingVendor);
+                const contacts = (editingVendor.contacts || []).filter(
+                  (c) => c.fullName.trim() || c.email.trim()
+                );
+                const primary = contacts.find((c) => c.isPrimary) || contacts[0];
+                const payload: Vendor = {
+                  ...editingVendor,
+                  contactName: primary?.fullName || editingVendor.contactName,
+                  email: primary?.email || editingVendor.email,
+                  phone: primary?.phone || editingVendor.phone,
+                  contacts,
+                };
+                if (onUpdateVendor) onUpdateVendor(payload);
                 setEditingVendor(null);
               }}
-              className="p-6 space-y-3.5 text-xs"
+              className="p-6 space-y-4 text-xs overflow-y-auto"
             >
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Vendor Company *</label>
                   <input
@@ -262,41 +310,6 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Primary Contact *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editingVendor.contactName}
-                    onChange={(e) => setEditingVendor({ ...editingVendor, contactName: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Email *</label>
-                  <input
-                    type="email"
-                    required
-                    value={editingVendor.email}
-                    onChange={(e) => setEditingVendor({ ...editingVendor, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Phone</label>
-                  <input
-                    type="text"
-                    value={editingVendor.phone}
-                    onChange={(e) => setEditingVendor({ ...editingVendor, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Location</label>
                   <input
                     type="text"
@@ -305,15 +318,155 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
                   />
                 </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Specialization</label>
-                  <input
-                    type="text"
-                    value={editingVendor.skillSpecialization}
-                    onChange={(e) => setEditingVendor({ ...editingVendor, skillSpecialization: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                  />
+              </div>
+
+              {/* Multi-Contact List */}
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                    Vendor Contacts ({(editingVendor.contacts || []).length})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditingVendor({
+                        ...editingVendor,
+                        contacts: [
+                          ...(editingVendor.contacts || []),
+                          {
+                            fullName: '',
+                            designation: '',
+                            phone: '',
+                            email: '',
+                            isPrimary: (editingVendor.contacts || []).length === 0,
+                          },
+                        ],
+                      })
+                    }
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-slate-200 text-brand-600 hover:bg-brand-50 text-[11px] font-semibold cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Add Contact</span>
+                  </button>
                 </div>
+
+                <div className="space-y-2.5">
+                  {(editingVendor.contacts || []).map((contact, idx) => (
+                    <div
+                      key={contact.id || idx}
+                      className="p-3 rounded-lg bg-white border border-slate-200 space-y-2"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditingVendor({
+                              ...editingVendor,
+                              contacts: (editingVendor.contacts || []).map((c, cIdx) => ({
+                                ...c,
+                                isPrimary: cIdx === idx,
+                              })),
+                            })
+                          }
+                          className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border cursor-pointer ${
+                            contact.isPrimary
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : 'bg-slate-50 text-slate-500 border-slate-200 hover:text-slate-700'
+                          }`}
+                        >
+                          <Star className={`w-2.5 h-2.5 ${contact.isPrimary ? 'fill-amber-500 text-amber-500' : ''}`} />
+                          <span>{contact.isPrimary ? 'Primary Contact' : 'Set Primary'}</span>
+                        </button>
+                        {(editingVendor.contacts || []).length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = (editingVendor.contacts || []).filter((_, cIdx) => cIdx !== idx);
+                              if (next.length > 0 && !next.some((c) => c.isPrimary)) {
+                                next[0].isPrimary = true;
+                              }
+                              setEditingVendor({ ...editingVendor, contacts: next });
+                            }}
+                            title="Remove contact"
+                            className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 cursor-pointer"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          required
+                          placeholder="Full name *"
+                          value={contact.fullName}
+                          onChange={(e) =>
+                            setEditingVendor({
+                              ...editingVendor,
+                              contacts: (editingVendor.contacts || []).map((c, cIdx) =>
+                                cIdx === idx ? { ...c, fullName: e.target.value } : c
+                              ),
+                            })
+                          }
+                          className="px-2.5 py-1.5 border border-slate-200 rounded-md text-xs focus:border-brand-600 focus:outline-none"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Designation / Role"
+                          value={contact.designation || ''}
+                          onChange={(e) =>
+                            setEditingVendor({
+                              ...editingVendor,
+                              contacts: (editingVendor.contacts || []).map((c, cIdx) =>
+                                cIdx === idx ? { ...c, designation: e.target.value } : c
+                              ),
+                            })
+                          }
+                          className="px-2.5 py-1.5 border border-slate-200 rounded-md text-xs focus:border-brand-600 focus:outline-none"
+                        />
+                        <input
+                          type="email"
+                          required
+                          placeholder="Email *"
+                          value={contact.email}
+                          onChange={(e) =>
+                            setEditingVendor({
+                              ...editingVendor,
+                              contacts: (editingVendor.contacts || []).map((c, cIdx) =>
+                                cIdx === idx ? { ...c, email: e.target.value } : c
+                              ),
+                            })
+                          }
+                          className="px-2.5 py-1.5 border border-slate-200 rounded-md text-xs focus:border-brand-600 focus:outline-none"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Phone"
+                          value={contact.phone || ''}
+                          onChange={(e) =>
+                            setEditingVendor({
+                              ...editingVendor,
+                              contacts: (editingVendor.contacts || []).map((c, cIdx) =>
+                                cIdx === idx ? { ...c, phone: e.target.value } : c
+                              ),
+                            })
+                          }
+                          className="px-2.5 py-1.5 border border-slate-200 rounded-md text-xs focus:border-brand-600 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Specialization</label>
+                <input
+                  type="text"
+                  value={editingVendor.skillSpecialization}
+                  onChange={(e) => setEditingVendor({ ...editingVendor, skillSpecialization: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                />
               </div>
 
               <div className="grid grid-cols-3 gap-3">

@@ -137,7 +137,8 @@ export const mapRequirementFromApi = (r: any): Requirement & { createdAt?: strin
     targetBillRate: r.targetBillRate,
     targetPayRate: r.targetPayRate,
     customFields: r.customFields,
-    createdAt: safeIsoDate(r.createdAt, new Date().toISOString().split('T')[0]),
+    createdAt: r.createdAt || new Date().toISOString(),
+    updatedAt: r.updatedAt || r.createdAt || new Date().toISOString(),
   };
 };
 
@@ -179,19 +180,46 @@ export const mapClientFromApi = (cl: any): Client => ({
   customFields: cl.customFields,
 });
 
-export const mapVendorFromApi = (v: any): Vendor => ({
-  id: v.id,
-  name: v.name || '',
-  contactName: v.contactName || '',
-  phone: v.phone || '',
-  email: v.email || '',
-  location: v.location || '',
-  skillSpecialization: v.skillSpecialization || '',
-  paymentTerms: v.paymentTerms || '',
-  invoicingTerms: v.invoicingTerms || '',
-  msa: v.msaSigned ? 'Active' : v.msa || 'Pending',
-  customFields: v.customFields,
-});
+export const mapVendorFromApi = (v: any): Vendor => {
+  const mappedContacts =
+    Array.isArray(v.contacts) && v.contacts.length > 0
+      ? v.contacts.map((c: any) => ({
+          id: c.id,
+          fullName: c.fullName || '',
+          designation: c.designation || '',
+          phone: c.phone || '',
+          email: c.email || '',
+          isPrimary: Boolean(c.isPrimary),
+        }))
+      : v.contactName || v.email
+      ? [
+          {
+            fullName: v.contactName || '',
+            designation: '',
+            phone: v.phone || '',
+            email: v.email || '',
+            isPrimary: true,
+          },
+        ]
+      : [];
+
+  const primary = mappedContacts.find((c: any) => c.isPrimary) || mappedContacts[0];
+
+  return {
+    id: v.id,
+    name: v.name || '',
+    contactName: primary?.fullName || v.contactName || '',
+    phone: primary?.phone || v.phone || '',
+    email: primary?.email || v.email || '',
+    location: v.location || '',
+    skillSpecialization: v.skillSpecialization || '',
+    paymentTerms: v.paymentTerms || '',
+    invoicingTerms: v.invoicingTerms || '',
+    msa: v.msaSigned ? 'Active' : v.msa || 'Pending',
+    contacts: mappedContacts,
+    customFields: v.customFields,
+  };
+};
 
 export const mapPlacementFromApi = (p: any): BillablePlacement => {
   const depRaw = String(p.deployment || 'Onshore').toUpperCase();

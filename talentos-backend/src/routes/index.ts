@@ -760,7 +760,7 @@ router.get('/custom-fields', async (req: Request, res: Response) => {
     if (parsedPage === undefined && parsedLimit === undefined) {
       const fields = await prisma.customFieldDefinition.findMany({
         where,
-        orderBy: { createdAt: 'asc' }
+        orderBy: { createdAt: 'desc' }
       });
       return res.json({
         success: true,
@@ -775,7 +775,7 @@ router.get('/custom-fields', async (req: Request, res: Response) => {
       prisma.customFieldDefinition.count({ where }),
       prisma.customFieldDefinition.findMany({
         where,
-        orderBy: { createdAt: 'asc' },
+        orderBy: { createdAt: 'desc' },
         skip: (currentPage - 1) * currentLimit,
         take: currentLimit
       })

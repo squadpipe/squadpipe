@@ -7,7 +7,6 @@ import {
   Handshake,
   Kanban,
   LogOut,
-  MailCheck,
   MoreVertical,
   PieChart,
   SlidersHorizontal,
@@ -308,27 +307,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               />
               <span>General Settings</span>
             </div>
-          </div>
-
-          <div
-            onClick={() => onNavigate('settings_smtp')}
-            className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
-              currentView === 'settings_smtp'
-                ? 'bg-white/[0.09] text-white shadow-xs font-semibold'
-                : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <MailCheck
-                className={`w-4 h-4 flex-shrink-0 transition-colors ${
-                  currentView === 'settings_smtp' ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-200'
-                }`}
-              />
-              <span>Email Setup (SMTP)</span>
-            </div>
-            <span className="text-[9px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded">
-              SMTP
-            </span>
           </div>
 
           <div

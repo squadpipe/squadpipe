@@ -118,7 +118,7 @@ export class RequirementService {
     return prisma.requirement.findMany({
       where,
       include: REQUIREMENT_INCLUDE,
-      orderBy: { createdAt: 'desc' }
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }]
     });
   }
 
@@ -132,7 +132,7 @@ export class RequirementService {
       const data = await prisma.requirement.findMany({
         where,
         include: REQUIREMENT_INCLUDE,
-        orderBy: { createdAt: 'desc' }
+        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }]
       });
       return {
         data,
@@ -150,7 +150,7 @@ export class RequirementService {
       prisma.requirement.findMany({
         where,
         include: REQUIREMENT_INCLUDE,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
         skip: (page - 1) * limit,
         take: limit
       })

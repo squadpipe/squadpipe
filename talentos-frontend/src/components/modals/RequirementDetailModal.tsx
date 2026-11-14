@@ -377,7 +377,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
         className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col animate-fade-in max-h-[90vh]"
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70 flex-shrink-0">
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded border border-brand-200">
@@ -417,7 +417,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
+        <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1 min-h-0">
           {isEditing && editForm ? (
             <form
               onSubmit={(e) => {
@@ -898,31 +898,42 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                     </>
                   )}
                 </div>
-
-                {selectedCandidateIds.length > 0 && (
-                  <div className="pt-2 border-t border-slate-200 flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-semibold text-slate-700">
-                      {selectedCandidateIds.length} consultant{selectedCandidateIds.length === 1 ? '' : 's'} selected
-                    </span>
-                    <button
-                      type="button"
-                      disabled={isAttaching}
-                      onClick={handleBatchAttach}
-                      className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-[11px] font-semibold shadow-2xs transition-colors cursor-pointer"
-                    >
-                      {isAttaching
-                        ? 'Attaching...'
-                        : `Attach ${selectedCandidateIds.length} Applicant${selectedCandidateIds.length === 1 ? '' : 's'}`}
-                    </button>
-                  </div>
-                )}
               </div>
             )}
           </div>
         </div>
 
+        {/* Sticky Selection Bar (Always visible when consultants are checked) */}
+        {selectedCandidateIds.length > 0 && (
+          <div className="px-6 py-2.5 bg-brand-50/90 border-t border-brand-200 flex items-center justify-between gap-3 flex-shrink-0">
+            <span className="text-xs font-semibold text-slate-800">
+              {selectedCandidateIds.length} consultant{selectedCandidateIds.length === 1 ? '' : 's'} selected
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={isAttaching}
+                onClick={() => setSelectedCandidateIds([])}
+                className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-slate-600 hover:text-slate-900 hover:bg-white/80 transition-colors cursor-pointer"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                disabled={isAttaching}
+                onClick={handleBatchAttach}
+                className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-[11px] font-semibold shadow-2xs transition-colors cursor-pointer"
+              >
+                {isAttaching
+                  ? 'Attaching...'
+                  : `Attach ${selectedCandidateIds.length} Applicant${selectedCandidateIds.length === 1 ? '' : 's'}`}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Footer Actions */}
-        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs">
+        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs flex-shrink-0">
           <div className="flex items-center gap-3">
             <button
               onClick={() => {

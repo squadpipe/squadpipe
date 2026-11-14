@@ -53,6 +53,15 @@ export interface Client {
   customFields?: Record<string, any>;
 }
 
+export interface VendorContact {
+  id?: string;
+  fullName: string;
+  designation?: string;
+  phone?: string;
+  email: string;
+  isPrimary?: boolean;
+}
+
 export interface Vendor {
   id: string;
   name: string;
@@ -64,6 +73,7 @@ export interface Vendor {
   paymentTerms: string;
   invoicingTerms: string;
   msa: string;
+  contacts?: VendorContact[];
   customFields?: Record<string, any>;
 }
 
@@ -111,6 +121,8 @@ export interface Requirement {
   targetBillRate?: number;
   targetPayRate?: number;
   customFields?: Record<string, any>;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface BillablePlacement {

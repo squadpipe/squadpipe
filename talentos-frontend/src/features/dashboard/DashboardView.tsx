@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import {
+  AlertTriangle,
   ArrowRight,
   Award,
   Briefcase,
   CalendarCheck,
   DollarSign,
-  ExternalLink,
   FileSpreadsheet,
   FileText,
   ListChecks,
+  Pencil,
   Plus,
   RefreshCw,
   Send,
+  Trash2,
   UserCheck,
+  X,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Requirement, Candidate, BillablePlacement, SlaTask } from '../../types';
@@ -31,6 +34,8 @@ interface DashboardViewProps {
   onNavigate: (view: string) => void;
   onOpenCreateReq: () => void;
   onSelectReq: (req: Requirement) => void;
+  onUpdateReq?: (req: Requirement) => void;
+  onDeleteReq?: (req: Requirement) => void;
   onPreviewResumeByName: (candidateName: string) => void;
   onStatusChange: (req: Requirement, newStatus: any) => void;
   onOpenMatcher: (req: Requirement) => void;
@@ -49,6 +54,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigate,
   onOpenCreateReq,
   onSelectReq,
+  onUpdateReq,
+  onDeleteReq,
   onPreviewResumeByName,
   onStatusChange,
   onOpenMatcher,
@@ -65,7 +72,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [tableRows, setTableRows] = useState<Requirement[]>([]);
   const [totalRows, setTotalRows] = useState(requirements.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
-  const [remarksState, setRemarksState] = useState<Record<string, string>>({});
+  const [editingReq, setEditingReq] = useState<Requirement | null>(null);
+  const [reqToDelete, setReqToDelete] = useState<Requirement | null>(null);
 
   const debouncedSearch = useDebounce(tableSearch, 300);
 
@@ -342,23 +350,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200/80 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+            <thead className="bg-slate-50/80 border-b border-slate-200/80 text-[10.5px] font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
-                <th className="px-4 py-3">Date Received</th>
-                <th className="px-4 py-3">Opportunity</th>
-                <th className="px-4 py-3">Client Contact</th>
-                <th className="px-4 py-3">Company Name</th>
-                <th className="px-4 py-3">Location</th>
-                <th className="px-4 py-3">Resource Name</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Remarks</th>
-                <th className="px-3 py-3 text-right">Actions</th>
+                <th className="px-3.5 py-2.5 whitespace-nowrap">Req #</th>
+                <th className="px-3.5 py-2.5 whitespace-nowrap">Opportunity</th>
+                <th className="px-3.5 py-2.5 whitespace-nowrap">Client Contact</th>
+                <th className="px-3.5 py-2.5 whitespace-nowrap">Company</th>
+                <th className="px-3.5 py-2.5 whitespace-nowrap">Location</th>
+                <th className="px-3.5 py-2.5 whitespace-nowrap">Consultant</th>
+                <th className="px-3.5 py-2.5 whitespace-nowrap">Status</th>
+                <th className="px-3.5 py-2.5 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
               {filteredRequirements.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-10 text-center text-xs text-slate-400">
+                  <td colSpan={8} className="px-6 py-10 text-center text-xs text-slate-400">
                     No active requirements found. Click{' '}
                     <button
                       type="button"
@@ -393,49 +400,68 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       : new Date().toISOString().split('T')[0];
 
                   return (
-                    <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="px-4 py-3 text-[11px] text-slate-500 whitespace-nowrap">
-                        {dateStr}
+                    <tr key={req.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="px-3.5 py-3 whitespace-nowrap">
+                        <div className="font-mono font-semibold text-[11px] text-slate-700">
+                          {req.code}
+                        </div>
+                        <div className="text-[10px] text-slate-400 tabular-nums mt-0.5">
+                          {dateStr}
+                        </div>
                       </td>
-                      <td className="px-4 py-3 font-medium text-slate-900 max-w-xs">
+                      <td className="px-3.5 py-3 font-medium text-slate-900 min-w-[220px] max-w-[280px]">
                         <div
-                          className="flex items-center gap-1.5 cursor-pointer hover:text-brand-600 transition-colors"
+                          className="cursor-pointer hover:text-brand-600 transition-colors truncate font-semibold"
+                          title={req.opportunityTitle}
                           onClick={() => onSelectReq(req)}
                         >
-                          <span className="truncate font-semibold">{req.opportunityTitle}</span>
-                          <span className="text-[9px] text-slate-400 bg-slate-100 px-1 py-0.2 rounded">
-                            {req.code}
-                          </span>
+                          {req.opportunityTitle}
                         </div>
-                        <div className="text-[10px] text-slate-400 truncate mt-0.5">{req.skillsRequired}</div>
-                      </td>
-                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
-                        <div className="font-medium text-slate-800">{contactName}</div>
-                        <div className="text-[10px] text-slate-400">{contactTitle}</div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap font-semibold text-slate-800">
-                        {req.companyName}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-slate-600">{req.location}</td>
-                      <td className="px-4 py-3">
-                        {req.resourceName ? (
-                          <div className="flex items-center gap-1.5">
-                            <span
-                              className="font-medium text-slate-800 hover:text-brand-600 cursor-pointer transition-colors"
-                              onClick={() => onPreviewResumeByName(req.resourceName!)}
-                            >
-                              {req.resourceName}
-                            </span>
+                        {req.skillsRequired && (
+                          <div className="text-[10.5px] text-slate-400 truncate mt-0.5" title={req.skillsRequired}>
+                            {req.skillsRequired}
                           </div>
+                        )}
+                      </td>
+                      <td className="px-3.5 py-3 text-slate-600 max-w-[160px]">
+                        {contactName ? (
+                          <>
+                            <div className="font-medium text-slate-800 truncate" title={contactName}>
+                              {contactName}
+                            </div>
+                            {contactTitle && (
+                              <div className="text-[10px] text-slate-400 truncate" title={contactTitle}>
+                                {contactTitle}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </td>
+                      <td className="px-3.5 py-3 font-medium text-slate-800 max-w-[170px] truncate" title={req.companyName}>
+                        {req.companyName || <span className="text-slate-300 font-normal">—</span>}
+                      </td>
+                      <td className="px-3.5 py-3 text-slate-600 max-w-[155px] truncate" title={req.location}>
+                        {req.location || <span className="text-slate-300">—</span>}
+                      </td>
+                      <td className="px-3.5 py-3 whitespace-nowrap">
+                        {req.resourceName ? (
+                          <span
+                            className="font-medium text-slate-800 hover:text-brand-600 cursor-pointer transition-colors"
+                            onClick={() => onPreviewResumeByName(req.resourceName!)}
+                          >
+                            {req.resourceName}
+                          </span>
                         ) : (
                           <span className="text-slate-400 italic text-[11px]">Unassigned</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-3.5 py-3 whitespace-nowrap">
                         <select
                           value={req.status}
                           onChange={(e) => onStatusChange(req, e.target.value)}
-                          className={`px-2 py-0.5 rounded text-[11px] font-medium border font-sans cursor-pointer ${getStatusBadgeClass(
+                          className={`px-2 py-1 rounded-md text-[11px] font-medium border font-sans cursor-pointer outline-none ${getStatusBadgeClass(
                             req.status
                           )}`}
                         >
@@ -446,23 +472,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           <option value="Onboarding">Onboarding</option>
                         </select>
                       </td>
-                      <td className="px-4 py-3 max-w-xs">
-                        <input
-                          value={remarksState[req.id] ?? ''}
-                          onChange={(e) => setRemarksState({ ...remarksState, [req.id]: e.target.value })}
-                          onBlur={() => showToast('Remarks Saved', `Saved notes for ${req.code}`)}
-                          placeholder="Click to add remarks..."
-                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-brand-600 rounded px-1.5 py-0.5 text-xs text-slate-700 truncate outline-none"
-                        />
-                      </td>
-                      <td className="px-3 py-3 text-right whitespace-nowrap">
-                        <button
-                          onClick={() => onSelectReq(req)}
-                          title="View Requisition Details"
-                          className="text-slate-400 hover:text-brand-600 p-1 transition-colors cursor-pointer"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </button>
+                      <td className="px-3.5 py-3 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center justify-end gap-1">
+                          {onUpdateReq && (
+                            <button
+                              type="button"
+                              onClick={() => setEditingReq({ ...req })}
+                              title="Edit requirement"
+                              className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors cursor-pointer"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {onDeleteReq && (
+                            <button
+                              type="button"
+                              onClick={() => setReqToDelete(req)}
+                              title="Delete requirement"
+                              className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -694,6 +726,172 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Edit Requisition Modal */}
+      {editingReq && (
+        <div
+          onClick={() => setEditingReq(null)}
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up"
+          >
+            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-mono font-semibold text-brand-700 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded">
+                  {editingReq.code}
+                </span>
+                <h3 className="text-sm font-bold text-slate-900">Edit Requisition</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingReq(null)}
+                className="text-slate-400 hover:text-slate-700 w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (onUpdateReq) onUpdateReq(editingReq);
+                setEditingReq(null);
+              }}
+              className="p-6 space-y-4 text-xs"
+            >
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Opportunity Title</label>
+                <input
+                  type="text"
+                  required
+                  value={editingReq.opportunityTitle}
+                  onChange={(e) => setEditingReq({ ...editingReq, opportunityTitle: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Client Company</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingReq.companyName}
+                    onChange={(e) => setEditingReq({ ...editingReq, companyName: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Location</label>
+                  <input
+                    type="text"
+                    value={editingReq.location}
+                    onChange={(e) => setEditingReq({ ...editingReq, location: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Stage</label>
+                  <select
+                    value={editingReq.status}
+                    onChange={(e) => setEditingReq({ ...editingReq, status: e.target.value as Requirement['status'] })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
+                  >
+                    <option value="Requirement">Requirement</option>
+                    <option value="Submitted">Submitted</option>
+                    <option value="Interview">Interview</option>
+                    <option value="Selected">Selected</option>
+                    <option value="Onboarding">Onboarding</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Required Skills</label>
+                  <input
+                    type="text"
+                    value={editingReq.skillsRequired}
+                    onChange={(e) => setEditingReq({ ...editingReq, skillsRequired: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingReq(null)}
+                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Requisition Confirmation Modal */}
+      {reqToDelete && (
+        <div
+          onClick={() => setReqToDelete(null)}
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up"
+          >
+            <div className="p-6 space-y-4">
+              <div className="flex items-start gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center flex-shrink-0">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-slate-900">Delete Requirement?</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Are you sure you want to permanently remove{' '}
+                    <span className="font-bold text-slate-800">{reqToDelete.code}</span> —{' '}
+                    <span className="font-semibold text-slate-800">{reqToDelete.opportunityTitle}</span> at{' '}
+                    <span className="font-semibold text-slate-800">{reqToDelete.companyName}</span>?
+                  </p>
+                  <p className="text-[11px] text-rose-600 font-medium pt-0.5">
+                    This action cannot be undone and removes linked submission records.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setReqToDelete(null)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onDeleteReq) onDeleteReq(reqToDelete);
+                    setReqToDelete(null);
+                  }}
+                  className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Requisition</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 };

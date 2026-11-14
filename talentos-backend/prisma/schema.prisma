@@ -283,11 +283,28 @@ model Vendor {
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 
+  contacts            VendorContact[]
   placements          Placement[]
 
   @@unique([tenantId, name])
   @@index([name])
   @@index([tenantId])
+}
+
+model VendorContact {
+  id          String   @id @default(uuid())
+  vendorId    String
+  vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  fullName    String
+  designation String   @default("")
+  phone       String?
+  email       String
+  isPrimary   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([vendorId])
+  @@index([email])
 }
 
 model Requirement {

@@ -6,7 +6,6 @@ import {
   CalendarClock,
   Search,
   Plus,
-  Download,
   Pencil,
   Trash2,
   CalendarPlus,
@@ -14,6 +13,7 @@ import {
   AlertTriangle,
   Clock,
   X,
+  FileSpreadsheet,
   FileText,
   ArrowRight,
 } from 'lucide-react';
@@ -204,7 +204,11 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
     });
   };
 
-  const handleExport = () => {
+  const handleExport = (type: 'Excel' | 'PDF') => {
+    if (type === 'PDF') {
+      window.print();
+      return;
+    }
     const headers = [
       'Placed Resource',
       'Client Customer',
@@ -314,11 +318,18 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={handleExport}
+            onClick={() => handleExport('Excel')}
             className="px-3 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 bg-white text-slate-700 text-xs font-medium flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
           >
-            <Download className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Export Ledger</span>
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Export to Excel</span>
+          </button>
+          <button
+            onClick={() => handleExport('PDF')}
+            className="px-3 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 bg-white text-slate-700 text-xs font-medium flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+          >
+            <FileText className="w-3.5 h-3.5 text-rose-600" />
+            <span>Export to PDF</span>
           </button>
           <button
             onClick={onOpenNewPlacement}

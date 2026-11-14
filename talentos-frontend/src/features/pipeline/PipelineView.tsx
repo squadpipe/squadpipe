@@ -1,19 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   AlertTriangle,
-  ArrowLeft,
-  ArrowRight,
   Building2,
+  Clock,
   Columns,
-  GripVertical,
   List,
   MailOpen,
   Pencil,
   Plus,
   Search,
-  Send,
   Trash2,
-  UserPlus,
+  User,
   UsersRound,
   X,
 } from 'lucide-react';
@@ -214,7 +211,11 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
     (req: Requirement, nextStage: Requirement['status']) => {
       if (req.status === nextStage) return;
       pendingStageMapRef.current.set(req.id, { stage: nextStage, until: Date.now() + 2500 });
-      setServerReqs((prev) => prev.map((r) => (r.id === req.id ? { ...r, status: nextStage } : r)));
+      setServerReqs((prev) => {
+        const existing = prev.find((r) => r.id === req.id);
+        const updatedReq = existing ? { ...existing, status: nextStage } : { ...req, status: nextStage };
+        return [updatedReq, ...prev.filter((r) => r.id !== req.id)];
+      });
       onStatusChange(req, nextStage);
       if (nextStage === 'Onboarding') {
         onOpenPlacementWizard({ ...req, status: nextStage });
@@ -222,14 +223,6 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
     },
     [onStatusChange, onOpenPlacementWizard]
   );
-
-  const moveStage = (req: Requirement, direction: number) => {
-    const currentIndex = stageOrder.indexOf(req.status);
-    const nextIndex = currentIndex + direction;
-    if (nextIndex >= 0 && nextIndex < stageOrder.length) {
-      commitStageMove(req, stageOrder[nextIndex]);
-    }
-  };
 
   const hitTestStage = useCallback((clientX: number, clientY: number): Requirement['status'] | null => {
     for (const st of stageOrder) {
@@ -398,7 +391,13 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
     if (onSelectReq) onSelectReq(req);
   };
 
-  const getInitials = (name?: string): string => {
+  const getSkillsList = (skillsStr?: string) =>
+    String(skillsStr || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+  const getTwoInitials = (name?: string): string => {
     const parts = String(name || '')
       .trim()
       .split(/\s+/)
@@ -408,174 +407,199 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
     return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
   };
 
+  const getSingleInitial = (name?: string): string => {
+    const ch = String(name || '').trim()[0];
+    return ch ? ch.toUpperCase() : 'C';
+  };
+
+  const formatRelativeTime = (dateInput?: string): string => {
+    if (!dateInput) return 'Today';
+    const parsed = new Date(dateInput);
+    if (isNaN(parsed.getTime())) return 'Today';
+    const diffMs = Math.max(0, Date.now() - parsed.getTime());
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 60 && String(dateInput).includes('T')) {
+      return diffMins <= 1 ? 'Just now' : `${diffMins}m ago`;
+    }
+    const diffHours = Math.floor(diffMs / 3600000);
+    if (diffHours < 24 && String(dateInput).includes('T')) {
+      return `${diffHours}h ago`;
+    }
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffDays <= 0) return 'Today';
+    if (diffDays === 1) return '1 day ago';
+    if (diffDays < 30) return `${diffDays} days ago`;
+    const diffMonths = Math.floor(diffDays / 30);
+    return diffMonths === 1 ? '1 month ago' : `${diffMonths} months ago`;
+  };
+
+  const avatarPalette = ['bg-indigo-500', 'bg-sky-500', 'bg-emerald-500'];
+
   const renderCardBody = (req: Requirement) => {
-    const stageIdx = stageOrder.indexOf(req.status);
+    const meta = stageMeta[req.status] || stageMeta.Requirement;
+    const skills = getSkillsList(req.skillsRequired);
+    const visibleSkills = skills.slice(0, 3);
+    const extraSkillCount = Math.max(0, skills.length - visibleSkills.length);
     const activeSubs = (req.submissions || []).filter((s) => s.stage !== 'Closed');
     const totalApplicants = activeSubs.length > 0 ? activeSubs.length : req.resourceName ? 1 : 0;
+    const singleApplicantName = activeSubs[0]?.fullName || req.resourceName || 'Applicant';
+    const timeLabel = formatRelativeTime(req.createdAt);
+    const footerColsClass =
+      onUpdateReq && onDeleteReq
+        ? 'grid-cols-3'
+        : onUpdateReq || onDeleteReq
+        ? 'grid-cols-2'
+        : 'grid-cols-1';
 
     return (
       <>
-        {/* Card Top Meta Row */}
-        <div className="flex items-center justify-between gap-2">
-          <button
-            type="button"
-            data-allow-drag="true"
-            onClick={() => handleCardTitleClick(req)}
-            className="text-[10.5px] font-mono font-semibold px-2 py-0.5 rounded-md bg-slate-50 text-slate-600 border border-slate-200/80 cursor-pointer hover:bg-brand-50 hover:text-brand-700 hover:border-brand-200 transition-colors inline-flex items-center gap-1 whitespace-nowrap flex-shrink-0"
-          >
-            <GripVertical className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" />
-            <span>{req.code}</span>
-          </button>
+        <div className="px-4 pt-4 pb-4 space-y-3">
+          {/* Row 1: Stage Dot + Req Code & Bold Rate */}
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              data-allow-drag="true"
+              onClick={() => handleCardTitleClick(req)}
+              className="inline-flex items-center gap-1.5 text-[11px] font-mono font-medium text-slate-400 hover:text-brand-600 transition-colors cursor-pointer"
+            >
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${meta.dotClass}`} />
+              <span>{req.code}</span>
+            </button>
 
-          {!rateMasked && Boolean(req.targetBillRate) && (
-            <span className="text-[11px] font-semibold text-slate-700 tabular-nums whitespace-nowrap">
-              {currencySymbol}
-              {req.targetBillRate}/hr
-            </span>
+            {!rateMasked && Boolean(req.targetBillRate) && (
+              <span className="tabular-nums whitespace-nowrap">
+                <span className="text-[12px] font-medium text-slate-700">
+                  {currencySymbol}
+                  {req.targetBillRate}
+                </span>
+                <span className="text-[10.5px] font-normal text-slate-400">/hr</span>
+              </span>
+            )}
+          </div>
+
+          {/* Row 2: Role Title & Client Company */}
+          <div className="space-y-1">
+            <h4
+              onClick={() => handleCardTitleClick(req)}
+              title={req.opportunityTitle}
+              className="font-medium text-[14px] text-slate-900 leading-[1.35] line-clamp-2 tracking-[-0.01em] cursor-pointer hover:text-brand-600 transition-colors"
+            >
+              {req.opportunityTitle}
+            </h4>
+            <div className="flex items-center gap-1.5 text-[12px] text-slate-500 font-normal min-w-0">
+              <Building2 className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+              <span className="truncate" title={req.companyName}>
+                {req.companyName}
+              </span>
+            </div>
+          </div>
+
+          {/* Row 3: Skill Tags */}
+          {visibleSkills.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-nowrap overflow-hidden pt-0.5">
+              {visibleSkills.map((sk) => (
+                <span
+                  key={sk}
+                  title={sk}
+                  className="px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200/70 text-slate-600 text-[11px] font-medium whitespace-nowrap truncate max-w-[120px]"
+                >
+                  {sk}
+                </span>
+              ))}
+              {extraSkillCount > 0 && (
+                <span
+                  title={skills.slice(visibleSkills.length).join(', ')}
+                  className="px-1.5 py-0.5 rounded-md bg-slate-50 border border-slate-200/70 text-slate-500 text-[11px] font-medium whitespace-nowrap flex-shrink-0"
+                >
+                  +{extraSkillCount}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Row 4: Applicants + Relative Time OR Dashed Bench Match CTA */}
+          {totalApplicants > 0 ? (
+            <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => handleCardTitleClick(req)}
+                title={
+                  activeSubs.length > 0
+                    ? activeSubs.map((s) => `${s.fullName} (${s.stage})`).join(', ')
+                    : singleApplicantName
+                }
+                className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer group"
+              >
+                {totalApplicants === 1 ? (
+                  <>
+                    <User className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                    <span className="text-[12px] font-medium text-slate-700 group-hover:text-brand-600 truncate transition-colors">
+                      {singleApplicantName}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <UsersRound className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                    <span className="text-[12px] font-medium text-slate-700 group-hover:text-brand-600 truncate transition-colors">
+                      {totalApplicants} applicants
+                    </span>
+                  </>
+                )}
+              </button>
+
+              <div className="flex items-center gap-1 text-[11px] text-slate-400 flex-shrink-0 whitespace-nowrap">
+                <Clock className="w-3 h-3 text-slate-400" />
+                <span>{timeLabel}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => onOpenMatcher(req)}
+                className="w-full py-2 px-3 rounded-lg border border-dashed border-indigo-200 bg-indigo-50/30 hover:bg-indigo-50/70 text-indigo-600 text-[11.5px] font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <UsersRound className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>No applicants yet — match from bench</span>
+              </button>
+            </div>
           )}
         </div>
 
-        {/* Role Title + Client */}
-        <div className="space-y-1">
-          <h4
-            onClick={() => handleCardTitleClick(req)}
-            title={req.opportunityTitle}
-            className="font-semibold text-[13px] text-slate-900 leading-snug line-clamp-2 tracking-[-0.01em] cursor-pointer hover:text-brand-600 transition-colors"
-          >
-            {req.opportunityTitle}
-          </h4>
-          <div className="flex items-center gap-1.5 text-[11.5px] text-slate-500 font-medium min-w-0">
-            <Building2 className="w-3 h-3 text-slate-400 flex-shrink-0" />
-            <span className="truncate" title={req.companyName}>
-              {req.companyName}
-            </span>
-          </div>
-        </div>
-
-        {/* Clean Applicant Strip or Bench Matcher */}
-        {totalApplicants > 0 ? (
-          <div className="px-2.5 py-1.5 rounded-lg bg-slate-50/90 border border-slate-200/75 flex items-center justify-between gap-2">
-            <button
-              type="button"
-              onClick={() => handleCardTitleClick(req)}
-              title={
-                activeSubs.length > 0
-                  ? activeSubs.map((s) => `${s.fullName} (${s.stage})`).join(', ')
-                  : req.resourceName
-              }
-              className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer group"
-            >
-              {totalApplicants === 1 ? (
-                <>
-                  <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[9px] font-bold flex items-center justify-center flex-shrink-0">
-                    {getInitials(activeSubs[0]?.fullName || req.resourceName)}
-                  </span>
-                  <span className="text-[11.5px] font-medium text-slate-700 group-hover:text-brand-600 truncate transition-colors">
-                    {activeSubs[0]?.fullName || req.resourceName}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center -space-x-1.5 flex-shrink-0">
-                    {activeSubs.slice(0, 3).map((sub, idx) => (
-                      <span
-                        key={sub.id}
-                        className={`w-5 h-5 rounded-full text-white text-[8.5px] font-bold flex items-center justify-center ring-2 ring-white ${
-                          idx === 0
-                            ? 'bg-emerald-600'
-                            : idx === 1
-                            ? 'bg-brand-600'
-                            : 'bg-indigo-600'
-                        }`}
-                      >
-                        {getInitials(sub.fullName)}
-                      </span>
-                    ))}
-                  </div>
-                  <span className="text-[11.5px] font-medium text-slate-700 group-hover:text-brand-600 truncate transition-colors">
-                    {totalApplicants} Applicants
-                  </span>
-                </>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenMatcher(req);
-              }}
-              title="Attach consultant from bench"
-              className="p-1 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors cursor-pointer flex-shrink-0"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ) : (
+        {/* Row 5: Flush Bottom 3-Segment Action Bar */}
+        <div className={`grid ${footerColsClass} border-t border-slate-100 divide-x divide-slate-100 bg-slate-50/40 text-[11px]`}>
           <button
             type="button"
             onClick={() => onOpenMatcher(req)}
-            className="w-full py-1.5 px-2.5 rounded-lg text-[11px] font-semibold bg-brand-50/75 hover:bg-brand-100/80 text-brand-700 border border-brand-200/70 flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+            title="Match bench consultants"
+            className="py-1.5 px-1.5 flex items-center justify-center gap-1 hover:bg-indigo-50/70 text-indigo-600 font-medium transition-colors cursor-pointer whitespace-nowrap"
           >
-            <UsersRound className="w-3.5 h-3.5 flex-shrink-0" />
-            <span>Match Bench Talent</span>
+            <UsersRound className="w-3 h-3 text-indigo-500 flex-shrink-0" />
+            <span>Match</span>
           </button>
-        )}
 
-        {/* Clean Card Action Footer */}
-        <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-[11px]">
-          <div className="inline-flex items-center rounded-lg border border-slate-200/80 bg-slate-50/80 divide-x divide-slate-200/80 overflow-hidden flex-shrink-0">
+          {onUpdateReq && (
             <button
               type="button"
-              disabled={stageIdx === 0}
-              onClick={() => moveStage(req, -1)}
-              className="p-1.5 text-slate-500 hover:bg-white hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-              title="Move Backward"
+              onClick={() => setEditingReq({ ...req })}
+              title="Edit requirement"
+              className="py-1.5 px-1.5 flex items-center justify-center gap-1 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium transition-colors cursor-pointer whitespace-nowrap"
             >
-              <ArrowLeft className="w-3 h-3" />
+              <Pencil className="w-3 h-3 text-slate-500 flex-shrink-0" />
+              <span>Edit</span>
             </button>
-            <button
-              type="button"
-              disabled={stageIdx === stageOrder.length - 1}
-              onClick={() => moveStage(req, 1)}
-              className="p-1.5 text-slate-500 hover:bg-white hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-              title="Advance Stage"
-            >
-              <ArrowRight className="w-3 h-3" />
-            </button>
-          </div>
+          )}
 
-          <div className="flex items-center gap-1 flex-shrink-0">
+          {onDeleteReq && (
             <button
               type="button"
-              onClick={() => onOpenPitchWriter(req)}
-              title="Open submission pitch writer"
-              className="px-2.5 py-1 rounded-lg bg-amber-50/90 hover:bg-amber-100 text-amber-800 border border-amber-200/60 text-[10.5px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+              onClick={() => setReqToDelete(req)}
+              title="Delete requirement"
+              className="py-1.5 px-1.5 flex items-center justify-center text-rose-500 hover:bg-rose-50/70 hover:text-rose-600 transition-colors cursor-pointer"
             >
-              <Send className="w-3 h-3 text-amber-600" />
-              <span>Pitch</span>
+              <Trash2 className="w-3 h-3" />
             </button>
-            {onUpdateReq && (
-              <button
-                type="button"
-                onClick={() => setEditingReq({ ...req })}
-                title="Edit requirement"
-                className="p-1.5 text-slate-400 hover:text-brand-600 rounded-lg hover:bg-brand-50 transition-colors cursor-pointer"
-              >
-                <Pencil className="w-3.5 h-3.5" />
-              </button>
-            )}
-            {onDeleteReq && (
-              <button
-                type="button"
-                onClick={() => setReqToDelete(req)}
-                title="Delete requirement"
-                className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </>
     );
@@ -672,7 +696,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
       {/* Kanban Mode */}
       {displayMode === 'kanban' ? (
         <div ref={boardScrollRef} className="overflow-x-auto pb-2 -mx-1 px-1">
-          <div className="grid grid-cols-5 gap-3.5 min-w-[1340px] items-stretch">
+          <div className="grid grid-cols-5 gap-4 min-w-[1680px] items-stretch">
             {stageOrder.map((stage) => {
               const reqsInStage = filteredReqs.filter((r) => r.status === stage);
               const isDropTarget = Boolean(activeDrag && dragOverStage === stage);
@@ -685,7 +709,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                     columnRefs.current[stage] = el;
                   }}
                   data-kanban-stage={stage}
-                  className={`p-3 rounded-xl border flex flex-col min-h-[540px] max-h-[calc(100vh-250px)] transition-colors duration-150 ${
+                  className={`p-3.5 rounded-xl border flex flex-col min-h-[600px] max-h-[calc(100vh-195px)] transition-colors duration-150 ${
                     isMovingIntoStage
                       ? 'ring-2 ring-brand-500 bg-brand-50/50 border-brand-300'
                       : isDropTarget
@@ -694,7 +718,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                   }`}
                 >
                   {/* Column Header */}
-                  <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-slate-200/80">
+                  <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-slate-200/80 flex-shrink-0">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={`w-2 h-2 rounded-full flex-shrink-0 ${meta.dotClass}`} />
                       <span className="font-bold text-xs text-slate-800 tracking-tight truncate">
@@ -709,7 +733,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                   </div>
 
                   {/* Cards Container */}
-                  <div className="space-y-2.5 overflow-y-auto no-scrollbar flex-1 flex flex-col">
+                  <div className="space-y-3 overflow-y-auto min-h-0 flex-1 flex flex-col pr-0.5">
                     {reqsInStage.length === 0 ? (
                       <div
                         className={`flex-1 flex flex-col items-center justify-center p-5 text-center text-[11px] border border-dashed rounded-xl transition-colors ${
@@ -740,7 +764,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                           <div
                             key={req.id}
                             onPointerDown={(e) => handleCardPointerDown(e, req)}
-                            className={`p-3.5 rounded-xl border space-y-2.5 select-none transition-all duration-150 ${
+                            className={`flex-shrink-0 rounded-xl border overflow-hidden select-none transition-all duration-150 ${
                               isBeingDragged
                                 ? 'opacity-30 border-dashed border-brand-300 bg-brand-50/30 shadow-none pointer-events-none'
                                 : 'bg-white border-slate-200/90 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_4px_12px_rgba(15,23,42,0.06)] hover:border-slate-300/90 cursor-grab active:cursor-grabbing'
@@ -856,15 +880,9 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                     <td className="py-3 px-4 text-right whitespace-nowrap">
                       <button
                         onClick={() => onOpenMatcher(req)}
-                        className="px-2 py-1 rounded bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200/70 text-[10px] font-semibold mr-1.5 cursor-pointer transition-colors"
+                        className="px-2 py-1 rounded bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200/70 text-[10px] font-semibold cursor-pointer transition-colors"
                       >
                         Match
-                      </button>
-                      <button
-                        onClick={() => onOpenPitchWriter(req)}
-                        className="px-2 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/70 text-[10px] font-semibold cursor-pointer transition-colors"
-                      >
-                        Pitch
                       </button>
                       {onUpdateReq && (
                         <button
@@ -1118,7 +1136,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               transform: `translate3d(${activeDrag.initialX}px, ${activeDrag.initialY}px, 0) rotate(1.2deg)`,
               willChange: 'transform',
             }}
-            className="fixed top-0 left-0 z-[9990] pointer-events-none select-none bg-white p-3.5 rounded-xl border border-brand-400 shadow-2xl ring-2 ring-brand-500/20 space-y-2.5 opacity-95"
+            className="fixed top-0 left-0 z-[9990] pointer-events-none select-none bg-white rounded-xl border border-brand-400 shadow-2xl ring-2 ring-brand-500/20 overflow-hidden opacity-95"
           >
             {renderCardBody(activeDrag.req)}
           </div>

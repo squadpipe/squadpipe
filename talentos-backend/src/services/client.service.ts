@@ -39,7 +39,7 @@ export class ClientService {
       const data = await prisma.client.findMany({
         where,
         include,
-        orderBy: { name: 'asc' }
+        orderBy: { createdAt: 'desc' }
       });
       return {
         data,
@@ -54,7 +54,7 @@ export class ClientService {
       prisma.client.findMany({
         where,
         include,
-        orderBy: { name: 'asc' },
+        orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit
       })
@@ -191,10 +191,18 @@ export class ClientService {
         { location: { contains: q, mode: 'insensitive' } },
         { skillSpecialization: { contains: q, mode: 'insensitive' } },
         { paymentTerms: { contains: q, mode: 'insensitive' } },
+        { contacts: { some: { OR: [
+          { fullName: { contains: q, mode: 'insensitive' } },
+          { email: { contains: q, mode: 'insensitive' } },
+          { phone: { contains: q, mode: 'insensitive' } },
+        ] } } },
       ];
     }
 
     const include = {
+      contacts: {
+        orderBy: [{ isPrimary: 'desc' as const }, { createdAt: 'asc' as const }]
+      },
       placements: {
         select: { id: true, resourceName: true, customer: true, status: true }
       }
@@ -205,7 +213,7 @@ export class ClientService {
       const data = await prisma.vendor.findMany({
         where,
         include,
-        orderBy: { name: 'asc' }
+        orderBy: { createdAt: 'desc' }
       });
       return {
         data,
@@ -220,7 +228,7 @@ export class ClientService {
       prisma.vendor.findMany({
         where,
         include,
-        orderBy: { name: 'asc' },
+        orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit
       })
@@ -238,10 +246,22 @@ export class ClientService {
   }
 
   async createVendor(raw: any, tenantId: string = 'talentos-agency') {
+    const rawContacts = Array.isArray(raw.contacts) ? raw.contacts : [];
+    const normalizedContacts = rawContacts
+      .filter((c: any) => c && (c.fullName?.trim() || c.email?.trim()))
+      .map((c: any, idx: number) => ({
+        fullName: String(c.fullName || '').trim() || 'Account Executive',
+        designation: String(c.designation || '').trim(),
+        phone: String(c.phone || '').trim() || null,
+        email: String(c.email || '').trim() || 'partner@vendor.com',
+        isPrimary: Boolean(c.isPrimary) || (idx === 0 && !rawContacts.some((rc: any) => rc?.isPrimary)),
+      }));
+
+    const primary = normalizedContacts.find((c: any) => c.isPrimary) || normalizedContacts[0];
     const name = raw.name?.trim() || 'New Vendor Agency';
-    const contactName = raw.contactName?.trim() || 'Account Executive';
-    const phone = raw.phone?.trim() || '+1 (555) 000-0000';
-    const email = raw.email?.trim() || 'partner@vendor.com';
+    const contactName = primary?.fullName || raw.contactName?.trim() || 'Account Executive';
+    const phone = primary?.phone || raw.phone?.trim() || '+1 (555) 000-0000';
+    const email = primary?.email || raw.email?.trim() || 'partner@vendor.com';
     const location = raw.location?.trim() || 'US Nationwide';
     const skillSpecialization = raw.skillSpecialization?.trim() || 'IT Staffing';
     const paymentTerms = raw.paymentTerms?.trim() || 'Net 45';
@@ -249,6 +269,10 @@ export class ClientService {
     const msaSigned = raw.msa === 'Yes' || raw.msa === 'Active' || raw.msaSigned === true;
 
     const coiExpiryDate = raw.coiExpiryDate ? new Date(raw.coiExpiryDate) : null;
+
+    const contactsToCreate = normalizedContacts.length > 0
+      ? normalizedContacts
+      : [{ fullName: contactName, designation: '', phone, email, isPrimary: true }];
 
     const vendor = await prisma.vendor.create({
       data: {
@@ -263,8 +287,14 @@ export class ClientService {
         invoicingTerms,
         msaSigned,
         ...(coiExpiryDate && !isNaN(coiExpiryDate.getTime()) ? { coiExpiryDate } : {}),
+        contacts: {
+          create: contactsToCreate
+        }
       },
       include: {
+        contacts: {
+          orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }]
+        },
         placements: true
       }
     });
@@ -306,10 +336,37 @@ export class ClientService {
       }
     }
 
+    if (Array.isArray(raw.contacts)) {
+      const normalized = raw.contacts
+        .filter((c: any) => c && (c.fullName?.trim() || c.email?.trim()))
+        .map((c: any, idx: number) => ({
+          fullName: String(c.fullName || '').trim() || 'Account Executive',
+          designation: String(c.designation || '').trim(),
+          phone: String(c.phone || '').trim() || null,
+          email: String(c.email || '').trim() || existing.email,
+          isPrimary: Boolean(c.isPrimary) || (idx === 0 && !raw.contacts.some((rc: any) => rc?.isPrimary)),
+        }));
+
+      const primary = normalized.find((c: any) => c.isPrimary) || normalized[0];
+      if (primary) {
+        data.contactName = primary.fullName;
+        data.phone = primary.phone;
+        data.email = primary.email;
+      }
+
+      data.contacts = {
+        deleteMany: {},
+        create: normalized,
+      };
+    }
+
     const updated = await prisma.vendor.update({
       where: { id },
       data,
       include: {
+        contacts: {
+          orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }]
+        },
         placements: true
       }
     });

@@ -9,7 +9,7 @@ import {
   initWorkspaceBrand,
   setWorkspaceBrand,
 } from './utils/workspaceBrand';
-import { mapCandidateFromApi, mapRequirementFromApi } from './utils/entityMappers';
+import { mapCandidateFromApi, mapRequirementFromApi, mapVendorFromApi } from './utils/entityMappers';
 import { buildCandidateFormData } from './utils/cvFiles';
 
 import { Sidebar } from './components/layout/Sidebar';
@@ -824,11 +824,18 @@ export const App: React.FC = () => {
     expiringPlacementsCount,
   };
 
+  const promoteRequirementToTop = (list: Requirement[], updated: Requirement) => [
+    updated,
+    ...list.filter((r) => r.id !== updated.id),
+  ];
+
   // Handlers
   const handleStatusChange = async (req: Requirement, newStatus: any) => {
-    setRequirements((prev) =>
-      prev.map((r) => (r.id === req.id ? { ...r, status: newStatus } : r))
-    );
+    setRequirements((prev) => {
+      const existing = prev.find((r) => r.id === req.id);
+      const updated = existing ? { ...existing, status: newStatus } : { ...req, status: newStatus };
+      return promoteRequirementToTop(prev, updated);
+    });
     try {
       const res = await apiClient.patch(`/requirements/${req.id}/stage`, {
         status: newStatus,
@@ -843,16 +850,10 @@ export const App: React.FC = () => {
     } catch (e) {
       console.warn('API status change:', e);
     }
-
-    showToast(
-      'Stage Updated',
-      `${req.opportunityTitle} moved to ${newStatus}.`,
-      'fa-solid fa-arrows-spin text-brand-600'
-    );
   };
 
   const syncUpdatedRequirement = (mapped: Requirement) => {
-    setRequirements((prev) => prev.map((r) => (r.id === mapped.id ? mapped : r)));
+    setRequirements((prev) => promoteRequirementToTop(prev, mapped));
     setSelectedReqForDetail((prev) => (prev && prev.id === mapped.id ? mapped : prev));
     setActiveReq((prev) => (prev && prev.id === mapped.id ? mapped : prev));
   };
@@ -986,13 +987,15 @@ export const App: React.FC = () => {
     }
     const resolvedReqId = reqId || savedPlacement.requirementId;
     if (resolvedReqId) {
-      setRequirements((prev) =>
-        prev.map((r) =>
-          r.id === resolvedReqId
-            ? { ...r, status: 'Onboarding', resourceName: savedPlacement.resourceName || r.resourceName }
-            : r
-        )
-      );
+      setRequirements((prev) => {
+        const target = prev.find((r) => r.id === resolvedReqId);
+        if (!target) return prev;
+        return promoteRequirementToTop(prev, {
+          ...target,
+          status: 'Onboarding',
+          resourceName: savedPlacement.resourceName || target.resourceName,
+        });
+      });
       fetchRequirements();
       fetchSlaTasks();
       fetchAutomations();
@@ -1061,7 +1064,7 @@ export const App: React.FC = () => {
   const handleUpdateVendor = async (updated: Vendor) => {
     try {
       const res = await apiClient.put(`/vendors/${updated.id}`, updated);
-      const saved: Vendor = res.data?.data ?? updated;
+      const saved: Vendor = res.data?.data ? mapVendorFromApi(res.data.data) : updated;
       setVendors((prev) => prev.map((v) => (v.id === saved.id ? { ...v, ...saved } : v)));
       fetchSlaTasks();
       fetchAutomations();
@@ -1482,6 +1485,8 @@ export const App: React.FC = () => {
               onNavigate={setCurrentView}
               onOpenCreateReq={() => setActiveCreateModal('requirement')}
               onSelectReq={(r) => setSelectedReqForDetail(r)}
+              onUpdateReq={handleUpdateRequirement}
+              onDeleteReq={handleDeleteRequirement}
               onPreviewResumeByName={(candName) => {
                 const c = candidates.find((cand) => cand.fullName === candName);
                 if (c) setSelectedResumeCand(c);
@@ -1703,10 +1708,10 @@ export const App: React.FC = () => {
             />
           )}
 
-            {(currentView === 'settings_general' || currentView === 'settings_smtp') && (
+            {currentView === 'settings_general' && (
               <SettingsView
-                activeTab={currentView === 'settings_smtp' ? 'smtp' : 'general'}
-                onTabChange={(tab) => setCurrentView(tab === 'smtp' ? 'settings_smtp' : 'settings_general')}
+                activeTab="general"
+                onTabChange={() => setCurrentView('settings_general')}
                 showToast={showToast}
               />
             )}
@@ -1844,7 +1849,7 @@ export const App: React.FC = () => {
         clients={clients}
         onConfigureEmail={() => {
           setIsPitchModalOpen(false);
-          setCurrentView('settings_smtp');
+          setCurrentView('settings_general');
         }}
         showToast={showToast}
       />
@@ -1991,13 +1996,15 @@ export const App: React.FC = () => {
             );
           }
           if (saved.requirementId) {
-            setRequirements((prev) =>
-              prev.map((r) =>
-                r.id === saved.requirementId
-                  ? { ...r, status: 'Onboarding', resourceName: saved.resourceName || r.resourceName }
-                  : r
-              )
-            );
+            setRequirements((prev) => {
+              const target = prev.find((r) => r.id === saved.requirementId);
+              if (!target) return prev;
+              return promoteRequirementToTop(prev, {
+                ...target,
+                status: 'Onboarding',
+                resourceName: saved.resourceName || target.resourceName,
+              });
+            });
           }
         }}
         showToast={showToast}
