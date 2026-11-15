@@ -37,7 +37,6 @@ interface DashboardViewProps {
   onPreviewResumeByName: (candidateName: string) => void;
   onStatusChange: (req: Requirement, newStatus: any) => void;
   onOpenMatcher: (req: Requirement) => void;
-  onOpenPitchWriter: (req: Requirement) => void;
   onOpenSlaDrawer: () => void;
   onRefreshSla?: () => Promise<void> | void;
   showToast: (title: string, message: string, icon?: string) => void;
@@ -57,7 +56,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onPreviewResumeByName,
   onStatusChange,
   onOpenMatcher,
-  onOpenPitchWriter,
   onOpenSlaDrawer,
   onRefreshSla,
   showToast,
@@ -586,20 +584,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         </div>
                         <div className="text-[10px] text-slate-500 truncate">{item.desc}</div>
                       </div>
-                      {actionType === 'pitch' ? (
-                        <button
-                          onClick={() => {
-                            const r =
-                              (item.relatedEntityId
-                                ? requirements.find((x) => x.id === item.relatedEntityId)
-                                : undefined) || requirements[0];
-                            if (r) onOpenPitchWriter(r);
-                          }}
-                          className="flex-shrink-0 px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-medium hover:bg-amber-200 transition-colors cursor-pointer"
-                        >
-                          Follow-up
-                        </button>
-                      ) : actionType === 'matcher' ? (
+                      {actionType === 'matcher' ? (
                         <button
                           onClick={() => {
                             const r =

@@ -53,25 +53,6 @@ export class ResumeParserClientService {
     }
     return response.json();
   }
-
-  async generatePitch(payload: {
-    candidateName: string;
-    candidateTitle: string;
-    candidateSkills: string;
-    companyName: string;
-    jobTitle: string;
-    tone: string;
-  }) {
-    const response = await fetch(`${this.parserBaseUrl}/api/v1/generate-pitch`, {
-      method: 'POST',
-      headers: this.buildHeaders(true),
-      body: JSON.stringify(payload)
-    });
-    if (!response.ok) {
-      throw new Error(`Pitch generation failed with status ${response.status}`);
-    }
-    return response.json();
-  }
 }
 
 export const resumeParserClientService = new ResumeParserClientService();

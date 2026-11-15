@@ -33,7 +33,6 @@ interface PipelineViewProps {
   onStatusChange: (req: Requirement, newStatus: any) => void;
   onOpenEmailParser: () => void;
   onOpenMatcher: (req: Requirement) => void;
-  onOpenPitchWriter: (req: Requirement) => void;
   onOpenPlacementWizard: (req: Requirement) => void;
   onSelectReq?: (req: Requirement) => void;
   onOpenAddReq?: () => void;
@@ -48,7 +47,6 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
   onStatusChange,
   onOpenEmailParser,
   onOpenMatcher,
-  onOpenPitchWriter,
   onOpenPlacementWizard,
   onSelectReq,
   onOpenAddReq,

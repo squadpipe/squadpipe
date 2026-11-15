@@ -161,7 +161,7 @@ export interface SlaTask {
   title: string;
   desc: string;
   meta: string;
-  actionType: 'pitch' | 'pipeline' | 'matcher' | 'billable' | 'checklist';
+  actionType: 'pipeline' | 'matcher' | 'billable' | 'checklist';
   actionLabel: string;
   relatedEntityType?: string;
   relatedEntityId?: string;

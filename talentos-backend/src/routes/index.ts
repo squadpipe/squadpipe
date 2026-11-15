@@ -6,7 +6,6 @@ import { csvImporterService } from '../services/csvImporter.service';
 import { resumeParserClientService } from '../services/resumeParserClient.service';
 import { smtpService } from '../services/smtp.service';
 import {
-  renderPitchEmail,
   renderSubmissionEmail,
 } from '../services/emailTemplate.service';
 import {
@@ -401,15 +400,6 @@ router.post('/match-skills', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/generate-pitch', async (req: Request, res: Response) => {
-  try {
-    const result = await resumeParserClientService.generatePitch(req.body);
-    res.json({ success: true, data: result });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Pitch generation failed' });
-  }
-});
-
 // Requirements
 router.get('/requirements', requirementController.getRequirements);
 router.get('/requirements/kanban', requirementController.getKanbanBoard);
@@ -547,7 +537,6 @@ router.post('/smtp/send', emailRateLimiter, async (req: Request, res: Response) 
       subject,
       html,
       bodyHtml,
-      textBody,
       candidateName,
       requirementTitle,
       clientName,
@@ -569,27 +558,18 @@ router.post('/smtp/send', emailRateLimiter, async (req: Request, res: Response) 
     const rawCustomHtml = html || bodyHtml;
     const resolvedHtml = rawCustomHtml
       ? sanitizeEmailHtml(String(rawCustomHtml))
-      : textBody
-        ? renderPitchEmail({
-            brandName,
-            subject: resolvedSubject,
-            textBody: String(textBody),
-            candidateName,
-            requirementTitle,
-            clientName,
-          }).html
-        : renderSubmissionEmail({
-            brandName,
-            recipientName: recipientName || 'Hiring Team',
-            requirementTitle: requirementTitle || 'Open Requisition',
-            clientName: clientName || 'your organization',
-            candidateName: candidateName || 'N/A',
-            workAuth: workAuth || 'Authorized',
-            rate: rate || 'Competitive',
-            location: location || 'Remote / Hybrid',
-            senderName: req.user?.fullName || `${brandName} Recruitment Desk`,
-            subject: resolvedSubject
-          }).html;
+      : renderSubmissionEmail({
+          brandName,
+          recipientName: recipientName || 'Hiring Team',
+          requirementTitle: requirementTitle || 'Open Requisition',
+          clientName: clientName || 'your organization',
+          candidateName: candidateName || 'N/A',
+          workAuth: workAuth || 'Authorized',
+          rate: rate || 'Competitive',
+          location: location || 'Remote / Hybrid',
+          senderName: req.user?.fullName || `${brandName} Recruitment Desk`,
+          subject: resolvedSubject
+        }).html;
 
     const result = await smtpService.sendMail({
       to: targetEmail,

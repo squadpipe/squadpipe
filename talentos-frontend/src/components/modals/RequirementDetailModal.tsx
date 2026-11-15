@@ -30,7 +30,6 @@ interface RequirementDetailModalProps {
   ) => Promise<void> | void;
   onDetachSubmission?: (req: Requirement, submissionId: string) => Promise<void> | void;
   onOpenResumePreview: (candidate: Candidate) => void;
-  onOpenPitchWriter: (req: Requirement, candidate?: Candidate | null) => void;
   onOpenPlacementWizard: (req: Requirement, candidate?: Candidate | null) => void;
   onUpdateReq?: (req: Requirement) => void;
 }
@@ -72,7 +71,6 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
   onUpdateSubmissionStage,
   onDetachSubmission,
   onOpenResumePreview,
-  onOpenPitchWriter,
   onOpenPlacementWizard,
   onUpdateReq,
 }) => {

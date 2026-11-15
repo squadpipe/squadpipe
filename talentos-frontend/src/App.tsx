@@ -71,7 +71,6 @@ import { LoginView } from './features/auth/LoginView';
 import { ResumeParserModal } from './features/modals/ResumeParserModal';
 import { EmailParserModal } from './features/modals/EmailParserModal';
 import { SkillMatcherModal } from './features/modals/SkillMatcherModal';
-import { SubmissionPitchModal } from './features/modals/SubmissionPitchModal';
 import { PlacementWizardModal } from './features/modals/PlacementWizardModal';
 import { AddConsultantModal } from './components/modals/create/AddConsultantModal';
 import { AddRequirementModal } from './components/modals/create/AddRequirementModal';
@@ -279,7 +278,6 @@ export const App: React.FC = () => {
   const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [isMatcherModalOpen, setIsMatcherModalOpen] = useState(false);
-  const [isPitchModalOpen, setIsPitchModalOpen] = useState(false);
   const [isPlacementWizardOpen, setIsPlacementWizardOpen] = useState(false);
   const [activeCreateModal, setActiveCreateModal] = useState<
     'consultant' | 'requirement' | 'client' | 'vendor' | 'placement' | null
@@ -574,7 +572,7 @@ export const App: React.FC = () => {
             desc: s.description || s.desc || '',
             meta: s.meta || '',
             actionType: (
-              ['pitch', 'pipeline', 'matcher', 'billable', 'checklist'].includes(normalizedAction)
+              ['pipeline', 'matcher', 'billable', 'checklist'].includes(normalizedAction)
                 ? normalizedAction
                 : 'pipeline'
             ) as SlaTask['actionType'],
@@ -770,7 +768,7 @@ export const App: React.FC = () => {
     }
   }, [currentView, authToken]);
 
-  // Ensure clients, users, and candidates are available when opening create or pitch modals
+  // Ensure clients, users, and candidates are available when opening create or wizard modals
   useEffect(() => {
     if (!authToken && !currentUser) return;
     if (
@@ -788,11 +786,7 @@ export const App: React.FC = () => {
         if (!loadedEntities.current.has('requirements')) fetchRequirements();
       }
     }
-    if (isPitchModalOpen) {
-      if (!loadedEntities.current.has('candidates')) fetchCandidates();
-      if (!loadedEntities.current.has('clients')) fetchClients();
-    }
-  }, [activeCreateModal, isPitchModalOpen, isEmailModalOpen, isPlacementWizardOpen, authToken]);
+  }, [activeCreateModal, isEmailModalOpen, isPlacementWizardOpen, authToken]);
 
   // Financial KPI calculations
   const totalMonthlyGrossProfit = placements.reduce(
@@ -1333,10 +1327,7 @@ export const App: React.FC = () => {
         ? requirements.find((r) => r.id === task.relatedEntityId)
         : undefined;
 
-    if (action === 'pitch') {
-      setActiveReq(matchedReq || requirements[0] || null);
-      setIsPitchModalOpen(true);
-    } else if (action === 'matcher') {
+    if (action === 'matcher') {
       setActiveReq(matchedReq || requirements[0] || null);
       setIsMatcherModalOpen(true);
     } else if (action === 'billable') {
@@ -1545,10 +1536,6 @@ export const App: React.FC = () => {
                 setActiveReq(req);
                 setIsMatcherModalOpen(true);
               }}
-              onOpenPitchWriter={(req) => {
-                setActiveReq(req);
-                setIsPitchModalOpen(true);
-              }}
               onOpenSlaDrawer={() => setIsSlaOpen(true)}
               onRefreshSla={async () => {
                 await Promise.all([fetchSlaTasks(), fetchAutomations(), fetchSidebarCounts()]);
@@ -1567,11 +1554,6 @@ export const App: React.FC = () => {
               onOpenMatcher={(req) => {
                 setActiveReq(req);
                 setIsMatcherModalOpen(true);
-              }}
-              onOpenPitchWriter={(req) => {
-                setActiveCandidate(null);
-                setActiveReq(req);
-                setIsPitchModalOpen(true);
               }}
               onOpenPlacementWizard={(req) => {
                 setActiveCandidate(null);
@@ -1835,11 +1817,6 @@ export const App: React.FC = () => {
         onUpdateSubmissionStage={handleUpdateSubmissionStage}
         onDetachSubmission={handleDetachSubmission}
         onOpenResumePreview={(cand) => setSelectedResumeCand(cand)}
-        onOpenPitchWriter={(req, cand) => {
-          setActiveCandidate(cand || null);
-          setActiveReq(req);
-          setIsPitchModalOpen(true);
-        }}
         onOpenPlacementWizard={(req, cand) => {
           setActiveCandidate(cand || null);
           setActiveReq(req);
@@ -1890,22 +1867,6 @@ export const App: React.FC = () => {
           handleAssignCandidate(requirement, candidate)
         }
         onAttachCandidates={handleAttachCandidates}
-        showToast={showToast}
-      />
-
-      <SubmissionPitchModal
-        isOpen={isPitchModalOpen}
-        onClose={() => setIsPitchModalOpen(false)}
-        candidate={activeCandidate}
-        candidates={candidates}
-        requirement={
-          requirements.find((r) => r.id === activeReq?.id) || activeReq
-        }
-        clients={clients}
-        onConfigureEmail={() => {
-          setIsPitchModalOpen(false);
-          setCurrentView('settings_general');
-        }}
         showToast={showToast}
       />
 

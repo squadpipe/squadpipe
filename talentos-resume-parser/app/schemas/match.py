@@ -21,18 +21,3 @@ class SkillMatchResponse(BaseModel):
     requirementId: str
     matches: List[CandidateMatchItem]
 
-class PitchGenerateRequest(BaseModel):
-    candidateName: str
-    candidateTitle: str
-    candidateSkills: str
-    companyName: str
-    jobTitle: str
-    recruiterName: Optional[str] = None
-    tone: str = "Professional" # "Professional", "High-Impact", "Technical Focus"
-
-class PitchGenerateResponse(BaseModel):
-    success: bool
-    tone: str
-    subject: str
-    body: str
-
