@@ -14,7 +14,9 @@ import { Requirement, Candidate, RequirementSubmission } from '../../types';
 import { useCurrency } from '../../utils/currency';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapCandidateFromApi, mapRequirementFromApi } from '../../utils/entityMappers';
+import { getStageDotClass } from '../../utils/stageStyles';
 import { SkillTagInput } from '../shared/SkillTagInput';
+import { StatusBadge } from '../shared/StatusBadge';
 
 interface RequirementDetailModalProps {
   isOpen: boolean;
@@ -43,23 +45,6 @@ const SUBMISSION_STAGES: RequirementSubmission['stage'][] = [
   'Onboarding',
   'Closed',
 ];
-
-const getSubStageClass = (stage: RequirementSubmission['stage']) => {
-  switch (stage) {
-    case 'Submitted':
-      return 'bg-blue-50 text-blue-700 border-blue-200';
-    case 'Interview':
-      return 'bg-amber-50 text-amber-700 border-amber-200';
-    case 'Selected':
-      return 'bg-purple-50 text-purple-700 border-purple-200';
-    case 'Onboarding':
-      return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    case 'Closed':
-      return 'bg-rose-50 text-rose-700 border-rose-200';
-    default:
-      return 'bg-slate-100 text-slate-700 border-slate-200';
-  }
-};
 
 export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
   isOpen,
@@ -377,21 +362,6 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
     );
   };
 
-  const getStatusBadge = (status: Requirement['status']) => {
-    switch (status) {
-      case 'Submitted':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'Interview':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'Selected':
-        return 'bg-purple-50 text-purple-700 border-purple-200';
-      case 'Onboarding':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      default:
-        return 'bg-slate-100 text-slate-700 border-slate-200';
-    }
-  };
-
   const skills = requirement.skillsRequired
     ? requirement.skillsRequired.split(',').map((s) => s.trim()).filter(Boolean)
     : [];
@@ -409,7 +379,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70 flex-shrink-0">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded border border-brand-200">
+              <span className="text-xs font-mono font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
                 {requirement.code}
               </span>
               <h2 className="text-sm font-bold text-slate-900">{requirement.opportunityTitle}</h2>
@@ -598,7 +568,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
               {skills.map((s, idx) => (
                 <span
                   key={idx}
-                  className="text-xs bg-brand-50 text-brand-700 border border-brand-200 px-2 py-0.5 rounded-md font-medium"
+                  className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium"
                 >
                   {s}
                 </span>
@@ -617,10 +587,10 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
             <div className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Filled / Placed</span>
               <span
-                className={`text-xs font-bold px-2 py-0.5 rounded-md border ${
+                className={`text-xs font-semibold px-2 py-0.5 rounded-md ${
                   filledPositions >= openPositions
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    : 'bg-white text-slate-700 border-slate-200'
+                    ? 'bg-emerald-500/[0.08] text-emerald-800'
+                    : 'bg-white text-slate-700 border border-slate-200'
                 }`}
               >
                 {filledPositions} / {openPositions} Placed
@@ -628,9 +598,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
             </div>
             <div className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Req Stage</span>
-              <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${getStatusBadge(requirement.status)}`}>
-                {requirement.status}
-              </span>
+              <StatusBadge stage={requirement.status} size="xs" />
             </div>
           </div>
 
@@ -680,21 +648,19 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                       className="bg-white border border-slate-200 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-2xs hover:border-slate-300 transition-colors"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-8 h-8 rounded-full bg-brand-50 text-brand-700 border border-brand-200 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
                           {initials}
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-bold text-slate-900 text-xs truncate">{sub.fullName}</span>
                             {sub.workAuth && (
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 font-medium">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">
                                 {sub.workAuth}
                               </span>
                             )}
                             {placed && (
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
-                                Active Placement
-                              </span>
+                              <StatusBadge label="Active Placement" tone="emerald" size="xs" />
                             )}
                           </div>
                           <div className="text-[10px] text-slate-500 mt-0.5 truncate">
@@ -707,36 +673,41 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
 
                       <div className="flex items-center gap-1.5 flex-wrap justify-end">
                         {!isLegacy && onUpdateSubmissionStage ? (
-                          <select
-                            aria-label={`Stage for ${sub.fullName}`}
-                            disabled={busySubId === sub.id}
-                            value={sub.stage}
-                            onChange={async (e) => {
-                              const nextStage = e.target.value as RequirementSubmission['stage'];
-                              if (nextStage === 'Onboarding' && !placed) {
-                                onClose();
-                                onOpenPlacementWizard(requirement, candObj);
-                                return;
-                              }
-                              setBusySubId(sub.id);
-                              try {
-                                await onUpdateSubmissionStage(requirement, sub.id, nextStage);
-                              } finally {
-                                setBusySubId(null);
-                              }
-                            }}
-                            className={`text-[10px] font-semibold px-2 py-1 rounded-md border cursor-pointer focus:outline-none ${getSubStageClass(sub.stage)}`}
-                          >
-                            {SUBMISSION_STAGES.map((st) => (
-                              <option key={st} value={st} className="bg-white text-slate-800">
-                                {st}
-                              </option>
-                            ))}
-                          </select>
+                          <div className="relative inline-flex items-center">
+                            <span
+                              className={`pointer-events-none absolute left-2 w-1.5 h-1.5 rounded-full ${getStageDotClass(
+                                sub.stage
+                              )}`}
+                            />
+                            <select
+                              aria-label={`Stage for ${sub.fullName}`}
+                              disabled={busySubId === sub.id}
+                              value={sub.stage}
+                              onChange={async (e) => {
+                                const nextStage = e.target.value as RequirementSubmission['stage'];
+                                if (nextStage === 'Onboarding' && !placed) {
+                                  onClose();
+                                  onOpenPlacementWizard(requirement, candObj);
+                                  return;
+                                }
+                                setBusySubId(sub.id);
+                                try {
+                                  await onUpdateSubmissionStage(requirement, sub.id, nextStage);
+                                } finally {
+                                  setBusySubId(null);
+                                }
+                              }}
+                              className="!pl-5 py-1 rounded-md border border-slate-200 bg-white text-slate-700 text-[10px] font-medium cursor-pointer"
+                            >
+                              {SUBMISSION_STAGES.map((st) => (
+                                <option key={st} value={st} className="bg-white text-slate-800">
+                                  {st}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         ) : (
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${getSubStageClass(sub.stage)}`}>
-                            {sub.stage}
-                          </span>
+                          <StatusBadge stage={sub.stage} size="xs" />
                         )}
 
                         {candObj && (
@@ -755,7 +726,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                             onClick={() => {
                               onOpenPlacementWizard(requirement, candObj);
                             }}
-                            className="px-2 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-semibold cursor-pointer"
+                            className="px-2.5 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[10px] font-semibold cursor-pointer transition-colors"
                           >
                             Place
                           </button>
@@ -843,9 +814,10 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
               </button>
             )}
             {isPositionsFull && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">
-                All {openPositions} {openPositions === 1 ? 'Position' : 'Positions'} Filled
-              </span>
+              <StatusBadge
+                label={`All ${openPositions} ${openPositions === 1 ? 'Position' : 'Positions'} Filled`}
+                tone="emerald"
+              />
             )}
           </div>
           <button
@@ -961,7 +933,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                         </div>
 
                         {alreadyAttached ? (
-                          <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px] font-semibold flex-shrink-0">
+                          <span className="px-2 py-0.5 rounded bg-emerald-500/[0.1] text-emerald-800 text-[10px] font-semibold flex-shrink-0">
                             Attached
                           </span>
                         ) : (
@@ -972,7 +944,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                               e.stopPropagation();
                               handleQuickSingleAttach(con);
                             }}
-                            className="px-2.5 py-1 rounded-lg bg-white hover:bg-brand-600 text-brand-700 hover:text-white border border-brand-200 text-[10px] font-semibold transition-colors flex-shrink-0 cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[10px] font-semibold transition-colors flex-shrink-0 cursor-pointer"
                           >
                             Quick Attach
                           </button>

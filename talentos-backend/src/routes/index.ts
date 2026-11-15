@@ -25,7 +25,7 @@ import {
 import { escapeHtml, sanitizeEmailHtml } from '../utils/cryptoSecret';
 import { slaEngineService } from '../services/slaEngine.service';
 import { automationEngineService } from '../services/automationEngine.service';
-import { AutomationCategory, SlaCategory, UserRole } from '@prisma/client';
+import { AutomationCategory, PlacementStatus, SlaCategory, UserRole } from '@prisma/client';
 
 import * as authController from '../controllers/auth.controller';
 import * as candidateController from '../controllers/candidate.controller';
@@ -138,7 +138,18 @@ router.get('/sidebar/counts', async (req: Request, res: Response) => {
       prisma.candidate.count({ where: { tenantId } }),
       prisma.client.count({ where: { tenantId } }),
       prisma.vendor.count({ where: { tenantId } }),
-      prisma.placement.count({ where: { tenantId } }),
+      prisma.placement.count({
+        where: {
+          tenantId,
+          status: {
+            in: [
+              PlacementStatus.ACTIVE,
+              PlacementStatus.EXTENDED,
+              PlacementStatus.EXPIRING_SOON,
+            ],
+          },
+        },
+      }),
       prisma.user.count({ where: { tenantId } }),
       prisma.customFieldDefinition.count({ where: { tenantId } }),
       prisma.automationRule.count({ where: { tenantId, active: true } })

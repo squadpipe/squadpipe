@@ -83,14 +83,14 @@ export const SkillTagInput: React.FC<SkillTagInputProps> = ({
           {skillTags.map((tag) => (
             <span
               key={tag}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-semibold"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-medium"
             >
               <span>{tag}</span>
               <button
                 type="button"
                 onClick={() => handleRemove(tag)}
                 aria-label={`Remove ${tag}`}
-                className="text-blue-400 hover:text-rose-600 cursor-pointer inline-flex items-center"
+                className="text-slate-400 hover:text-rose-600 cursor-pointer inline-flex items-center"
               >
                 <X className="w-3 h-3" />
               </button>

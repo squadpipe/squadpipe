@@ -90,7 +90,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
       await onSave(newReq);
       setForm(getInitialForm());
       setCustomValues({});
-      showToast('Requirement Created', `${newReq.opportunityTitle} (${openPosNum} open ${openPosNum === 1 ? 'position' : 'positions'}) added to pipeline!`, 'fa-solid fa-circle-check text-blue-500');
+      showToast('Requirement Created', `${newReq.opportunityTitle} (${openPosNum} open ${openPosNum === 1 ? 'position' : 'positions'}) added to pipeline!`, 'fa-solid fa-circle-check text-brand-600');
       onClose();
     } catch (err: any) {
       showToast(
@@ -113,9 +113,9 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
         className="bg-white rounded-xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col animate-fade-in max-h-[92vh]"
       >
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
+        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white flex-shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white flex-shrink-0">
               <Briefcase className="w-4 h-4" />
             </div>
             <div>
@@ -311,7 +311,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
             <button
               type="submit"
               disabled={isSaving}
-              className="px-5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-60 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:opacity-60 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
               <span>{isSaving ? 'Creating...' : 'Create Requirement & Add to Pipeline'}</span>

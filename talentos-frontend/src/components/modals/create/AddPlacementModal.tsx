@@ -207,9 +207,9 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
         className="bg-white rounded-xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col animate-fade-in max-h-[92vh]"
       >
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
+        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white flex-shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white flex-shrink-0">
               <DollarSign className="w-4 h-4" />
             </div>
             <div>
@@ -519,7 +519,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Check className="w-3.5 h-3.5" />
               <span>Activate Billable Placement</span>

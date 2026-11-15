@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Building2, FileText, Pencil, Plus, X } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Client, Requirement, BillablePlacement } from '../../types';
+import { StatusBadge } from '../shared/StatusBadge';
 
 interface ClientDetailDrawerProps {
   isOpen: boolean;
@@ -121,21 +122,6 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
     (p) => p.customer.toLowerCase() === client.name.toLowerCase()
   );
 
-  const getStatusBadge = (status: Requirement['status']) => {
-    switch (status) {
-      case 'Submitted':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'Interview':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'Selected':
-        return 'bg-purple-50 text-purple-700 border-purple-200';
-      case 'Onboarding':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      default:
-        return 'bg-slate-100 text-slate-700 border-slate-200';
-    }
-  };
-
   return (
     <div
       onClick={onClose}
@@ -186,7 +172,7 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
                 </span>
               )}
               {tab === 'Placements' && (
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-50 text-emerald-700">
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
                   {clientPlacements.length}
                 </span>
               )}
@@ -296,9 +282,9 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
                 </div>
               )}
 
-              <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-100 text-slate-700 space-y-1.5 leading-relaxed">
-                <div className="text-[11px] font-bold text-blue-900 flex items-center gap-1.5">
-                  <FileText className="w-3.5 h-3.5 text-blue-600" />
+              <div className="p-4 rounded-xl bg-brand-50/50 border border-brand-200/80 text-slate-700 space-y-1.5 leading-relaxed">
+                <div className="text-[11px] font-bold text-brand-900 flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-brand-600" />
                   <span>Master Services Agreement (MSA) Terms</span>
                 </div>
                 <p className="text-[11px] text-slate-600">
@@ -313,7 +299,7 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
                 </div>
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                   <div className="text-[10px] uppercase font-bold text-slate-400">Active Job Orders</div>
-                  <div className="text-base font-extrabold text-blue-600 mt-1">{clientReqs.length}</div>
+                  <div className="text-base font-extrabold text-brand-700 mt-1">{clientReqs.length}</div>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                   <div className="text-[10px] uppercase font-bold text-slate-400">Live Placements</div>
@@ -424,7 +410,7 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
                         <div className="font-bold text-slate-900 flex items-center gap-2">
                           <span>{cnt.name || (cnt as any).fullName}</span>
                           {cnt.isPrimary && (
-                            <span className="text-[9px] font-bold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.2 rounded">
+                            <span className="text-[9px] font-semibold text-amber-800 bg-amber-500/[0.1] px-1.5 py-0.5 rounded">
                               Primary Lead
                             </span>
                           )}
@@ -462,13 +448,7 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
                         {r.code} &bull; Assigned: {r.assignedRecruiter} &bull; {r.location}
                       </div>
                     </div>
-                    <span
-                      className={`px-2.5 py-1 rounded text-[10px] font-bold border ${getStatusBadge(
-                        r.status
-                      )}`}
-                    >
-                      {r.status}
-                    </span>
+                    <StatusBadge stage={r.status} size="xs" />
                   </div>
                 ))
               )}

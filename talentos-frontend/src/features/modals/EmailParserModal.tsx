@@ -315,9 +315,9 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
         className="bg-white rounded-2xl max-w-5xl w-full border border-slate-200 card-shadow overflow-hidden flex flex-col max-h-[92vh]"
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-[#0B0F17] text-white">
+        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+            <div className="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center text-white">
               <MailOpen className="w-4 h-4" />
             </div>
             <div>
@@ -416,7 +416,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                           c.name.replace(/\s+Location:\s*.*$/i, '').trim().toLowerCase() ===
                           extractedReq.companyName.trim().toLowerCase()
                       ) && (
-                        <span className="text-[9px] font-semibold text-brand-600 bg-brand-50 border border-brand-200 px-1.5 py-0.5 rounded">
+                        <span className="text-[9px] font-medium text-brand-800 bg-brand-500/[0.08] px-1.5 py-0.5 rounded">
                           New client (auto-saved)
                         </span>
                       )}
@@ -601,14 +601,14 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                     {skillTags.map((tag) => (
                       <span
                         key={tag}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-semibold"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-medium"
                       >
                         <span>{tag}</span>
                         <button
                           type="button"
                           onClick={() => handleRemoveSkillTag(tag)}
                           aria-label={`Remove ${tag}`}
-                          className="text-blue-400 hover:text-rose-600 cursor-pointer inline-flex items-center"
+                          className="text-slate-400 hover:text-rose-600 cursor-pointer inline-flex items-center"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -676,8 +676,8 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                               }}
                               className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
                                 idx === highlightedSkillIdx
-                                  ? 'bg-brand-600 text-white border-brand-600'
-                                  : 'bg-slate-50 hover:bg-brand-50 text-slate-700 hover:text-brand-700 border-slate-200 hover:border-brand-200'
+                                  ? 'bg-[#141615] text-white border-[#141615]'
+                                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
                               }`}
                             >
                               + {suggestion}
@@ -721,10 +721,11 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/60">
-          <div className="text-[11px] text-slate-500">
-            Initial Stage:{' '}
-            <span className="font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-              {extractedReq.initialStage}
+          <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
+            <span>Initial Stage:</span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-white text-slate-700 border border-slate-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+              <span>{extractedReq.initialStage}</span>
             </span>
           </div>
           <div className="flex gap-2">
@@ -739,7 +740,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
               type="button"
               onClick={handleApprove}
               disabled={isSaving}
-              className="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg shadow-sm shadow-blue-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+              className="px-4 py-2 text-xs font-semibold bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:opacity-60 text-white rounded-lg shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
             >
               {isSaving ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />

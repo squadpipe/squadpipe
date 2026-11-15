@@ -171,7 +171,7 @@ export const SearchableSelectInput: React.FC<SearchableSelectInputProps> = ({
                   className="w-full px-3 py-2 text-left border-t border-slate-100 text-[11px] text-brand-600 hover:bg-brand-50/50 font-semibold flex items-center justify-between gap-2 cursor-pointer"
                 >
                   <span className="truncate">Use &ldquo;{value.trim()}&rdquo;</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-50 text-brand-700 border border-brand-200 flex-shrink-0">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-medium flex-shrink-0">
                     New
                   </span>
                 </button>

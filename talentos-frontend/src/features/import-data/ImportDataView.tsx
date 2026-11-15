@@ -448,8 +448,8 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
                             </span>
                           </td>
                           <td className="p-2">
-                            <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 font-medium">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            <span className="inline-flex items-center gap-1.5 text-[10px] text-slate-700 bg-white px-2.5 py-0.5 rounded-full border border-slate-200 font-medium">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                               <span>100% Match</span>
                             </span>
                           </td>

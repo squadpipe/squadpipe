@@ -14,6 +14,7 @@ import {
 import { apiClient } from '../../config/api.config';
 import { AutomationRule, AutomationAuditLog } from '../../types';
 import { TablePagination } from '../../components/shared/TablePagination';
+import { StatusBadge } from '../../components/shared/StatusBadge';
 import { useDebounce } from '../../utils/useDebounce';
 
 interface AutomationsViewProps {
@@ -65,7 +66,7 @@ const REMINDER_PRESETS: ReminderPreset[] = [
     thresholdOptions: ['24 Hours', '2 Days (48h)', '3 Days (72h)'],
     thenSummary: 'Create Priority SLA Reminder Task',
     Icon: Bell,
-    iconBg: 'bg-indigo-50 text-indigo-600 border-indigo-200',
+    iconBg: 'bg-slate-100 text-slate-700 border-slate-200',
   },
   {
     key: 'interview',
@@ -78,7 +79,7 @@ const REMINDER_PRESETS: ReminderPreset[] = [
     thresholdOptions: ['Immediate', 'Today'],
     thenSummary: 'Create Interview Prep Task in SLA Center',
     Icon: Calendar,
-    iconBg: 'bg-sky-50 text-sky-600 border-sky-200',
+    iconBg: 'bg-brand-50 text-brand-700 border-brand-200',
   },
   {
     key: 'contract',
@@ -271,9 +272,11 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
         <div>
           <div className="flex items-center gap-2.5">
             <h2 className="text-lg font-bold text-slate-900 tracking-tight">Smart Reminders</h2>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              {activeCount} of {REMINDER_PRESETS.length} Active
-            </span>
+            <StatusBadge
+              label={`${activeCount} of ${REMINDER_PRESETS.length} Active`}
+              tone="emerald"
+              size="xs"
+            />
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
             Turn daily in-app reminders on or off. All alerts appear in your SLA Action Center — no email setup needed.
@@ -383,9 +386,9 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
       </div>
 
       {/* Automatic Onboarding -> Billable Sync Info Strip */}
-      <div className="bg-emerald-50/60 border border-emerald-200/80 rounded-xl px-4 py-3 flex items-center justify-between gap-3 flex-wrap text-xs">
+      <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3 flex-wrap text-xs">
         <div className="flex items-center gap-2.5">
-          <UserCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+          <UserCheck className="w-4 h-4 text-brand-600 flex-shrink-0" />
           <div>
             <span className="font-semibold text-slate-900">Onboarding → Billable Auto-Sync is Always On:</span>{' '}
             <span className="text-slate-600">
@@ -393,9 +396,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
             </span>
           </div>
         </div>
-        <span className="px-2 py-0.5 rounded bg-white border border-emerald-200 text-emerald-700 text-[10px] font-bold">
-          Built-In
-        </span>
+        <StatusBadge label="Built-In" tone="emerald" size="xs" />
       </div>
 
       {/* Recent Activity Log */}
@@ -449,10 +450,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                     </td>
                     <td className="px-4 py-2.5 text-slate-600">{log.actionDispatched}</td>
                     <td className="px-4 py-2.5 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold">
-                        <CheckCircle2 className="w-2.5 h-2.5" />
-                        {log.status}
-                      </span>
+                      <StatusBadge label={log.status} tone="emerald" size="xs" />
                     </td>
                   </tr>
                 ))

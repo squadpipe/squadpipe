@@ -9,6 +9,7 @@ import {
   Pencil,
   Trash2,
   CalendarPlus,
+  CalendarX,
   CheckCircle2,
   AlertTriangle,
   Clock,
@@ -21,6 +22,7 @@ import { apiClient } from '../../config/api.config';
 import { BillablePlacement } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { TablePagination } from '../../components/shared/TablePagination';
+import { StatusBadge } from '../../components/shared/StatusBadge';
 import { useCurrency } from '../../utils/currency';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapPlacementFromApi } from '../../utils/entityMappers';
@@ -153,6 +155,30 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
     payRate: '',
     purchaseOrderNumber: '',
   });
+  const [endingPlacement, setEndingPlacement] = useState<BillablePlacement | null>(null);
+  const [endForm, setEndForm] = useState<{ status: 'Completed' | 'Terminated'; endDate: string }>({
+    status: 'Completed',
+    endDate: new Date().toISOString().split('T')[0],
+  });
+
+  const openEndModal = (p: BillablePlacement) => {
+    setEndingPlacement(p);
+    setEndForm({
+      status: 'Completed',
+      endDate: new Date().toISOString().split('T')[0],
+    });
+  };
+
+  const handleConfirmEndPlacement = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!endingPlacement || !onUpdatePlacement) return;
+    onUpdatePlacement({
+      ...endingPlacement,
+      status: endForm.status,
+      endDate: endForm.endDate || endingPlacement.endDate,
+    });
+    setEndingPlacement(null);
+  };
 
   const getDaysRemaining = (endDateStr: string): number | null => {
     if (!endDateStr) return null;
@@ -258,41 +284,18 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
   const getStatusBadge = (p: BillablePlacement) => {
     const status = getEffectiveStatus(p);
     if (status === 'Expiring Soon') {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-          <Clock className="w-2.5 h-2.5" />
-          Expiring &lt;30d
-        </span>
-      );
+      return <StatusBadge label="Expiring <30d" tone="amber" size="xs" />;
     }
     if (status === 'Extended') {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-          <CalendarPlus className="w-2.5 h-2.5" />
-          Extended
-        </span>
-      );
+      return <StatusBadge label="Extended" tone="brand" size="xs" />;
     }
     if (status === 'Completed') {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-          Completed
-        </span>
-      );
+      return <StatusBadge label="Completed" tone="slate" size="xs" />;
     }
     if (status === 'Terminated') {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-          Terminated
-        </span>
-      );
+      return <StatusBadge label="Terminated" tone="rose" size="xs" />;
     }
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-        <CheckCircle2 className="w-2.5 h-2.5" />
-        Active
-      </span>
-    );
+    return <StatusBadge label="Active" tone="emerald" size="xs" />;
   };
 
   const editBill = editingPlacement ? parseRate(editingPlacement.billing, 0) : 0;
@@ -310,11 +313,13 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <h2 className="text-lg font-bold text-slate-900 tracking-tight">Active Billable Consultants</h2>
-            <span className="text-[10px] font-bold bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 px-2 py-0.5 rounded">
-              {activePlacements.length} Active Placements
-            </span>
+            <StatusBadge
+              label={`${activePlacements.length} Active Placements`}
+              tone="emerald"
+              size="xs"
+            />
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
             Real-time consultant client engagements, hourly margin spreads, and contract renewal sentinels.
@@ -330,7 +335,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
           </button>
           <button
             onClick={onOpenNewPlacement}
-            className="px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="px-3.5 py-1.5 rounded-lg bg-brand-600 text-white text-xs font-semibold hover:bg-brand-700 active:bg-brand-800 shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add Placement</span>
@@ -352,12 +357,12 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center flex-shrink-0">
             <TrendingUp className="w-5 h-5" />
           </div>
           <div>
             <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Avg. Hourly Spread</div>
-            <div className="text-lg font-bold text-blue-700">
+            <div className="text-lg font-bold text-brand-700">
               <MaskedValue value={`+${currencySymbol}${avgHourlySpread}/hr`} isMasked={rateMasked} />
             </div>
             <div className="text-[10px] text-slate-500 mt-0.5">
@@ -518,18 +523,18 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                         </div>
                         <div className="text-[11px] text-slate-500 font-sans mt-0.5">{p.skillRole}</div>
                         {p.vendorName && (
-                          <div className="text-[10px] text-purple-600 font-medium mt-0.5">via {p.vendorName}</div>
+                          <div className="text-[10px] text-amber-700 font-medium mt-0.5">via {p.vendorName}</div>
                         )}
                       </td>
 
                       {/* Placement Model & Status */}
-                      <td className="px-3.5 py-3 space-y-1">
+                      <td className="px-3.5 py-3 space-y-1.5">
                         <div>
                           <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${
+                            className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium ${
                               p.placementType && p.placementType.includes('W2')
-                                ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                                : 'bg-purple-50 text-purple-700 border-purple-200'
+                                ? 'bg-brand-500/[0.08] text-brand-800'
+                                : 'bg-slate-100 text-slate-700'
                             }`}
                           >
                             {p.placementType || 'C2C Subcontractor'}
@@ -587,31 +592,43 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
 
                       {/* Actions */}
                       <td className="px-3.5 py-3 text-right whitespace-nowrap">
-                        <button
-                          onClick={() => openExtendModal(p)}
-                          className="px-2.5 py-1 rounded bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-semibold transition-colors cursor-pointer inline-flex items-center gap-1"
-                        >
-                          <CalendarPlus className="w-3 h-3" />
-                          <span>Extend SOW</span>
-                        </button>
-                        {onUpdatePlacement && (
+                        <div className="inline-flex items-center justify-end gap-1.5">
                           <button
-                            onClick={() => setEditingPlacement({ ...p })}
-                            title="Edit placement"
-                            className="ml-1.5 p-1.5 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer inline-flex items-center"
+                            onClick={() => openExtendModal(p)}
+                            className="px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[10px] font-semibold transition-colors cursor-pointer inline-flex items-center gap-1"
                           >
-                            <Pencil className="w-3.5 h-3.5" />
+                            <CalendarPlus className="w-3 h-3 text-brand-600" />
+                            <span>{ended ? 'Renew SOW' : 'Extend SOW'}</span>
                           </button>
-                        )}
-                        {onDeletePlacement && (
-                          <button
-                            onClick={() => setDeletingPlacement(p)}
-                            title="Delete placement"
-                            className="ml-1 p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer inline-flex items-center"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+                          {!ended && onUpdatePlacement && (
+                            <button
+                              onClick={() => openEndModal(p)}
+                              title="End consultant placement"
+                              className="px-2.5 py-1 rounded bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-200 hover:border-rose-200 text-[10px] font-semibold transition-colors cursor-pointer inline-flex items-center gap-1"
+                            >
+                              <CalendarX className="w-3 h-3 text-rose-500" />
+                              <span>End</span>
+                            </button>
+                          )}
+                          {onUpdatePlacement && (
+                            <button
+                              onClick={() => setEditingPlacement({ ...p })}
+                              title="Edit placement"
+                              className="p-1.5 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer inline-flex items-center"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {onDeletePlacement && (
+                            <button
+                              onClick={() => setDeletingPlacement(p)}
+                              title="Delete placement"
+                              className="p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer inline-flex items-center"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -646,7 +663,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
           >
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-700 border border-brand-200 flex items-center justify-center">
                   <CalendarPlus className="w-4 h-4" />
                 </div>
                 <div>
@@ -693,8 +710,8 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                         onClick={() => setExtendForm((prev) => ({ ...prev, newEndDate: targetDate }))}
                         className={`py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
                           active
-                            ? 'bg-purple-600 text-white border-purple-600'
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-purple-50'
+                            ? 'bg-brand-600 text-white border-brand-600'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-brand-50'
                         }`}
                       >
                         {preset.label}
@@ -766,7 +783,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white rounded-lg text-xs font-semibold cursor-pointer"
                 >
                   Confirm SOW Extension
                 </button>
@@ -1039,6 +1056,109 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* End Consultant Placement Modal */}
+      {endingPlacement && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fadeIn">
+          <form
+            onSubmit={handleConfirmEndPlacement}
+            className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden"
+          >
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center">
+                  <CalendarX className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900">End Consultant Placement</h3>
+                  <p className="text-[11px] text-slate-500">
+                    {endingPlacement.resourceName} • {endingPlacement.customer}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEndingPlacement(null)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                  Closure Outcome
+                </label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {(['Completed', 'Terminated'] as const).map((outcome) => {
+                    const selected = endForm.status === outcome;
+                    return (
+                      <button
+                        key={outcome}
+                        type="button"
+                        onClick={() => setEndForm((prev) => ({ ...prev, status: outcome }))}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          selected
+                            ? outcome === 'Terminated'
+                              ? 'border-rose-500 bg-rose-50/40 ring-1 ring-rose-500'
+                              : 'border-slate-900 bg-slate-50 ring-1 ring-slate-900'
+                            : 'border-slate-200 bg-white hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="text-xs font-bold text-slate-900">{outcome}</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">
+                          {outcome === 'Completed' ? 'SOW term fulfilled naturally' : 'Early exit or client offboard'}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                  Effective End Date
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={endForm.endDate}
+                  onChange={(e) => setEndForm((prev) => ({ ...prev, endDate: e.target.value }))}
+                  className="w-full px-3 py-2 text-xs font-medium text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                />
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-[11px] text-slate-600 space-y-1.5">
+                <div className="font-semibold text-slate-800">What happens next</div>
+                <ul className="space-y-1 list-disc list-inside text-slate-500">
+                  <li>Moves placement to the <span className="font-semibold text-slate-700">Ended</span> tab while preserving billing & margin history.</li>
+                  <li>Returns <span className="font-semibold text-slate-700">{endingPlacement.resourceName}</span> to <span className="font-semibold text-slate-700">Available / Bench</span> if no other active SOW exists.</li>
+                  <li>Resolves open contract expiry SLA reminders for this placement.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEndingPlacement(null)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!endForm.endDate}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5"
+              >
+                <CalendarX className="w-3.5 h-3.5" />
+                <span>Confirm End Placement</span>
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </section>

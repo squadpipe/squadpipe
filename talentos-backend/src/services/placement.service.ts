@@ -448,19 +448,33 @@ export class PlacementService {
       },
     });
 
-    if (payload.status !== undefined && existing.candidateId) {
+    const effectiveTenantId = tenantId || existing.tenantId;
+    if (payload.status !== undefined) {
       const normalizedStatus = this.mapPlacementStatus(payload.status);
       try {
-        if (normalizedStatus === PlacementStatus.COMPLETED || normalizedStatus === PlacementStatus.TERMINATED) {
-          await prisma.candidate.update({
-            where: { id: existing.candidateId },
-            data: { pipelineStage: 'AVAILABLE_BENCH' },
-          });
-        } else if (normalizedStatus === PlacementStatus.ACTIVE || normalizedStatus === PlacementStatus.EXTENDED) {
-          await prisma.candidate.update({
-            where: { id: existing.candidateId },
-            data: { pipelineStage: 'BILLABLE' },
-          });
+        if (
+          normalizedStatus === PlacementStatus.COMPLETED ||
+          normalizedStatus === PlacementStatus.TERMINATED
+        ) {
+          await this.syncCandidatePipelineStage(existing, CandidatePipelineStage.AVAILABLE_BENCH);
+          await slaEngineService.resolveTasksForEntity(effectiveTenantId, 'placement', updated.id);
+          if (existing.status !== normalizedStatus) {
+            const endDateStr = updated.endDate.toISOString().split('T')[0];
+            await automationEngineService.recordLifecycleEvent({
+              tenantId: effectiveTenantId,
+              preferredCategories: [AutomationCategory.CONTRACT],
+              ruleName: `Placement ${normalizedStatus === PlacementStatus.COMPLETED ? 'Completed' : 'Terminated'}`,
+              target: `${updated.resourceName} @ ${updated.customer}`,
+              conditionsMet: `Resource engagement ${normalizedStatus.toLowerCase()} (effective ${endDateStr})`,
+              actionDispatched: 'Placement archived to Ended ledger & bench availability synchronized',
+            });
+          }
+        } else if (
+          normalizedStatus === PlacementStatus.ACTIVE ||
+          normalizedStatus === PlacementStatus.EXTENDED ||
+          normalizedStatus === PlacementStatus.EXPIRING_SOON
+        ) {
+          await this.syncCandidatePipelineStage(existing, CandidatePipelineStage.BILLABLE);
         }
       } catch {
         // Non-critical stage sync failure
@@ -468,7 +482,6 @@ export class PlacementService {
     }
 
     try {
-      const effectiveTenantId = tenantId || existing.tenantId;
       await slaEngineService.reconcileOpenTasks(effectiveTenantId);
       await slaEngineService.evaluateSlaRadar(effectiveTenantId);
     } catch {
@@ -539,6 +552,7 @@ export class PlacementService {
 
     try {
       const effectiveTenantId = tenantId || existing.tenantId;
+      await this.syncCandidatePipelineStage(existing, CandidatePipelineStage.BILLABLE);
       await slaEngineService.resolveTasksForEntity(effectiveTenantId, 'placement', updated.id);
       await automationEngineService.recordLifecycleEvent({
         tenantId: effectiveTenantId,
@@ -643,8 +657,66 @@ export class PlacementService {
     return deleted;
   }
 
+  /**
+   * Keeps the linked consultant's pipeline stage synchronized with active placement state.
+   * Only returns a consultant to AVAILABLE_BENCH when no other active placement remains.
+   */
+  private async syncCandidatePipelineStage(
+    existing: { id: string; tenantId: string; candidateId: string | null; resourceName: string },
+    targetStage: CandidatePipelineStage,
+    options?: { excludePlacementId?: string }
+  ) {
+    const targetCandidate = existing.candidateId
+      ? await prisma.candidate.findUnique({ where: { id: existing.candidateId } })
+      : await prisma.candidate.findFirst({
+          where: {
+            tenantId: existing.tenantId,
+            fullName: { equals: existing.resourceName.trim(), mode: 'insensitive' },
+          },
+        });
+
+    if (!targetCandidate) return;
+
+    if (targetStage === CandidatePipelineStage.AVAILABLE_BENCH) {
+      const remainingActiveCount = await prisma.placement.count({
+        where: {
+          tenantId: existing.tenantId,
+          id: { not: options?.excludePlacementId ?? existing.id },
+          status: {
+            in: [
+              PlacementStatus.ACTIVE,
+              PlacementStatus.EXTENDED,
+              PlacementStatus.EXPIRING_SOON,
+            ],
+          },
+          OR: [
+            { candidateId: targetCandidate.id },
+            {
+              candidateId: null,
+              resourceName: { equals: targetCandidate.fullName, mode: 'insensitive' },
+            },
+          ],
+        },
+      });
+      if (remainingActiveCount > 0) return;
+    }
+
+    await prisma.candidate.update({
+      where: { id: targetCandidate.id },
+      data: { pipelineStage: targetStage },
+    });
+  }
+
   async getFinancialMetrics(tenantId?: string) {
-    const where: Prisma.PlacementWhereInput = { status: PlacementStatus.ACTIVE };
+    const where: Prisma.PlacementWhereInput = {
+      status: {
+        in: [
+          PlacementStatus.ACTIVE,
+          PlacementStatus.EXTENDED,
+          PlacementStatus.EXPIRING_SOON,
+        ],
+      },
+    };
     if (tenantId) where.tenantId = tenantId;
 
     const placements = await prisma.placement.findMany({ where });

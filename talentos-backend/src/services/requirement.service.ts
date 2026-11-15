@@ -150,7 +150,7 @@ export class RequirementService {
     return prisma.requirement.findMany({
       where,
       include: REQUIREMENT_INCLUDE,
-      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }]
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
     });
   }
 
@@ -164,7 +164,7 @@ export class RequirementService {
       const data = await prisma.requirement.findMany({
         where,
         include: REQUIREMENT_INCLUDE,
-        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }]
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
       });
       return {
         data,
@@ -184,14 +184,14 @@ export class RequirementService {
         ? prisma.requirement.findMany({
             where,
             select: KANBAN_CARD_SELECT,
-            orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
             skip: (page - 1) * limit,
             take: limit,
           })
         : prisma.requirement.findMany({
             where,
             include: REQUIREMENT_INCLUDE,
-            orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
             skip: (page - 1) * limit,
             take: limit,
           }),

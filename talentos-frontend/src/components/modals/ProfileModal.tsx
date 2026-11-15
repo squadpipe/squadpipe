@@ -67,7 +67,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden flex flex-col"
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
+        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white text-xs font-bold">
               {initials}
@@ -112,8 +112,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             <label className="block text-slate-500 font-medium mb-1">System Role & Clearance</label>
             <div className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium text-xs flex items-center justify-between">
               <span>{currentUser.role}</span>
-              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                Active Session
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-slate-700 bg-white px-2 py-0.5 rounded-full border border-slate-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span>Active Session</span>
               </span>
             </div>
           </div>
@@ -125,16 +126,25 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             </div>
           </div>
 
-          <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl space-y-1">
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
             <div className="flex items-center justify-between text-xs font-bold text-slate-800">
               <span className="flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-amber-600" />
+                <ShieldCheck className="w-4 h-4 text-brand-600" />
                 Rate Masking Status
               </span>
-              <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
-                currentUser.rateMasked ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-              }`}>
-                {currentUser.rateMasked ? '•••• Masked' : 'Rates Visible'}
+              <span
+                className={`inline-flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                  currentUser.rateMasked
+                    ? 'bg-slate-200/80 text-slate-700'
+                    : 'bg-white text-slate-700 border border-slate-200'
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    currentUser.rateMasked ? 'bg-slate-500' : 'bg-emerald-500'
+                  }`}
+                />
+                <span>{currentUser.rateMasked ? '•••• Masked' : 'Rates Visible'}</span>
               </span>
             </div>
             <p className="text-[10px] text-slate-500 leading-relaxed">

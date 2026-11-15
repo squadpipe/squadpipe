@@ -15,6 +15,7 @@ import { apiClient } from '../../config/api.config';
 import { Client, Requirement, BillablePlacement } from '../../types';
 import { ClientDetailDrawer } from '../../components/modals/ClientDetailDrawer';
 import { TablePagination } from '../../components/shared/TablePagination';
+import { StatusBadge } from '../../components/shared/StatusBadge';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapClientFromApi } from '../../utils/entityMappers';
 
@@ -254,20 +255,22 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="text-[11px] px-2 py-0.5 rounded font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                        <span className="text-[11px] px-2 py-0.5 rounded font-medium bg-slate-100 text-slate-700">
                           {clientReqs.length} {clientReqs.length === 1 ? 'Req' : 'Reqs'}
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span
-                          className={`text-[11px] px-2 py-0.5 rounded font-semibold border ${
-                            clientPlacements.length > 0
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : 'bg-slate-50 text-slate-400 border-slate-200'
-                          }`}
-                        >
-                          {clientPlacements.length} Active
-                        </span>
+                        {clientPlacements.length > 0 ? (
+                          <StatusBadge
+                            label={`${clientPlacements.length} Active`}
+                            tone="emerald"
+                            size="xs"
+                          />
+                        ) : (
+                          <span className="text-[11px] px-2 py-0.5 rounded font-medium bg-slate-100 text-slate-400">
+                            0 Active
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         <div className="inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>

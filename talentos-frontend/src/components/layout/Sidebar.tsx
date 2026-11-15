@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { User } from '../../types';
 import { formatUserRole } from '../../utils/entityMappers';
-import { BrandMark } from '../shared/BrandMark';
+import { BrandLogo } from '../shared/BrandMark';
 
 interface SidebarProps {
   currentView: string;
@@ -57,23 +57,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
     .slice(0, 2);
 
   return (
-    <aside className="w-64 flex flex-col flex-shrink-0 z-20 bg-[#0B0F17] text-slate-300 border-r border-white/10 select-none h-screen">
-      {/* Header with App Logo & CRM Badge */}
-      <div className="h-14 flex items-center px-4 border-b border-white/10 bg-[#080C13] justify-between flex-shrink-0">
+    <aside className="w-64 flex flex-col flex-shrink-0 z-20 bg-[#141615] text-slate-300 border-r border-white/[0.08] select-none h-screen">
+      {/* Header with App Logo */}
+      <div className="h-14 flex items-center px-4 border-b border-white/[0.08] bg-[#101211] justify-between flex-shrink-0">
         <div
-          className="flex items-center gap-2.5 cursor-pointer group min-w-0"
+          className="flex items-center cursor-pointer group min-w-0 hover:opacity-90 transition-opacity"
           onClick={() => onNavigate('dashboard')}
           title="SquadPipe Dashboard"
         >
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-brand-600 to-indigo-500 flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform flex-shrink-0">
-            <BrandMark className="w-4 h-4" />
-          </div>
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="font-bold text-white text-[14px] tracking-tight truncate">SquadPipe</span>
-            <span className="text-[9px] font-bold bg-brand-500/20 text-brand-300 border border-brand-500/30 px-1.5 py-0.5 rounded tracking-wider flex-shrink-0">
-              CRM
-            </span>
-          </div>
+          <BrandLogo size="md" surface="dark" />
         </div>
       </div>
 
@@ -89,7 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => onNavigate('dashboard')}
             className={`group flex items-center gap-2.5 px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
               currentView === 'dashboard'
-                ? 'bg-white/[0.09] text-white shadow-xs font-semibold'
+                ? 'bg-[#1F2422] text-white shadow-xs font-semibold'
                 : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
             }`}
           >
@@ -105,7 +97,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => onNavigate('pipeline')}
             className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
               currentView === 'pipeline'
-                ? 'bg-white/[0.09] text-white shadow-xs font-semibold'
+                ? 'bg-[#1F2422] text-white shadow-xs font-semibold'
                 : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
             }`}
           >
@@ -133,7 +125,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => onNavigate('consultants')}
             className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
               currentView === 'consultants'
-                ? 'bg-white/[0.09] text-white shadow-xs font-semibold'
+                ? 'bg-[#1F2422] text-white shadow-xs font-semibold'
                 : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
             }`}
           >
@@ -154,7 +146,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => onNavigate('clients')}
             className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
               currentView === 'clients'
-                ? 'bg-white/[0.09] text-white shadow-xs font-semibold'
+                ? 'bg-[#1F2422] text-white shadow-xs font-semibold'
                 : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
             }`}
           >
@@ -175,7 +167,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => onNavigate('vendors')}
             className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
               currentView === 'vendors'
-                ? 'bg-white/[0.09] text-white shadow-xs font-semibold'
+                ? 'bg-[#1F2422] text-white shadow-xs font-semibold'
                 : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
             }`}
           >
@@ -196,7 +188,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => onNavigate('billable')}
             className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
               currentView === 'billable'
-                ? 'bg-emerald-500/15 text-emerald-300 shadow-xs font-semibold border border-emerald-500/30'
+                ? 'bg-[#1F2422] text-white shadow-xs font-semibold'
                 : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
             }`}
           >
@@ -208,7 +200,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               />
               <span>Billable Consultants</span>
             </div>
-            <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/30">
+            <span className="text-[10px] font-medium bg-white/[0.06] text-slate-300 px-1.5 py-0.5 rounded tabular-nums">
               {counts.billable}
             </span>
           </div>
@@ -224,7 +216,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => onNavigate('automation')}
             className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
               currentView === 'automation'
-                ? 'bg-amber-500/15 text-amber-300 shadow-xs font-semibold border border-amber-500/30'
+                ? 'bg-[#1F2422] text-white shadow-xs font-semibold'
                 : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
             }`}
           >
@@ -236,8 +228,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               />
               <span>Smart Reminders</span>
             </div>
-            <span className="text-[9px] font-bold text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">
-              {counts.activeRules} Active
+            <span className="inline-flex items-center gap-1 text-[9px] font-medium text-slate-300 bg-white/[0.06] px-1.5 py-0.5 rounded">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              <span>{counts.activeRules} Active</span>
             </span>
           </div>
 
@@ -245,14 +238,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => onNavigate('custom_fields')}
             className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
               currentView === 'custom_fields'
-                ? 'bg-white/[0.09] text-white shadow-xs font-semibold'
+                ? 'bg-[#1F2422] text-white shadow-xs font-semibold'
                 : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
             }`}
           >
             <div className="flex items-center gap-2.5">
               <Tags
                 className={`w-4 h-4 flex-shrink-0 transition-colors ${
-                  currentView === 'custom_fields' ? 'text-indigo-400' : 'text-slate-400 group-hover:text-slate-200'
+                  currentView === 'custom_fields' ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-200'
                 }`}
               />
               <span>Custom Fields</span>
@@ -266,7 +259,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => onNavigate('import_data')}
             className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
               currentView === 'import_data'
-                ? 'bg-white/[0.09] text-white shadow-xs font-semibold'
+                ? 'bg-[#1F2422] text-white shadow-xs font-semibold'
                 : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
             }`}
           >
@@ -278,7 +271,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               />
               <span>Import & Migration</span>
             </div>
-            <span className="text-[9px] text-emerald-400 font-medium bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+            <span className="text-[9px] text-slate-400 font-medium bg-white/[0.04] px-1.5 py-0.5 rounded">
               CSV/Excel
             </span>
           </div>
@@ -294,7 +287,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => onNavigate('settings_general')}
             className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
               currentView === 'settings_general'
-                ? 'bg-white/[0.09] text-white shadow-xs font-semibold'
+                ? 'bg-[#1F2422] text-white shadow-xs font-semibold'
                 : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
             }`}
           >
@@ -312,7 +305,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => onNavigate('user_management')}
             className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
               currentView === 'user_management'
-                ? 'bg-white/[0.09] text-white shadow-xs font-semibold'
+                ? 'bg-[#1F2422] text-white shadow-xs font-semibold'
                 : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
             }`}
           >
@@ -342,7 +335,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Popover Menu above the profile trigger card */}
         {showProfileMenu && (
-          <div className="absolute bottom-full left-0 right-0 mb-2 bg-[#121824] border border-white/10 rounded-xl shadow-2xl p-2 z-50 animate-fade-in text-xs space-y-1">
+          <div className="absolute bottom-full left-0 right-0 mb-2 bg-[#1A1D1B] border border-white/10 rounded-xl shadow-2xl p-2 z-50 animate-fade-in text-xs space-y-1">
             {/* User Info Header */}
             <div className="p-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06]">
               <div className="font-bold text-white text-xs truncate">
@@ -400,7 +393,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           title="Account & Sign Out"
         >
           <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-brand-600 to-indigo-600 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+            <div className="w-7 h-7 rounded-full bg-brand-600 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
               {userInitials}
             </div>
             <div className="overflow-hidden">

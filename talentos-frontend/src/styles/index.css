@@ -63,8 +63,8 @@ select:hover:not(:disabled) {
 
 select:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  border-color: #0F5C56;
+  box-shadow: 0 0 0 3px rgba(15, 92, 86, 0.14);
 }
 
 select:disabled {

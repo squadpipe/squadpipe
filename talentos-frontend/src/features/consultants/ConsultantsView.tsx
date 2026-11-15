@@ -19,6 +19,7 @@ import { apiClient } from '../../config/api.config';
 import { BillablePlacement, Candidate } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { TablePagination } from '../../components/shared/TablePagination';
+import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ModalPortal } from '../../components/shared/ModalPortal';
 import { SkillTagInput } from '../../components/shared/SkillTagInput';
 import { useDebounce } from '../../utils/useDebounce';
@@ -149,26 +150,6 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
 
   const filtered = tableRows;
 
-  const getStageBadgeClass = (stage: string) => {
-    switch (stage) {
-      case 'Available / Bench':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'Submitted':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'Interview':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'Selected':
-        return 'bg-purple-50 text-purple-700 border-purple-200';
-      case 'Placed':
-      case 'Billable':
-        return 'bg-emerald-100 text-emerald-800 border-emerald-300';
-      case 'Archived':
-        return 'bg-slate-100 text-slate-600 border-slate-300';
-      default:
-        return 'bg-slate-100 text-slate-700 border-slate-200';
-    }
-  };
-
   return (
     <section className="max-w-7xl mx-auto space-y-5 animate-fade-in">
       {/* Header with Title & Action Buttons */}
@@ -183,7 +164,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
           {onOpenCsvImport && (
             <button
               onClick={onOpenCsvImport}
-              className="px-3 py-1.5 rounded-md border border-emerald-300 bg-emerald-50 text-emerald-800 text-xs font-semibold hover:bg-emerald-100 flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
               <span>CSV Import & Column Mapping</span>
@@ -191,9 +172,9 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
           )}
           <button
             onClick={onOpenResumeParser}
-            className="px-3 py-1.5 rounded-md border border-brand-200 bg-brand-50 text-brand-700 text-xs font-medium hover:bg-brand-100 flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="px-3 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
           >
-            <FileText className="w-3.5 h-3.5" />
+            <FileText className="w-3.5 h-3.5 text-brand-600" />
             <span>Resume Parser</span>
           </button>
           {onOpenAddConsultant && (
@@ -342,7 +323,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                         .map((sk) => (
                           <span
                             key={sk}
-                            className="text-[9px] bg-brand-50 text-brand-700 px-1.5 py-0.2 rounded border border-brand-200"
+                            className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-medium"
                           >
                             {sk.trim()}
                           </span>
@@ -358,9 +339,9 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                   {/* Relocation */}
                   <td className="px-4 py-3 whitespace-nowrap">
                     <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                      className={`text-[10px] px-2 py-0.5 rounded font-medium ${
                         c.relocation === 'Yes'
-                          ? 'bg-emerald-50 text-emerald-700'
+                          ? 'bg-emerald-500/[0.08] text-emerald-800'
                           : 'bg-slate-100 text-slate-600'
                       }`}
                     >
@@ -370,13 +351,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
 
                   {/* Pipeline Stage */}
                   <td className="px-4 py-3 whitespace-nowrap">
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded font-semibold border ${getStageBadgeClass(
-                        c.pipelineStage
-                      )}`}
-                    >
-                      {c.pipelineStage}
-                    </span>
+                    <StatusBadge stage={c.pipelineStage} size="xs" />
                   </td>
 
                   <td className="px-4 py-3 text-right whitespace-nowrap">

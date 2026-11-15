@@ -3,6 +3,7 @@ import { Pencil, Plus, Search, Star, Trash2, Users, X } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Vendor, VendorContact } from '../../types';
 import { TablePagination } from '../../components/shared/TablePagination';
+import { StatusBadge } from '../../components/shared/StatusBadge';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapVendorFromApi } from '../../utils/entityMappers';
 
@@ -210,15 +211,11 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                     <td className="px-4 py-3 font-medium">{v.paymentTerms}</td>
                     <td className="px-4 py-3 text-slate-600">{v.invoicingTerms}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded font-semibold border ${
-                          isMsaExecuted
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : 'bg-amber-50 text-amber-700 border-amber-200'
-                        }`}
-                      >
-                        {isMsaExecuted ? 'MSA Executed' : 'Pending Review'}
-                      </span>
+                      <StatusBadge
+                        label={isMsaExecuted ? 'MSA Executed' : 'Pending Review'}
+                        tone={isMsaExecuted ? 'emerald' : 'amber'}
+                        size="xs"
+                      />
                     </td>
                     {(onUpdateVendor || onDeleteVendor) && (
                       <td className="px-4 py-3 text-right whitespace-nowrap">
@@ -391,13 +388,17 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                               })),
                             })
                           }
-                          className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border cursor-pointer ${
+                          className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border cursor-pointer transition-colors ${
                             contact.isPrimary
-                              ? 'bg-amber-50 text-amber-700 border-amber-200'
-                              : 'bg-slate-50 text-slate-500 border-slate-200 hover:text-slate-700'
+                              ? 'bg-[#141615] text-white border-[#141615]'
+                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                           }`}
                         >
-                          <Star className={`w-2.5 h-2.5 ${contact.isPrimary ? 'fill-amber-500 text-amber-500' : ''}`} />
+                          <Star
+                            className={`w-2.5 h-2.5 ${
+                              contact.isPrimary ? 'fill-amber-400 text-amber-400' : 'text-slate-400'
+                            }`}
+                          />
                           <span>{contact.isPrimary ? 'Primary Contact' : 'Set Primary'}</span>
                         </button>
                         {(editingVendor.contacts || []).length > 1 && (

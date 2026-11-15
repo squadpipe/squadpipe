@@ -124,7 +124,7 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
         className="bg-white rounded-xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col animate-fade-in max-h-[92vh]"
       >
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
+        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white flex-shrink-0">
               <UserPlus className="w-4 h-4" />

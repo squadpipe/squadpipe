@@ -20,8 +20,10 @@ import { apiClient } from '../../config/api.config';
 import { Requirement, Candidate, BillablePlacement, SlaTask } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { TablePagination } from '../../components/shared/TablePagination';
+import { StatusBadge } from '../../components/shared/StatusBadge';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapRequirementFromApi } from '../../utils/entityMappers';
+import { getStageDotClass, getSlaDotClass } from '../../utils/stageStyles';
 
 interface DashboardViewProps {
   requirements: Requirement[];
@@ -136,24 +138,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const interviewsCount = requirements.filter((r) => r.status === 'Interview').length;
   const selectedCount = requirements.filter((r) => r.status === 'Selected').length;
   const onboardingCount = requirements.filter((r) => r.status === 'Onboarding').length;
-  const activeBillableCount = placements.length;
+  const activePlacements = placements.filter(
+    (p) => p.status !== 'Completed' && p.status !== 'Terminated'
+  );
+  const activeBillableCount = activePlacements.length;
 
   const filteredRequirements = tableRows;
-
-  const getStatusBadgeClass = (status: Requirement['status']) => {
-    switch (status) {
-      case 'Submitted':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'Interview':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'Selected':
-        return 'bg-purple-50 text-purple-700 border-purple-200';
-      case 'Onboarding':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      default:
-        return 'bg-slate-100 text-slate-700 border-slate-200';
-    }
-  };
 
   return (
     <section className="max-w-7xl mx-auto space-y-6">
@@ -182,7 +172,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="text-2xl font-bold text-slate-900">{activeReqsCount}</div>
           <div className="text-[10px] text-slate-400 mt-1">
-            <span className="text-emerald-600 font-medium">Open pipeline</span> orders
+            <span className="text-brand-700 font-medium">Open pipeline</span> orders
           </div>
         </div>
 
@@ -193,13 +183,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         >
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium">Submitted</span>
-            <div className="w-6 h-6 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center">
+            <div className="w-6 h-6 rounded-md bg-amber-50 text-amber-700 flex items-center justify-center">
               <Send className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="text-2xl font-bold text-slate-900">{submittedCount}</div>
           <div className="text-[10px] text-slate-400 mt-1">
-            <span className="text-blue-600 font-medium">Client review</span>
+            <span className="text-amber-700 font-medium">Client review</span>
           </div>
         </div>
 
@@ -210,13 +200,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         >
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium">Interviews</span>
-            <div className="w-6 h-6 rounded-md bg-amber-50 text-amber-600 flex items-center justify-center">
+            <div className="w-6 h-6 rounded-md bg-brand-50 text-brand-700 flex items-center justify-center">
               <CalendarCheck className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="text-2xl font-bold text-slate-900">{interviewsCount}</div>
           <div className="text-[10px] text-slate-400 mt-1">
-            <span className="text-amber-600 font-medium">Active rounds</span>
+            <span className="text-brand-700 font-medium">Active rounds</span>
           </div>
         </div>
 
@@ -227,13 +217,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         >
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium">Selected</span>
-            <div className="w-6 h-6 rounded-md bg-purple-50 text-purple-600 flex items-center justify-center">
+            <div className="w-6 h-6 rounded-md bg-zinc-100 text-zinc-700 flex items-center justify-center">
               <Award className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="text-2xl font-bold text-slate-900">{selectedCount}</div>
           <div className="text-[10px] text-slate-400 mt-1">
-            <span className="text-purple-600 font-medium">Offers finalized</span>
+            <span className="text-zinc-700 font-medium">Offers finalized</span>
           </div>
         </div>
 
@@ -244,13 +234,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         >
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium">Onboarding</span>
-            <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <div className="w-6 h-6 rounded-md bg-slate-100 text-slate-700 flex items-center justify-center">
               <UserCheck className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="text-2xl font-bold text-slate-900">{onboardingCount}</div>
           <div className="text-[10px] text-slate-400 mt-1">
-            <span className="text-indigo-600 font-medium">Background check</span>
+            <span className="text-slate-600 font-medium">Background check</span>
           </div>
         </div>
 
@@ -437,19 +427,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         )}
                       </td>
                       <td className="px-3.5 py-3 whitespace-nowrap">
-                        <select
-                          value={req.status}
-                          onChange={(e) => onStatusChange(req, e.target.value)}
-                          className={`px-2 py-1 rounded-md text-[11px] font-medium border font-sans cursor-pointer outline-none ${getStatusBadgeClass(
-                            req.status
-                          )}`}
-                        >
-                          <option value="Requirement">Requirement</option>
-                          <option value="Submitted">Submitted</option>
-                          <option value="Interview">Interview</option>
-                          <option value="Selected">Selected</option>
-                          <option value="Onboarding">Onboarding</option>
-                        </select>
+                        <div className="relative inline-flex items-center">
+                          <span
+                            className={`pointer-events-none absolute left-2.5 w-1.5 h-1.5 rounded-full ${getStageDotClass(
+                              req.status
+                            )}`}
+                          />
+                          <select
+                            value={req.status}
+                            onChange={(e) => onStatusChange(req, e.target.value)}
+                            aria-label={`Status for ${req.opportunityTitle}`}
+                            className="!pl-6 py-1 rounded-md text-[11px] font-medium border border-slate-200 bg-white text-slate-700 font-sans cursor-pointer"
+                          >
+                            <option value="Requirement">Requirement</option>
+                            <option value="Submitted">Submitted</option>
+                            <option value="Interview">Interview</option>
+                            <option value="Selected">Selected</option>
+                            <option value="Onboarding">Onboarding</option>
+                          </select>
+                        </div>
                       </td>
                       <td className="px-3.5 py-3 text-right whitespace-nowrap">
                         <div className="inline-flex items-center justify-end gap-1">
@@ -502,15 +498,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="lg:col-span-6 bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-3.5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+              <div className="w-7 h-7 rounded-lg bg-slate-100 text-rose-600 flex items-center justify-center">
                 <ListChecks className="w-4 h-4" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold text-xs text-slate-900">Today's Priority Action Queue</h3>
-                  <span className="text-[9px] bg-emerald-50 text-emerald-700 px-1.5 py-0.2 rounded border border-emerald-200 font-semibold">
-                    {slaTasks.filter((t) => !t.done).length} Pending
-                  </span>
+                  <StatusBadge
+                    label={`${slaTasks.filter((t) => !t.done).length} Pending`}
+                    tone="emerald"
+                    size="xs"
+                  />
                 </div>
                 <span className="text-[10px] text-slate-400">
                   Overdue client feedback, interviews, and expiring contracts
@@ -573,13 +571,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     >
                       <div className="space-y-0.5 overflow-hidden pr-2">
                         <div className="flex items-center gap-1.5">
-                          <span
-                            className={`text-[9px] font-bold px-1.5 py-0.2 rounded border whitespace-nowrap ${
-                              item.badgeClass || 'bg-amber-50 text-amber-700 border-amber-200'
-                            }`}
-                          >
-                            {categoryBadge}
-                          </span>
+                          <StatusBadge
+                            label={categoryBadge}
+                            dotClass={getSlaDotClass(item.badgeClass)}
+                            size="xs"
+                          />
                           <span className="font-semibold text-slate-800 text-[11px] truncate">{item.title}</span>
                         </div>
                         <div className="text-[10px] text-slate-500 truncate">{item.desc}</div>
@@ -593,21 +589,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                                 : undefined) || requirements[0];
                             if (r) onOpenMatcher(r);
                           }}
-                          className="flex-shrink-0 px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-medium hover:bg-emerald-200 transition-colors cursor-pointer"
+                          className="flex-shrink-0 px-2.5 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[10px] font-semibold transition-colors cursor-pointer"
                         >
                           Match
                         </button>
                       ) : actionType === 'billable' ? (
                         <button
                           onClick={() => onNavigate('billable')}
-                          className="flex-shrink-0 px-2 py-0.5 rounded bg-purple-100 text-purple-800 text-[10px] font-medium hover:bg-purple-200 transition-colors cursor-pointer"
+                          className="flex-shrink-0 px-2.5 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[10px] font-semibold transition-colors cursor-pointer"
                         >
                           Review
                         </button>
                       ) : actionType === 'checklist' ? (
                         <button
                           onClick={() => onNavigate('vendors')}
-                          className="flex-shrink-0 px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-medium hover:bg-emerald-200 transition-colors cursor-pointer"
+                          className="flex-shrink-0 px-2.5 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[10px] font-semibold transition-colors cursor-pointer"
                         >
                           Audit
                         </button>
@@ -620,7 +616,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             if (r) onSelectReq(r);
                             else onNavigate('pipeline');
                           }}
-                          className="flex-shrink-0 px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-medium hover:bg-blue-200 transition-colors cursor-pointer"
+                          className="flex-shrink-0 px-2.5 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[10px] font-semibold transition-colors cursor-pointer"
                         >
                           View
                         </button>
@@ -636,7 +632,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="lg:col-span-6 bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-3.5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
+              <div className="w-7 h-7 rounded-lg bg-slate-100 text-emerald-700 flex items-center justify-center">
                 <FileSpreadsheet className="w-4 h-4" />
               </div>
               <div>
@@ -648,21 +644,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               onClick={() => onNavigate('billable')}
               className="text-xs font-semibold text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer"
             >
-              <span>View All ({placements.length})</span>
+              <span>View All ({activePlacements.length})</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
           <div className="space-y-2">
-            {placements.length === 0 ? (
+            {activePlacements.length === 0 ? (
               <div className="py-8 text-center text-xs text-slate-400 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
                 No active billable consultants yet.
               </div>
             ) : (
-              placements.slice(0, 3).map((b) => (
+              activePlacements.slice(0, 3).map((b) => (
                 <div
                   key={b.id}
-                  className="p-2.5 bg-emerald-50/30 hover:bg-emerald-50/60 rounded-lg border border-emerald-100 flex items-center justify-between text-xs transition-colors"
+                  className="p-2.5 bg-slate-50/70 hover:bg-slate-100/70 rounded-lg border border-slate-200/70 flex items-center justify-between text-xs transition-colors"
                 >
                   <div>
                     <div className="flex items-center gap-1.5">
@@ -705,7 +701,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           >
             <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-mono font-semibold text-brand-700 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded">
+                <span className="text-[11px] font-mono font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
                   {editingReq.code}
                 </span>
                 <h3 className="text-sm font-bold text-slate-900">Edit Requisition</h3>

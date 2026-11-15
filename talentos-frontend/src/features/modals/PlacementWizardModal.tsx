@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Check, ChevronDown, DollarSign, Lock, Search, X, UserCheck } from 'lucide-react';
 import { BillablePlacement, Requirement, Candidate, Vendor } from '../../types';
 import { useCurrency } from '../../utils/currency';
+import { getStageBadgeClass } from '../../utils/stageStyles';
 import { SearchableSelectInput } from '../../components/shared/SearchableSelectInput';
 
 interface PlacementWizardModalProps {
@@ -251,11 +252,11 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
                 </label>
                 {requirement && (
                   <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                    className={`text-[10px] font-medium px-2 py-0.5 rounded ${
                       (requirement.filledPositions ?? requirement.activePlacements?.length ?? 0) >=
                       (requirement.openPositions || 1)
-                        ? 'bg-amber-50 text-amber-700 border-amber-200'
-                        : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                        ? 'bg-amber-500/[0.1] text-amber-800'
+                        : 'bg-slate-200/70 text-slate-700'
                     }`}
                   >
                     Positions: {requirement.filledPositions ?? requirement.activePlacements?.length ?? 0} /{' '}
@@ -326,7 +327,7 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
                     >
                       {selectedEntry ? (
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <span className="w-6 h-6 rounded-full bg-brand-50 border border-brand-200 text-brand-700 font-bold text-[10px] flex items-center justify-center flex-shrink-0">
+                          <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 font-bold text-[10px] flex items-center justify-center flex-shrink-0">
                             {selectedEntry.candidate.fullName.charAt(0).toUpperCase()}
                           </span>
                           <div className="min-w-0">
@@ -339,7 +340,7 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
                               </span>
                             )}
                           </div>
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 flex-shrink-0">
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium flex-shrink-0 ${getStageBadgeClass(selectedEntry.stage)}`}>
                             {selectedEntry.stage}
                           </span>
                         </div>

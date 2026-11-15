@@ -87,9 +87,9 @@ export const Topbar: React.FC<TopbarProps> = ({ currentView, onOpenCreateModal }
                     setShowQuickAddDropdown(false);
                     onOpenCreateModal('consultant');
                   }}
-                  className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 hover:text-brand-600 transition-colors cursor-pointer"
+                  className="group w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 hover:text-brand-600 transition-colors cursor-pointer"
                 >
-                  <UserPlus className="w-4 h-4 text-brand-600 flex-shrink-0" />
+                  <UserPlus className="w-4 h-4 text-slate-400 group-hover:text-brand-600 transition-colors flex-shrink-0" />
                   <span className="font-medium">New Consultant</span>
                 </button>
                 <button
@@ -97,9 +97,9 @@ export const Topbar: React.FC<TopbarProps> = ({ currentView, onOpenCreateModal }
                     setShowQuickAddDropdown(false);
                     onOpenCreateModal('requirement');
                   }}
-                  className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 hover:text-brand-600 transition-colors cursor-pointer"
+                  className="group w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 hover:text-brand-600 transition-colors cursor-pointer"
                 >
-                  <Briefcase className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                  <Briefcase className="w-4 h-4 text-slate-400 group-hover:text-brand-600 transition-colors flex-shrink-0" />
                   <span className="font-medium">New Requirement</span>
                 </button>
                 <button
@@ -107,9 +107,9 @@ export const Topbar: React.FC<TopbarProps> = ({ currentView, onOpenCreateModal }
                     setShowQuickAddDropdown(false);
                     onOpenCreateModal('placement');
                   }}
-                  className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 hover:text-brand-600 transition-colors cursor-pointer"
+                  className="group w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 hover:text-brand-600 transition-colors cursor-pointer"
                 >
-                  <FileSpreadsheet className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                  <FileSpreadsheet className="w-4 h-4 text-slate-400 group-hover:text-brand-600 transition-colors flex-shrink-0" />
                   <span className="font-medium">New Billable Placement</span>
                 </button>
               </div>
@@ -119,9 +119,9 @@ export const Topbar: React.FC<TopbarProps> = ({ currentView, onOpenCreateModal }
                     setShowQuickAddDropdown(false);
                     onOpenCreateModal('client');
                   }}
-                  className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 hover:text-brand-600 transition-colors cursor-pointer"
+                  className="group w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 hover:text-brand-600 transition-colors cursor-pointer"
                 >
-                  <Building2 className="w-4 h-4 text-purple-600 flex-shrink-0" />
+                  <Building2 className="w-4 h-4 text-slate-400 group-hover:text-brand-600 transition-colors flex-shrink-0" />
                   <span className="font-medium">New Client Account</span>
                 </button>
                 <button
@@ -129,9 +129,9 @@ export const Topbar: React.FC<TopbarProps> = ({ currentView, onOpenCreateModal }
                     setShowQuickAddDropdown(false);
                     onOpenCreateModal('vendor');
                   }}
-                  className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 hover:text-brand-600 transition-colors cursor-pointer"
+                  className="group w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 hover:text-brand-600 transition-colors cursor-pointer"
                 >
-                  <Handshake className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                  <Handshake className="w-4 h-4 text-slate-400 group-hover:text-brand-600 transition-colors flex-shrink-0" />
                   <span className="font-medium">New Staffing Vendor</span>
                 </button>
               </div>

@@ -8,7 +8,7 @@ import {
   AlertCircle,
   Loader2,
 } from 'lucide-react';
-import { BrandMark } from '../../components/shared/BrandMark';
+import { BrandLogo } from '../../components/shared/BrandMark';
 import { apiClient } from '../../config/api.config';
 import { User } from '../../types';
 import { setAuthSession } from '../../utils/authStorage';
@@ -469,25 +469,20 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
   };
 
   const inputBaseClass =
-    'w-full h-10 px-3.5 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 text-xs focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 focus:outline-none transition-all';
+    'w-full h-10 px-3.5 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 text-xs focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 focus:outline-none transition-all';
 
   return (
     <div className="h-full w-full flex flex-col lg:flex-row bg-[#FAFAFA] overflow-y-auto select-none">
-      {/* Left 50% Brand Column */}
+      {/* Left 40% Brand Column */}
       <div
-        className="w-full lg:w-1/2 bg-[#0B0F17] text-white flex flex-col justify-between p-8 sm:p-12 lg:p-16 gap-8 flex-shrink-0"
+        className="w-full lg:w-[40%] bg-[#141615] text-white flex flex-col justify-between p-8 sm:p-10 lg:p-12 xl:p-14 gap-8 flex-shrink-0"
         style={{
-          backgroundImage: 'radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px)',
+          backgroundImage: 'radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px)',
           backgroundSize: '24px 24px',
         }}
       >
         {/* Top Brand Mark */}
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="w-9 h-9 rounded-lg bg-[#161922] border border-white/10 flex items-center justify-center shadow-sm">
-            <BrandMark className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-lg font-semibold tracking-tight text-white">SquadPipe</span>
-        </div>
+        <BrandLogo size="lg" surface="dark" className="flex-shrink-0" />
 
         {/* Center Hero Headline */}
         <div className="space-y-4 max-w-md my-auto py-4">
@@ -507,8 +502,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
         </div>
       </div>
 
-      {/* Right 50% Form Column */}
-      <div className="w-full lg:w-1/2 bg-[#FAFAFA] text-slate-800 flex flex-col justify-between p-6 sm:p-10 gap-8 overflow-y-auto">
+      {/* Right 60% Form Column */}
+      <div className="w-full lg:w-[60%] bg-[#FAFAFA] text-slate-800 flex flex-col justify-between p-6 sm:p-10 gap-8 overflow-y-auto">
         {/* Top Support Link */}
         <div className="flex items-center justify-end text-xs text-slate-500 gap-2 flex-shrink-0">
           <span>Need help?</span>
@@ -603,7 +598,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full h-10 px-4 bg-[#0F172A] hover:bg-black disabled:opacity-50 text-white rounded-lg font-medium text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full h-10 px-4 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:opacity-50 text-white rounded-lg font-medium text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isLoading ? (
                   <>
@@ -717,7 +712,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full h-10 mt-1 px-4 bg-[#0F172A] hover:bg-black disabled:opacity-50 text-white rounded-lg font-medium text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full h-10 mt-1 px-4 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:opacity-50 text-white rounded-lg font-medium text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isLoading ? (
                   <>
@@ -763,7 +758,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full h-10 px-4 bg-[#0F172A] hover:bg-black disabled:opacity-50 text-white rounded-lg font-medium text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full h-10 px-4 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:opacity-50 text-white rounded-lg font-medium text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isLoading ? (
                   <>
@@ -816,7 +811,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
               <button
                 type="submit"
                 disabled={isLoading || resetCode.trim().length < 6}
-                className="w-full h-10 mt-1 px-4 bg-[#0F172A] hover:bg-black disabled:opacity-50 text-white rounded-lg font-medium text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full h-10 mt-1 px-4 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:opacity-50 text-white rounded-lg font-medium text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isLoading ? (
                   <>
@@ -906,7 +901,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full h-10 mt-1 px-4 bg-[#0F172A] hover:bg-black disabled:opacity-50 text-white rounded-lg font-medium text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full h-10 mt-1 px-4 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:opacity-50 text-white rounded-lg font-medium text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isLoading ? (
                   <>
@@ -954,7 +949,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500">Role</span>
-                      <span className="font-medium text-blue-600">
+                      <span className="font-medium text-brand-700">
                         {inviteProfile.role.replace(/_/g, ' ')}
                       </span>
                     </div>
@@ -1019,7 +1014,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full h-10 mt-1 px-4 bg-[#0F172A] hover:bg-black disabled:opacity-50 text-white rounded-lg font-medium text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full h-10 mt-1 px-4 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:opacity-50 text-white rounded-lg font-medium text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     {isLoading ? (
                       <>

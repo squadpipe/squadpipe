@@ -15,6 +15,7 @@ import {
 import { apiClient } from '../../config/api.config';
 import { User } from '../../types';
 import { TablePagination } from '../../components/shared/TablePagination';
+import { StatusBadge } from '../../components/shared/StatusBadge';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapUserFromApi } from '../../utils/entityMappers';
 import { getWorkspaceBrandSlug } from '../../utils/workspaceBrand';
@@ -120,17 +121,9 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   const getRoleBadgeClass = (role: string) => {
     switch (role) {
       case 'Administrator':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'Senior Recruiter':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'Technical Recruiter':
-        return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-      case 'Bench Sales Lead':
-        return 'bg-purple-50 text-purple-700 border-purple-200';
-      case 'Account Executive':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
+        return 'bg-[#141615] text-white';
       default:
-        return 'bg-slate-100 text-slate-700 border-slate-200';
+        return 'bg-slate-100 text-slate-700';
     }
   };
 
@@ -328,7 +321,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                             <div className="font-semibold text-slate-900 flex items-center gap-1.5">
                               <span>{u.name}</span>
                               {u.isCurrentUser && (
-                                <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-brand-50 text-brand-700 border border-brand-200">
+                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
                                   You
                                 </span>
                               )}
@@ -341,7 +334,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                       {/* Role Badge */}
                       <td className="py-3 px-4">
                         <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-md border text-[11px] font-medium ${getRoleBadgeClass(
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-medium ${getRoleBadgeClass(
                             u.role
                           )}`}
                         >
@@ -359,18 +352,18 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                           title={u.rateMasked ? 'Click to reveal rates' : 'Click to mask rates'}
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[11px] font-medium transition-colors cursor-pointer ${
                             u.rateMasked
-                              ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100/70'
-                              : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100/70'
+                              ? 'bg-slate-100 text-slate-600 border-slate-200/90 hover:bg-slate-200/70'
+                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                           }`}
                         >
                           {u.rateMasked ? (
                             <>
-                              <EyeOff className="w-3 h-3" />
+                              <EyeOff className="w-3.5 h-3.5 text-slate-400" />
                               <span>Masked</span>
                             </>
                           ) : (
                             <>
-                              <Eye className="w-3 h-3" />
+                              <Eye className="w-3.5 h-3.5 text-brand-600" />
                               <span>Visible</span>
                             </>
                           )}
@@ -379,22 +372,16 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
 
                       {/* Status */}
                       <td className="py-3 px-4">
-                        {u.status === 'Active' ? (
-                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                            <span>Active</span>
-                          </span>
-                        ) : u.status === 'Invited' ? (
-                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                            <span>Invited</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-50 text-rose-700 border border-rose-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-                            <span>Suspended</span>
-                          </span>
-                        )}
+                        <StatusBadge
+                          label={u.status}
+                          tone={
+                            u.status === 'Active'
+                              ? 'emerald'
+                              : u.status === 'Invited'
+                              ? 'amber'
+                              : 'rose'
+                          }
+                        />
                       </td>
 
                       {/* Actions */}

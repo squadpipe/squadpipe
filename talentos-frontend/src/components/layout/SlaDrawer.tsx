@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Bell, CheckCheck, CheckCircle2, Circle, RefreshCw, X, Zap } from 'lucide-react';
 import { SlaTask } from '../../types';
+import { StatusBadge } from '../shared/StatusBadge';
+import { getSlaDotClass } from '../../utils/stageStyles';
 
 interface SlaDrawerProps {
   isOpen: boolean;
@@ -66,7 +68,7 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
           {/* Header */}
           <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
+              <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-amber-600">
                 <Bell className="w-4 h-4" />
               </div>
               <div>
@@ -150,11 +152,11 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${item.badgeClass}`}
-                    >
-                      {item.slaRuleTag}
-                    </span>
+                    <StatusBadge
+                      label={item.slaRuleTag}
+                      dotClass={getSlaDotClass(item.badgeClass)}
+                      size="xs"
+                    />
                     <button
                       onClick={() => onToggleTaskDone(item.id)}
                       title={item.done ? 'Mark as pending' : 'Mark as completed'}
@@ -180,9 +182,9 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
                     <div className="mt-3 pt-3 border-t border-slate-100 flex justify-end">
                       <button
                         onClick={() => onTaskAction(item)}
-                        className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 flex items-center gap-1.5 transition-colors cursor-pointer"
+                        className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 flex items-center gap-1.5 transition-colors cursor-pointer"
                       >
-                        <Zap className="w-3 h-3" />
+                        <Zap className="w-3 h-3 text-brand-600" />
                         <span>{item.actionLabel}</span>
                       </button>
                     </div>

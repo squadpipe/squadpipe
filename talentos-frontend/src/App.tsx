@@ -17,6 +17,7 @@ import {
 } from './utils/workspaceBrand';
 import { mapCandidateFromApi, mapRequirementFromApi, mapVendorFromApi } from './utils/entityMappers';
 import { buildCandidateFormData } from './utils/cvFiles';
+import { normalizeSlaBadgeClass } from './utils/stageStyles';
 
 import { Sidebar } from './components/layout/Sidebar';
 import { Topbar } from './components/layout/Topbar';
@@ -567,7 +568,7 @@ export const App: React.FC = () => {
             id: s.id,
             category: s.category || '',
             slaRuleTag: s.slaRuleTag || '',
-            badgeClass: s.badgeClass || 'bg-blue-50 text-blue-700 border-blue-200',
+            badgeClass: normalizeSlaBadgeClass(s.badgeClass),
             title: s.title || '',
             desc: s.description || s.desc || '',
             meta: s.meta || '',
@@ -822,10 +823,12 @@ export const App: React.FC = () => {
     expiringPlacementsCount,
   };
 
-  const promoteRequirementToTop = (list: Requirement[], updated: Requirement) => [
-    updated,
-    ...list.filter((r) => r.id !== updated.id),
-  ];
+  const updateRequirementInList = (list: Requirement[], updated: Requirement) => {
+    const exists = list.some((r) => r.id === updated.id);
+    return exists
+      ? list.map((r) => (r.id === updated.id ? updated : r))
+      : [updated, ...list];
+  };
 
   // Handlers
   const handleStatusChange = async (req: Requirement, newStatus: any) => {
@@ -862,7 +865,7 @@ export const App: React.FC = () => {
     setRequirements((prev) => {
       const existing = prev.find((r) => r.id === req.id);
       const updated = existing ? { ...existing, status: newStatus } : { ...req, status: newStatus };
-      return promoteRequirementToTop(prev, updated);
+      return updateRequirementInList(prev, updated);
     });
     try {
       const res = await apiClient.patch(`/requirements/${req.id}/stage`, {
@@ -881,7 +884,7 @@ export const App: React.FC = () => {
   };
 
   const syncUpdatedRequirement = (mapped: Requirement) => {
-    setRequirements((prev) => promoteRequirementToTop(prev, mapped));
+    setRequirements((prev) => updateRequirementInList(prev, mapped));
     setSelectedReqForDetail((prev) => (prev && prev.id === mapped.id ? mapped : prev));
     setActiveReq((prev) => (prev && prev.id === mapped.id ? mapped : prev));
   };
@@ -1036,7 +1039,7 @@ export const App: React.FC = () => {
       setRequirements((prev) => {
         const target = prev.find((r) => r.id === resolvedReqId);
         if (!target) return prev;
-        return promoteRequirementToTop(prev, {
+        return updateRequirementInList(prev, {
           ...target,
           status: 'Onboarding',
           resourceName: savedPlacement.resourceName || target.resourceName,
@@ -1122,8 +1125,36 @@ export const App: React.FC = () => {
     }
   };
 
+  const syncCandidateStageForPlacement = (
+    targetPlacement: Pick<BillablePlacement, 'id' | 'candidateId' | 'resourceName'>,
+    nextStage: 'Available / Bench' | 'Billable',
+    currentPlacements: BillablePlacement[]
+  ) => {
+    const targetName = targetPlacement.resourceName.trim().toLowerCase();
+    if (nextStage === 'Available / Bench') {
+      const hasOtherActive = currentPlacements.some((p) => {
+        if (p.id === targetPlacement.id) return false;
+        if (p.status === 'Completed' || p.status === 'Terminated') return false;
+        if (targetPlacement.candidateId && p.candidateId) {
+          return p.candidateId === targetPlacement.candidateId;
+        }
+        return p.resourceName.trim().toLowerCase() === targetName;
+      });
+      if (hasOtherActive) return;
+    }
+    setCandidates((prev) =>
+      prev.map((c) =>
+        (targetPlacement.candidateId && c.id === targetPlacement.candidateId) ||
+        c.fullName.trim().toLowerCase() === targetName
+          ? { ...c, pipelineStage: nextStage }
+          : c
+      )
+    );
+  };
+
   const handleUpdatePlacement = async (updated: BillablePlacement) => {
     try {
+      const existingBeforeSave = placements.find((p) => p.id === updated.id);
       const billNum = parseFloat(String(updated.billing || '0').replace(/[^0-9.]/g, '')) || 0;
       const payNum = parseFloat(String(updated.payRate || '0').replace(/[^0-9.]/g, '')) || 0;
       const hourlySpread = billNum - payNum;
@@ -1132,20 +1163,28 @@ export const App: React.FC = () => {
       const res = await apiClient.put(`/placements/${updated.id}`, payload);
       const saved: BillablePlacement = res.data?.data ? normalizePlacement(res.data.data) : payload;
       setPlacements((prev) => prev.map((p) => (p.id === saved.id ? { ...p, ...saved } : p)));
-      if (saved.status === 'Completed' || saved.status === 'Terminated' || saved.status === 'Active' || saved.status === 'Extended') {
-        const nextStage = saved.status === 'Completed' || saved.status === 'Terminated' ? 'Available / Bench' : 'Billable';
-        const targetName = saved.resourceName.trim().toLowerCase();
-        setCandidates((prev) =>
-          prev.map((c) =>
-            (saved.candidateId && c.id === saved.candidateId) || c.fullName.trim().toLowerCase() === targetName
-              ? { ...c, pipelineStage: nextStage }
-              : c
-          )
-        );
+      const isEnding = saved.status === 'Completed' || saved.status === 'Terminated';
+      if (isEnding) {
+        syncCandidateStageForPlacement(saved, 'Available / Bench', placements);
+      } else if (saved.status === 'Active' || saved.status === 'Extended' || saved.status === 'Expiring Soon') {
+        syncCandidateStageForPlacement(saved, 'Billable', placements);
       }
+      fetchCandidates();
+      fetchRequirements();
+      fetchSidebarCounts();
       fetchSlaTasks();
       fetchAutomations();
-      showToast('Placement Updated', `${saved.resourceName} placement saved.`, 'fa-solid fa-circle-check text-emerald-500');
+      const transitionedToEnded =
+        isEnding && existingBeforeSave?.status !== 'Completed' && existingBeforeSave?.status !== 'Terminated';
+      if (transitionedToEnded) {
+        showToast(
+          'Placement Ended',
+          `${saved.resourceName}'s engagement marked ${saved.status} and bench availability updated.`,
+          'fa-solid fa-circle-check text-emerald-500'
+        );
+      } else {
+        showToast('Placement Updated', `${saved.resourceName} placement saved.`, 'fa-solid fa-circle-check text-emerald-500');
+      }
     } catch (e: any) {
       console.warn('API update placement failed:', e);
       showToast('Update Failed', e?.response?.data?.error || `Could not update ${updated.resourceName}.`, 'fa-solid fa-circle-exclamation text-rose-500');
@@ -1285,12 +1324,16 @@ export const App: React.FC = () => {
       if (res.data?.data) {
         updatedPlacement = normalizePlacement(res.data.data);
       }
+      fetchCandidates();
+      fetchRequirements();
+      fetchSidebarCounts();
       fetchSlaTasks();
       fetchAutomations();
     } catch (e) {
       console.warn('API placement extension:', e);
     }
 
+    syncCandidateStageForPlacement(updatedPlacement || placement, 'Billable', placements);
     setPlacements((prev) =>
       prev.map((p) => {
         if (p.id !== placement.id) return p;
@@ -1409,10 +1452,10 @@ export const App: React.FC = () => {
     setUsers((prev) => prev.map((u) => (u.id === savedUser.id ? savedUser : u)));
   };
 
-  // If unauthenticated, render the full-screen Obsidian SaaS Login View
+  // If unauthenticated, render the full-screen Mineral Carbon Login View
   if (!currentUser) {
     return (
-      <div className="flex h-screen w-screen overflow-hidden bg-[#0B0F17]">
+      <div className="flex h-screen w-screen overflow-hidden bg-[#141615]">
         {/* Global Toast Banner */}
         {toast && (
           <div
@@ -1457,7 +1500,9 @@ export const App: React.FC = () => {
     consultants: sidebarCounts.consultants || candidates.length,
     clients: clients.length || sidebarCounts.clients,
     vendors: vendors.length || sidebarCounts.vendors,
-    billable: placements.length || sidebarCounts.billable,
+    billable: loadedEntities.current.has('placements')
+      ? placements.filter((p) => p.status !== 'Completed' && p.status !== 'Terminated').length
+      : sidebarCounts.billable,
     users: users.length || sidebarCounts.users,
     customFields: customFields.length || sidebarCounts.customFields,
     activeRules: loadedEntities.current.has('automations')
@@ -1685,7 +1730,7 @@ export const App: React.FC = () => {
                   setUsers((prev) =>
                     prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u))
                   );
-                  showToast('Status Updated', `${user.name} is now ${newStatus}.`, 'fa-solid fa-user-shield text-indigo-500');
+                  showToast('Status Updated', `${user.name} is now ${newStatus}.`, 'fa-solid fa-user-shield text-brand-600');
                 } catch (e: any) {
                   console.warn('API toggle status failed:', e);
                   showApiErrorToast(e, 'Status Update Failed', `Could not update status for ${user.name}.`);
@@ -2015,7 +2060,7 @@ export const App: React.FC = () => {
             setRequirements((prev) => {
               const target = prev.find((r) => r.id === saved.requirementId);
               if (!target) return prev;
-              return promoteRequirementToTop(prev, {
+              return updateRequirementInList(prev, {
                 ...target,
                 status: 'Onboarding',
                 resourceName: saved.resourceName || target.resourceName,
