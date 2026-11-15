@@ -125,3 +125,41 @@ export function renderSubmissionEmail(params: {
   });
   return { subject, html };
 }
+
+export function renderPitchEmail(params: {
+  brandName: string;
+  subject: string;
+  textBody: string;
+  candidateName?: string;
+  requirementTitle?: string;
+  clientName?: string;
+}): { subject: string; html: string } {
+  const formattedParagraphs = String(params.textBody || '')
+    .trim()
+    .split(/\r?\n\s*\r?\n/)
+    .filter((p) => p.trim().length > 0)
+    .map((paragraph) => {
+      const escapedLines = paragraph
+        .split(/\r?\n/)
+        .map((line) => Handlebars.escapeExpression(line))
+        .join('<br />');
+      return `<p style="margin:0 0 14px 0;font-size:14px;line-height:1.65;color:#374151;">${escapedLines}</p>`;
+    })
+    .join('');
+
+  const html = renderWithLayout({
+    templateName: 'pitch',
+    subject: params.subject,
+    brandName: params.brandName,
+    badgeText: 'Candidate Submission',
+    footerNote:
+      'Confidential candidate submission prepared via TalentOS Recruitment Desk.',
+    data: {
+      candidateName: params.candidateName || '',
+      requirementTitle: params.requirementTitle || '',
+      clientName: params.clientName || '',
+      formattedParagraphs,
+    },
+  });
+  return { subject: params.subject, html };
+}

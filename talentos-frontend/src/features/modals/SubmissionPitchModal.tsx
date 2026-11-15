@@ -208,14 +208,6 @@ export const SubmissionPitchModal: React.FC<SubmissionPitchModalProps> = ({
     showToast('Copied to Clipboard', 'Submission pitch draft copied successfully!', 'fa-solid fa-copy text-brand-600');
   };
 
-  const escapeHtml = (value: string) =>
-    value
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-
   const handleSendEmail = async () => {
     if (smtpConfigured === false) {
       showToast(
@@ -244,7 +236,7 @@ export const SubmissionPitchModal: React.FC<SubmissionPitchModalProps> = ({
         to: recipientEmail.trim(),
         recipientName: selectedContact?.name || requirement?.clientContact || 'Hiring Team',
         subject: customSubject,
-        html: `<pre style="font-family: sans-serif; white-space: pre-wrap;">${escapeHtml(customBody)}</pre>`,
+        textBody: customBody,
         candidateName,
         requirementTitle: jobTitle,
         clientName: companyName,

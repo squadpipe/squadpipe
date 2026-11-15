@@ -197,12 +197,13 @@ export const updateProfile = async (req: Request, res: Response) => {
 
 export const signup = async (req: Request, res: Response) => {
   try {
-    const { fullName, email, password, role, desk, agencyName } = req.body;
+    const { fullName, email, password, role, desk, agencyName, companyName } = req.body;
+    const resolvedCompanyInput = String(agencyName || companyName || '').trim();
 
-    if (!fullName || !email || !password) {
+    if (!fullName?.trim() || !resolvedCompanyInput || !email?.trim() || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Full name, email, and password are required.'
+        message: 'Full name, company name, email, and password are required.'
       });
     }
 
@@ -241,7 +242,7 @@ export const signup = async (req: Request, res: Response) => {
     const tenantId = isDemoDomain
       ? 'talentos-agency'
       : `tenant_${Date.now().toString(36)}_${crypto.randomBytes(4).toString('hex')}`;
-    const resolvedAgencyName = agencyName?.trim() || (isDemoDomain ? 'TalentOS Staffing' : `${fullName.trim()} Agency`);
+    const resolvedAgencyName = resolvedCompanyInput;
 
     // Create user in database
     const user = await prisma.user.create({

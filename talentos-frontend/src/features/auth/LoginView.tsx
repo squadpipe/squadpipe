@@ -33,6 +33,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
 
   // Signup state (self-registrant always becomes workspace Administrator)
   const [signupFullName, setSignupFullName] = useState('');
+  const [signupCompanyName, setSignupCompanyName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
@@ -150,7 +151,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!signupFullName || !signupEmail || !signupPassword) {
+    if (!signupFullName.trim() || !signupCompanyName.trim() || !signupEmail.trim() || !signupPassword) {
       setErrorMessage('All required fields must be completed.');
       return;
     }
@@ -171,8 +172,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
 
     try {
       const res = await apiClient.post('/auth/signup', {
-        fullName: signupFullName,
-        email: signupEmail,
+        fullName: signupFullName.trim(),
+        agencyName: signupCompanyName.trim(),
+        email: signupEmail.trim(),
         password: signupPassword,
         role: 'ADMINISTRATOR',
       });
@@ -236,6 +238,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
       if (err?.response?.status === 429 && retryAfter > 0) {
         setResendCooldown(retryAfter);
         setAuthMode('verify-otp');
+        setSuccessMessage('A 6-digit verification code was recently sent to your email. Please enter it below.');
+        return;
       }
       const msg = err.response?.data?.message || 'Unable to request password reset.';
       setErrorMessage(msg);
@@ -274,6 +278,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
       const retryAfter = Number(err?.response?.data?.retryAfterSeconds || 0);
       if (err?.response?.status === 429 && retryAfter > 0) {
         setResendCooldown(retryAfter);
+        return;
       }
       setErrorMessage(err?.response?.data?.message || 'Unable to resend verification code.');
     } finally {
@@ -643,6 +648,18 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                   value={signupFullName}
                   onChange={(e) => setSignupFullName(e.target.value)}
                   placeholder="e.g. Rachel Adams"
+                  required
+                  className={inputBaseClass}
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-medium mb-1.5">Company name *</label>
+                <input
+                  type="text"
+                  value={signupCompanyName}
+                  onChange={(e) => setSignupCompanyName(e.target.value)}
+                  placeholder="e.g. Apex Staffing Solutions"
                   required
                   className={inputBaseClass}
                 />

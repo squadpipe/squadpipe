@@ -5,7 +5,10 @@ import { submissionService } from '../services/submission.service';
 import { csvImporterService } from '../services/csvImporter.service';
 import { resumeParserClientService } from '../services/resumeParserClient.service';
 import { smtpService } from '../services/smtp.service';
-import { renderSubmissionEmail } from '../services/emailTemplate.service';
+import {
+  renderPitchEmail,
+  renderSubmissionEmail,
+} from '../services/emailTemplate.service';
 import {
   getTenantSettings,
   saveGeneralSettings,
@@ -544,6 +547,7 @@ router.post('/smtp/send', emailRateLimiter, async (req: Request, res: Response) 
       subject,
       html,
       bodyHtml,
+      textBody,
       candidateName,
       requirementTitle,
       clientName,
@@ -565,18 +569,27 @@ router.post('/smtp/send', emailRateLimiter, async (req: Request, res: Response) 
     const rawCustomHtml = html || bodyHtml;
     const resolvedHtml = rawCustomHtml
       ? sanitizeEmailHtml(String(rawCustomHtml))
-      : renderSubmissionEmail({
-          brandName,
-          recipientName: recipientName || 'Hiring Team',
-          requirementTitle: requirementTitle || 'Open Requisition',
-          clientName: clientName || 'your organization',
-          candidateName: candidateName || 'N/A',
-          workAuth: workAuth || 'Authorized',
-          rate: rate || 'Competitive',
-          location: location || 'Remote / Hybrid',
-          senderName: req.user?.fullName || `${brandName} Recruitment Desk`,
-          subject: resolvedSubject
-        }).html;
+      : textBody
+        ? renderPitchEmail({
+            brandName,
+            subject: resolvedSubject,
+            textBody: String(textBody),
+            candidateName,
+            requirementTitle,
+            clientName,
+          }).html
+        : renderSubmissionEmail({
+            brandName,
+            recipientName: recipientName || 'Hiring Team',
+            requirementTitle: requirementTitle || 'Open Requisition',
+            clientName: clientName || 'your organization',
+            candidateName: candidateName || 'N/A',
+            workAuth: workAuth || 'Authorized',
+            rate: rate || 'Competitive',
+            location: location || 'Remote / Hybrid',
+            senderName: req.user?.fullName || `${brandName} Recruitment Desk`,
+            subject: resolvedSubject
+          }).html;
 
     const result = await smtpService.sendMail({
       to: targetEmail,

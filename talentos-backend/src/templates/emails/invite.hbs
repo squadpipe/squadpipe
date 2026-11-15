@@ -1,44 +1,40 @@
-<p style="margin:0 0 14px 0;font-size:15px;line-height:1.6;color:#0f172a;">
-  Hello <strong>{{recipientName}}</strong>,
-</p>
-<p style="margin:0 0 20px 0;font-size:14px;line-height:1.65;color:#334155;">
-  You have been invited to join <strong>{{brandName}}</strong> on TalentOS. Click the button below to set your password and complete your account onboarding.
+<h2 style="margin:0 0 12px 0;font-size:19px;line-height:1.35;font-weight:600;color:#111827;letter-spacing:-0.25px;">
+  You&rsquo;re invited to {{brandName}}
+</h2>
+<p style="margin:0 0 22px 0;font-size:14px;line-height:1.65;color:#4b5563;">
+  Hi {{recipientName}}, your administrator invited you to join the <strong style="color:#111827;font-weight:600;">{{brandName}}</strong> workspace. Set your password below to activate your account and get started.
 </p>
 
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px 0;background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px 0;background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;">
   <tr>
-    <td style="padding:16px 20px;">
+    <td style="padding:14px 18px;">
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
         <tr>
-          <td style="font-size:12px;color:#64748b;padding-bottom:6px;">Workspace</td>
-          <td align="right" style="font-size:13px;font-weight:600;color:#0f172a;padding-bottom:6px;">{{brandName}}</td>
+          <td style="font-size:12px;color:#6b7280;padding:4px 0;">Workspace</td>
+          <td align="right" style="font-size:13px;font-weight:600;color:#111827;padding:4px 0;">{{brandName}}</td>
         </tr>
         <tr>
-          <td style="font-size:12px;color:#64748b;">Assigned Role</td>
-          <td align="right" style="font-size:13px;font-weight:600;color:#2563eb;">{{roleLabel}}</td>
+          <td style="font-size:12px;color:#6b7280;padding:6px 0 4px 0;border-top:1px solid #e5e7eb;">Role</td>
+          <td align="right" style="font-size:13px;font-weight:600;color:#111827;padding:6px 0 4px 0;border-top:1px solid #e5e7eb;">{{roleLabel}}</td>
         </tr>
       </table>
     </td>
   </tr>
 </table>
 
-<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto 24px auto;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px 0;">
   <tr>
-    <td align="center" style="border-radius:10px;background-color:#0f172a;">
-      <a href="{{inviteUrl}}" target="_blank" style="display:inline-block;padding:13px 28px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">
-        Accept Invitation &amp; Set Password &rarr;
+    <td align="center" style="border-radius:8px;background-color:#111827;">
+      <a href="{{inviteUrl}}" target="_blank" style="display:block;padding:12px 24px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;text-align:center;">
+        Set password &amp; join workspace
       </a>
     </td>
   </tr>
 </table>
 
-<p style="margin:0 0 8px 0;font-size:12px;line-height:1.5;color:#64748b;">
-  Or copy and paste this unique onboarding link into your browser:
+<p style="margin:0 0 8px 0;font-size:12px;line-height:1.5;color:#6b7280;">
+  Or open this link in your browser (valid for {{expiresHours}} hours):
 </p>
-<p style="margin:0 0 18px 0;padding:10px 12px;background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-family:'SFMono-Regular',Consolas,monospace;font-size:11px;line-height:1.5;color:#334155;word-break:break-all;">
-  {{inviteUrl}}
-</p>
-
-<p style="margin:0;font-size:12px;line-height:1.5;color:#64748b;">
-  This invitation link expires in <strong>{{expiresHours}} hours</strong>.
+<p style="margin:0;font-size:11px;line-height:1.55;color:#4b5563;word-break:break-all;">
+  <a href="{{inviteUrl}}" target="_blank" style="color:#374151;text-decoration:underline;">{{inviteUrl}}</a>
 </p>
