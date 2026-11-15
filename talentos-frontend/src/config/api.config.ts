@@ -35,7 +35,10 @@ apiClient.interceptors.response.use(
       url.includes('/auth/login') ||
       url.includes('/auth/signup') ||
       url.includes('/auth/forgot-password') ||
-      url.includes('/auth/reset-password');
+      url.includes('/auth/verify-reset-otp') ||
+      url.includes('/auth/reset-password') ||
+      url.includes('/auth/invite/') ||
+      url.includes('/auth/accept-invite');
     const hasStoredToken = Boolean(
       localStorage.getItem('talentos_access_token') ||
         sessionStorage.getItem('talentos_access_token')

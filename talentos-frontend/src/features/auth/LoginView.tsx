@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Eye,
   EyeOff,
@@ -18,7 +18,9 @@ interface LoginViewProps {
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast }) => {
-  const [authMode, setAuthMode] = useState<'login' | 'signup' | 'forgot' | 'reset'>('login');
+  const [authMode, setAuthMode] = useState<
+    'login' | 'signup' | 'forgot' | 'verify-otp' | 'reset' | 'accept-invite'
+  >('login');
 
   // Login state
   const [email, setEmail] = useState('');
@@ -37,13 +39,70 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [showSignupConfirmPassword, setShowSignupConfirmPassword] = useState(false);
 
-  // Forgot / Reset state
+  // Forgot / Verify OTP / Reset state
   const [forgotEmail, setForgotEmail] = useState('');
   const [resetCode, setResetCode] = useState('');
+  const [resetSessionToken, setResetSessionToken] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [isResendingOtp, setIsResendingOtp] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+
+  // Invite onboarding state
+  const [inviteToken, setInviteToken] = useState('');
+  const [inviteProfile, setInviteProfile] = useState<{
+    email: string;
+    fullName: string;
+    agencyName: string;
+    role: string;
+    desk: string;
+  } | null>(null);
+  const [inviteFullName, setInviteFullName] = useState('');
+  const [invitePassword, setInvitePassword] = useState('');
+  const [inviteConfirmPassword, setInviteConfirmPassword] = useState('');
+  const [showInvitePassword, setShowInvitePassword] = useState(false);
+  const [showInviteConfirmPassword, setShowInviteConfirmPassword] = useState(false);
+  const [isLoadingInvite, setIsLoadingInvite] = useState(false);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = window.setInterval(() => {
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [resendCooldown]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('inviteToken')?.trim();
+    if (!token) return;
+
+    setInviteToken(token);
+    setAuthMode('accept-invite');
+    setIsLoadingInvite(true);
+    setErrorMessage('');
+
+    apiClient
+      .get(`/auth/invite/${encodeURIComponent(token)}`)
+      .then((res) => {
+        if (res.data?.success && res.data?.data) {
+          setInviteProfile(res.data.data);
+          setInviteFullName(res.data.data.fullName || '');
+        } else {
+          setErrorMessage(res.data?.message || 'This invitation link is invalid or has expired.');
+        }
+      })
+      .catch((err) => {
+        setErrorMessage(
+          err?.response?.data?.message || 'This invitation link is invalid or has expired.'
+        );
+      })
+      .finally(() => {
+        setIsLoadingInvite(false);
+      });
+  }, []);
 
   const handleLogin = async (e?: React.FormEvent, targetEmail?: string, targetPass?: string) => {
     if (e) e.preventDefault();
@@ -136,6 +195,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
     }
   };
 
+  const formatCountdown = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!forgotEmail) {
@@ -155,7 +220,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
             `If an account exists for ${forgotEmail}, a 6-digit verification code has been dispatched.`
         );
         setResetCode('');
-        setAuthMode('reset');
+        setResetSessionToken('');
+        setResendCooldown(Number(res.data?.cooldownSeconds) || 120);
+        setAuthMode('verify-otp');
         showToast(
           'Verification Requested',
           'Check your email inbox for your 6-digit verification code.',
@@ -165,8 +232,84 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
         setErrorMessage(res.data?.message || 'Email lookup failed.');
       }
     } catch (err: any) {
+      const retryAfter = Number(err?.response?.data?.retryAfterSeconds || 0);
+      if (err?.response?.status === 429 && retryAfter > 0) {
+        setResendCooldown(retryAfter);
+        setAuthMode('verify-otp');
+      }
       const msg = err.response?.data?.message || 'Unable to request password reset.';
       setErrorMessage(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0 || isResendingOtp) return;
+    const targetEmail = (forgotEmail || email).trim();
+    if (!targetEmail) {
+      setErrorMessage('Please enter your email address first.');
+      setAuthMode('forgot');
+      return;
+    }
+
+    setIsResendingOtp(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      const res = await apiClient.post('/auth/forgot-password', { email: targetEmail });
+      if (res.data?.success) {
+        setResendCooldown(Number(res.data?.cooldownSeconds) || 120);
+        setSuccessMessage('A new 6-digit verification code has been sent to your email.');
+        showToast(
+          'Code Resent',
+          'Check your inbox for the new 6-digit verification code.',
+          'fa-solid fa-paper-plane text-brand-500'
+        );
+      } else {
+        setErrorMessage(res.data?.message || 'Failed to resend verification code.');
+      }
+    } catch (err: any) {
+      const retryAfter = Number(err?.response?.data?.retryAfterSeconds || 0);
+      if (err?.response?.status === 429 && retryAfter > 0) {
+        setResendCooldown(retryAfter);
+      }
+      setErrorMessage(err?.response?.data?.message || 'Unable to resend verification code.');
+    } finally {
+      setIsResendingOtp(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanCode = resetCode.trim();
+    if (!cleanCode) {
+      setErrorMessage('Please enter the 6-digit verification code from your email.');
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      const res = await apiClient.post('/auth/verify-reset-otp', {
+        email: forgotEmail || email,
+        resetCode: cleanCode,
+      });
+
+      if (res.data?.success && res.data?.resetToken) {
+        setResetSessionToken(res.data.resetToken);
+        setNewPassword('');
+        setConfirmNewPassword('');
+        setSuccessMessage('Code verified! Now enter and confirm your new password.');
+        setAuthMode('reset');
+      } else {
+        setErrorMessage(res.data?.message || 'Invalid or expired verification code.');
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.response?.data?.message || 'Invalid or expired verification code.');
     } finally {
       setIsLoading(false);
     }
@@ -193,14 +336,21 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
     try {
       const res = await apiClient.post('/auth/reset-password', {
         email: forgotEmail || email,
+        resetToken: resetSessionToken,
         resetCode,
         newPassword,
       });
 
       if (res.data?.success) {
-        showToast('Password Reset', 'Password updated! Please sign in with your new password.', 'fa-solid fa-circle-check text-emerald-500');
+        showToast(
+          'Password Reset',
+          'Password updated! Please sign in with your new password.',
+          'fa-solid fa-circle-check text-emerald-500'
+        );
         setEmail(forgotEmail || email);
         setPassword(newPassword);
+        setResetCode('');
+        setResetSessionToken('');
         setAuthMode('login');
         setSuccessMessage('Password reset successfully! You may now sign in.');
       } else {
@@ -209,6 +359,57 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Failed to reset password.';
       setErrorMessage(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAcceptInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteToken) {
+      setErrorMessage('Invitation token is missing.');
+      return;
+    }
+    if (!invitePassword || !inviteConfirmPassword) {
+      setErrorMessage('Please enter and confirm your password.');
+      return;
+    }
+    if (invitePassword !== inviteConfirmPassword) {
+      setErrorMessage('Passwords do not match.');
+      return;
+    }
+    if (invitePassword.length < 6) {
+      setErrorMessage('Password must be at least 6 characters.');
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      const res = await apiClient.post('/auth/accept-invite', {
+        token: inviteToken,
+        fullName: inviteFullName.trim() || inviteProfile?.fullName,
+        password: invitePassword,
+      });
+
+      if (res.data?.success && res.data?.token && res.data?.user) {
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+        localStorage.setItem('talentos_access_token', res.data.token);
+        localStorage.setItem('talentos_current_user', JSON.stringify(res.data.user));
+        showToast(
+          'Onboarding Complete',
+          res.data.message || `Welcome to ${res.data.user.agencyName}!`,
+          'fa-solid fa-circle-check text-emerald-500'
+        );
+        onLoginSuccess(res.data.user, res.data.token);
+      } else {
+        setErrorMessage(res.data?.message || 'Failed to complete onboarding.');
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.response?.data?.message || 'Failed to complete onboarding.');
     } finally {
       setIsLoading(false);
     }
@@ -236,16 +437,34 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
       cardTitle: 'Reset your password',
       cardSub: 'We will generate a one-time verification code',
     },
+    'verify-otp': {
+      line1: 'Verify your identity on',
+      line2: 'TalentOS.',
+      subtext: 'Enter the 6-digit verification code sent to your email before choosing a new password.',
+      cardTitle: 'Enter verification code',
+      cardSub: `Code sent to ${forgotEmail || email || 'your email'}`,
+    },
     reset: {
       line1: 'Secure your',
       line2: 'TalentOS.',
-      subtext: 'Confirm your 6-digit verification code and set a new password to return to your desk.',
+      subtext: 'Your code is verified. Set a strong new password to return to your desk.',
       cardTitle: 'Choose a new password',
       cardSub: 'Complete your account recovery',
     },
+    'accept-invite': {
+      line1: 'Join your team on',
+      line2: 'TalentOS.',
+      subtext: 'Set your password to activate your account and enter your workspace.',
+      cardTitle: 'Complete your onboarding',
+      cardSub: inviteProfile
+        ? `Joining ${inviteProfile.agencyName}`
+        : 'Activate your workspace invitation',
+    },
   }[authMode];
 
-  const switchMode = (mode: 'login' | 'signup' | 'forgot' | 'reset') => {
+  const switchMode = (
+    mode: 'login' | 'signup' | 'forgot' | 'verify-otp' | 'reset' | 'accept-invite'
+  ) => {
     setErrorMessage('');
     setSuccessMessage('');
     setAuthMode(mode);
@@ -562,25 +781,74 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
             </form>
           )}
 
-          {/* 4. RESET PASSWORD FORM */}
-          {authMode === 'reset' && (
-            <form key="reset-password-form" onSubmit={handleResetPassword} className="space-y-4 text-xs">
+          {/* 4. VERIFY OTP FORM (OTP only + 2-minute resend timer) */}
+          {authMode === 'verify-otp' && (
+            <form key="verify-otp-form" onSubmit={handleVerifyOtp} className="space-y-4 text-xs">
               <div>
-                <label className="block text-slate-700 font-medium mb-1.5">Verification code *</label>
+                <label className="block text-slate-700 font-medium mb-1.5">
+                  6-digit verification code *
+                </label>
                 <input
                   key="reset-verification-code"
                   type="text"
                   name="verificationCode"
                   autoComplete="one-time-code"
                   inputMode="numeric"
+                  maxLength={6}
                   value={resetCode}
-                  onChange={(e) => setResetCode(e.target.value)}
-                  placeholder="6-digit reset code"
+                  onChange={(e) => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="Enter 6-digit code"
                   required
-                  className={`${inputBaseClass} text-center text-sm tracking-widest`}
+                  className={`${inputBaseClass} text-center text-base font-semibold tracking-[0.35em]`}
                 />
               </div>
 
+              <button
+                type="submit"
+                disabled={isLoading || resetCode.trim().length < 6}
+                className="w-full h-10 mt-1 px-4 bg-[#0F172A] hover:bg-black disabled:opacity-50 text-white rounded-lg font-medium text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Verifying code...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Verify code</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </>
+                )}
+              </button>
+
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={resendCooldown > 0 || isResendingOtp}
+                  className="font-medium text-slate-900 hover:underline disabled:text-slate-400 disabled:no-underline disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {isResendingOtp
+                    ? 'Resending code...'
+                    : resendCooldown > 0
+                      ? `Resend code in ${formatCountdown(resendCooldown)}`
+                      : 'Resend verification code'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => switchMode('forgot')}
+                  className="text-slate-500 hover:text-slate-800 hover:underline cursor-pointer"
+                >
+                  Change email
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* 5. RESET PASSWORD FORM (appears only after OTP verified) */}
+          {authMode === 'reset' && (
+            <form key="reset-password-form" onSubmit={handleResetPassword} className="space-y-4 text-xs">
               <div>
                 <label className="block text-slate-700 font-medium mb-1.5">New password *</label>
                 <div className="relative">
@@ -653,6 +921,124 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                 </button>
               </div>
             </form>
+          )}
+
+          {/* 6. ACCEPT INVITE & ONBOARD FORM */}
+          {authMode === 'accept-invite' && (
+            <div className="space-y-4 text-xs">
+              {isLoadingInvite ? (
+                <div className="py-8 flex flex-col items-center justify-center gap-2 text-slate-500">
+                  <Loader2 className="w-5 h-5 animate-spin text-slate-700" />
+                  <span>Validating your invitation link...</span>
+                </div>
+              ) : inviteProfile ? (
+                <form onSubmit={handleAcceptInvite} className="space-y-4">
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Workspace</span>
+                      <span className="font-semibold text-slate-900">{inviteProfile.agencyName}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Email</span>
+                      <span className="font-medium text-slate-700">{inviteProfile.email}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Role</span>
+                      <span className="font-medium text-blue-600">
+                        {inviteProfile.role.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-medium mb-1.5">Full name *</label>
+                    <input
+                      type="text"
+                      value={inviteFullName}
+                      onChange={(e) => setInviteFullName(e.target.value)}
+                      placeholder="Your full name"
+                      required
+                      className={inputBaseClass}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-medium mb-1.5">Create password *</label>
+                    <div className="relative">
+                      <input
+                        type={showInvitePassword ? 'text' : 'password'}
+                        value={invitePassword}
+                        onChange={(e) => setInvitePassword(e.target.value)}
+                        placeholder="Minimum 6 characters"
+                        required
+                        className={`${inputBaseClass} pr-10`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowInvitePassword(!showInvitePassword)}
+                        aria-label={showInvitePassword ? 'Hide password' : 'Show password'}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                      >
+                        {showInvitePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-medium mb-1.5">Confirm password *</label>
+                    <div className="relative">
+                      <input
+                        type={showInviteConfirmPassword ? 'text' : 'password'}
+                        value={inviteConfirmPassword}
+                        onChange={(e) => setInviteConfirmPassword(e.target.value)}
+                        placeholder="Re-enter password"
+                        required
+                        className={`${inputBaseClass} pr-10`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowInviteConfirmPassword(!showInviteConfirmPassword)}
+                        aria-label={showInviteConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                      >
+                        {showInviteConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full h-10 mt-1 px-4 bg-[#0F172A] hover:bg-black disabled:opacity-50 text-white rounded-lg font-medium text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Activating account...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Complete onboarding &amp; enter workspace</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </>
+                    )}
+                  </button>
+                </form>
+              ) : (
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.history.replaceState({}, document.title, window.location.pathname);
+                      switchMode('login');
+                    }}
+                    className="text-slate-900 font-semibold hover:underline cursor-pointer"
+                  >
+                    Return to sign in
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
 

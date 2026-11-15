@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { smtpService } from './smtp.service';
 import { getTenantSettings } from '../config/smtp.config';
-import { escapeHtml } from '../utils/cryptoSecret';
+import { renderInviteEmail } from './emailTemplate.service';
 
 export interface UserFilterParams {
   search?: string;
@@ -141,7 +141,7 @@ export class UserService {
     // Cryptographically random temporary credential (never static default password)
     const temporaryRandomSecret = crypto.randomBytes(24).toString('base64url');
     const tempPasswordHash = await bcrypt.hash(temporaryRandomSecret, 12);
-    const setupCode = crypto.randomInt(100000, 1000000).toString();
+    const inviteToken = crypto.randomBytes(32).toString('base64url');
     const resolvedName = (data.fullName || data.name || 'Team Member').trim();
     const settings = await getTenantSettings(tenantId);
     const resolvedAgencyName =
@@ -179,28 +179,42 @@ export class UserService {
       }
     });
 
-    // Issue one-time 24h activation / password setup code and dispatch via workspace SMTP
+    // Issue unique 24h onboarding invitation token and dispatch via workspace SMTP
     await prisma.refreshToken.create({
       data: {
-        token: `reset_${normalizedEmail}_${setupCode}`,
+        token: `invite_${inviteToken}`,
         userId: invitedUser.id,
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       },
+    });
+
+    const frontendBaseUrl = (
+      process.env.FRONTEND_URL ||
+      process.env.CORS_ORIGIN?.split(',')[0] ||
+      'http://localhost:3000'
+    )
+      .trim()
+      .replace(/\/+$/, '');
+    const inviteUrl = `${frontendBaseUrl}/?inviteToken=${encodeURIComponent(inviteToken)}`;
+    const roleLabel = validRole
+      .replace(/_/g, ' ')
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+
+    const { subject, html } = renderInviteEmail({
+      brandName: resolvedAgencyName,
+      recipientName: resolvedName,
+      roleLabel,
+      inviteUrl,
+      expiresHours: 24,
     });
 
     const mailResult = await smtpService
       .sendMail({
         to: normalizedEmail,
         recipientName: resolvedName,
-        subject: `You're invited to ${resolvedAgencyName}`,
-        html: `
-          <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.6; color: #1e293b;">
-            <p>Hello ${escapeHtml(resolvedName)},</p>
-            <p>You have been invited to join <strong>${escapeHtml(resolvedAgencyName)}</strong> as <strong>${escapeHtml(validRole.replace(/_/g, ' '))}</strong>.</p>
-            <p>Use the one-time setup code below via <em>Forgot / Reset Password</em> on the sign-in screen to set your password (valid for 24 hours):</p>
-            <p style="font-size: 20px; font-weight: 700; letter-spacing: 2px; color: #2563eb;">${setupCode}</p>
-          </div>
-        `,
+        subject,
+        html,
         tenantId,
       })
       .catch((err) => {

@@ -9,7 +9,9 @@ import { UserRole, UserStatus } from '@prisma/client';
 import { getJwtAccessExpiry, getJwtAccessSecret } from '../config/jwt.config';
 import { getTenantSettings, saveGeneralSettings } from '../config/smtp.config';
 import { smtpService } from '../services/smtp.service';
-import { escapeHtml } from '../utils/cryptoSecret';
+import { renderOtpEmail } from '../services/emailTemplate.service';
+
+const OTP_RESEND_COOLDOWN_SECONDS = 120;
 
 export const login = async (req: Request, res: Response) => {
   const parseResult = LoginSchema.safeParse(req.body);
@@ -327,6 +329,30 @@ export const forgotPassword = async (req: Request, res: Response) => {
       });
     }
 
+    // Enforce 2-minute resend cooldown on backend
+    const latestOtp = await prisma.refreshToken.findFirst({
+      where: {
+        userId: user.id,
+        token: { startsWith: `reset_${normalizedEmail}_` },
+        revokedAt: null
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (latestOtp) {
+      const elapsedMs = Date.now() - latestOtp.createdAt.getTime();
+      const cooldownMs = OTP_RESEND_COOLDOWN_SECONDS * 1000;
+      if (elapsedMs < cooldownMs) {
+        const retryAfterSeconds = Math.ceil((cooldownMs - elapsedMs) / 1000);
+        return res.status(429).json({
+          success: false,
+          code: 'OTP_COOLDOWN',
+          retryAfterSeconds,
+          message: `Please wait ${retryAfterSeconds}s before requesting a new verification code.`
+        });
+      }
+    }
+
     // Cryptographically random 6-digit verification security code
     const resetCode = crypto.randomInt(100000, 1000000).toString();
     const tokenKey = `reset_${normalizedEmail}_${resetCode}`;
@@ -358,18 +384,18 @@ export const forgotPassword = async (req: Request, res: Response) => {
       'Workspace'
     ).trim();
 
+    const { subject, html } = renderOtpEmail({
+      brandName,
+      recipientName: user.fullName,
+      otpCode: resetCode,
+      expiresMinutes: 15
+    });
+
     const mailResult = await smtpService.sendMail({
       to: normalizedEmail,
       recipientName: user.fullName,
-      subject: `${brandName} Password Reset Verification Code`,
-      html: `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.6; color: #1e293b;">
-          <p>Hello ${escapeHtml(user.fullName)},</p>
-          <p>Your ${escapeHtml(brandName)} password reset verification code is:</p>
-          <p style="font-size: 20px; font-weight: 700; letter-spacing: 2px; color: #2563eb;">${resetCode}</p>
-          <p style="font-size: 12px; color: #64748b;">This code expires in 15 minutes. If you did not request a reset, you can safely ignore this message.</p>
-        </div>
-      `,
+      subject,
+      html,
       tenantId
     });
 
@@ -386,6 +412,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
     res.json({
       success: true,
+      cooldownSeconds: OTP_RESEND_COOLDOWN_SECONDS,
       message: 'If an account is registered for that email address, a verification code has been dispatched.'
     });
   } catch (error: any) {
@@ -397,15 +424,95 @@ export const forgotPassword = async (req: Request, res: Response) => {
   }
 };
 
-export const resetPassword = async (req: Request, res: Response) => {
+export const verifyResetOtp = async (req: Request, res: Response) => {
   try {
-    const { email, resetCode, code, newPassword } = req.body;
+    const { email, resetCode, code } = req.body;
     const suppliedCode = String(resetCode || code || '').trim();
 
-    if (!email || !newPassword || !suppliedCode) {
+    if (!email || !suppliedCode) {
       return res.status(400).json({
         success: false,
-        message: 'Email, verification code, and new password are required.'
+        message: 'Email and 6-digit verification code are required.'
+      });
+    }
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail }
+    });
+
+    if (!user || user.status === UserStatus.SUSPENDED) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired verification code.'
+      });
+    }
+
+    const tokenRecord = await prisma.refreshToken.findFirst({
+      where: {
+        userId: user.id,
+        token: `reset_${normalizedEmail}_${suppliedCode}`,
+        revokedAt: null,
+        expiresAt: { gt: new Date() }
+      }
+    });
+
+    if (!tokenRecord) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired verification code.'
+      });
+    }
+
+    const resetSessionToken = crypto.randomBytes(32).toString('base64url');
+    const sessionKey = `resetsess_${normalizedEmail}_${resetSessionToken}`;
+
+    await prisma.$transaction([
+      prisma.refreshToken.update({
+        where: { id: tokenRecord.id },
+        data: { revokedAt: new Date() }
+      }),
+      prisma.refreshToken.updateMany({
+        where: {
+          userId: user.id,
+          token: { startsWith: `resetsess_${normalizedEmail}_` },
+          revokedAt: null
+        },
+        data: { revokedAt: new Date() }
+      }),
+      prisma.refreshToken.create({
+        data: {
+          token: sessionKey,
+          userId: user.id,
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000)
+        }
+      })
+    ]);
+
+    res.json({
+      success: true,
+      resetToken: resetSessionToken,
+      message: 'Verification code confirmed. You may now set your new password.'
+    });
+  } catch (error: any) {
+    console.error('Verify reset OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to verify code.'
+    });
+  }
+};
+
+export const resetPassword = async (req: Request, res: Response) => {
+  try {
+    const { email, resetToken, resetCode, code, newPassword } = req.body;
+    const suppliedResetToken = String(resetToken || '').trim();
+    const suppliedCode = String(resetCode || code || '').trim();
+
+    if (!email || !newPassword || (!suppliedResetToken && !suppliedCode)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email, verified session or code, and new password are required.'
       });
     }
 
@@ -428,10 +535,14 @@ export const resetPassword = async (req: Request, res: Response) => {
       });
     }
 
+    const expectedToken = suppliedResetToken
+      ? `resetsess_${normalizedEmail}_${suppliedResetToken}`
+      : `reset_${normalizedEmail}_${suppliedCode}`;
+
     const tokenRecord = await prisma.refreshToken.findFirst({
       where: {
         userId: user.id,
-        token: `reset_${normalizedEmail}_${suppliedCode}`,
+        token: expectedToken,
         revokedAt: null,
         expiresAt: { gt: new Date() }
       }
@@ -440,7 +551,7 @@ export const resetPassword = async (req: Request, res: Response) => {
     if (!tokenRecord) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid or expired reset verification code.'
+        message: 'Invalid or expired reset verification session. Please request a new code.'
       });
     }
 
@@ -470,6 +581,164 @@ export const resetPassword = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: 'Failed to update password.'
+    });
+  }
+};
+
+export const getInviteDetails = async (req: Request, res: Response) => {
+  try {
+    const rawToken = String(req.params.token || '').trim();
+    if (!rawToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invitation token is required.'
+      });
+    }
+
+    const tokenRecord = await prisma.refreshToken.findFirst({
+      where: {
+        token: `invite_${rawToken}`,
+        revokedAt: null,
+        expiresAt: { gt: new Date() }
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+            agencyName: true,
+            role: true,
+            desk: true,
+            status: true
+          }
+        }
+      }
+    });
+
+    if (!tokenRecord || !tokenRecord.user || tokenRecord.user.status === UserStatus.SUSPENDED) {
+      return res.status(400).json({
+        success: false,
+        message: 'This invitation link is invalid or has expired.'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        email: tokenRecord.user.email,
+        fullName: tokenRecord.user.fullName,
+        agencyName: tokenRecord.user.agencyName,
+        role: tokenRecord.user.role,
+        desk: tokenRecord.user.desk
+      }
+    });
+  } catch (error: any) {
+    console.error('Get invite details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to verify invitation link.'
+    });
+  }
+};
+
+export const acceptInvite = async (req: Request, res: Response) => {
+  try {
+    const { token: rawToken, fullName, password } = req.body;
+    const inviteToken = String(rawToken || '').trim();
+
+    if (!inviteToken || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invitation token and password are required.'
+      });
+    }
+
+    if (String(password).length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long.'
+      });
+    }
+
+    const tokenRecord = await prisma.refreshToken.findFirst({
+      where: {
+        token: `invite_${inviteToken}`,
+        revokedAt: null,
+        expiresAt: { gt: new Date() }
+      },
+      include: { user: true }
+    });
+
+    if (!tokenRecord || !tokenRecord.user || tokenRecord.user.status === UserStatus.SUSPENDED) {
+      return res.status(400).json({
+        success: false,
+        message: 'This invitation link is invalid or has expired.'
+      });
+    }
+
+    const user = tokenRecord.user;
+    const resolvedName = String(fullName || user.fullName || 'Team Member').trim();
+    const passwordHash = await bcrypt.hash(String(password), 12);
+
+    const [updatedUser] = await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: {
+          fullName: resolvedName,
+          passwordHash,
+          status: UserStatus.ACTIVE,
+          lastActiveAt: new Date(),
+          tokenVersion: { increment: 1 }
+        }
+      }),
+      prisma.refreshToken.update({
+        where: { id: tokenRecord.id },
+        data: { revokedAt: new Date() }
+      })
+    ]);
+
+    const tenantId = updatedUser.tenantId || `tenant_${updatedUser.id}`;
+    const settings = await getTenantSettings(tenantId);
+    const resolvedAgencyName =
+      settings.general.agencyName?.trim() || updatedUser.agencyName || 'TalentOS Staffing';
+
+    const authPayload: AuthenticatedUser = {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      fullName: updatedUser.fullName,
+      agencyName: resolvedAgencyName,
+      tenantId,
+      role: updatedUser.role,
+      rateMasked: updatedUser.rateMasked,
+      tokenVersion: updatedUser.tokenVersion
+    };
+
+    const accessToken = jwt.sign(authPayload, getJwtAccessSecret(), {
+      expiresIn: getJwtAccessExpiry() as jwt.SignOptions['expiresIn']
+    });
+
+    res.json({
+      success: true,
+      message: `Welcome to ${resolvedAgencyName}, ${updatedUser.fullName}!`,
+      token: accessToken,
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        fullName: updatedUser.fullName,
+        agencyName: resolvedAgencyName,
+        tenantId,
+        role: updatedUser.role,
+        desk: updatedUser.desk,
+        rateMasked: updatedUser.rateMasked,
+        status: updatedUser.status
+      }
+    });
+  } catch (error: any) {
+    console.error('Accept invite error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to complete onboarding. Please try again.'
     });
   }
 };

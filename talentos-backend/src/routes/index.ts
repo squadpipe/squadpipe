@@ -5,6 +5,7 @@ import { submissionService } from '../services/submission.service';
 import { csvImporterService } from '../services/csvImporter.service';
 import { resumeParserClientService } from '../services/resumeParserClient.service';
 import { smtpService } from '../services/smtp.service';
+import { renderSubmissionEmail } from '../services/emailTemplate.service';
 import {
   getTenantSettings,
   saveGeneralSettings,
@@ -67,7 +68,10 @@ router.get('/health', async (_req: Request, res: Response) => {
 router.post('/auth/signup', authRateLimiter, authController.signup);
 router.post('/auth/login', authRateLimiter, authController.login);
 router.post('/auth/forgot-password', sensitiveAuthRateLimiter, authController.forgotPassword);
+router.post('/auth/verify-reset-otp', sensitiveAuthRateLimiter, authController.verifyResetOtp);
 router.post('/auth/reset-password', sensitiveAuthRateLimiter, authController.resetPassword);
+router.get('/auth/invite/:token', authRateLimiter, authController.getInviteDetails);
+router.post('/auth/accept-invite', sensitiveAuthRateLimiter, authController.acceptInvite);
 
 // Protected routes (JWT authentication & Rate Masking)
 router.use(authenticateJwt);
@@ -561,19 +565,18 @@ router.post('/smtp/send', emailRateLimiter, async (req: Request, res: Response) 
     const rawCustomHtml = html || bodyHtml;
     const resolvedHtml = rawCustomHtml
       ? sanitizeEmailHtml(String(rawCustomHtml))
-      : `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b;">
-        <p>Hello ${escapeHtml(recipientName || 'Hiring Team')},</p>
-        <p>Please review the following consultant profile submitted for <strong>${escapeHtml(requirementTitle || 'Open Requisition')}</strong> at <strong>${escapeHtml(clientName || 'your organization')}</strong>:</p>
-        <ul>
-          <li><strong>Consultant:</strong> ${escapeHtml(candidateName || 'N/A')}</li>
-          <li><strong>Work Authorization:</strong> ${escapeHtml(workAuth || 'Authorized')}</li>
-          <li><strong>Bill Rate:</strong> ${escapeHtml(rate || 'Competitive')}</li>
-          <li><strong>Location:</strong> ${escapeHtml(location || 'Remote / Hybrid')}</li>
-        </ul>
-        <p>Best regards,<br/>${escapeHtml(req.user?.fullName || `${brandName} Recruitment Desk`)}<br/>${escapeHtml(brandName)}</p>
-      </div>
-    `;
+      : renderSubmissionEmail({
+          brandName,
+          recipientName: recipientName || 'Hiring Team',
+          requirementTitle: requirementTitle || 'Open Requisition',
+          clientName: clientName || 'your organization',
+          candidateName: candidateName || 'N/A',
+          workAuth: workAuth || 'Authorized',
+          rate: rate || 'Competitive',
+          location: location || 'Remote / Hybrid',
+          senderName: req.user?.fullName || `${brandName} Recruitment Desk`,
+          subject: resolvedSubject
+        }).html;
 
     const result = await smtpService.sendMail({
       to: targetEmail,
