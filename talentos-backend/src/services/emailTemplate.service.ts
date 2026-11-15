@@ -2,6 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import Handlebars from 'handlebars';
 
+export const APP_NAME = (process.env.APP_NAME || 'SquadPipe').trim() || 'SquadPipe';
+
 const TEMPLATES_DIR = path.resolve(__dirname, '../templates/emails');
 const compiledCache = new Map<string, Handlebars.TemplateDelegate>();
 
@@ -30,11 +32,13 @@ function renderWithLayout(params: {
   const body = bodyTemplate({
     ...params.data,
     brandName: params.brandName,
+    appName: APP_NAME,
   });
 
   return layoutTemplate({
     subject: params.subject,
     brandName: params.brandName,
+    appName: APP_NAME,
     badgeText: params.badgeText,
     footerNote: params.footerNote,
     year: new Date().getFullYear(),
@@ -48,14 +52,14 @@ export function renderOtpEmail(params: {
   otpCode: string;
   expiresMinutes?: number;
 }): { subject: string; html: string } {
-  const subject = `${params.brandName} Password Reset Verification Code`;
+  const subject = `${APP_NAME} Password Reset Verification Code`;
   const html = renderWithLayout({
     templateName: 'otp',
     subject,
     brandName: params.brandName,
     badgeText: 'Account Security',
     footerNote:
-      'For your protection, never share your verification code with anyone.',
+      `For your protection, never share your ${APP_NAME} verification code with anyone.`,
     data: {
       recipientName: params.recipientName || 'Team Member',
       otpCode: params.otpCode,
@@ -72,14 +76,14 @@ export function renderInviteEmail(params: {
   inviteUrl: string;
   expiresHours?: number;
 }): { subject: string; html: string } {
-  const subject = `You're invited to join ${params.brandName} on SquadPipe`;
+  const subject = `You're invited to join ${APP_NAME}`;
   const html = renderWithLayout({
     templateName: 'invite',
     subject,
     brandName: params.brandName,
     badgeText: 'Team Invitation',
     footerNote:
-      'This is an automated workspace onboarding invitation sent by your administrator.',
+      `This is an automated onboarding invitation sent via ${APP_NAME} by your administrator.`,
     data: {
       recipientName: params.recipientName || 'Team Member',
       roleLabel: params.roleLabel,
@@ -103,15 +107,15 @@ export function renderSubmissionEmail(params: {
   subject?: string;
 }): { subject: string; html: string } {
   const subject =
-    params.subject ||
-    `Candidate Profile: ${params.candidateName} for ${params.requirementTitle}`;
+    params.subject?.trim() ||
+    `Candidate Profile: ${params.candidateName} for ${params.requirementTitle} — ${APP_NAME}`;
   const html = renderWithLayout({
     templateName: 'submission',
     subject,
     brandName: params.brandName,
     badgeText: 'Candidate Submission',
     footerNote:
-      'Confidential candidate profile prepared via SquadPipe Recruitment Desk.',
+      `Confidential candidate profile prepared via ${APP_NAME}.`,
     data: {
       recipientName: params.recipientName || 'Hiring Team',
       requirementTitle: params.requirementTitle || 'Open Requisition',

@@ -6,6 +6,7 @@ import { csvImporterService } from '../services/csvImporter.service';
 import { resumeParserClientService } from '../services/resumeParserClient.service';
 import { smtpService } from '../services/smtp.service';
 import {
+  APP_NAME,
   renderSubmissionEmail,
 } from '../services/emailTemplate.service';
 import {
@@ -564,7 +565,9 @@ router.post('/smtp/send', emailRateLimiter, async (req: Request, res: Response) 
     const { general } = await getTenantSettings(tenantId);
     const brandName = (general.agencyName || general.legalEntityName || req.user?.agencyName || 'Staffing Agency').trim();
 
-    const rawSubject = subject || `Candidate Submission: ${candidateName || 'Consultant'} for ${requirementTitle || 'Role'} (${clientName || 'Client'})`;
+    const rawSubject =
+      subject ||
+      `Candidate Submission: ${candidateName || 'Consultant'} for ${requirementTitle || 'Role'} — ${APP_NAME}`;
     const resolvedSubject = String(rawSubject).replace(/[\r\n]+/g, ' ').trim();
     const rawCustomHtml = html || bodyHtml;
     const resolvedHtml = rawCustomHtml
