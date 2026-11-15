@@ -97,7 +97,8 @@ jobs:
           ssh -i ~/.ssh/deploy_key "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" << 'EOF'
             set -e
             cd ~/talentos
-            docker compose --profile in_house up -d --build
-            docker compose exec -T backend npx prisma migrate deploy
+            docker compose -f docker-compose.yml --profile in_house up -d --build
+            docker compose -f docker-compose.yml exec -T backend npx prisma migrate resolve --rolled-back 20261115023800_make_requirement_status_dynamic || true
+            docker compose -f docker-compose.yml exec -T backend npx prisma migrate deploy
           EOF
 
