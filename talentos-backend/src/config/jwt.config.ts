@@ -6,6 +6,7 @@ const KNOWN_INSECURE_SECRETS = new Set([
   'your_super_secret_jwt_key',
   'your_super_secret_jwt_key_change_in_production',
   'talentos_secret',
+  'squadpipe_secret',
 ]);
 
 export function getJwtAccessSecret(): string {

@@ -32,7 +32,7 @@ export const SignOutModal: React.FC<SignOutModalProps> = ({
           </div>
 
           <div>
-            <h3 className="text-base font-bold text-slate-900">Sign Out of TalentOS?</h3>
+            <h3 className="text-base font-bold text-slate-900">Sign Out of SquadPipe?</h3>
             <p className="text-xs text-slate-500 mt-1">
               You will be signed out of your current session as <strong>{currentUser.name}</strong>.
             </p>

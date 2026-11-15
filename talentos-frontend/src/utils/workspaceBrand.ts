@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../config/api.config';
+import { getStoredCurrentUserRaw, updateStoredCurrentUser } from './authStorage';
 
 export interface WorkspaceBrand {
   agencyName: string;
@@ -10,11 +11,12 @@ export interface WorkspaceBrand {
   headquarters: string;
 }
 
-const STORAGE_KEY = 'talentos_workspace_brand';
+const STORAGE_KEY = 'squadpipe_workspace_brand';
+const LEGACY_STORAGE_KEY = 'talentos_workspace_brand';
 
 export const DEFAULT_WORKSPACE_BRAND: WorkspaceBrand = {
-  agencyName: 'TalentOS Staffing',
-  legalEntityName: 'TalentOS Staffing Solutions LLC',
+  agencyName: 'SquadPipe Staffing',
+  legalEntityName: 'SquadPipe Staffing Solutions LLC',
   website: '',
   supportEmail: '',
   supportPhone: '',
@@ -24,7 +26,13 @@ export const DEFAULT_WORKSPACE_BRAND: WorkspaceBrand = {
 let currentBrand: WorkspaceBrand = (() => {
   try {
     if (typeof window !== 'undefined') {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
+      const raw =
+        window.localStorage.getItem(STORAGE_KEY) ||
+        window.localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (!window.localStorage.getItem(STORAGE_KEY) && raw) {
+        window.localStorage.setItem(STORAGE_KEY, raw);
+        window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+      }
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed && typeof parsed === 'object') {
@@ -41,33 +49,49 @@ let currentBrand: WorkspaceBrand = (() => {
 let brandSyncedFromApi = false;
 const listeners = new Set<(brand: WorkspaceBrand) => void>();
 
-const DEMO_PLACEHOLDER_VALUES = new Set([
+export const DEMO_PLACEHOLDER_VALUES = new Set([
   'talentos-agency.com',
   'https://talentos-agency.com',
   'desk@talentos-agency.com',
+  'squadpipe-agency.com',
+  'https://squadpipe-agency.com',
+  'desk@squadpipe-agency.com',
   '+1 (800) 555-0199',
   'austin, tx',
 ]);
 
+export function isDefaultBrandName(agencyName: string): boolean {
+  const normalized = agencyName.trim().toLowerCase();
+  return normalized === 'squadpipe staffing' || normalized === 'talentos staffing';
+}
+
+export function sanitizeBrandContact(value: unknown, isDefaultBrand: boolean): string {
+  const str = String(value ?? '').trim();
+  if (!str) return '';
+  if (!isDefaultBrand && DEMO_PLACEHOLDER_VALUES.has(str.toLowerCase())) {
+    return '';
+  }
+  return str;
+}
+
 function normalizeBrand(partial?: Partial<WorkspaceBrand> | null): WorkspaceBrand {
+  const rawAgencyName = String(partial?.agencyName ?? currentBrand.agencyName).trim();
   const agencyName =
-    String(partial?.agencyName ?? currentBrand.agencyName).trim() ||
+    (rawAgencyName === 'TalentOS Staffing' ? DEFAULT_WORKSPACE_BRAND.agencyName : rawAgencyName) ||
     DEFAULT_WORKSPACE_BRAND.agencyName;
-  const isDefaultBrand = agencyName.toLowerCase() === 'talentos staffing';
-  const cleanField = (val: unknown) => {
-    const str = String(val ?? '').trim();
-    if (!isDefaultBrand && DEMO_PLACEHOLDER_VALUES.has(str.toLowerCase())) {
-      return '';
-    }
-    return str;
-  };
+  const isDefaultBrand = isDefaultBrandName(agencyName);
+  const rawLegalName = String(partial?.legalEntityName ?? currentBrand.legalEntityName ?? '').trim();
+  const legalEntityName =
+    rawLegalName === 'TalentOS Staffing Solutions LLC'
+      ? DEFAULT_WORKSPACE_BRAND.legalEntityName
+      : rawLegalName;
   return {
     agencyName,
-    legalEntityName: String(partial?.legalEntityName ?? currentBrand.legalEntityName ?? '').trim(),
-    website: cleanField(partial?.website ?? currentBrand.website),
-    supportEmail: cleanField(partial?.supportEmail ?? currentBrand.supportEmail),
-    supportPhone: cleanField(partial?.supportPhone ?? currentBrand.supportPhone),
-    headquarters: cleanField(partial?.headquarters ?? currentBrand.headquarters),
+    legalEntityName,
+    website: sanitizeBrandContact(partial?.website ?? currentBrand.website, isDefaultBrand),
+    supportEmail: sanitizeBrandContact(partial?.supportEmail ?? currentBrand.supportEmail, isDefaultBrand),
+    supportPhone: sanitizeBrandContact(partial?.supportPhone ?? currentBrand.supportPhone, isDefaultBrand),
+    headquarters: sanitizeBrandContact(partial?.headquarters ?? currentBrand.headquarters, isDefaultBrand),
   };
 }
 
@@ -100,19 +124,14 @@ export function setWorkspaceBrand(partial?: Partial<WorkspaceBrand> | null): Wor
   try {
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      (['localStorage', 'sessionStorage'] as const).forEach((storageKey) => {
-        const storage = window[storageKey];
-        const rawUser = storage.getItem('talentos_current_user');
-        if (rawUser) {
-          const parsedUser = JSON.parse(rawUser);
-          if (parsedUser && typeof parsedUser === 'object' && parsedUser.agencyName !== next.agencyName) {
-            storage.setItem(
-              'talentos_current_user',
-              JSON.stringify({ ...parsedUser, agencyName: next.agencyName })
-            );
-          }
+      window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+      const rawUser = getStoredCurrentUserRaw();
+      if (rawUser) {
+        const parsedUser = JSON.parse(rawUser);
+        if (parsedUser && typeof parsedUser === 'object' && parsedUser.agencyName !== next.agencyName) {
+          updateStoredCurrentUser({ ...parsedUser, agencyName: next.agencyName });
         }
-      });
+      }
     }
   } catch {
     // Ignore storage write errors

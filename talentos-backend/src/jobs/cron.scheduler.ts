@@ -37,7 +37,7 @@ async function executeScheduledJobsWithLock() {
 }
 
 export const initBackgroundScheduler = () => {
-  console.log('TalentOS deterministic background jobs scheduler initialized.');
+  console.log('SquadPipe deterministic background jobs scheduler initialized.');
 
   // Run initial evaluation immediately on boot (advisory-locked across replicas)
   void executeScheduledJobsWithLock();

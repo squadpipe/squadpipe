@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { User } from '../../types';
 import { formatUserRole } from '../../utils/entityMappers';
+import { BrandMark } from '../shared/BrandMark';
 
 interface SidebarProps {
   currentView: string;
@@ -48,7 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const displayRole = formatUserRole(currentUser?.role);
 
-  const userInitials = (currentUser?.name || 'TalentOS User')
+  const userInitials = (currentUser?.name || 'SquadPipe User')
     .split(' ')
     .map((n) => n[0])
     .join('')
@@ -62,15 +63,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div
           className="flex items-center gap-2.5 cursor-pointer group min-w-0"
           onClick={() => onNavigate('dashboard')}
-          title="TalentOS Dashboard"
+          title="SquadPipe Dashboard"
         >
           <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-brand-600 to-indigo-500 flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform flex-shrink-0">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z" />
-            </svg>
+            <BrandMark className="w-4 h-4" />
           </div>
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="font-bold text-white text-[14px] tracking-tight truncate">TalentOS</span>
+            <span className="font-bold text-white text-[14px] tracking-tight truncate">SquadPipe</span>
             <span className="text-[9px] font-bold bg-brand-500/20 text-brand-300 border border-brand-500/30 px-1.5 py-0.5 rounded tracking-wider flex-shrink-0">
               CRM
             </span>
@@ -350,7 +349,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {currentUser?.name || 'Administrator'}
               </div>
               <div className="text-[10px] text-slate-400 truncate">
-                {currentUser?.email || 'admin@talentos-agency.com'}
+                {currentUser?.email || 'admin@squadpipe.com'}
               </div>
               <div className="mt-1.5 flex items-center gap-1.5">
                 <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-white/[0.06] text-slate-300 border border-white/10">

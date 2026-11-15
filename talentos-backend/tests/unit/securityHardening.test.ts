@@ -131,8 +131,8 @@ export const runSecurityHardeningTests = () => {
   assert.ok(!sanitized.includes('javascript:'));
 
   // 5. CORS origin restriction in production
-  withEnv({ NODE_ENV: 'production', CORS_ORIGIN: '*,https://app.talentos.io' }, () => {
-    assert.deepEqual(getAllowedCorsOrigins(), ['https://app.talentos.io']);
+  withEnv({ NODE_ENV: 'production', CORS_ORIGIN: '*,https://app.squadpipe.io' }, () => {
+    assert.deepEqual(getAllowedCorsOrigins(), ['https://app.squadpipe.io']);
   });
   withEnv({ NODE_ENV: 'production', CORS_ORIGIN: '*', FRONTEND_URL: undefined }, () => {
     assert.deepEqual(getAllowedCorsOrigins(), []);

@@ -30,7 +30,7 @@ Please let me know your availability for a 30-minute introductory technical inte
 
 Best regards,
 {recruiter}
-Senior Recruitment Lead | TalentOS Agency"""
+Senior Recruitment Lead | SquadPipe Agency"""
 
     elif tone == "Technical Focus":
         subject = f"Technical Profile Submittal: {name} — {title}"
@@ -47,7 +47,7 @@ Attached is the complete unbranded resume. Looking forward to your technical fee
 
 Sincerely,
 {recruiter}
-Technical Recruiter | TalentOS Agency"""
+Technical Recruiter | SquadPipe Agency"""
 
     else: # Professional
         subject = f"Candidate Presentation: {name} - {job} - {company}"
@@ -66,7 +66,7 @@ Please review the profile and let us know suitable interview windows.
 
 Warm regards,
 {recruiter}
-Senior Technical Recruiter | TalentOS Staffing"""
+Senior Technical Recruiter | SquadPipe Staffing"""
 
     return PitchGenerateResponse(
         success=True,

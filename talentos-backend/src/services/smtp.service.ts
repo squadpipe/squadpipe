@@ -79,10 +79,14 @@ export class SmtpService {
     }
 
     const brandName = (general.agencyName || general.legalEntityName || 'Workspace').trim();
-    const fromName =
-      effectiveSmtp.fromName?.trim() && effectiveSmtp.fromName.trim() !== 'TalentOS Recruitment Desk'
-        ? effectiveSmtp.fromName.trim()
-        : `${brandName} Recruitment Desk`;
+    const configuredFromName = effectiveSmtp.fromName?.trim();
+    const isGenericDefaultFrom =
+      !configuredFromName ||
+      configuredFromName === 'TalentOS Recruitment Desk' ||
+      configuredFromName === 'SquadPipe Recruitment Desk';
+    const fromName = isGenericDefaultFrom
+      ? `${brandName} Recruitment Desk`
+      : configuredFromName;
     const fromEmail = effectiveSmtp.fromEmail.trim();
     const replyTo = effectiveSmtp.replyToEmail?.trim() || fromEmail;
 

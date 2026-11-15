@@ -1,4 +1,4 @@
-name: TalentOS CI
+name: SquadPipe CI
 
 on:
   push:

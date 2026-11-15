@@ -1,4 +1,5 @@
 import React from 'react';
+import { clearAuthSession } from '../../utils/authStorage';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -30,10 +31,7 @@ export class ErrorBoundary extends React.Component<
   };
 
   private handleResetSession = () => {
-    localStorage.removeItem('talentos_access_token');
-    localStorage.removeItem('talentos_current_user');
-    sessionStorage.removeItem('talentos_access_token');
-    sessionStorage.removeItem('talentos_current_user');
+    clearAuthSession();
     window.location.href = '/';
   };
 

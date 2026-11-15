@@ -1,7 +1,7 @@
 {
   "name": "talentos-backend",
   "version": "1.0.0",
-  "description": "TalentOS Backend API & Automation Engine",
+  "description": "SquadPipe Backend API & Automation Engine",
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",

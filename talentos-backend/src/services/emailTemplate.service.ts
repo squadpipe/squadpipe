@@ -72,7 +72,7 @@ export function renderInviteEmail(params: {
   inviteUrl: string;
   expiresHours?: number;
 }): { subject: string; html: string } {
-  const subject = `You're invited to join ${params.brandName} on TalentOS`;
+  const subject = `You're invited to join ${params.brandName} on SquadPipe`;
   const html = renderWithLayout({
     templateName: 'invite',
     subject,
@@ -111,7 +111,7 @@ export function renderSubmissionEmail(params: {
     brandName: params.brandName,
     badgeText: 'Candidate Submission',
     footerNote:
-      'Confidential candidate profile prepared via TalentOS Recruitment Desk.',
+      'Confidential candidate profile prepared via SquadPipe Recruitment Desk.',
     data: {
       recipientName: params.recipientName || 'Hiring Team',
       requirementTitle: params.requirementTitle || 'Open Requisition',
@@ -153,7 +153,7 @@ export function renderPitchEmail(params: {
     brandName: params.brandName,
     badgeText: 'Candidate Submission',
     footerNote:
-      'Confidential candidate submission prepared via TalentOS Recruitment Desk.',
+      'Confidential candidate submission prepared via SquadPipe Recruitment Desk.',
     data: {
       candidateName: params.candidateName || '',
       requirementTitle: params.requirementTitle || '',

@@ -57,11 +57,11 @@ const optionalSingleCvUpload = (req: Request, res: Response, next: (err?: any) =
 router.get('/health', async (_req: Request, res: Response) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ success: true, service: 'talentos-backend', status: 'operational', database: 'connected' });
+    res.json({ success: true, service: 'squadpipe-backend', status: 'operational', database: 'connected' });
   } catch {
     res.status(503).json({
       success: false,
-      service: 'talentos-backend',
+      service: 'squadpipe-backend',
       status: 'degraded',
       database: 'disconnected',
     });

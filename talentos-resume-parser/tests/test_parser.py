@@ -94,7 +94,7 @@ def test_non_it_healthcare_and_finance():
 
 if __name__ == "__main__":
     print("========================================================")
-    print("TalentOS Python NLP Resume Parser Test Suite")
+    print("SquadPipe Python NLP Resume Parser Test Suite")
     print("========================================================\n")
     test_contact_extractor()
     test_work_authorization_detector()

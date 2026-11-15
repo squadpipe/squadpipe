@@ -41,7 +41,7 @@ async function shutdown(signal: string) {
 }
 
 async function bootstrap() {
-  console.log(`Starting TalentOS Backend in ${process.env.NODE_ENV || 'development'} mode...`);
+  console.log(`Starting SquadPipe Backend in ${process.env.NODE_ENV || 'development'} mode...`);
 
   // Fail fast in production when required security secrets are absent or weak
   getJwtAccessSecret();
@@ -54,7 +54,7 @@ async function bootstrap() {
 
   // 3. Start HTTP server
   httpServer = app.listen(PORT, () => {
-    console.log(`TalentOS API server listening at http://localhost:${PORT}/api/v1`);
+    console.log(`SquadPipe API server listening at http://localhost:${PORT}/api/v1`);
   });
 
   process.once('SIGTERM', () => void shutdown('SIGTERM'));

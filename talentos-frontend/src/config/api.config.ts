@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { clearAuthSession, getStoredAuthToken } from '../utils/authStorage';
 
-export const AUTH_EXPIRED_EVENT = 'talentos:auth-expired';
+export const AUTH_EXPIRED_EVENT = 'squadpipe:auth-expired';
 
 export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api/v1',
@@ -10,9 +11,7 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
-  const token =
-    localStorage.getItem('talentos_access_token') ||
-    sessionStorage.getItem('talentos_access_token');
+  const token = getStoredAuthToken();
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -39,16 +38,10 @@ apiClient.interceptors.response.use(
       url.includes('/auth/reset-password') ||
       url.includes('/auth/invite/') ||
       url.includes('/auth/accept-invite');
-    const hasStoredToken = Boolean(
-      localStorage.getItem('talentos_access_token') ||
-        sessionStorage.getItem('talentos_access_token')
-    );
+    const hasStoredToken = Boolean(getStoredAuthToken());
 
     if (status === 401 && !isPublicAuthCall && hasStoredToken) {
-      localStorage.removeItem('talentos_access_token');
-      localStorage.removeItem('talentos_current_user');
-      sessionStorage.removeItem('talentos_access_token');
-      sessionStorage.removeItem('talentos_current_user');
+      clearAuthSession();
       window.dispatchEvent(
         new CustomEvent(AUTH_EXPIRED_EVENT, {
           detail: {

@@ -30,10 +30,10 @@ export const authenticateJwt = async (req: Request, res: Response, next: NextFun
     if (process.env.NODE_ENV !== 'production' && !authHeader) {
       req.user = {
         id: 'usr_admin',
-        email: 'j.miller@talentos-agency.com',
+        email: 'j.miller@squadpipe.com',
         role: UserRole.ADMINISTRATOR,
         fullName: 'Johnathan Miller',
-        agencyName: 'TalentOS Staffing',
+        agencyName: 'SquadPipe Staffing',
         tenantId: 'talentos-agency',
         rateMasked: false,
         tokenVersion: 0

@@ -57,7 +57,7 @@ export const login = async (req: Request, res: Response) => {
 
   const tenantId = user.tenantId || `tenant_${user.id}`;
   const settings = await getTenantSettings(tenantId);
-  const resolvedAgencyName = settings.general.agencyName?.trim() || user.agencyName || 'TalentOS Staffing';
+  const resolvedAgencyName = settings.general.agencyName?.trim() || user.agencyName || 'SquadPipe Staffing';
 
   // Build authenticated payload
   const authPayload: AuthenticatedUser = {
@@ -120,7 +120,7 @@ export const me = async (req: Request, res: Response) => {
 
   const tenantId = user.tenantId || req.user.tenantId;
   const settings = await getTenantSettings(tenantId);
-  const resolvedAgencyName = settings.general.agencyName?.trim() || user.agencyName || 'TalentOS Staffing';
+  const resolvedAgencyName = settings.general.agencyName?.trim() || user.agencyName || 'SquadPipe Staffing';
 
   res.json({
     success: true,
@@ -238,7 +238,10 @@ export const signup = async (req: Request, res: Response) => {
 
     // Determine Tenant ID & Agency Name (domain auto-join disabled unless ALLOW_DEMO_DOMAIN_JOIN=true)
     const allowDemoDomainJoin = process.env.ALLOW_DEMO_DOMAIN_JOIN === 'true';
-    const isDemoDomain = allowDemoDomainJoin && normalizedEmail.endsWith('@talentos-agency.com');
+    const isDemoDomain =
+      allowDemoDomainJoin &&
+      (normalizedEmail.endsWith('@squadpipe-agency.com') ||
+        normalizedEmail.endsWith('@talentos-agency.com'));
     const tenantId = isDemoDomain
       ? 'talentos-agency'
       : `tenant_${Date.now().toString(36)}_${crypto.randomBytes(4).toString('hex')}`;
@@ -702,7 +705,7 @@ export const acceptInvite = async (req: Request, res: Response) => {
     const tenantId = updatedUser.tenantId || `tenant_${updatedUser.id}`;
     const settings = await getTenantSettings(tenantId);
     const resolvedAgencyName =
-      settings.general.agencyName?.trim() || updatedUser.agencyName || 'TalentOS Staffing';
+      settings.general.agencyName?.trim() || updatedUser.agencyName || 'SquadPipe Staffing';
 
     const authPayload: AuthenticatedUser = {
       id: updatedUser.id,

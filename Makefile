@@ -1,7 +1,7 @@
 .PHONY: help up down restart logs build migrate seed clean
 
 help:
-	@echo "TalentOS Platform Commands:"
+	@echo "SquadPipe Platform Commands:"
 	@echo "  make up          - Start all services (Backend, Frontend, Resume Parser, In-House DB if set)"
 	@echo "  make down        - Stop all services"
 	@echo "  make restart     - Restart all containers"

@@ -90,9 +90,9 @@ async function resolveTenantBrandDefaults(
         orderBy: { createdAt: 'asc' },
         select: { agencyName: true },
       });
-      resolvedAgencyName = owner?.agencyName?.trim() || 'TalentOS Staffing';
+      resolvedAgencyName = owner?.agencyName?.trim() || 'SquadPipe Staffing';
     } catch {
-      resolvedAgencyName = 'TalentOS Staffing';
+      resolvedAgencyName = 'SquadPipe Staffing';
     }
   }
 

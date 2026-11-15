@@ -4,7 +4,12 @@ import {
   parseResumeSections,
   resolveCandidateEducation,
 } from './resumeFormatter';
-import { getWorkspaceBrand, WorkspaceBrand } from './workspaceBrand';
+import {
+  getWorkspaceBrand,
+  isDefaultBrandName,
+  sanitizeBrandContact,
+  WorkspaceBrand,
+} from './workspaceBrand';
 
 type RgbColor = [number, number, number];
 
@@ -46,14 +51,6 @@ const SUMMARY_SECTION_TITLES = new Set([
   'professional summary',
   'executive summary',
   'objective',
-]);
-
-const DEMO_PLACEHOLDER_VALUES = new Set([
-  'talentos-agency.com',
-  'https://talentos-agency.com',
-  'desk@talentos-agency.com',
-  '+1 (800) 555-0199',
-  'austin, tx',
 ]);
 
 /**
@@ -297,15 +294,6 @@ function cleanDisplayUrl(url?: string): string {
     .replace(/\/+$/, '');
 }
 
-function sanitizeBrandContact(value: string | undefined, isDefaultBrand: boolean): string {
-  const trimmed = String(value || '').trim();
-  if (!trimmed) return '';
-  if (!isDefaultBrand && DEMO_PLACEHOLDER_VALUES.has(trimmed.toLowerCase())) {
-    return '';
-  }
-  return trimmed;
-}
-
 function getStageColors(stage?: string): { bg: RgbColor; border: RgbColor; text: RgbColor } {
   const key = (stage || '').trim().toLowerCase();
   if (key.includes('available') || key.includes('bench')) {
@@ -334,7 +322,7 @@ export function generateCandidateResumePdf(
     ...(brandOverride || {}),
   };
   const brandName = (brand.agencyName || brand.legalEntityName || 'Staffing Agency').trim();
-  const isDefaultBrand = brandName.toLowerCase() === 'talentos staffing';
+  const isDefaultBrand = isDefaultBrandName(brandName);
   const brandLegal = (brand.legalEntityName || '').trim();
   const brandWebsite = cleanDisplayUrl(sanitizeBrandContact(brand.website, isDefaultBrand));
   const brandEmail = sanitizeBrandContact(brand.supportEmail, isDefaultBrand);

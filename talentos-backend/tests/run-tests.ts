@@ -5,7 +5,7 @@ import { runRequirementSubmissionTests } from './unit/requirementSubmission.test
 
 async function runAllBackendTests() {
   console.log('========================================================');
-  console.log('TalentOS Backend Security & Unit Test Suite');
+  console.log('SquadPipe Backend Security & Unit Test Suite');
   console.log('========================================================\n');
 
   try {

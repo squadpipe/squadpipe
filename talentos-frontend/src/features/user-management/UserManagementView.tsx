@@ -538,7 +538,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                 <input
                   type="email"
                   required
-                  placeholder="e.g. r.adams@talentos-agency.com"
+                  placeholder="e.g. r.adams@squadpipe.com"
                   value={newUser.email}
                   onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none"

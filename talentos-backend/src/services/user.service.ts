@@ -145,7 +145,7 @@ export class UserService {
     const resolvedName = (data.fullName || data.name || 'Team Member').trim();
     const settings = await getTenantSettings(tenantId);
     const resolvedAgencyName =
-      settings.general.agencyName?.trim() || agencyName || 'TalentOS Staffing';
+      settings.general.agencyName?.trim() || agencyName || 'SquadPipe Staffing';
     const roleUpper = String(data.role || 'TECHNICAL_RECRUITER').toUpperCase().replace(/[\s-]/g, '_');
     const validRole = Object.values(UserRole).includes(roleUpper as UserRole)
       ? (roleUpper as UserRole)

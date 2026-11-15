@@ -2,6 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { AppIcon } from './components/shared/AppIcon';
 import { apiClient, AUTH_EXPIRED_EVENT } from './config/api.config';
+import {
+  clearAuthSession,
+  getStoredAuthToken,
+  getStoredCurrentUserRaw,
+  updateStoredCurrentUser,
+} from './utils/authStorage';
 import { formatRateDisplay, getCurrencySymbol, initWorkspaceCurrency } from './utils/currency';
 import {
   DEFAULT_WORKSPACE_BRAND,
@@ -249,9 +255,7 @@ export const App: React.FC = () => {
   // Session / Authentication state
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
-      const saved =
-        localStorage.getItem('talentos_current_user') ||
-        sessionStorage.getItem('talentos_current_user');
+      const saved = getStoredCurrentUserRaw();
       if (!saved) return null;
       const parsed = JSON.parse(saved);
       return {
@@ -264,12 +268,7 @@ export const App: React.FC = () => {
     }
   });
 
-  const [authToken, setAuthToken] = useState<string | null>(() => {
-    return (
-      localStorage.getItem('talentos_access_token') ||
-      sessionStorage.getItem('talentos_access_token')
-    );
-  });
+  const [authToken, setAuthToken] = useState<string | null>(() => getStoredAuthToken());
 
   const [currentView, setCurrentView] = useState<string>('dashboard');
   const [globalSearch, setGlobalSearch] = useState<string>('');
@@ -1355,10 +1354,7 @@ export const App: React.FC = () => {
 
   const handleSignOut = () => {
     apiClient.post('/auth/logout').catch(() => {});
-    localStorage.removeItem('talentos_access_token');
-    localStorage.removeItem('talentos_current_user');
-    sessionStorage.removeItem('talentos_access_token');
-    sessionStorage.removeItem('talentos_current_user');
+    clearAuthSession();
     resetWorkspaceState();
     setCurrentUser(null);
     setAuthToken(null);
@@ -1390,7 +1386,7 @@ export const App: React.FC = () => {
     };
     setCurrentUser(switchedUser);
     setRateMasked(persona.rateMasked);
-    localStorage.setItem('talentos_current_user', JSON.stringify(switchedUser));
+    updateStoredCurrentUser(switchedUser, true);
     showToast(
       'Persona Switched',
       `Active account switched to ${persona.name} (${persona.role}).`,
@@ -1418,12 +1414,7 @@ export const App: React.FC = () => {
       console.warn('API update profile:', e);
     }
     setCurrentUser(savedUser);
-    if (localStorage.getItem('talentos_current_user')) {
-      localStorage.setItem('talentos_current_user', JSON.stringify(savedUser));
-    }
-    if (sessionStorage.getItem('talentos_current_user')) {
-      sessionStorage.setItem('talentos_current_user', JSON.stringify(savedUser));
-    }
+    updateStoredCurrentUser(savedUser);
     setUsers((prev) => prev.map((u) => (u.id === savedUser.id ? savedUser : u)));
   };
 

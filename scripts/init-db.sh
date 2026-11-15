@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-# PostgreSQL Initialization Script for TalentOS
-echo "Initializing TalentOS database '${POSTGRES_DB}' with user '${POSTGRES_USER}'..."
+# PostgreSQL Initialization Script for SquadPipe
+echo "Initializing SquadPipe database '${POSTGRES_DB}' with user '${POSTGRES_USER}'..."
 
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
     CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

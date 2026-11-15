@@ -12,12 +12,22 @@ export const CURRENCY_OPTIONS = [
   'SGD (S$)',
 ] as const;
 
-const STORAGE_KEY = 'talentos_currency';
+const STORAGE_KEY = 'squadpipe_currency';
+const LEGACY_STORAGE_KEY = 'talentos_currency';
 const DEFAULT_CURRENCY = 'USD ($)';
 
 let currentCurrency: string = (() => {
   try {
-    return (typeof window !== 'undefined' && window.localStorage.getItem(STORAGE_KEY)) || DEFAULT_CURRENCY;
+    if (typeof window === 'undefined') return DEFAULT_CURRENCY;
+    const saved = window.localStorage.getItem(STORAGE_KEY);
+    if (saved) return saved;
+    const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacy) {
+      window.localStorage.setItem(STORAGE_KEY, legacy);
+      window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+      return legacy;
+    }
+    return DEFAULT_CURRENCY;
   } catch {
     return DEFAULT_CURRENCY;
   }

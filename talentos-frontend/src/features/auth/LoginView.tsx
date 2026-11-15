@@ -7,10 +7,11 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Zap,
 } from 'lucide-react';
+import { BrandMark } from '../../components/shared/BrandMark';
 import { apiClient } from '../../config/api.config';
 import { User } from '../../types';
+import { setAuthSession } from '../../utils/authStorage';
 
 interface LoginViewProps {
   onLoginSuccess: (user: User, token: string) => void;
@@ -127,13 +128,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
 
       if (res.data?.success && res.data.token) {
         const { user, token } = res.data;
-        if (rememberMe) {
-          localStorage.setItem('talentos_access_token', token);
-          localStorage.setItem('talentos_current_user', JSON.stringify(user));
-        } else {
-          sessionStorage.setItem('talentos_access_token', token);
-          sessionStorage.setItem('talentos_current_user', JSON.stringify(user));
-        }
+        setAuthSession(token, user, rememberMe);
 
         showToast('Authentication Successful', `Welcome back, ${user.name}!`, 'fa-solid fa-circle-check text-emerald-500');
         onLoginSuccess(user, token);
@@ -181,9 +176,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
 
       if (res.data?.success && res.data.token) {
         const { user, token } = res.data;
-        localStorage.setItem('talentos_access_token', token);
-        localStorage.setItem('talentos_current_user', JSON.stringify(user));
-        showToast('Account Created', `Welcome to TalentOS, ${user.name}!`, 'fa-solid fa-circle-check text-emerald-500');
+        setAuthSession(token, user, true);
+        showToast('Account Created', `Welcome to SquadPipe, ${user.name}!`, 'fa-solid fa-circle-check text-emerald-500');
         onLoginSuccess(user, token);
       } else {
         setErrorMessage(res.data?.message || 'Registration failed.');
@@ -402,8 +396,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
       if (res.data?.success && res.data?.token && res.data?.user) {
         const cleanUrl = window.location.pathname;
         window.history.replaceState({}, document.title, cleanUrl);
-        localStorage.setItem('talentos_access_token', res.data.token);
-        localStorage.setItem('talentos_current_user', JSON.stringify(res.data.user));
+        setAuthSession(res.data.token, res.data.user, true);
         showToast(
           'Onboarding Complete',
           res.data.message || `Welcome to ${res.data.user.agencyName}!`,
@@ -423,42 +416,42 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
   const heroCopy = {
     login: {
       line1: 'Welcome back to',
-      line2: 'TalentOS.',
+      line2: 'SquadPipe.',
       subtext: 'Sign in to pick up where you left off and keep your recruitment pipeline moving.',
       cardTitle: 'Welcome back',
       cardSub: 'Sign in to your account',
     },
     signup: {
       line1: 'Launch your workspace on',
-      line2: 'TalentOS.',
+      line2: 'SquadPipe.',
       subtext: 'Create an administrator account to manage requisitions, bench rosters, and billable placements.',
       cardTitle: 'Create your account',
       cardSub: 'Register as workspace administrator',
     },
     forgot: {
       line1: 'Recover access to',
-      line2: 'TalentOS.',
+      line2: 'SquadPipe.',
       subtext: 'Enter your registered email address and we will issue a 6-digit recovery code.',
       cardTitle: 'Reset your password',
       cardSub: 'We will generate a one-time verification code',
     },
     'verify-otp': {
       line1: 'Verify your identity on',
-      line2: 'TalentOS.',
+      line2: 'SquadPipe.',
       subtext: 'Enter the 6-digit verification code sent to your email before choosing a new password.',
       cardTitle: 'Enter verification code',
       cardSub: `Code sent to ${forgotEmail || email || 'your email'}`,
     },
     reset: {
-      line1: 'Secure your',
-      line2: 'TalentOS.',
+      line1: 'Secure your account on',
+      line2: 'SquadPipe.',
       subtext: 'Your code is verified. Set a strong new password to return to your desk.',
       cardTitle: 'Choose a new password',
       cardSub: 'Complete your account recovery',
     },
     'accept-invite': {
       line1: 'Join your team on',
-      line2: 'TalentOS.',
+      line2: 'SquadPipe.',
       subtext: 'Set your password to activate your account and enter your workspace.',
       cardTitle: 'Complete your onboarding',
       cardSub: inviteProfile
@@ -491,9 +484,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
         {/* Top Brand Mark */}
         <div className="flex items-center gap-3 flex-shrink-0">
           <div className="w-9 h-9 rounded-lg bg-[#161922] border border-white/10 flex items-center justify-center shadow-sm">
-            <Zap className="w-4 h-4 text-white" />
+            <BrandMark className="w-5 h-5 text-white" />
           </div>
-          <span className="text-lg font-semibold tracking-tight text-white">TalentOS</span>
+          <span className="text-lg font-semibold tracking-tight text-white">SquadPipe</span>
         </div>
 
         {/* Center Hero Headline */}
@@ -520,7 +513,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
         <div className="flex items-center justify-end text-xs text-slate-500 gap-2 flex-shrink-0">
           <span>Need help?</span>
           <a
-            href="mailto:support@talentos.io"
+            href="mailto:support@squadpipe.com"
             className="font-medium text-slate-800 hover:text-black inline-flex items-center gap-1.5 transition-colors"
           >
             <Mail className="w-3.5 h-3.5" />
@@ -1061,7 +1054,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
 
         {/* Subtle Bottom Spacer */}
         <div className="text-center text-[11px] text-slate-400 flex-shrink-0">
-          TalentOS Staffing Suite &bull; Enterprise Workspace
+          SquadPipe Staffing Suite &bull; Enterprise Workspace
         </div>
       </div>
     </div>
