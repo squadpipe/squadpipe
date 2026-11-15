@@ -2,9 +2,9 @@ name: TalentOS CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, master, develop]
   pull_request:
-    branches: [main, develop]
+    branches: [main, master, develop]
 
 jobs:
   backend:
@@ -66,4 +66,38 @@ jobs:
         run: pip install -r requirements.txt
       - name: Run extractor tests
         run: python tests/test_parser.py
+
+  deploy:
+    name: Deploy Demo to AWS EC2
+    needs: [backend, frontend, resume-parser]
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Sync repository to EC2
+        run: |
+          rsync -avz --delete \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='.env' \
+            --exclude='talentos-backend/uploads' \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            ./ "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/talentos/"
+
+      - name: Build, restart containers & run migrations on EC2
+        run: |
+          ssh -i ~/.ssh/deploy_key "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" << 'EOF'
+            set -e
+            cd ~/talentos
+            docker compose --profile in_house up -d --build
+            docker compose exec -T backend npx prisma migrate deploy
+          EOF
 
