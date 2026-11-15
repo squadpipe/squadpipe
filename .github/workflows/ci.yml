@@ -84,9 +84,12 @@ jobs:
 
       - name: Sync repository to EC2
         run: |
-          rsync -avz --delete \
+          ssh -i ~/.ssh/deploy_key "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" "sudo chown -R \$(whoami):\$(whoami) ~/talentos"
+          rsync -rlDz --omit-dir-times --delete \
             --exclude='.git' \
             --exclude='node_modules' \
+            --exclude='__pycache__' \
+            --exclude='*.pyc' \
             --exclude='.env' \
             --exclude='talentos-backend/uploads' \
             -e "ssh -i ~/.ssh/deploy_key" \
