@@ -14,7 +14,7 @@ export function runEmailTemplateTests() {
   console.log('--- Running Email Template Branding Tests ---');
   const companyName = 'Acme Staffing Group';
 
-  // 1. Invite email: app name in subject, company name in header & heading, no-reply notice
+  // 1. Invite email: aligned subject and body naming workspace + app name, no-reply notice
   const invite = renderInviteEmail({
     brandName: companyName,
     recipientName: 'Nakul Das',
@@ -22,40 +22,49 @@ export function runEmailTemplateTests() {
     inviteUrl: 'https://squadpipe.softiox.com/?inviteToken=abc',
     expiresHours: 24,
   });
-  assert(invite.subject.includes(APP_NAME), 'Invite subject must include app name');
-  assert(!invite.subject.includes(companyName), 'Invite subject must not include company name');
+  assert(
+    invite.subject.includes(`${companyName} on ${APP_NAME}`),
+    'Invite subject must align company name and app name'
+  );
   assert(invite.html.includes(`>${companyName}<`), 'Invite header must include company name');
   assert(
-    invite.html.includes(`You&rsquo;re invited to ${companyName}`),
-    'Invite heading must include company name'
+    invite.html.includes('Accept your team invitation'),
+    'Invite heading must show clear team invitation action'
+  );
+  assert(
+    invite.html.includes(`${companyName} on ${APP_NAME}`),
+    'Invite body must reference company workspace on app name'
   );
   assert(
     invite.html.includes('do not reply directly to this email'),
     'Invite footer must include automated no-reply notice'
   );
-  console.log('  ✅ Invite email uses app name in subject and company name in heading');
+  console.log('  ✅ Invite email streamlines subject and body cleanly');
 
-  // 2. OTP email: app name in subject, company name in header & heading, no-reply notice
+  // 2. OTP email: aligned subject and body naming workspace + app name, no-reply notice
   const otp = renderOtpEmail({
     brandName: companyName,
     recipientName: 'Nakul Das',
     otpCode: '123456',
     expiresMinutes: 15,
   });
-  assert(otp.subject.includes(APP_NAME), 'OTP subject must include app name');
-  assert(!otp.subject.includes(companyName), 'OTP subject must not include company name');
-  assert(otp.html.includes(`>${companyName}<`), 'OTP header must include company name');
   assert(
-    otp.html.includes(`${companyName} Verification Code`),
-    'OTP heading must include company name'
+    otp.subject.includes(`Password reset code for ${companyName} on ${APP_NAME}`),
+    'OTP subject must align password reset code with company and app name'
+  );
+  assert(otp.html.includes(`>${companyName}<`), 'OTP header must include company name');
+  assert(otp.html.includes('Reset your password'), 'OTP heading must clearly state password reset action');
+  assert(
+    otp.html.includes(`${companyName} on ${APP_NAME}`),
+    'OTP body must reference company workspace on app name'
   );
   assert(
-    otp.html.includes('automated no-reply message'),
+    otp.html.includes('Automated no-reply security email'),
     'OTP footer must include automated no-reply notice'
   );
-  console.log('  ✅ OTP email uses app name in subject and company name in heading');
+  console.log('  ✅ OTP email streamlines subject and body cleanly');
 
-  // 3. Submission email fallback: app name in subject, company name in header & heading
+  // 3. Submission email fallback: candidate + requirement + company without no-reply notice
   const submission = renderSubmissionEmail({
     brandName: companyName,
     recipientName: 'Sarah Thompson',
@@ -67,20 +76,20 @@ export function runEmailTemplateTests() {
     location: 'Chicago, IL',
     senderName: 'Recruiter',
   });
-  assert(submission.subject.includes(APP_NAME), 'Submission subject must include app name');
   assert(
-    !submission.subject.includes(companyName),
-    'Submission subject must not include company name'
+    submission.subject.includes('Candidate Profile: Amanda Bryant for Senior Python Developer'),
+    'Submission subject must include candidate and requirement'
   );
+  assert(submission.subject.includes(companyName), 'Submission subject fallback must include company name');
   assert(
-    submission.html.includes(`${companyName} &mdash; Candidate Profile Submission`),
-    'Submission heading must include company name'
+    submission.html.includes('Candidate Profile: Amanda Bryant'),
+    'Submission heading must include candidate name cleanly'
   );
   assert(
     !submission.html.includes('do not reply'),
     'Submission email must not include no-reply notice so clients can reply'
   );
-  console.log('  ✅ Submission email uses app name in subject and company name in heading');
+  console.log('  ✅ Submission email streamlines subject and body cleanly');
 
   // 4. SMTP From Name formatting: "<Company> via <App>" for generic/blank SMTP_FROM_NAME
   assert.strictEqual(

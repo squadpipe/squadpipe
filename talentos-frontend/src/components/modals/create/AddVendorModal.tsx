@@ -3,10 +3,12 @@ import { Handshake, Plus, X } from 'lucide-react';
 import { Vendor } from '../../../types';
 import { DynamicCustomFieldsSection, useMasterTaxonomies } from '../../shared/DynamicCustomFieldsSection';
 
+import { ActionButton } from '../../shared/ActionButton';
+
 interface AddVendorModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (vendor: Vendor) => void;
+  onSave: (vendor: Vendor) => Promise<void> | void;
   showToast: (title: string, message: string, icon?: string) => void;
 }
 
@@ -29,6 +31,7 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
 }) => {
   const taxonomies = useMasterTaxonomies(isOpen);
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState({ ...INITIAL_VENDOR_FORM });
 
   useEffect(() => {
@@ -40,8 +43,9 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
     if (!form.name.trim() || !form.contactName.trim() || !form.email.trim()) {
       showToast('Validation Error', 'Vendor Agency Name, Contact Person, and Email are required.', 'fa-solid fa-triangle-exclamation text-amber-500');
       return;
@@ -61,11 +65,16 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
       customFields: customValues,
     };
 
-    onSave(newVendor);
-    setForm({ ...INITIAL_VENDOR_FORM });
-    setCustomValues({});
-    showToast('Vendor Onboarded', `${newVendor.name} added to vendor network!`, 'fa-solid fa-circle-check text-brand-600');
-    onClose();
+    setIsSaving(true);
+    try {
+      await onSave(newVendor);
+      setForm({ ...INITIAL_VENDOR_FORM });
+      setCustomValues({});
+      showToast('Vendor Onboarded', `${newVendor.name} added to vendor network!`, 'fa-solid fa-circle-check text-brand-600');
+      onClose();
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -212,18 +221,21 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
           <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs">
             <button
               type="button"
+              disabled={isSaving}
               onClick={onClose}
-              className="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-white text-xs font-medium transition-colors cursor-pointer"
+              className="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-white disabled:opacity-60 text-xs font-medium transition-colors cursor-pointer"
             >
               Cancel
             </button>
-            <button
+            <ActionButton
               type="submit"
-              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              loading={isSaving}
+              loadingText="Saving Vendor..."
+              icon={<Plus className="w-3.5 h-3.5" strokeWidth={2.4} />}
+              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
-              <span>Save & Register Vendor Partner</span>
-            </button>
+              Save & Register Vendor Partner
+            </ActionButton>
           </div>
         </form>
       </div>

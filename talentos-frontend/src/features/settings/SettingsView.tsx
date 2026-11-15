@@ -9,6 +9,7 @@ import {
 import { apiClient } from '../../config/api.config';
 import { CURRENCY_OPTIONS, setWorkspaceCurrency } from '../../utils/currency';
 import { setWorkspaceBrand } from '../../utils/workspaceBrand';
+import { ActionButton } from '../../components/shared/ActionButton';
 
 interface GeneralSettings {
   agencyName: string;
@@ -318,14 +319,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
 
           <div className="flex justify-end">
-            <button
+            <ActionButton
               type="submit"
-              disabled={savingGeneral}
-              className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-semibold rounded-lg text-xs shadow-xs inline-flex items-center gap-2 transition-colors cursor-pointer"
+              loading={savingGeneral}
+              loadingText="Saving..."
+              icon={<Save className="w-3.5 h-3.5" />}
+              className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-xs shadow-xs transition-colors cursor-pointer"
             >
-              <Save className="w-3.5 h-3.5" />
-              <span>{savingGeneral ? 'Saving...' : 'Save General Settings'}</span>
-            </button>
+              Save General Settings
+            </ActionButton>
           </div>
         </form>
       )}

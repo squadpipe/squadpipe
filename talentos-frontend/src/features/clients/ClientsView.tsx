@@ -16,6 +16,7 @@ import { Client, Requirement, BillablePlacement } from '../../types';
 import { ClientDetailDrawer } from '../../components/modals/ClientDetailDrawer';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { ActionButton } from '../../components/shared/ActionButton';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapClientFromApi } from '../../utils/entityMappers';
 
@@ -407,18 +408,20 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
+                  disabled={isSavingClient}
                   onClick={() => setEditingClient(null)}
-                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button
+                <ActionButton
                   type="submit"
-                  disabled={isSavingClient}
-                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                  loading={isSavingClient}
+                  loadingText="Saving..."
+                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
                 >
-                  {isSavingClient ? 'Saving...' : 'Save Changes'}
-                </button>
+                  Save Changes
+                </ActionButton>
               </div>
             </form>
           </div>

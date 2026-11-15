@@ -21,6 +21,7 @@ import { Requirement, Candidate, BillablePlacement, SlaTask } from '../../types'
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { ActionButton } from '../../components/shared/ActionButton';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapRequirementFromApi } from '../../utils/entityMappers';
 import { getStageDotClass, getSlaDotClass } from '../../utils/stageStyles';
@@ -72,6 +73,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [isLoadingRows, setIsLoadingRows] = useState(false);
   const [editingReq, setEditingReq] = useState<Requirement | null>(null);
   const [reqToDelete, setReqToDelete] = useState<Requirement | null>(null);
+  const [isUpdatingReq, setIsUpdatingReq] = useState(false);
+  const [isDeletingReq, setIsDeletingReq] = useState(false);
 
   const debouncedSearch = useDebounce(tableSearch, 150);
 
@@ -715,10 +718,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </button>
             </div>
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
-                if (onUpdateReq) onUpdateReq(editingReq);
-                setEditingReq(null);
+                if (isUpdatingReq) return;
+                setIsUpdatingReq(true);
+                try {
+                  if (onUpdateReq) await onUpdateReq(editingReq);
+                  setEditingReq(null);
+                } catch {
+                  // Error toast is already displayed by parent handler; keep modal open
+                } finally {
+                  setIsUpdatingReq(false);
+                }
               }}
               className="p-6 space-y-4 text-xs"
             >
@@ -784,17 +795,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
+                  disabled={isUpdatingReq}
                   onClick={() => setEditingReq(null)}
-                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button
+                <ActionButton
                   type="submit"
+                  loading={isUpdatingReq}
+                  loadingText="Saving..."
                   className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
                 >
                   Save Changes
-                </button>
+                </ActionButton>
               </div>
             </form>
           </div>
@@ -833,22 +847,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
+                  disabled={isDeletingReq}
                   onClick={() => setReqToDelete(null)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-60 rounded-lg transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button
+                <ActionButton
                   type="button"
-                  onClick={() => {
-                    if (onDeleteReq) onDeleteReq(reqToDelete);
-                    setReqToDelete(null);
+                  loading={isDeletingReq}
+                  loadingText="Deleting..."
+                  icon={<Trash2 className="w-3.5 h-3.5" />}
+                  onClick={async () => {
+                    if (isDeletingReq) return;
+                    setIsDeletingReq(true);
+                    try {
+                      if (onDeleteReq) await onDeleteReq(reqToDelete);
+                      setReqToDelete(null);
+                    } catch {
+                      setReqToDelete(null);
+                    } finally {
+                      setIsDeletingReq(false);
+                    }
                   }}
-                  className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                  className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Delete Requisition</span>
-                </button>
+                  Delete Requisition
+                </ActionButton>
               </div>
             </div>
           </div>

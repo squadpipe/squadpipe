@@ -24,6 +24,7 @@ import { CustomField } from '../../types';
 import { invalidateSchemaCaches } from '../../components/shared/DynamicCustomFieldsSection';
 import { useCurrency } from '../../utils/currency';
 import { TablePagination } from '../../components/shared/TablePagination';
+import { ActionButton } from '../../components/shared/ActionButton';
 import { useDebounce } from '../../utils/useDebounce';
 
 interface CustomFieldsViewProps {
@@ -95,6 +96,9 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
   const [activeTaxonomy, setActiveTaxonomy] = useState<TaxonomyKey>('workAuth');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingField, setEditingField] = useState<any | null>(null);
+  const [isCreatingField, setIsCreatingField] = useState(false);
+  const [isUpdatingField, setIsUpdatingField] = useState(false);
+  const [isDeletingField, setIsDeletingField] = useState(false);
   const [fieldsList, setFieldsList] = useState<any[]>(propCustomFields || []);
 
   const debouncedSearch = useDebounce(search, 300);
@@ -297,7 +301,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
 
   const handleCreateField = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newField.name.trim()) return;
+    if (!newField.name.trim() || isCreatingField) return;
 
     const entityLabelMap: Record<string, string> = {
       consultant: 'Consultant',
@@ -307,6 +311,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
       placement: 'Placement',
     };
 
+    setIsCreatingField(true);
     try {
       const res = await apiClient.post('/custom-fields', newField);
       const createdData = res.data?.data;
@@ -342,6 +347,8 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
         err?.response?.data?.message || 'Could not save custom field. Please try again.',
         'fa-solid fa-triangle-exclamation text-rose-500'
       );
+    } finally {
+      setIsCreatingField(false);
     }
   };
 
@@ -869,18 +876,21 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
+                  disabled={isCreatingField}
                   onClick={() => setShowAddModal(false)}
-                  className="px-3.5 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 font-semibold rounded-lg text-xs transition-colors cursor-pointer"
+                  className="px-3.5 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-60 font-semibold rounded-lg text-xs transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button
+                <ActionButton
                   type="submit"
-                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-semibold rounded-lg text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                  loading={isCreatingField}
+                  loadingText="Registering..."
+                  icon={<Plus className="w-3.5 h-3.5" />}
+                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-semibold rounded-lg text-xs shadow-xs transition-colors cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Register Field</span>
-                </button>
+                  Register Field
+                </ActionButton>
               </div>
             </form>
           </div>
@@ -913,7 +923,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
-                if (!editingField.name.trim()) return;
+                if (!editingField.name.trim() || isUpdatingField) return;
                 const entityLabelMap: Record<string, string> = {
                   consultant: 'Consultant',
                   requirement: 'Requirement',
@@ -921,26 +931,31 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                   vendor: 'Vendor',
                   placement: 'Placement',
                 };
+                setIsUpdatingField(true);
                 try {
-                  await apiClient.put(`/custom-fields/${editingField.id}`, {
-                    name: editingField.name,
-                    entity: editingField.entity,
-                    type: editingField.type,
-                    options: editingField.options,
-                    required: editingField.required,
-                    active: editingField.active,
-                  });
-                } catch (err) {
-                  console.warn('Update custom field API:', err);
+                  try {
+                    await apiClient.put(`/custom-fields/${editingField.id}`, {
+                      name: editingField.name,
+                      entity: editingField.entity,
+                      type: editingField.type,
+                      options: editingField.options,
+                      required: editingField.required,
+                      active: editingField.active,
+                    });
+                  } catch (err) {
+                    console.warn('Update custom field API:', err);
+                  }
+                  const updatedObj = {
+                    ...editingField,
+                    entityLabel: entityLabelMap[editingField.entity] || 'Custom',
+                  };
+                  setFieldsList((prev) => prev.map((f) => (f.id === editingField.id ? updatedObj : f)));
+                  invalidateSchemaCaches();
+                  setEditingField(null);
+                  showToast('Field Updated', `"${updatedObj.name}" updated.`);
+                } finally {
+                  setIsUpdatingField(false);
                 }
-                const updatedObj = {
-                  ...editingField,
-                  entityLabel: entityLabelMap[editingField.entity] || 'Custom',
-                };
-                setFieldsList((prev) => prev.map((f) => (f.id === editingField.id ? updatedObj : f)));
-                invalidateSchemaCaches();
-                setEditingField(null);
-                showToast('Field Updated', `"${updatedObj.name}" updated.`);
               }}
               className="p-6 space-y-4 text-xs"
             >
@@ -1014,17 +1029,20 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
+                  disabled={isUpdatingField}
                   onClick={() => setEditingField(null)}
-                  className="px-3.5 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium rounded-lg text-xs cursor-pointer"
+                  className="px-3.5 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-60 font-medium rounded-lg text-xs cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button
+                <ActionButton
                   type="submit"
+                  loading={isUpdatingField}
+                  loadingText="Saving..."
                   className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-xs cursor-pointer"
                 >
                   Save Changes
-                </button>
+                </ActionButton>
               </div>
             </form>
           </div>
@@ -1063,27 +1081,36 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
+                  disabled={isDeletingField}
                   onClick={() => setConfirmDelete(null)}
-                  className="px-3.5 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-medium rounded-lg text-xs transition-colors cursor-pointer"
+                  className="px-3.5 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-60 font-medium rounded-lg text-xs transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button
+                <ActionButton
                   type="button"
+                  loading={isDeletingField}
+                  loadingText="Deleting..."
+                  icon={<Trash2 className="w-3.5 h-3.5" />}
                   onClick={async () => {
+                    if (isDeletingField) return;
                     const pending = confirmDelete;
-                    setConfirmDelete(null);
-                    if (pending.type === 'field') {
-                      await handleDeleteField(pending.id);
-                    } else {
-                      await handleRemoveTaxonomyOption(pending.category, pending.label);
+                    setIsDeletingField(true);
+                    try {
+                      if (pending.type === 'field') {
+                        await handleDeleteField(pending.id);
+                      } else {
+                        await handleRemoveTaxonomyOption(pending.category, pending.label);
+                      }
+                      setConfirmDelete(null);
+                    } finally {
+                      setIsDeletingField(false);
                     }
                   }}
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg text-xs shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg text-xs shadow-xs transition-colors cursor-pointer"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Delete</span>
-                </button>
+                  Delete
+                </ActionButton>
               </div>
             </div>
           </div>

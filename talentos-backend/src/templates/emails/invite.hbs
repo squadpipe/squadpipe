@@ -1,8 +1,8 @@
 <h2 style="margin:0 0 12px 0;font-size:19px;line-height:1.35;font-weight:600;color:#111827;letter-spacing:-0.25px;">
-  You&rsquo;re invited to {{brandName}}
+  Accept your team invitation
 </h2>
 <p style="margin:0 0 22px 0;font-size:14px;line-height:1.65;color:#4b5563;">
-  Hi {{recipientName}}, your administrator invited you to join the <strong style="color:#111827;font-weight:600;">{{brandName}}</strong> workspace. Set your password below to activate your account and get started.
+  Hi {{recipientName}}, your administrator invited you to join <strong style="color:#111827;font-weight:600;">{{workspaceContext}}</strong>. Set your password below to activate your account.
 </p>
 
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px 0;background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;">
@@ -10,12 +10,12 @@
     <td style="padding:14px 18px;">
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
         <tr>
-          <td style="font-size:12px;color:#6b7280;padding:4px 0;">Workspace</td>
-          <td align="right" style="font-size:13px;font-weight:600;color:#111827;padding:4px 0;">{{brandName}}</td>
+          <td style="font-size:12px;color:#6b7280;padding:4px 0;">Assigned Role</td>
+          <td align="right" style="font-size:13px;font-weight:600;color:#111827;padding:4px 0;">{{roleLabel}}</td>
         </tr>
         <tr>
-          <td style="font-size:12px;color:#6b7280;padding:6px 0 4px 0;border-top:1px solid #e5e7eb;">Role</td>
-          <td align="right" style="font-size:13px;font-weight:600;color:#111827;padding:6px 0 4px 0;border-top:1px solid #e5e7eb;">{{roleLabel}}</td>
+          <td style="font-size:12px;color:#6b7280;padding:6px 0 4px 0;border-top:1px solid #e5e7eb;">Link Expires</td>
+          <td align="right" style="font-size:13px;font-weight:600;color:#111827;padding:6px 0 4px 0;border-top:1px solid #e5e7eb;">{{expiresHours}} hours</td>
         </tr>
       </table>
     </td>
@@ -26,14 +26,14 @@
   <tr>
     <td align="center" style="border-radius:8px;background-color:#111827;">
       <a href="{{inviteUrl}}" target="_blank" style="display:block;padding:12px 24px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;text-align:center;">
-        Set password &amp; join workspace
+        Set Password &amp; Join Team
       </a>
     </td>
   </tr>
 </table>
 
 <p style="margin:0 0 8px 0;font-size:12px;line-height:1.5;color:#6b7280;">
-  Or open this link in your browser (valid for {{expiresHours}} hours):
+  If the button doesn&rsquo;t work, copy and paste this link into your browser:
 </p>
 <p style="margin:0;font-size:11px;line-height:1.55;color:#4b5563;word-break:break-all;">
   <a href="{{inviteUrl}}" target="_blank" style="color:#374151;text-decoration:underline;">{{inviteUrl}}</a>

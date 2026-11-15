@@ -5,10 +5,12 @@ import { DynamicCustomFieldsSection } from '../../shared/DynamicCustomFieldsSect
 import { useCurrency } from '../../../utils/currency';
 import { SearchableSelectInput } from '../../shared/SearchableSelectInput';
 
+import { ActionButton } from '../../shared/ActionButton';
+
 interface AddPlacementModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (placement: BillablePlacement) => void;
+  onSave: (placement: BillablePlacement) => Promise<void> | void;
   clients: Client[];
   users?: User[];
   candidates?: Candidate[];
@@ -35,6 +37,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
 }) => {
   const { symbol: currencySymbol } = useCurrency();
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState({
     candidateId: '',
     requirementId: '',
@@ -141,8 +144,9 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
     return `${currencySymbol}${n}/hr`;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
     if (!form.resourceName.trim() || !form.customer.trim()) {
       showToast(
         'Validation Error',
@@ -187,14 +191,19 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
       customFields: customValues,
     };
 
-    onSave(newPlacement);
-    setCustomValues({});
-    showToast(
-      'Placement Activated',
-      `Active deployment started for ${newPlacement.resourceName}!`,
-      'fa-solid fa-circle-check text-emerald-500'
-    );
-    onClose();
+    setIsSaving(true);
+    try {
+      await onSave(newPlacement);
+      setCustomValues({});
+      showToast(
+        'Placement Activated',
+        `Active deployment started for ${newPlacement.resourceName}!`,
+        'fa-solid fa-circle-check text-emerald-500'
+      );
+      onClose();
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -512,18 +521,21 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
           <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs">
             <button
               type="button"
+              disabled={isSaving}
               onClick={onClose}
-              className="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-white text-xs font-medium transition-colors cursor-pointer"
+              className="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-white disabled:opacity-60 text-xs font-medium transition-colors cursor-pointer"
             >
               Cancel
             </button>
-            <button
+            <ActionButton
               type="submit"
-              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              loading={isSaving}
+              loadingText="Activating..."
+              icon={<Check className="w-3.5 h-3.5" />}
+              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
             >
-              <Check className="w-3.5 h-3.5" />
-              <span>Activate Billable Placement</span>
-            </button>
+              Activate Billable Placement
+            </ActionButton>
           </div>
         </form>
       </div>

@@ -17,6 +17,7 @@ import { mapCandidateFromApi, mapRequirementFromApi } from '../../utils/entityMa
 import { getStageDotClass } from '../../utils/stageStyles';
 import { SkillTagInput } from '../shared/SkillTagInput';
 import { StatusBadge } from '../shared/StatusBadge';
+import { ActionButton } from '../shared/ActionButton';
 
 interface RequirementDetailModalProps {
   isOpen: boolean;
@@ -68,6 +69,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
   const [busySubId, setBusySubId] = useState<string | null>(null);
   const [confirmDetachId, setConfirmDetachId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [editForm, setEditForm] = useState<Requirement | null>(requirement);
   const [pagedCandidates, setPagedCandidates] = useState<Candidate[]>(() =>
     candidates.slice(0, BENCH_PAGE_SIZE)
@@ -422,17 +424,25 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
           {isEditing && editForm ? (
             <form
               noValidate
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
+                if (isSavingEdit) return;
                 const trimmed = editOpenPositions.trim();
                 const parsed = Number(trimmed);
                 if (!trimmed || !/^\d+$/.test(trimmed) || !Number.isInteger(parsed) || parsed < 1 || parsed > 1000) {
                   setEditOpenPosError('Please enter at least 1 open position.');
                   return;
                 }
-                if (onUpdateReq) onUpdateReq({ ...editForm, openPositions: parsed });
-                setEditOpenPosError('');
-                setIsEditing(false);
+                setIsSavingEdit(true);
+                try {
+                  if (onUpdateReq) await onUpdateReq({ ...editForm, openPositions: parsed });
+                  setEditOpenPosError('');
+                  setIsEditing(false);
+                } catch {
+                  // Error toast is already displayed by parent handler; keep edit form open
+                } finally {
+                  setIsSavingEdit(false);
+                }
               }}
               className="space-y-3.5 bg-slate-50 p-4 rounded-xl border border-slate-200"
             >
@@ -520,17 +530,20 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
               <div className="flex justify-end gap-2 pt-1">
                 <button
                   type="button"
+                  disabled={isSavingEdit}
                   onClick={() => setIsEditing(false)}
-                  className="px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  className="px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button
+                <ActionButton
                   type="submit"
+                  loading={isSavingEdit}
+                  loadingText="Saving..."
                   className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
                 >
                   Save Requirement
-                </button>
+                </ActionButton>
               </div>
             </form>
           ) : null}
@@ -735,10 +748,13 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                         {!isLegacy && onDetachSubmission && (
                           confirmDetachId === sub.id ? (
                             <div className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 rounded-md px-1.5 py-0.5">
-                              <button
+                              <ActionButton
                                 type="button"
-                                disabled={busySubId === sub.id}
+                                loading={busySubId === sub.id}
+                                loadingText="Removing..."
+                                spinnerClassName="w-2.5 h-2.5 animate-spin flex-shrink-0"
                                 onClick={async () => {
+                                  if (busySubId === sub.id) return;
                                   setBusySubId(sub.id);
                                   try {
                                     await onDetachSubmission(requirement, sub.id);
@@ -750,7 +766,7 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                                 className="text-[9px] font-bold text-rose-700 hover:underline cursor-pointer"
                               >
                                 Remove
-                              </button>
+                              </ActionButton>
                               <span className="text-slate-300">|</span>
                               <button
                                 type="button"
@@ -991,16 +1007,16 @@ export const RequirementDetailModal: React.FC<RequirementDetailModalProps> = ({
                 >
                   Cancel
                 </button>
-                <button
+                <ActionButton
                   type="button"
-                  disabled={isAttaching || selectedCandidateIds.length === 0}
+                  loading={isAttaching}
+                  loadingText="Attaching..."
+                  disabled={selectedCandidateIds.length === 0}
                   onClick={handleBatchAttach}
                   className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
                 >
-                  {isAttaching
-                    ? 'Attaching...'
-                    : `Attach ${selectedCandidateIds.length || ''} Applicant${selectedCandidateIds.length === 1 ? '' : 's'}`}
-                </button>
+                  {`Attach ${selectedCandidateIds.length || ''} Applicant${selectedCandidateIds.length === 1 ? '' : 's'}`}
+                </ActionButton>
               </div>
             </div>
           </div>

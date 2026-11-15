@@ -23,6 +23,7 @@ import { BillablePlacement } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { ActionButton } from '../../components/shared/ActionButton';
 import { useCurrency } from '../../utils/currency';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapPlacementFromApi } from '../../utils/entityMappers';
@@ -160,6 +161,10 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
     status: 'Completed',
     endDate: new Date().toISOString().split('T')[0],
   });
+  const [isExtending, setIsExtending] = useState(false);
+  const [isSavingPlacement, setIsSavingPlacement] = useState(false);
+  const [isDeletingPlacement, setIsDeletingPlacement] = useState(false);
+  const [isEndingPlacement, setIsEndingPlacement] = useState(false);
 
   const openEndModal = (p: BillablePlacement) => {
     setEndingPlacement(p);
@@ -169,15 +174,22 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
     });
   };
 
-  const handleConfirmEndPlacement = (e: React.FormEvent) => {
+  const handleConfirmEndPlacement = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!endingPlacement || !onUpdatePlacement) return;
-    onUpdatePlacement({
-      ...endingPlacement,
-      status: endForm.status,
-      endDate: endForm.endDate || endingPlacement.endDate,
-    });
-    setEndingPlacement(null);
+    if (!endingPlacement || !onUpdatePlacement || isEndingPlacement) return;
+    setIsEndingPlacement(true);
+    try {
+      await onUpdatePlacement({
+        ...endingPlacement,
+        status: endForm.status,
+        endDate: endForm.endDate || endingPlacement.endDate,
+      });
+      setEndingPlacement(null);
+    } catch {
+      // Error toast is already displayed by parent handler; keep modal open
+    } finally {
+      setIsEndingPlacement(false);
+    }
   };
 
   const getDaysRemaining = (endDateStr: string): number | null => {
@@ -683,10 +695,18 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
             </div>
 
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
-                onExtendContract(extendingPlacement, extendForm);
-                setExtendingPlacement(null);
+                if (isExtending) return;
+                setIsExtending(true);
+                try {
+                  await onExtendContract(extendingPlacement, extendForm);
+                  setExtendingPlacement(null);
+                } catch {
+                  // Error toast is already displayed by parent handler; keep modal open
+                } finally {
+                  setIsExtending(false);
+                }
               }}
               className="p-6 space-y-4 text-xs"
             >
@@ -776,17 +796,20 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
+                  disabled={isExtending}
                   onClick={() => setExtendingPlacement(null)}
-                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button
+                <ActionButton
                   type="submit"
+                  loading={isExtending}
+                  loadingText="Extending..."
                   className="px-4 py-2 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white rounded-lg text-xs font-semibold cursor-pointer"
                 >
                   Confirm SOW Extension
-                </button>
+                </ActionButton>
               </div>
             </form>
           </div>
@@ -818,10 +841,18 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
             </div>
 
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
-                if (onUpdatePlacement) onUpdatePlacement(editingPlacement);
-                setEditingPlacement(null);
+                if (isSavingPlacement) return;
+                setIsSavingPlacement(true);
+                try {
+                  if (onUpdatePlacement) await onUpdatePlacement(editingPlacement);
+                  setEditingPlacement(null);
+                } catch {
+                  // Error toast is already displayed by parent handler; keep modal open
+                } finally {
+                  setIsSavingPlacement(false);
+                }
               }}
               className="p-6 space-y-3.5 text-xs overflow-y-auto"
             >
@@ -997,17 +1028,20 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
+                  disabled={isSavingPlacement}
                   onClick={() => setEditingPlacement(null)}
-                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button
+                <ActionButton
                   type="submit"
+                  loading={isSavingPlacement}
+                  loadingText="Saving..."
                   className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
                 >
                   Save Changes
-                </button>
+                </ActionButton>
               </div>
             </form>
           </div>
@@ -1039,21 +1073,32 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
             <div className="flex items-center justify-end gap-2 pt-1">
               <button
                 type="button"
+                disabled={isDeletingPlacement}
                 onClick={() => setDeletingPlacement(null)}
-                className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
+                className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
               >
                 Cancel
               </button>
-              <button
+              <ActionButton
                 type="button"
-                onClick={() => {
-                  if (onDeletePlacement) onDeletePlacement(deletingPlacement);
-                  setDeletingPlacement(null);
+                loading={isDeletingPlacement}
+                loadingText="Removing..."
+                onClick={async () => {
+                  if (isDeletingPlacement) return;
+                  setIsDeletingPlacement(true);
+                  try {
+                    if (onDeletePlacement) await onDeletePlacement(deletingPlacement);
+                    setDeletingPlacement(null);
+                  } catch {
+                    setDeletingPlacement(null);
+                  } finally {
+                    setIsDeletingPlacement(false);
+                  }
                 }}
                 className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
               >
                 Remove Placement
-              </button>
+              </ActionButton>
             </div>
           </div>
         </div>
@@ -1144,19 +1189,22 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
             <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
               <button
                 type="button"
+                disabled={isEndingPlacement}
                 onClick={() => setEndingPlacement(null)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
               >
                 Cancel
               </button>
-              <button
+              <ActionButton
                 type="submit"
+                loading={isEndingPlacement}
+                loadingText="Updating..."
                 disabled={!endForm.endDate}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5"
+                icon={<CalendarX className="w-3.5 h-3.5" />}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold cursor-pointer"
               >
-                <CalendarX className="w-3.5 h-3.5" />
-                <span>Confirm End Placement</span>
-              </button>
+                Confirm End Placement
+              </ActionButton>
             </div>
           </form>
         </div>

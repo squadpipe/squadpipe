@@ -4,6 +4,7 @@ import { Requirement, Client, User } from '../../../types';
 import { DynamicCustomFieldsSection, useMasterTaxonomies } from '../../shared/DynamicCustomFieldsSection';
 import { formatRateDisplay, useCurrency } from '../../../utils/currency';
 import { SearchableSelectInput } from '../../shared/SearchableSelectInput';
+import { ActionButton } from '../../shared/ActionButton';
 
 interface AddRequirementModalProps {
   isOpen: boolean;
@@ -308,14 +309,15 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
             >
               Cancel
             </button>
-            <button
+            <ActionButton
               type="submit"
-              disabled={isSaving}
-              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:opacity-60 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              loading={isSaving}
+              loadingText="Creating..."
+              icon={<Plus className="w-3.5 h-3.5" strokeWidth={2.4} />}
+              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
-              <span>{isSaving ? 'Creating...' : 'Create Requirement & Add to Pipeline'}</span>
-            </button>
+              Create Requirement & Add to Pipeline
+            </ActionButton>
           </div>
         </form>
       </div>

@@ -13,6 +13,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
+import { ActionButton } from '../../components/shared/ActionButton';
 import { User } from '../../types';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
@@ -48,6 +49,9 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   const [totalUsers, setTotalUsers] = useState(users.length);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [isInviting, setIsInviting] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const debouncedSearch = useDebounce(search, 150);
   const currentUserEmail = users.find((u) => u.isCurrentUser)?.email;
@@ -131,10 +135,12 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
 
   const handleInviteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isInviting) return;
     if (!newUser.name.trim() || !newUser.email.trim()) {
       showToast('Validation Error', 'Full Name and Email are required.', 'fa-solid fa-circle-exclamation text-rose-500');
       return;
     }
+    setIsInviting(true);
     try {
       await onInviteUser(newUser);
       setShowInviteModal(false);
@@ -151,6 +157,8 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
       });
     } catch {
       // Error toast is already displayed by the parent handler
+    } finally {
+      setIsInviting(false);
     }
   };
 
@@ -462,25 +470,32 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 type="button"
+                disabled={isDeleting}
                 onClick={() => setUserToDelete(null)}
-                className="px-3.5 py-1.5 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+                className="px-3.5 py-1.5 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
-              <button
+              <ActionButton
                 type="button"
+                loading={isDeleting}
+                loadingText="Removing..."
                 onClick={async () => {
+                  if (isDeleting) return;
+                  setIsDeleting(true);
                   try {
                     if (onDeleteUser) await onDeleteUser(userToDelete);
                     setUserToDelete(null);
                   } catch {
                     setUserToDelete(null);
+                  } finally {
+                    setIsDeleting(false);
                   }
                 }}
                 className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
               >
                 Remove Member
-              </button>
+              </ActionButton>
             </div>
           </div>
         </div>
@@ -581,17 +596,20 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
+                  disabled={isInviting}
                   onClick={() => setShowInviteModal(false)}
-                  className="px-3.5 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium rounded-lg text-xs transition-colors cursor-pointer"
+                  className="px-3.5 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-60 font-medium rounded-lg text-xs transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button
+                <ActionButton
                   type="submit"
+                  loading={isInviting}
+                  loadingText="Sending Invitation..."
                   className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-xs transition-colors cursor-pointer"
                 >
                   Send Invitation
-                </button>
+                </ActionButton>
               </div>
             </form>
           </div>
@@ -624,11 +642,15 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
+                if (isUpdating) return;
+                setIsUpdating(true);
                 try {
                   if (onUpdateUser) await onUpdateUser(editingUser);
                   setEditingUser(null);
                 } catch {
                   // Error toast is already displayed by parent handler; keep modal open
+                } finally {
+                  setIsUpdating(false);
                 }
               }}
               className="p-6 space-y-4 text-xs"
@@ -722,17 +744,20 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
+                  disabled={isUpdating}
                   onClick={() => setEditingUser(null)}
-                  className="px-3.5 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium rounded-lg text-xs cursor-pointer"
+                  className="px-3.5 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-60 font-medium rounded-lg text-xs cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button
+                <ActionButton
                   type="submit"
+                  loading={isUpdating}
+                  loadingText="Saving..."
                   className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-xs cursor-pointer"
                 >
                   Save Changes
-                </button>
+                </ActionButton>
               </div>
             </form>
           </div>

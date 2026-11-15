@@ -19,6 +19,7 @@ import { apiClient } from '../../config/api.config';
 import { Requirement, Candidate } from '../../types';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { ActionButton } from '../../components/shared/ActionButton';
 import { ModalPortal } from '../../components/shared/ModalPortal';
 import { SkillTagInput } from '../../components/shared/SkillTagInput';
 import { useDebounce } from '../../utils/useDebounce';
@@ -83,6 +84,8 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
   const [editOpenPositions, setEditOpenPositions] = useState<string>('1');
   const [editOpenPosError, setEditOpenPosError] = useState<string>('');
   const [reqToDelete, setReqToDelete] = useState<Requirement | null>(null);
+  const [isUpdatingReq, setIsUpdatingReq] = useState(false);
+  const [isDeletingReq, setIsDeletingReq] = useState(false);
 
   useEffect(() => {
     if (editingReq) {
@@ -1163,17 +1166,25 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
 
             <form
               noValidate
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
+                if (isUpdatingReq) return;
                 const trimmed = editOpenPositions.trim();
                 const parsed = Number(trimmed);
                 if (!trimmed || !/^\d+$/.test(trimmed) || !Number.isInteger(parsed) || parsed < 1 || parsed > 1000) {
                   setEditOpenPosError('Please enter at least 1 open position.');
                   return;
                 }
-                if (onUpdateReq) onUpdateReq({ ...editingReq, openPositions: parsed });
-                setEditOpenPosError('');
-                setEditingReq(null);
+                setIsUpdatingReq(true);
+                try {
+                  if (onUpdateReq) await onUpdateReq({ ...editingReq, openPositions: parsed });
+                  setEditOpenPosError('');
+                  setEditingReq(null);
+                } catch {
+                  // Error toast is already displayed by parent handler; keep modal open
+                } finally {
+                  setIsUpdatingReq(false);
+                }
               }}
               className="p-6 space-y-3.5 text-xs"
             >
@@ -1277,17 +1288,20 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
+                  disabled={isUpdatingReq}
                   onClick={() => setEditingReq(null)}
-                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button
+                <ActionButton
                   type="submit"
+                  loading={isUpdatingReq}
+                  loadingText="Saving..."
                   className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
                 >
                   Save Changes
-                </button>
+                </ActionButton>
               </div>
             </form>
           </div>
@@ -1341,23 +1355,34 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
+                  disabled={isDeletingReq}
                   onClick={() => setReqToDelete(null)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-60 rounded-lg transition-colors cursor-pointer"
                 >
                   {hasBillable ? 'Close' : 'Cancel'}
                 </button>
                 {!hasBillable && (
-                  <button
+                  <ActionButton
                     type="button"
-                    onClick={() => {
-                      if (onDeleteReq) onDeleteReq(reqToDelete);
-                      setReqToDelete(null);
+                    loading={isDeletingReq}
+                    loadingText="Deleting..."
+                    icon={<Trash2 className="w-3.5 h-3.5" />}
+                    onClick={async () => {
+                      if (isDeletingReq) return;
+                      setIsDeletingReq(true);
+                      try {
+                        if (onDeleteReq) await onDeleteReq(reqToDelete);
+                        setReqToDelete(null);
+                      } catch {
+                        setReqToDelete(null);
+                      } finally {
+                        setIsDeletingReq(false);
+                      }
                     }}
-                    className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                    className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Delete Requisition</span>
-                  </button>
+                    Delete Requisition
+                  </ActionButton>
                 )}
               </div>
             </div>

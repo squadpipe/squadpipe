@@ -3,6 +3,7 @@ import { Building2, FileText, Pencil, Plus, X } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Client, Requirement, BillablePlacement } from '../../types';
 import { StatusBadge } from '../shared/StatusBadge';
+import { ActionButton } from '../shared/ActionButton';
 
 interface ClientDetailDrawerProps {
   isOpen: boolean;
@@ -247,18 +248,20 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
                   <div className="flex justify-end gap-2">
                     <button
                       type="button"
+                      disabled={isSavingClient}
                       onClick={() => setIsEditingClient(false)}
-                      className="px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs text-slate-600 cursor-pointer"
+                      className="px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs text-slate-600 disabled:opacity-60 cursor-pointer"
                     >
                       Cancel
                     </button>
-                    <button
+                    <ActionButton
                       type="submit"
-                      disabled={isSavingClient}
+                      loading={isSavingClient}
+                      loadingText="Saving..."
                       className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
                     >
-                      {isSavingClient ? 'Saving...' : 'Save Client'}
-                    </button>
+                      Save Client
+                    </ActionButton>
                   </div>
                 </form>
               ) : (
@@ -384,13 +387,14 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
                       />
                       <span>Mark as Primary Hiring Lead</span>
                     </label>
-                    <button
+                    <ActionButton
                       type="submit"
-                      disabled={isSavingContact}
-                      className="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-semibold cursor-pointer"
+                      loading={isSavingContact}
+                      loadingText="Saving..."
+                      className="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold cursor-pointer"
                     >
-                      {isSavingContact ? 'Saving...' : 'Save Contact'}
-                    </button>
+                      Save Contact
+                    </ActionButton>
                   </div>
                 </form>
               )}

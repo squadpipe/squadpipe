@@ -18,6 +18,16 @@ function getTemplate(name: string): Handlebars.TemplateDelegate {
   return compiled;
 }
 
+function joinBrandAndApp(brandName: string, appName: string, connector: 'on' | 'via'): string {
+  const cleanBrand = (brandName || '').trim();
+  const cleanApp = (appName || '').trim();
+  if (!cleanBrand) return cleanApp;
+  if (!cleanApp || cleanBrand.toLowerCase().includes(cleanApp.toLowerCase())) {
+    return cleanBrand;
+  }
+  return `${cleanBrand} ${connector} ${cleanApp}`;
+}
+
 function renderWithLayout(params: {
   templateName: string;
   subject: string;
@@ -28,11 +38,13 @@ function renderWithLayout(params: {
 }): string {
   const bodyTemplate = getTemplate(params.templateName);
   const layoutTemplate = getTemplate('layout');
+  const workspaceContext = joinBrandAndApp(params.brandName, APP_NAME, 'on');
 
   const body = bodyTemplate({
     ...params.data,
     brandName: params.brandName,
     appName: APP_NAME,
+    workspaceContext,
   });
 
   return layoutTemplate({
@@ -52,14 +64,16 @@ export function renderOtpEmail(params: {
   otpCode: string;
   expiresMinutes?: number;
 }): { subject: string; html: string } {
-  const subject = `${APP_NAME} Password Reset Verification Code`;
+  const workspaceContext = joinBrandAndApp(params.brandName, APP_NAME, 'on');
+  const senderContext = joinBrandAndApp(params.brandName, APP_NAME, 'via');
+  const subject = `Password reset code for ${workspaceContext}`;
   const html = renderWithLayout({
     templateName: 'otp',
     subject,
     brandName: params.brandName,
-    badgeText: 'Account Security',
+    badgeText: 'Password Reset',
     footerNote:
-      `For your protection, never share your ${APP_NAME} verification code with anyone. This is an automated no-reply message — please do not reply directly to this email.`,
+      `Automated no-reply security email from ${senderContext}. Never share this code; please do not reply directly to this email.`,
     data: {
       recipientName: params.recipientName || 'Team Member',
       otpCode: params.otpCode,
@@ -76,14 +90,16 @@ export function renderInviteEmail(params: {
   inviteUrl: string;
   expiresHours?: number;
 }): { subject: string; html: string } {
-  const subject = `You're invited to join ${APP_NAME}`;
+  const workspaceContext = joinBrandAndApp(params.brandName, APP_NAME, 'on');
+  const senderContext = joinBrandAndApp(params.brandName, APP_NAME, 'via');
+  const subject = `You're invited to join ${workspaceContext}`;
   const html = renderWithLayout({
     templateName: 'invite',
     subject,
     brandName: params.brandName,
     badgeText: 'Team Invitation',
     footerNote:
-      `This is an automated onboarding invitation sent via ${APP_NAME} by your administrator — please do not reply directly to this email.`,
+      `Automated no-reply invitation from ${senderContext}. Please do not reply directly to this email.`,
     data: {
       recipientName: params.recipientName || 'Team Member',
       roleLabel: params.roleLabel,
@@ -106,16 +122,17 @@ export function renderSubmissionEmail(params: {
   senderName: string;
   subject?: string;
 }): { subject: string; html: string } {
+  const senderContext = joinBrandAndApp(params.brandName, APP_NAME, 'via');
   const subject =
     params.subject?.trim() ||
-    `Candidate Profile: ${params.candidateName} for ${params.requirementTitle} — ${APP_NAME}`;
+    `Candidate Profile: ${params.candidateName} for ${params.requirementTitle} — ${params.brandName || APP_NAME}`;
   const html = renderWithLayout({
     templateName: 'submission',
     subject,
     brandName: params.brandName,
     badgeText: 'Candidate Submission',
     footerNote:
-      `Confidential candidate profile prepared via ${APP_NAME}.`,
+      `Confidential candidate profile prepared via ${senderContext}.`,
     data: {
       recipientName: params.recipientName || 'Hiring Team',
       requirementTitle: params.requirementTitle || 'Open Requisition',

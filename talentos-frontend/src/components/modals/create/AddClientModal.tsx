@@ -3,10 +3,12 @@ import { Building2, Plus, X } from 'lucide-react';
 import { Client } from '../../../types';
 import { DynamicCustomFieldsSection } from '../../shared/DynamicCustomFieldsSection';
 
+import { ActionButton } from '../../shared/ActionButton';
+
 interface AddClientModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (client: Client) => void;
+  onSave: (client: Client) => Promise<void> | void;
   showToast: (title: string, message: string, icon?: string) => void;
 }
 
@@ -28,6 +30,7 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
   showToast,
 }) => {
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState({ ...INITIAL_CLIENT_FORM });
 
   useEffect(() => {
@@ -39,8 +42,9 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
     if (!form.name.trim() || !form.location.trim() || !form.contactName.trim() || !form.email.trim()) {
       showToast('Validation Error', 'Company Name, HQ Location, Contact Name, and Email are required.', 'fa-solid fa-triangle-exclamation text-amber-500');
       return;
@@ -64,11 +68,16 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
       customFields: customValues,
     };
 
-    onSave(newClient);
-    setForm({ ...INITIAL_CLIENT_FORM });
-    setCustomValues({});
-    showToast('Client Registered', `${newClient.name} account registered under active MSA!`, 'fa-solid fa-circle-check text-brand-600');
-    onClose();
+    setIsSaving(true);
+    try {
+      await onSave(newClient);
+      setForm({ ...INITIAL_CLIENT_FORM });
+      setCustomValues({});
+      showToast('Client Registered', `${newClient.name} account registered under active MSA!`, 'fa-solid fa-circle-check text-brand-600');
+      onClose();
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -212,18 +221,21 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
           <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs">
             <button
               type="button"
+              disabled={isSaving}
               onClick={onClose}
-              className="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-white text-xs font-medium transition-colors cursor-pointer"
+              className="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-white disabled:opacity-60 text-xs font-medium transition-colors cursor-pointer"
             >
               Cancel
             </button>
-            <button
+            <ActionButton
               type="submit"
-              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              loading={isSaving}
+              loadingText="Saving Client..."
+              icon={<Plus className="w-3.5 h-3.5" strokeWidth={2.4} />}
+              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
-              <span>Save & Register Client Account</span>
-            </button>
+              Save & Register Client Account
+            </ActionButton>
           </div>
         </form>
       </div>

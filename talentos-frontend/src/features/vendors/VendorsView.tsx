@@ -4,6 +4,7 @@ import { apiClient } from '../../config/api.config';
 import { Vendor, VendorContact } from '../../types';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { ActionButton } from '../../components/shared/ActionButton';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapVendorFromApi } from '../../utils/entityMappers';
 
@@ -27,6 +28,7 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
   const [totalRows, setTotalRows] = useState(vendors.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
+  const [isSavingVendor, setIsSavingVendor] = useState(false);
 
   const debouncedSearch = useDebounce(search, 150);
 
@@ -300,8 +302,9 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
             </div>
 
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
+                if (isSavingVendor) return;
                 const contacts = (editingVendor.contacts || []).filter(
                   (c) => c.fullName.trim() || c.email.trim()
                 );
@@ -313,8 +316,15 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                   phone: primary?.phone || editingVendor.phone,
                   contacts,
                 };
-                if (onUpdateVendor) onUpdateVendor(payload);
-                setEditingVendor(null);
+                setIsSavingVendor(true);
+                try {
+                  if (onUpdateVendor) await onUpdateVendor(payload);
+                  setEditingVendor(null);
+                } catch {
+                  // Error toast is already displayed by parent handler; keep modal open
+                } finally {
+                  setIsSavingVendor(false);
+                }
               }}
               className="p-6 space-y-4 text-xs overflow-y-auto"
             >
@@ -532,17 +542,20 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
+                  disabled={isSavingVendor}
                   onClick={() => setEditingVendor(null)}
-                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button
+                <ActionButton
                   type="submit"
+                  loading={isSavingVendor}
+                  loadingText="Saving..."
                   className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
                 >
                   Save Changes
-                </button>
+                </ActionButton>
               </div>
             </form>
           </div>
