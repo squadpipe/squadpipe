@@ -400,7 +400,8 @@ export const forgotPassword = async (req: Request, res: Response) => {
       recipientName: user.fullName,
       subject,
       html,
-      tenantId
+      tenantId,
+      noReply: true,
     });
 
     if (!mailResult.success) {

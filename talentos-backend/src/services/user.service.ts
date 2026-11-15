@@ -216,6 +216,7 @@ export class UserService {
         subject,
         html,
         tenantId,
+        noReply: true,
       })
       .catch((err) => {
         console.warn('Invite email dispatch warning:', err);

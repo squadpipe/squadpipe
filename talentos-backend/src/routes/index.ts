@@ -581,7 +581,7 @@ router.post('/smtp/send', emailRateLimiter, async (req: Request, res: Response) 
           workAuth: workAuth || 'Authorized',
           rate: rate || 'Competitive',
           location: location || 'Remote / Hybrid',
-          senderName: req.user?.fullName || `${brandName} Recruitment Desk`,
+          senderName: req.user?.fullName || 'Recruitment Team',
           subject: resolvedSubject
         }).html;
 
@@ -590,7 +590,8 @@ router.post('/smtp/send', emailRateLimiter, async (req: Request, res: Response) 
       recipientName,
       subject: resolvedSubject,
       html: resolvedHtml,
-      tenantId
+      tenantId,
+      replyTo: typeof req.body?.replyTo === 'string' ? req.body.replyTo : req.user?.email,
     });
 
     if (!result.success) {

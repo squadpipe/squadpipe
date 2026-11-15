@@ -59,7 +59,7 @@ export function renderOtpEmail(params: {
     brandName: params.brandName,
     badgeText: 'Account Security',
     footerNote:
-      `For your protection, never share your ${APP_NAME} verification code with anyone.`,
+      `For your protection, never share your ${APP_NAME} verification code with anyone. This is an automated no-reply message — please do not reply directly to this email.`,
     data: {
       recipientName: params.recipientName || 'Team Member',
       otpCode: params.otpCode,
@@ -83,7 +83,7 @@ export function renderInviteEmail(params: {
     brandName: params.brandName,
     badgeText: 'Team Invitation',
     footerNote:
-      `This is an automated onboarding invitation sent via ${APP_NAME} by your administrator.`,
+      `This is an automated onboarding invitation sent via ${APP_NAME} by your administrator — please do not reply directly to this email.`,
     data: {
       recipientName: params.recipientName || 'Team Member',
       roleLabel: params.roleLabel,
@@ -124,7 +124,7 @@ export function renderSubmissionEmail(params: {
       workAuth: params.workAuth || 'Authorized',
       rate: params.rate || 'Competitive',
       location: params.location || 'Remote / Hybrid',
-      senderName: params.senderName || `${params.brandName} Recruitment Desk`,
+      senderName: params.senderName || 'Recruitment Team',
     },
   });
   return { subject, html };

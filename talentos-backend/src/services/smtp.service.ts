@@ -6,6 +6,55 @@ import {
 } from '../config/smtp.config';
 import { prisma } from '../config/prisma.config';
 import { EmailStatus } from '@prisma/client';
+import { APP_NAME } from './emailTemplate.service';
+
+export function resolveSmtpFromName(
+  brandName: string,
+  configuredFromName?: string | null,
+  appName: string = APP_NAME
+): string {
+  const configured = (configuredFromName || '').replace(/"/g, '').trim();
+  const isGenericDefaultFrom =
+    !configured ||
+    configured === 'TalentOS Recruitment Desk' ||
+    configured === 'SquadPipe Recruitment Desk';
+
+  if (!isGenericDefaultFrom) {
+    return configured;
+  }
+
+  const cleanBrand = (brandName || 'Workspace').replace(/"/g, '').trim() || 'Workspace';
+  const cleanApp = (appName || 'SquadPipe').replace(/"/g, '').trim() || 'SquadPipe';
+  return cleanBrand.toLowerCase().includes(cleanApp.toLowerCase())
+    ? cleanBrand
+    : `${cleanBrand} via ${cleanApp}`;
+}
+
+export function resolveMailReplyToAndHeaders(options: {
+  fromEmail: string;
+  configuredReplyTo?: string;
+  explicitReplyTo?: string;
+  noReply?: boolean;
+}): {
+  replyTo?: string;
+  headers?: Record<string, string>;
+} {
+  if (options.noReply) {
+    return {
+      headers: {
+        'Auto-Submitted': 'auto-generated',
+        'X-Auto-Response-Suppress': 'All',
+      },
+    };
+  }
+
+  const resolvedReplyTo =
+    options.explicitReplyTo?.trim() ||
+    options.configuredReplyTo?.trim() ||
+    options.fromEmail.trim();
+
+  return resolvedReplyTo ? { replyTo: resolvedReplyTo } : {};
+}
 
 function resolveEnvSmtpSettings(): SmtpSettings | null {
   const host = process.env.SMTP_HOST?.trim() || '';
@@ -30,7 +79,7 @@ function resolveEnvSmtpSettings(): SmtpSettings | null {
     password,
     fromName: process.env.SMTP_FROM_NAME?.trim() || '',
     fromEmail,
-    replyToEmail: fromEmail,
+    replyToEmail: process.env.SMTP_REPLY_TO?.trim() || '',
   };
 }
 
@@ -41,11 +90,14 @@ export interface SendMailOptions {
   html: string;
   text?: string;
   tenantId?: string;
+  replyTo?: string;
+  noReply?: boolean;
 }
 
 export class SmtpService {
   async sendMail(options: SendMailOptions) {
-    const { to, recipientName, subject, html, text, tenantId } = options;
+    const { to, recipientName, subject, html, text, tenantId, replyTo: explicitReplyTo, noReply } =
+      options;
     const resolvedTenantId = tenantId || 'talentos-agency';
     const { general } = await getTenantSettings(resolvedTenantId);
 
@@ -79,22 +131,21 @@ export class SmtpService {
     }
 
     const brandName = (general.agencyName || general.legalEntityName || 'Workspace').trim();
-    const configuredFromName = effectiveSmtp.fromName?.trim();
-    const isGenericDefaultFrom =
-      !configuredFromName ||
-      configuredFromName === 'TalentOS Recruitment Desk' ||
-      configuredFromName === 'SquadPipe Recruitment Desk';
-    const fromName = isGenericDefaultFrom
-      ? `${brandName} Recruitment Desk`
-      : configuredFromName;
+    const fromName = resolveSmtpFromName(brandName, effectiveSmtp.fromName, APP_NAME);
     const fromEmail = effectiveSmtp.fromEmail.trim();
-    const replyTo = effectiveSmtp.replyToEmail?.trim() || fromEmail;
+    const { replyTo, headers } = resolveMailReplyToAndHeaders({
+      fromEmail,
+      configuredReplyTo: effectiveSmtp.replyToEmail,
+      explicitReplyTo,
+      noReply,
+    });
 
     try {
       const transporter = createDynamicSmtpTransporter(effectiveSmtp);
       const info = await transporter.sendMail({
         from: `"${fromName}" <${fromEmail}>`,
-        replyTo,
+        ...(replyTo ? { replyTo } : {}),
+        ...(headers ? { headers } : {}),
         to,
         subject,
         html,
