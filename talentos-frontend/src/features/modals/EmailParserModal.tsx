@@ -155,8 +155,6 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
     onClose();
   };
 
-  if (!isOpen) return null;
-
   const skillTags = extractedReq.skillsRequired
     .split(',')
     .map((s) => s.trim())
@@ -178,6 +176,8 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
     }
     return [...startsWith, ...contains].slice(0, 12);
   }, [skillQuery, extractedReq.skillsRequired]);
+
+  if (!isOpen) return null;
 
   const mergeSkillTags = (existingCsv: string, rawToAdd: string): string => {
     const existing = existingCsv

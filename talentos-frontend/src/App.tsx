@@ -335,6 +335,11 @@ export const App: React.FC = () => {
     }, 3500);
   };
 
+  const showApiErrorToast = (e: any, title: string, fallback: string) => {
+    const msg = e?.response?.data?.message || e?.response?.data?.error || fallback;
+    showToast(title, msg, 'fa-solid fa-circle-exclamation text-rose-500');
+  };
+
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -1163,7 +1168,7 @@ export const App: React.FC = () => {
       showToast('Member Updated', `${saved.name} profile saved.`, 'fa-solid fa-circle-check text-emerald-500');
     } catch (e: any) {
       console.warn('API update user failed:', e);
-      showToast('Update Failed', e?.response?.data?.error || `Could not update ${updated.name}.`, 'fa-solid fa-circle-exclamation text-rose-500');
+      showApiErrorToast(e, 'Update Failed', `Could not update ${updated.name}.`);
       throw e;
     }
   };
@@ -1647,18 +1652,19 @@ export const App: React.FC = () => {
               onToggleRateMask={async (user) => {
                 try {
                   await apiClient.patch(`/users/${user.id}/rate-mask`);
-                } catch (e) {
+                  setUsers((prev) =>
+                    prev.map((u) => (u.id === user.id ? { ...u, rateMasked: !u.rateMasked } : u))
+                  );
+                  showToast(
+                    'Clearance Updated',
+                    `${user.name}'s billing rate visibility is now ${
+                      !user.rateMasked ? 'Masked (••••)' : 'Visible'
+                    }.`
+                  );
+                } catch (e: any) {
                   console.warn('API toggle rate-mask:', e);
+                  showApiErrorToast(e, 'Action Not Allowed', `Could not update rate visibility for ${user.name}.`);
                 }
-                setUsers((prev) =>
-                  prev.map((u) => (u.id === user.id ? { ...u, rateMasked: !u.rateMasked } : u))
-                );
-                showToast(
-                  'Clearance Updated',
-                  `${user.name}'s billing rate visibility is now ${
-                    !user.rateMasked ? 'Masked (••••)' : 'Visible'
-                  }.`
-                );
               }}
               onInviteUser={async (newUser) => {
                 if (!newUser.name || !newUser.email) return;
@@ -1691,11 +1697,13 @@ export const App: React.FC = () => {
                       lastActive: 'Invited',
                     };
                   }
+                  setUsers((prev) => [...prev, invitedUser]);
                   fetchSidebarCounts();
-                } catch (e) {
+                } catch (e: any) {
                   console.warn('API invite user failed:', e);
+                  showApiErrorToast(e, 'Invitation Failed', `Could not invite ${email}.`);
+                  throw e;
                 }
-                setUsers((prev) => [...prev, invitedUser]);
               }}
               onToggleUserStatus={async (user) => {
                 try {
@@ -1705,8 +1713,9 @@ export const App: React.FC = () => {
                     prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u))
                   );
                   showToast('Status Updated', `${user.name} is now ${newStatus}.`, 'fa-solid fa-user-shield text-indigo-500');
-                } catch (e) {
+                } catch (e: any) {
                   console.warn('API toggle status failed:', e);
+                  showApiErrorToast(e, 'Status Update Failed', `Could not update status for ${user.name}.`);
                 }
               }}
               onUpdateUser={handleUpdateUser}
@@ -1715,8 +1724,10 @@ export const App: React.FC = () => {
                   await apiClient.delete(`/users/${user.id}`);
                   setUsers((prev) => prev.filter((u) => u.id !== user.id));
                   showToast('Member Removed', `${user.name} has been removed from agency roster.`, 'fa-solid fa-trash-can text-slate-500');
-                } catch (e) {
+                } catch (e: any) {
                   console.warn('API delete user failed:', e);
+                  showApiErrorToast(e, 'Remove Failed', `Could not remove ${user.name}.`);
+                  throw e;
                 }
               }}
               showToast={showToast}

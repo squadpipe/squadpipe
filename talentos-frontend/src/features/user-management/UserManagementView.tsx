@@ -21,11 +21,11 @@ import { getWorkspaceBrandSlug } from '../../utils/workspaceBrand';
 
 interface UserManagementViewProps {
   users: User[];
-  onToggleRateMask: (user: User) => void;
-  onInviteUser: (user: Partial<User>) => void;
-  onUpdateUser?: (user: User) => void;
-  onToggleUserStatus?: (user: User) => void;
-  onDeleteUser?: (user: User) => void;
+  onToggleRateMask: (user: User) => Promise<void> | void;
+  onInviteUser: (user: Partial<User>) => Promise<void> | void;
+  onUpdateUser?: (user: User) => Promise<void> | void;
+  onToggleUserStatus?: (user: User) => Promise<void> | void;
+  onDeleteUser?: (user: User) => Promise<void> | void;
   showToast: (title: string, message: string, icon?: string) => void;
 }
 
@@ -136,25 +136,29 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
 
   const filteredUsers = tableUsers;
 
-  const handleInviteSubmit = (e: React.FormEvent) => {
+  const handleInviteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUser.name.trim() || !newUser.email.trim()) {
-      showToast('Validation Error', 'Full Name and Email are required.');
+      showToast('Validation Error', 'Full Name and Email are required.', 'fa-solid fa-circle-exclamation text-rose-500');
       return;
     }
-    onInviteUser(newUser);
-    setShowInviteModal(false);
-    showToast(
-      'Invitation Sent',
-      `Invitation sent to ${newUser.email} as ${newUser.role}.`
-    );
-    setNewUser({
-      name: '',
-      email: '',
-      role: 'Technical Recruiter',
-      desk: 'US IT Contract (C2C & W2)',
-      rateMasked: true,
-    });
+    try {
+      await onInviteUser(newUser);
+      setShowInviteModal(false);
+      showToast(
+        'Invitation Sent',
+        `Invitation sent to ${newUser.email} as ${newUser.role}.`
+      );
+      setNewUser({
+        name: '',
+        email: '',
+        role: 'Technical Recruiter',
+        desk: 'US IT Contract (C2C & W2)',
+        rateMasked: true,
+      });
+    } catch {
+      // Error toast is already displayed by the parent handler
+    }
   };
 
   const exportTeamCsv = () => {
@@ -478,9 +482,13 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  if (onDeleteUser) onDeleteUser(userToDelete);
-                  setUserToDelete(null);
+                onClick={async () => {
+                  try {
+                    if (onDeleteUser) await onDeleteUser(userToDelete);
+                    setUserToDelete(null);
+                  } catch {
+                    setUserToDelete(null);
+                  }
                 }}
                 className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
               >
@@ -627,10 +635,14 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
             </div>
 
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
-                if (onUpdateUser) onUpdateUser(editingUser);
-                setEditingUser(null);
+                try {
+                  if (onUpdateUser) await onUpdateUser(editingUser);
+                  setEditingUser(null);
+                } catch {
+                  // Error toast is already displayed by parent handler; keep modal open
+                }
               }}
               className="p-6 space-y-4 text-xs"
             >

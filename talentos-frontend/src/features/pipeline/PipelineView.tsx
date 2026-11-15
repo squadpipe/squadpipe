@@ -942,9 +942,9 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                   data-kanban-stage={stage}
                   className={`p-3.5 rounded-xl border flex flex-col min-h-[600px] max-h-[calc(100vh-195px)] transition-colors duration-150 ${
                     isMovingIntoStage
-                      ? 'ring-2 ring-brand-500 bg-brand-50/50 border-brand-300'
+                      ? 'bg-slate-200/70 border-slate-300'
                       : isDropTarget
-                      ? 'border-brand-300 bg-slate-100/90'
+                      ? 'border-slate-300 bg-slate-100/90'
                       : 'bg-slate-100/75 border-slate-200/80'
                   }`}
                 >
@@ -967,10 +967,10 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                   <div className="space-y-3 overflow-y-auto min-h-0 flex-1 flex flex-col pr-0.5">
                     {reqsInStage.length === 0 ? (
                       <div
-                        className={`flex-1 flex flex-col items-center justify-center p-5 text-center text-[11px] border border-dashed rounded-xl transition-colors ${
+                        className={`flex-1 flex flex-col items-center justify-center p-5 text-center text-[11px] rounded-xl transition-colors ${
                           isMovingIntoStage
-                            ? 'border-brand-400 bg-brand-50/80 text-brand-700 font-semibold'
-                            : 'border-slate-200/90 bg-white/50 text-slate-400'
+                            ? 'bg-white/75 text-slate-700 font-semibold'
+                            : 'border border-dashed border-slate-200/90 bg-white/50 text-slate-400'
                         }`}
                       >
                         <Columns className="w-5 h-5 mb-2 text-slate-300" />
@@ -1420,7 +1420,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               transform: `translate3d(${activeDrag.initialX}px, ${activeDrag.initialY}px, 0) rotate(1.2deg)`,
               willChange: 'transform',
             }}
-            className="fixed top-0 left-0 z-[9990] pointer-events-none select-none bg-white rounded-xl border border-brand-400 shadow-2xl ring-2 ring-brand-500/20 overflow-hidden opacity-95"
+            className="fixed top-0 left-0 z-[9990] pointer-events-none select-none bg-white rounded-xl border border-slate-200/90 shadow-[0_20px_40px_rgba(15,23,42,0.16)] overflow-hidden"
           >
             {renderCardBody(activeDrag.req)}
           </div>
