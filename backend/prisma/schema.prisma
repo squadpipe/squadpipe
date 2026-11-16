@@ -1,0 +1,548 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMINISTRATOR
+  SENIOR_RECRUITER
+  TECHNICAL_RECRUITER
+  BENCH_SALES_LEAD
+  ACCOUNT_EXECUTIVE
+  ASSOCIATE_RECRUITER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  INVITED
+}
+
+enum CandidatePipelineStage {
+  AVAILABLE_BENCH
+  SUBMITTED
+  INTERVIEW
+  SELECTED
+  ONBOARDING
+  BILLABLE
+  ARCHIVED
+}
+
+enum RequirementStatus {
+  REQUIREMENT
+  SUBMITTED
+  INTERVIEW
+  SELECTED
+  ONBOARDING
+  CLOSED
+}
+
+enum WorkModel {
+  REMOTE
+  HYBRID
+  ONSITE
+}
+
+enum DeploymentType {
+  ONSHORE
+  NEARSHORE
+  OFFSHORE
+}
+
+enum PlacementType {
+  C2C_SUBCONTRACTOR
+  W2_HOURLY
+  TEN_NINETY_NINE
+  FULL_TIME
+}
+
+enum PlacementStatus {
+  ACTIVE
+  EXPIRING_SOON
+  EXTENDED
+  COMPLETED
+  TERMINATED
+}
+
+enum PitchTone {
+  PROFESSIONAL
+  HIGH_IMPACT
+  TECHNICAL_FOCUS
+}
+
+enum AutomationCategory {
+  FEEDBACK
+  INTERVIEW
+  STALE_REQ
+  CONTRACT
+  COMPLIANCE
+  CUSTOM
+}
+
+enum TriggerEvent {
+  FEEDBACK_DELAYED
+  INTERVIEW_TODAY
+  STALE_REQ
+  CONTRACT_ENDING
+  VISA_EXPIRING
+  HIGH_MARGIN
+  CUSTOM
+}
+
+enum AuditStatus {
+  EXECUTED
+  FAILED
+  SKIPPED
+}
+
+enum SlaCategory {
+  AWAITING_FEEDBACK
+  INTERVIEW_TODAY
+  STALE_REQUIREMENT
+  CONTRACT_EXPIRING
+  COMPLIANCE_ALERT
+}
+
+enum SlaActionType {
+  PITCH
+  PIPELINE
+  MATCHER
+  BILLABLE
+  CHECKLIST
+}
+
+enum CustomFieldEntityType {
+  CONSULTANT
+  REQUIREMENT
+  CLIENT
+  VENDOR
+  PLACEMENT
+}
+
+enum CustomFieldType {
+  TEXT
+  DROPDOWN
+  DATE
+  NUMBER
+  BOOLEAN
+}
+
+enum MasterTaxonomyCategory {
+  WORK_AUTH
+  PAYMENT_TERMS
+  EDUCATION
+  STAGES
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model User {
+  id              String         @id @default(uuid())
+  email           String         @unique
+  passwordHash    String
+  fullName        String
+  agencyName      String         @default("SquadPipe Staffing")
+  tenantId        String         @default("squadpipe-agency")
+  role            UserRole       @default(TECHNICAL_RECRUITER)
+  desk            String         @default("US IT Contract (C2C & W2)")
+  rateMasked      Boolean        @default(true)
+  tokenVersion    Int            @default(0)
+  status          UserStatus     @default(ACTIVE)
+  workload        String?        @default("0 Requisitions • 0 Submissions")
+  lastActiveAt    DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  refreshTokens   RefreshToken[]
+  candidates      Candidate[]    @relation("RecruiterCandidates")
+  requirements    Requirement[]  @relation("RecruiterRequirements")
+  submissions     Submission[]   @relation("RecruiterSubmissions")
+  placements      Placement[]    @relation("RecruiterPlacements")
+  slaTasks        SlaTask[]      @relation("AssignedSlaTasks")
+  rulesCreated    AutomationRule[] @relation("UserCreatedRules")
+
+  @@index([email])
+  @@index([role])
+  @@index([tenantId])
+}
+
+model RefreshToken {
+  id          String    @id @default(uuid())
+  token       String    @unique
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
+model Candidate {
+  id                 String                 @id @default(uuid())
+  tenantId           String                 @default("squadpipe-agency")
+  fullName           String
+  email              String
+  phone              String?
+  currentTitle       String
+  workAuth           String
+  education          String?
+  skillset           String
+  hourlyRateW2       Decimal?               @db.Decimal(10, 2)
+  hourlyRateC2c      Decimal?               @db.Decimal(10, 2)
+  hourlyRateDisplay  String?
+  relocation         String                 @default("Yes")
+  resumeFileName     String?
+  resumeFormat       String?
+  resumeFileUrl      String?
+  rawSnippet         String?                @db.Text
+  pipelineStage      CandidatePipelineStage @default(AVAILABLE_BENCH)
+  customFields       Json?                  @default("{}")
+  assignedRecruiterId String?
+  assignedRecruiter  User?                  @relation("RecruiterCandidates", fields: [assignedRecruiterId], references: [id], onDelete: SetNull)
+  vendorId           String?
+  vendor             Vendor?                @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  submissions        Submission[]
+  placements         Placement[]
+
+  @@unique([tenantId, email])
+  @@index([fullName])
+  @@index([email])
+  @@index([pipelineStage])
+  @@index([assignedRecruiterId])
+  @@index([vendorId])
+  @@index([tenantId])
+}
+
+model Client {
+  id                 String          @id @default(uuid())
+  tenantId           String          @default("squadpipe-agency")
+  name               String
+  website            String?
+  boardNumber        String?
+  location           String
+  msaStatus          Boolean         @default(true)
+  msaExpirationDate  DateTime?
+  clientType         String?         @default("End Client")
+  customFields       Json?           @default("{}")
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  contacts           ClientContact[]
+  requirements       Requirement[]
+  placements         Placement[]
+
+  @@unique([tenantId, name])
+  @@index([name])
+  @@index([tenantId])
+}
+
+model ClientContact {
+  id           String        @id @default(uuid())
+  clientId     String
+  client       Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  fullName     String
+  designation  String
+  phone        String?
+  email        String
+  isPrimary    Boolean       @default(false)
+  notes        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  requirements Requirement[]
+
+  @@index([clientId])
+  @@index([email])
+}
+
+model Vendor {
+  id                  String      @id @default(uuid())
+  tenantId            String      @default("squadpipe-agency")
+  name                String
+  contactName         String
+  phone               String?
+  email               String
+  location            String
+  skillSpecialization String
+  paymentTerms        String      @default("Net 45")
+  invoicingTerms      String      @default("Bi-weekly")
+  msaSigned           Boolean     @default(true)
+  coiExpiryDate       DateTime?
+  customFields        Json?       @default("{}")
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  contacts            VendorContact[]
+  candidates          Candidate[]
+  placements          Placement[]
+
+  @@unique([tenantId, name])
+  @@index([name])
+  @@index([tenantId])
+}
+
+model VendorContact {
+  id          String   @id @default(uuid())
+  vendorId    String
+  vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  fullName    String
+  designation String   @default("")
+  phone       String?
+  email       String
+  isPrimary   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([vendorId])
+  @@index([email])
+}
+
+model Requirement {
+  id                  String             @id @default(uuid())
+  tenantId            String             @default("squadpipe-agency")
+  code                String
+  companyName         String
+  clientId            String?
+  client              Client?            @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientContactId     String?
+  clientContact       ClientContact?     @relation(fields: [clientContactId], references: [id], onDelete: SetNull)
+  opportunityTitle    String
+  openPositions       Int                @default(1)
+  skillsRequired      String             @db.Text
+  location            String
+  workModel           WorkModel          @default(REMOTE)
+  targetBillRate      Decimal?           @db.Decimal(10, 2)
+  maxBillRate         Decimal?           @db.Decimal(10, 2)
+  targetPayRate       Decimal?           @db.Decimal(10, 2)
+  status              String             @default("REQUIREMENT")
+  vmsReqId            String?
+  rawEmailText        String?            @db.Text
+  missingNotes        String?            @db.Text
+  customFields        Json?              @default("{}")
+  assignedRecruiterId String?
+  assignedRecruiter   User?              @relation("RecruiterRequirements", fields: [assignedRecruiterId], references: [id], onDelete: SetNull)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  submissions         Submission[]
+  placements          Placement[]
+
+  @@unique([tenantId, code])
+  @@index([code])
+  @@index([companyName])
+  @@index([status])
+  @@index([assignedRecruiterId])
+  @@index([tenantId])
+}
+
+model Submission {
+  id                     String            @id @default(uuid())
+  tenantId               String            @default("squadpipe-agency")
+  requirementId          String
+  requirement            Requirement       @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  candidateId            String
+  candidate              Candidate         @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  recruiterId            String?
+  recruiter              User?             @relation("RecruiterSubmissions", fields: [recruiterId], references: [id], onDelete: SetNull)
+  stage                  String            @default("SUBMITTED")
+  pitchEmailSubject      String?
+  pitchEmailBody         String?           @db.Text
+  pitchTone              PitchTone         @default(PROFESSIONAL)
+  submissionDate         DateTime          @default(now())
+  lastClientFeedbackDate DateTime?
+  interviewDate          DateTime?
+  interviewNotes         String?           @db.Text
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+
+  @@unique([requirementId, candidateId])
+  @@index([requirementId])
+  @@index([candidateId])
+  @@index([stage])
+  @@index([tenantId])
+}
+
+model Placement {
+  id                  String          @id @default(uuid())
+  tenantId            String          @default("squadpipe-agency")
+  recruiterId         String?
+  recruiter           User?           @relation("RecruiterPlacements", fields: [recruiterId], references: [id], onDelete: SetNull)
+  candidateId         String?
+  candidate           Candidate?      @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+  requirementId       String?
+  requirement         Requirement?    @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+  clientId            String?
+  client              Client?         @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  vendorId            String?
+  vendor              Vendor?         @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  customer            String
+  customerContact     String?
+  resourceName        String
+  phone               String?
+  email               String?
+  skillRole           String
+  deployment          DeploymentType  @default(ONSHORE)
+  startDate           DateTime        @db.Date
+  endDate             DateTime        @db.Date
+  billRate            Decimal         @db.Decimal(10, 2)
+  payRate             Decimal         @db.Decimal(10, 2)
+  hourlySpread        Decimal         @db.Decimal(10, 2)
+  marginPct           Decimal         @db.Decimal(5, 2)
+  placementType       PlacementType   @default(C2C_SUBCONTRACTOR)
+  purchaseOrderNumber String?
+  status              PlacementStatus @default(ACTIVE)
+  customFields        Json?           @default("{}")
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([customer])
+  @@index([resourceName])
+  @@index([endDate])
+  @@index([status])
+  @@index([tenantId])
+}
+
+model AutomationRule {
+  id              String             @id @default(uuid())
+  tenantId        String             @default("squadpipe-agency")
+  name            String
+  category        AutomationCategory @default(FEEDBACK)
+  icon            String             @default("fa-solid fa-bolt")
+  color           String             @default("amber")
+  active          Boolean            @default(true)
+  triggerEvent    TriggerEvent
+  threshold       String
+  thresholdUnit   String?
+  whenText        String
+  thenSummary     String
+  actions         Json
+  executionsCount Int                @default(0)
+  lastFiredAt     DateTime?
+  createdById     String?
+  createdBy       User?              @relation("UserCreatedRules", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  auditLogs       AutomationAuditLog[]
+
+  @@index([category])
+  @@index([active])
+  @@index([tenantId])
+}
+
+model AutomationAuditLog {
+  id               String          @id @default(uuid())
+  ruleId           String?
+  rule             AutomationRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  ruleName         String
+  target           String
+  conditionsMet    String?         @db.Text
+  actionDispatched String          @db.Text
+  status           AuditStatus     @default(EXECUTED)
+  errorDetails     String?         @db.Text
+  createdAt        DateTime        @default(now())
+
+  @@index([ruleId])
+  @@index([createdAt])
+}
+
+model SlaTask {
+  id                String        @id @default(uuid())
+  tenantId          String        @default("squadpipe-agency")
+  category          SlaCategory
+  slaRuleTag        String
+  badgeClass        String?
+  title             String
+  description       String        @db.Text
+  meta              String?
+  actionType        SlaActionType @default(PITCH)
+  actionLabel       String
+  isDone            Boolean       @default(false)
+  assignedUserId    String?
+  assignedUser      User?         @relation("AssignedSlaTasks", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  relatedEntityType String?
+  relatedEntityId   String?
+  dueDate           DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([category])
+  @@index([isDone])
+  @@index([assignedUserId])
+  @@index([tenantId])
+}
+
+model CustomFieldDefinition {
+  id        String                @id @default(uuid())
+  tenantId  String                @default("squadpipe-agency")
+  name      String
+  key       String
+  entity    CustomFieldEntityType
+  type      CustomFieldType       @default(TEXT)
+  options   Json?
+  required  Boolean               @default(false)
+  active    Boolean               @default(true)
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  @@unique([tenantId, key])
+  @@index([entity])
+  @@index([active])
+  @@index([tenantId])
+}
+
+model MasterTaxonomy {
+  id          String                 @id @default(uuid())
+  tenantId    String                 @default("squadpipe-agency")
+  category    MasterTaxonomyCategory
+  optionValue String
+  sortOrder   Int                    @default(0)
+  active      Boolean                @default(true)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@unique([tenantId, category, optionValue])
+  @@index([category])
+  @@index([tenantId])
+}
+
+model TenantSettings {
+  tenantId      String   @id @map("tenant_id")
+  generalConfig Json     @default("{}") @map("general_config")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("tenant_settings")
+}
+
+model EmailLog {
+  id             String      @id @default(uuid())
+  tenantId       String      @default("squadpipe-agency")
+  recipientEmail String
+  recipientName  String?
+  subject        String
+  bodyHtml       String      @db.Text
+  status         EmailStatus @default(PENDING)
+  errorMessage   String?     @db.Text
+  smtpMessageId  String?
+  sentAt         DateTime?
+  createdAt      DateTime    @default(now())
+
+  @@index([recipientEmail])
+  @@index([status])
+  @@index([tenantId])
+}
+

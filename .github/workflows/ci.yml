@@ -12,14 +12,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: talentos-backend
+        working-directory: backend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: talentos-backend/package-lock.json
+          cache-dependency-path: backend/package-lock.json
       - name: Install dependencies
         run: npm ci
       - name: Validate Prisma schema & generate client
@@ -27,7 +27,7 @@ jobs:
           npx prisma validate
           npx prisma generate
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/talentos_ci
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/squadpipe_ci
       - name: Typecheck TypeScript
         run: npx tsc --noEmit
       - name: Run unit & security test suite
@@ -38,14 +38,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: talentos-frontend
+        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: talentos-frontend/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
         run: npm ci
       - name: Typecheck & build production bundle
@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: talentos-resume-parser
+        working-directory: resume-parser
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -84,24 +84,23 @@ jobs:
 
       - name: Sync repository to EC2
         run: |
-          ssh -i ~/.ssh/deploy_key "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" "sudo chown -R \$(whoami):\$(whoami) ~/talentos"
+          ssh -i ~/.ssh/deploy_key "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" "sudo chown -R \$(whoami):\$(whoami) ~/squadpipe"
           rsync -rlDz --omit-dir-times --delete \
             --exclude='.git' \
             --exclude='node_modules' \
             --exclude='__pycache__' \
             --exclude='*.pyc' \
             --exclude='.env' \
-            --exclude='talentos-backend/uploads' \
+            --exclude='backend/uploads' \
             -e "ssh -i ~/.ssh/deploy_key" \
-            ./ "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/talentos/"
+            ./ "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/squadpipe/"
 
       - name: Build, restart containers & run migrations on EC2
         run: |
           ssh -i ~/.ssh/deploy_key "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" << 'EOF'
             set -e
-            cd ~/talentos
+            cd ~/squadpipe
             docker compose -f docker-compose.yml --profile in_house up -d --build
-            docker compose -f docker-compose.yml exec -T backend npx prisma migrate resolve --rolled-back 20261115023800_make_requirement_status_dynamic || true
             docker compose -f docker-compose.yml exec -T backend npx prisma migrate deploy
           EOF
 

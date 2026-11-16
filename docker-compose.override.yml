@@ -4,23 +4,23 @@ version: '3.8'
 services:
   backend:
     build:
-      context: ./talentos-backend
+      context: ./backend
       dockerfile: Dockerfile.dev
     volumes:
-      - ./talentos-backend/src:/app/src
-      - ./talentos-backend/prisma:/app/prisma
+      - ./backend/src:/app/src
+      - ./backend/prisma:/app/prisma
     command: npm run dev
 
   frontend:
     build:
-      context: ./talentos-frontend
+      context: ./frontend
       dockerfile: Dockerfile.dev
     volumes:
-      - ./talentos-frontend/src:/app/src
+      - ./frontend/src:/app/src
     command: npm run dev -- --host 0.0.0.0 --port 80
 
   resume-parser:
     volumes:
-      - ./talentos-resume-parser/app:/app/app
+      - ./resume-parser/app:/app/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 

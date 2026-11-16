@@ -6,23 +6,23 @@ services:
   # ============================================================================
   postgres:
     image: postgres:16-alpine
-    container_name: talentos-postgres
+    container_name: squadpipe-postgres
     restart: unless-stopped
     profiles:
       - in_house
     environment:
-      POSTGRES_USER: ${DB_USER:-talentos_admin}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-talentos_secure_password_2026}
-      POSTGRES_DB: ${DB_NAME:-talentos_crm}
+      POSTGRES_USER: ${DB_USER:-squadpipe_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-squadpipe_secure_password_2026}
+      POSTGRES_DB: ${DB_NAME:-squadpipe_crm}
     ports:
       - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
     networks:
-      - talentos-network
+      - squadpipe-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-talentos_admin} -d ${DB_NAME:-talentos_crm}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-squadpipe_admin} -d ${DB_NAME:-squadpipe_crm}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -32,9 +32,9 @@ services:
   # ============================================================================
   resume-parser:
     build:
-      context: ./talentos-resume-parser
+      context: ./resume-parser
       dockerfile: Dockerfile
-    container_name: talentos-resume-parser
+    container_name: squadpipe-resume-parser
     restart: unless-stopped
     ports:
       - "127.0.0.1:${PARSER_PORT:-8000}:8000"
@@ -44,7 +44,7 @@ services:
       - CORS_ORIGINS=${PARSER_CORS_ORIGINS:-http://localhost:3000,http://localhost:5001}
       - INTERNAL_API_KEY=${RESUME_PARSER_API_KEY:-}
     networks:
-      - talentos-network
+      - squadpipe-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
@@ -56,9 +56,9 @@ services:
   # ============================================================================
   backend:
     build:
-      context: ./talentos-backend
+      context: ./backend
       dockerfile: Dockerfile
-    container_name: talentos-backend
+    container_name: squadpipe-backend
     restart: unless-stopped
     ports:
       - "${BACKEND_PORT:-5001}:5000"
@@ -68,10 +68,10 @@ services:
       - DB_LOCATION=${DB_LOCATION:-in_house}
       - DB_HOST=${DB_HOST:-postgres}
       - DB_PORT=${DB_PORT:-5432}
-      - DB_USER=${DB_USER:-talentos_admin}
-      - DB_PASSWORD=${DB_PASSWORD:-talentos_secure_password_2026}
-      - DB_NAME=${DB_NAME:-talentos_crm}
-      - DATABASE_URL=postgresql://${DB_USER:-talentos_admin}:${DB_PASSWORD:-talentos_secure_password_2026}@${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-talentos_crm}
+      - DB_USER=${DB_USER:-squadpipe_admin}
+      - DB_PASSWORD=${DB_PASSWORD:-squadpipe_secure_password_2026}
+      - DB_NAME=${DB_NAME:-squadpipe_crm}
+      - DATABASE_URL=postgresql://${DB_USER:-squadpipe_admin}:${DB_PASSWORD:-squadpipe_secure_password_2026}@${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-squadpipe_crm}
       - EXTERNAL_DATABASE_URL=${EXTERNAL_DATABASE_URL}
       - EXTERNAL_DB_HOST=${EXTERNAL_DB_HOST}
       - EXTERNAL_DB_PORT=${EXTERNAL_DB_PORT}
@@ -114,18 +114,18 @@ services:
       - CLOUDFLARE_R2_ENDPOINT=${CLOUDFLARE_R2_ENDPOINT:-}
       - CLOUDFLARE_R2_PREFIX=${CLOUDFLARE_R2_PREFIX:-}
     volumes:
-      - ./talentos-backend/uploads:/app/uploads
+      - ./backend/uploads:/app/uploads
     networks:
-      - talentos-network
+      - squadpipe-network
 
   # ============================================================================
   # 4. React + Vite Frontend (Web Dashboard & CRM UI)
   # ============================================================================
   frontend:
     build:
-      context: ./talentos-frontend
+      context: ./frontend
       dockerfile: Dockerfile
-    container_name: talentos-frontend
+    container_name: squadpipe-frontend
     restart: unless-stopped
     ports:
       - "${APP_PORT:-3000}:80"
@@ -134,10 +134,10 @@ services:
     depends_on:
       - backend
     networks:
-      - talentos-network
+      - squadpipe-network
 
 networks:
-  talentos-network:
+  squadpipe-network:
     driver: bridge
 
 volumes:

@@ -38,7 +38,7 @@ build/
 # Docker persistent local volume data
 docker/postgres_data/
 *.data/
-talentos-backend/uploads/
+backend/uploads/
 uploads/
 
 # Logs & Runtime
