@@ -883,8 +883,8 @@ export const App: React.FC = () => {
     }
   };
 
-  // Live permission & rate-masking synchronization (page load, tab focus, 60s active check, and API headers)
-  const SESSION_SYNC_INTERVAL_MS = 60_000;
+  // Live permission & rate-masking synchronization (page load, throttled tab focus, and API headers)
+  const SESSION_SYNC_COOLDOWN_MS = 60_000;
   const currentViewRef = React.useRef(currentView);
   currentViewRef.current = currentView;
   const currentUserRef = React.useRef(currentUser);
@@ -1031,24 +1031,18 @@ export const App: React.FC = () => {
       syncUserSession(false);
     }
 
-    const maybeLiteSync = () => {
-      if (document.visibilityState !== 'visible') return;
-      if (Date.now() - lastSessionSyncAtRef.current < SESSION_SYNC_INTERVAL_MS) return;
-      syncUserSession(true);
-    };
-
     const onVisibilityOrFocus = () => {
-      maybeLiteSync();
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastSessionSyncAtRef.current < SESSION_SYNC_COOLDOWN_MS) return;
+      syncUserSession(true);
     };
 
     document.addEventListener('visibilitychange', onVisibilityOrFocus);
     window.addEventListener('focus', onVisibilityOrFocus);
-    const intervalId = window.setInterval(maybeLiteSync, SESSION_SYNC_INTERVAL_MS);
 
     return () => {
       document.removeEventListener('visibilitychange', onVisibilityOrFocus);
       window.removeEventListener('focus', onVisibilityOrFocus);
-      window.clearInterval(intervalId);
     };
   }, [authToken, syncUserSession]);
 
