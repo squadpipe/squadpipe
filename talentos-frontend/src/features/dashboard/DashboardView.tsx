@@ -14,7 +14,6 @@ import {
   Send,
   Trash2,
   UserCheck,
-  Users,
   X,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
@@ -23,7 +22,6 @@ import {
   Candidate,
   BillablePlacement,
   SlaTask,
-  RecruiterPerformanceRow,
 } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { TablePagination } from '../../components/shared/TablePagination';
@@ -89,38 +87,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [reqToDelete, setReqToDelete] = useState<Requirement | null>(null);
   const [isUpdatingReq, setIsUpdatingReq] = useState(false);
   const [isDeletingReq, setIsDeletingReq] = useState(false);
-  const [perfPeriod, setPerfPeriod] = useState<'week' | 'month' | 'all'>('week');
-  const [perfRows, setPerfRows] = useState<RecruiterPerformanceRow[]>([]);
-  const [perfTotals, setPerfTotals] = useState({ openReqs: 0, submissions: 0, interviews: 0, placements: 0 });
-  const [isLoadingPerf, setIsLoadingPerf] = useState(false);
 
   const taxonomies = useMasterTaxonomies(true);
   const reqStageOptions = buildRequirementStageOptions(taxonomies.stages);
   const debouncedSearch = useDebounce(tableSearch, 150);
-
-  useEffect(() => {
-    let active = true;
-    setIsLoadingPerf(true);
-    apiClient
-      .get('/dashboard/recruiter-performance', { params: { period: perfPeriod } })
-      .then((res) => {
-        if (!active) return;
-        const data = res.data?.data;
-        if (data && Array.isArray(data.team)) {
-          setPerfRows(data.team);
-          if (data.totals) setPerfTotals(data.totals);
-        }
-      })
-      .catch(() => {
-        if (!active) return;
-      })
-      .finally(() => {
-        if (active) setIsLoadingPerf(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [perfPeriod, requirements.length, placements.length]);
 
   useEffect(() => {
     setPage(1);
@@ -736,116 +706,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               ))
             )}
           </div>
-        </div>
-      </div>
-
-      {/* Per-Recruiter Performance & Weekly Accountability */}
-      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-brand-600" />
-            <div>
-              <h3 className="font-semibold text-xs text-slate-900">
-                Recruiter Performance &amp; Activity
-              </h3>
-              <p className="text-[11px] text-slate-500">
-                Submissions, interviews, and placements by recruiter.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 self-start sm:self-auto">
-            {([
-              { id: 'week', label: 'This Week' },
-              { id: 'month', label: 'This Month' },
-              { id: 'all', label: 'All Time' },
-            ] as const).map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setPerfPeriod(opt.id)}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
-                  perfPeriod === opt.id
-                    ? 'bg-white text-slate-900 shadow-2xs font-semibold'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="max-h-[420px] overflow-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[10.5px] font-semibold text-slate-500 uppercase tracking-wider">
-              <tr>
-                <th className="px-4 py-2.5">Recruiter</th>
-                <th className="px-4 py-2.5">Desk</th>
-                <th className="px-4 py-2.5 text-right">Open Reqs</th>
-                <th className="px-4 py-2.5 text-right">Submissions</th>
-                <th className="px-4 py-2.5 text-right">Interviews</th>
-                <th className="px-4 py-2.5 text-right">Placements</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
-              {isLoadingPerf && perfRows.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-xs text-slate-400">
-                    Loading recruiter activity...
-                  </td>
-                </tr>
-              ) : perfRows.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-xs text-slate-400">
-                    No team members found in this workspace yet.
-                  </td>
-                </tr>
-              ) : (
-                perfRows.map((row) => (
-                  <tr key={row.userId} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-4 py-2.5 font-semibold text-slate-900 whitespace-nowrap">
-                      {row.fullName}
-                    </td>
-                    <td className="px-4 py-2.5 text-[11px] text-slate-500 whitespace-nowrap">
-                      {row.desk}
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-medium text-slate-700">
-                      {row.openReqs}
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-amber-500/[0.08] text-amber-800 font-semibold text-[11px]">
-                        {row.submissions}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-brand-500/[0.08] text-brand-800 font-semibold text-[11px]">
-                        {row.interviews}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/[0.1] text-emerald-800 font-semibold text-[11px]">
-                        {row.placements}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-            {perfRows.length > 0 && (
-              <tfoot className="bg-slate-50/80 border-t border-slate-200 font-semibold text-slate-800 text-[11px]">
-                <tr>
-                  <td className="px-4 py-2" colSpan={2}>
-                    Agency Total
-                  </td>
-                  <td className="px-4 py-2 text-right">{perfTotals.openReqs}</td>
-                  <td className="px-4 py-2 text-right">{perfTotals.submissions}</td>
-                  <td className="px-4 py-2 text-right">{perfTotals.interviews}</td>
-                  <td className="px-4 py-2 text-right">{perfTotals.placements}</td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
         </div>
       </div>
 
