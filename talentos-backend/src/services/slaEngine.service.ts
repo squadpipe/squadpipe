@@ -321,15 +321,15 @@ export class SlaEngineService {
         const minRuleDays = Math.min(
           ...triggeredRules.map((r) => this.parseThresholdDays(r.threshold, fallbackDays))
         );
-        const issueLabel = !v.msaSigned ? 'Unsigned MSA' : `COI Expiring (<${minRuleDays}d)`;
+        const issueLabel = !v.msaSigned ? 'Agreement Pending' : `Insurance Expiring (<${minRuleDays}d)`;
         const task = await prisma.slaTask.create({
           data: {
             tenantId,
             category: SlaCategory.COMPLIANCE_ALERT,
             slaRuleTag: issueLabel,
             badgeClass: 'bg-emerald-500/[0.08] text-emerald-800 border-transparent',
-            title: `${v.name}: Vendor Compliance Alert (${issueLabel})`,
-            description: `Sub-tier vendor ${v.name} (${v.contactName}) requires compliance verification.`,
+            title: `${v.name}: Vendor check needed (${issueLabel})`,
+            description: `Partner vendor ${v.name} (${v.contactName}) needs agreement or insurance verification.`,
             meta: `Terms: ${v.paymentTerms} • Email: ${v.email}`,
             actionType: SlaActionType.CHECKLIST,
             actionLabel: 'Review Vendor',

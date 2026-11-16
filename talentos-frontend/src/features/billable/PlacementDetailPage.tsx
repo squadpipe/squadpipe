@@ -758,6 +758,7 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
       </div>
 
       <PlacementModals
+        vendors={vendors}
         extendingPlacement={extendingPlacement}
         onCloseExtend={() => setExtendingPlacement(null)}
         onExtendContract={onExtendContract}

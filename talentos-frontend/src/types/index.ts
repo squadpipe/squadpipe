@@ -36,6 +36,8 @@ export interface Candidate {
   resumeFileUrl?: string;
   assignedRecruiter: string;
   pipelineStage: string;
+  vendorId?: string;
+  vendorName?: string;
   rawSnippet?: string;
   customFields?: Record<string, any>;
 }
@@ -78,6 +80,7 @@ export interface Vendor {
   paymentTerms: string;
   invoicingTerms: string;
   msa: string;
+  coiExpiryDate?: string;
   contacts?: VendorContact[];
   customFields?: Record<string, any>;
 }

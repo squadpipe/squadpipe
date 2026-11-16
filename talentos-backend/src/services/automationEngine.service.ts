@@ -69,17 +69,17 @@ export const DEFAULT_TENANT_RULES: Array<{
     ],
   },
   {
-    name: 'Vendor COI & MSA Compliance Check',
+    name: 'Vendor Agreement & Insurance',
     category: AutomationCategory.COMPLIANCE,
     triggerEvent: TriggerEvent.VISA_EXPIRING,
     icon: 'fa-solid fa-shield-halved',
     color: 'emerald',
     threshold: '30 Days',
-    whenText: 'Sub-tier vendor MSA is unsigned or COI expires within',
-    thenSummary: 'Flag vendor compliance alert in Priority Action Queue',
+    whenText: 'Partner vendor agreement is pending or insurance expires within',
+    thenSummary: 'Add a follow-up reminder to your Action Center',
     actions: [
-      { label: 'Compliance Queue Flag', icon: 'fa-solid fa-certificate', color: 'emerald' },
-      { label: 'Account Lead Notice', icon: 'fa-solid fa-paper-plane', color: 'blue' },
+      { label: 'Vendor Check', icon: 'fa-solid fa-certificate', color: 'emerald' },
+      { label: 'Follow-Up Reminder', icon: 'fa-solid fa-bell', color: 'blue' },
     ],
   },
 ];

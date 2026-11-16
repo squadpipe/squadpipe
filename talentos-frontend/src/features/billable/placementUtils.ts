@@ -1,4 +1,4 @@
-import { BillablePlacement } from '../../types';
+import { BillablePlacement, Vendor } from '../../types';
 import { StatusTone } from '../../components/shared/StatusBadge';
 
 export interface ExtensionData {
@@ -91,3 +91,27 @@ export const getContractTimelineMetrics = (
   const progressPct = Math.min(100, Math.max(0, Math.round((elapsedDays / totalDays) * 100)));
   return { totalDays, elapsedDays, progressPct };
 };
+
+export const getVendorComplianceWarning = (vendor?: Vendor | null): string | null => {
+  if (!vendor) return null;
+  const issues: string[] = [];
+  const isMsaSigned = vendor.msa === 'Yes' || vendor.msa === 'Active';
+  if (!isMsaSigned) {
+    issues.push('vendor agreement is still marked Pending Review');
+  }
+  if (vendor.coiExpiryDate) {
+    const daysLeft = getDaysRemaining(vendor.coiExpiryDate);
+    if (daysLeft !== null && daysLeft < 0) {
+      issues.push(`insurance expired on ${vendor.coiExpiryDate}`);
+    } else if (daysLeft !== null && daysLeft <= 30) {
+      issues.push(
+        daysLeft === 0
+          ? 'insurance expires today'
+          : `insurance expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`
+      );
+    }
+  }
+  if (issues.length === 0) return null;
+  return `Heads up: ${vendor.name}'s ${issues.join(' and ')}.`;
+};
+

@@ -13,6 +13,7 @@ export interface CandidateFilterParams {
   search?: string;
   stage?: string;
   workAuth?: string;
+  vendorId?: string;
   minRate?: number;
   maxRate?: number;
   page?: number;
@@ -38,7 +39,7 @@ export function parseCandidateSearchTokens(search?: string): string[] {
 }
 
 export function buildCandidateWhereClause(params: CandidateFilterParams): Prisma.CandidateWhereInput {
-  const { search, stage, workAuth, minRate, maxRate, tenantId } = params;
+  const { search, stage, workAuth, vendorId, minRate, maxRate, tenantId } = params;
   const where: Prisma.CandidateWhereInput = {};
 
   if (tenantId) {
@@ -57,6 +58,7 @@ export function buildCandidateWhereClause(params: CandidateFilterParams): Prisma
         { rawSnippet: { contains: token, mode: 'insensitive' } },
         { email: { contains: token, mode: 'insensitive' } },
         { phone: { contains: token, mode: 'insensitive' } },
+        { vendor: { name: { contains: token, mode: 'insensitive' } } },
       ],
     });
   }
@@ -84,6 +86,9 @@ export function buildCandidateWhereClause(params: CandidateFilterParams): Prisma
   if (workAuth && workAuth !== 'ALL' && workAuth !== 'All') {
     where.workAuth = { contains: String(workAuth).trim(), mode: 'insensitive' };
   }
+  if (vendorId && vendorId !== 'ALL' && vendorId !== 'All') {
+    where.vendorId = vendorId;
+  }
 
   return where;
 }
@@ -105,20 +110,51 @@ export const stageMap: Record<string, CandidatePipelineStage> = {
   'ARCHIVED': CandidatePipelineStage.ARCHIVED
 };
 
+const CANDIDATE_DEFAULT_INCLUDE = {
+  assignedRecruiter: {
+    select: { id: true, fullName: true, role: true, desk: true },
+  },
+  vendor: {
+    select: { id: true, name: true, msaSigned: true, coiExpiryDate: true },
+  },
+} satisfies Prisma.CandidateInclude;
+
 export class CandidateService {
   private buildWhereClause(params: CandidateFilterParams): Prisma.CandidateWhereInput {
     return buildCandidateWhereClause(params);
+  }
+
+  private async resolveTenantVendorId(
+    tenantId: string,
+    raw: any
+  ): Promise<string | null | undefined> {
+    if (raw.vendorId === undefined && raw.vendorName === undefined) {
+      return undefined;
+    }
+    const rawId = typeof raw.vendorId === 'string' ? raw.vendorId.trim() : raw.vendorId;
+    if (rawId) {
+      const existingVendor = await prisma.vendor.findFirst({
+        where: { id: String(rawId), tenantId },
+        select: { id: true },
+      });
+      return existingVendor?.id ?? null;
+    }
+    const rawName = typeof raw.vendorName === 'string' ? raw.vendorName.trim() : '';
+    if (rawName) {
+      const matchedVendor = await prisma.vendor.findFirst({
+        where: { tenantId, name: { equals: rawName, mode: 'insensitive' } },
+        select: { id: true },
+      });
+      return matchedVendor?.id ?? null;
+    }
+    return null;
   }
 
   async getCandidates(params: CandidateFilterParams) {
     const where = this.buildWhereClause(params);
     return prisma.candidate.findMany({
       where,
-      include: {
-        assignedRecruiter: {
-          select: { id: true, fullName: true, role: true, desk: true }
-        }
-      },
+      include: CANDIDATE_DEFAULT_INCLUDE,
       orderBy: { createdAt: 'desc' }
     });
   }
@@ -129,11 +165,7 @@ export class CandidateService {
     const page = params.page ? Math.max(1, params.page) : 1;
     const limit = params.limit ? Math.max(1, Math.min(100, params.limit)) : 10;
 
-    const include = {
-      assignedRecruiter: {
-        select: { id: true, fullName: true, role: true, desk: true }
-      }
-    };
+    const include = CANDIDATE_DEFAULT_INCLUDE;
 
     if (!hasPagination) {
       const data = await prisma.candidate.findMany({
@@ -180,6 +212,9 @@ export class CandidateService {
       where,
       include: {
         assignedRecruiter: true,
+        vendor: {
+          select: { id: true, name: true, msaSigned: true, coiExpiryDate: true },
+        },
         submissions: { include: { requirement: true } },
         placements: true
       }
@@ -234,6 +269,8 @@ export class CandidateService {
       if (matchedUser) resolvedRecruiterId = matchedUser.id;
     }
 
+    const resolvedVendorId = await this.resolveTenantVendorId(tenantId, raw);
+
     try {
       return await prisma.candidate.create({
         data: {
@@ -256,12 +293,9 @@ export class CandidateService {
           pipelineStage: mappedStage,
           ...(customFields !== undefined ? { customFields } : {}),
           assignedRecruiterId: resolvedRecruiterId,
+          ...(resolvedVendorId ? { vendorId: resolvedVendorId } : {}),
         },
-        include: {
-          assignedRecruiter: {
-            select: { id: true, fullName: true, role: true, desk: true },
-          },
-        },
+        include: CANDIDATE_DEFAULT_INCLUDE,
       });
     } catch (error: any) {
       if (storedCv?.storageUri) {
@@ -324,6 +358,13 @@ export class CandidateService {
       data.hourlyRateC2c = isC2C ? rateDigits : null;
     }
 
+    const resolvedVendorId = await this.resolveTenantVendorId(existing.tenantId, raw);
+    if (resolvedVendorId !== undefined) {
+      data.vendor = resolvedVendorId
+        ? { connect: { id: resolvedVendorId } }
+        : { disconnect: true };
+    }
+
     let storedCv: StoredCvMetadata | null = null;
     if (cvFile) {
       storedCv = await cvStorageService.uploadCv(cvFile, existing.tenantId);
@@ -336,11 +377,7 @@ export class CandidateService {
       const updated = await prisma.candidate.update({
         where: { id },
         data,
-        include: {
-          assignedRecruiter: {
-            select: { id: true, fullName: true, role: true, desk: true },
-          },
-        },
+        include: CANDIDATE_DEFAULT_INCLUDE,
       });
 
       if (storedCv && existing.resumeFileUrl && existing.resumeFileUrl !== storedCv.storageUri) {

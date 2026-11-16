@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Check, ChevronDown, DollarSign, Lock, Search, X, UserCheck } from 'lucide-react';
+import { AlertTriangle, Check, ChevronDown, DollarSign, Lock, Search, X, UserCheck } from 'lucide-react';
 import { BillablePlacement, Requirement, Candidate, Vendor } from '../../types';
 import { useCurrency } from '../../utils/currency';
 import { getStageBadgeClass } from '../../utils/stageStyles';
 import { SearchableSelectInput } from '../../components/shared/SearchableSelectInput';
 import { CustomSelect } from '../../components/shared/CustomSelect';
+import { getVendorComplianceWarning } from '../billable/placementUtils';
 
 interface PlacementWizardModalProps {
   isOpen: boolean;
@@ -92,6 +93,12 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
         requirement?.targetPayRate ||
         (matchedCandidate?.hourlyRate ? parseNum(matchedCandidate.hourlyRate, 0) : 0);
 
+      const candVendor =
+        (matchedCandidate?.vendorId
+          ? vendors.find((v) => v.id === matchedCandidate.vendorId)
+          : undefined) ||
+        (matchedCandidate?.vendorName ? { name: matchedCandidate.vendorName } : undefined);
+
       setFormData({
         candidateId: matchedCandidate?.id || (reqSubCandIds.size === 1 ? Array.from(reqSubCandIds)[0] : ''),
         resourceName: matchedCandidate?.fullName || preferredSub?.fullName || requirement?.resourceName || '',
@@ -105,13 +112,13 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
         endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
         billRate: requirement?.targetBillRate || 0,
         payRate: resolvedPay,
-        placementType: 'W2 Hourly',
-        vendorName: '',
+        placementType: candVendor ? 'C2C Subcontractor' : 'W2 Hourly',
+        vendorName: candVendor?.name || '',
         purchaseOrderNumber: '',
         recruiter: getRecruiterStr(requirement?.assignedRecruiter || matchedCandidate?.assignedRecruiter),
       });
     }
-  }, [isOpen, candidate, requirement, candidates]);
+  }, [isOpen, candidate, requirement, candidates, vendors]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -146,6 +153,9 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
       return;
     }
     const candPay = sel.hourlyRate ? parseNum(sel.hourlyRate, 0) : 0;
+    const candVendor =
+      (sel.vendorId ? vendors.find((v) => v.id === sel.vendorId) : undefined) ||
+      (sel.vendorName ? { name: sel.vendorName } : undefined);
     setFormData((prev) => ({
       ...prev,
       candidateId: sel.id,
@@ -155,6 +165,8 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
       skillRole: prev.skillRole || sel.currentTitle || '',
       payRate: candPay > 0 ? candPay : prev.payRate,
       recruiter: prev.recruiter || getRecruiterStr(sel.assignedRecruiter),
+      placementType: candVendor ? 'C2C Subcontractor' : prev.placementType,
+      vendorName: candVendor ? candVendor.name : prev.vendorName,
     }));
   };
 
@@ -547,6 +559,18 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
                   wrapperClassName="mt-1"
                   inputClassName="w-full pl-3 pr-7 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 focus:border-brand-600 focus:outline-none"
                 />
+                {(() => {
+                  const selectedVen = vendors.find(
+                    (v) => v.name.trim().toLowerCase() === formData.vendorName.trim().toLowerCase()
+                  );
+                  const warning = getVendorComplianceWarning(selectedVen);
+                  return warning ? (
+                    <div className="mt-1.5 flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                      <span>{warning}</span>
+                    </div>
+                  ) : null;
+                })()}
               </div>
             )}
             <div className={formData.placementType === 'C2C Subcontractor' ? '' : 'md:col-span-2'}>

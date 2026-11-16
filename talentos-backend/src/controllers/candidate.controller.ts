@@ -3,7 +3,7 @@ import { candidateService } from '../services/candidate.service';
 
 export const getCandidates = async (req: Request, res: Response) => {
   try {
-    const { search, stage, workAuth, minRate, maxRate, page, limit } = req.query;
+    const { search, stage, workAuth, vendorId, minRate, maxRate, page, limit } = req.query;
     const tenantId = req.user?.tenantId || 'talentos-agency';
     const parsedPage = page ? Math.max(1, parseInt(String(page), 10) || 1) : undefined;
     const parsedLimit = limit ? Math.max(1, Math.min(100, parseInt(String(limit), 10) || 10)) : undefined;
@@ -23,6 +23,7 @@ export const getCandidates = async (req: Request, res: Response) => {
       search: search ? String(search) : undefined,
       stage: stage ? String(stage) : undefined,
       workAuth: workAuth ? String(workAuth) : undefined,
+      vendorId: vendorId ? String(vendorId) : undefined,
       minRate: parsedMinRate !== undefined && Number.isFinite(parsedMinRate) ? parsedMinRate : undefined,
       maxRate: parsedMaxRate !== undefined && Number.isFinite(parsedMaxRate) ? parsedMaxRate : undefined,
       page: parsedPage,

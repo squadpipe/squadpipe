@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Loader2, Plus, Trash2, Upload, UserPlus, X } from 'lucide-react';
-import { Candidate, User } from '../../../types';
+import { Candidate, User, Vendor } from '../../../types';
 import { DynamicCustomFieldsSection, useMasterTaxonomies } from '../../shared/DynamicCustomFieldsSection';
 import { CustomSelect } from '../../shared/CustomSelect';
 import { useCurrency } from '../../../utils/currency';
@@ -11,6 +11,7 @@ interface AddConsultantModalProps {
   onClose: () => void;
   onSave: (candidate: Candidate, cvFile?: File | null) => Promise<void> | void;
   users?: User[];
+  vendors?: Vendor[];
   showToast: (title: string, message: string, icon?: string) => void;
 }
 
@@ -19,6 +20,7 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
   onClose,
   onSave,
   users = [],
+  vendors = [],
   showToast,
 }) => {
   const { symbol: currencySymbol } = useCurrency();
@@ -38,6 +40,7 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
     skillset: '',
     recruiter: users[0]?.name || '',
     pipelineStage: 'Available / Bench',
+    vendorId: '',
   });
   const [form, setForm] = useState(getInitialForm);
 
@@ -71,6 +74,10 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
       return;
     }
 
+    const selectedVendor = form.vendorId
+      ? vendors.find((v) => v.id === form.vendorId)
+      : undefined;
+
     const cvName = selectedCvFile?.name || `${form.fullName.trim().replace(/\s+/g, '_')}_Resume.pdf`;
     const newCandidate: Candidate = {
       id: 'cand_' + Date.now(),
@@ -85,6 +92,8 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
       skillset: form.skillset.trim(),
       assignedRecruiter: form.recruiter,
       pipelineStage: form.pipelineStage,
+      vendorId: selectedVendor?.id || undefined,
+      vendorName: selectedVendor?.name || undefined,
       resumeName: cvName,
       resumeFormat: cvName.toLowerCase().endsWith('.docx') ? 'DOCX' : 'PDF',
       customFields: customValues,
@@ -259,7 +268,7 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Assigned Desk Recruiter</label>
                 <CustomSelect
@@ -288,6 +297,21 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
                     'Onboarding',
                     'Billable',
                     'Archived',
+                  ]}
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Partner Vendor <span className="text-slate-400 font-normal">(If C2C)</span>
+                </label>
+                <CustomSelect
+                  value={form.vendorId}
+                  onChange={(val) => setForm({ ...form, vendorId: val })}
+                  ariaLabel="Partner Vendor"
+                  size="sm"
+                  options={[
+                    { value: '', label: 'Direct / Own Bench' },
+                    ...vendors.map((v) => ({ value: v.id, label: v.name })),
                   ]}
                 />
               </div>

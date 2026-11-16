@@ -1,13 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, CalendarPlus, CalendarX, X } from 'lucide-react';
-import { BillablePlacement } from '../../types';
+import { BillablePlacement, Vendor } from '../../types';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { CustomSelect } from '../../components/shared/CustomSelect';
+import { SearchableSelectInput } from '../../components/shared/SearchableSelectInput';
 import { DynamicCustomFieldsSection } from '../../components/shared/DynamicCustomFieldsSection';
 import { useCurrency } from '../../utils/currency';
-import { addMonthsToDate, ExtensionData, parseRate } from './placementUtils';
+import {
+  addMonthsToDate,
+  ExtensionData,
+  getVendorComplianceWarning,
+  parseRate,
+} from './placementUtils';
 
 interface PlacementModalsProps {
+  vendors?: Vendor[];
   extendingPlacement: BillablePlacement | null;
   onCloseExtend: () => void;
   onExtendContract?: (placement: BillablePlacement, extensionData: ExtensionData) => Promise<void> | void;
@@ -26,6 +33,7 @@ interface PlacementModalsProps {
 }
 
 export const PlacementModals: React.FC<PlacementModalsProps> = ({
+  vendors = [],
   extendingPlacement,
   onCloseExtend,
   onExtendContract,
@@ -305,7 +313,20 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
                 if (isSavingPlacement) return;
                 setIsSavingPlacement(true);
                 try {
-                  if (onUpdatePlacement) await onUpdatePlacement(editDraft);
+                  if (onUpdatePlacement) {
+                    const isC2C = (editDraft.placementType || 'C2C Subcontractor') === 'C2C Subcontractor';
+                    const cleanedVendorName = isC2C ? (editDraft.vendorName || '').trim() : '';
+                    const matchedVen = cleanedVendorName
+                      ? vendors.find(
+                          (v) => v.name.trim().toLowerCase() === cleanedVendorName.toLowerCase()
+                        )
+                      : undefined;
+                    await onUpdatePlacement({
+                      ...editDraft,
+                      vendorId: isC2C ? matchedVen?.id || '' : '',
+                      vendorName: isC2C ? cleanedVendorName || undefined : undefined,
+                    });
+                  }
                   onCloseEdit();
                 } catch {
                   // Error toast is already displayed by parent handler; keep modal open
@@ -395,12 +416,61 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Placement Model</label>
                   <CustomSelect
                     value={editDraft.placementType || 'C2C Subcontractor'}
-                    onChange={(val) => setEditDraft({ ...editDraft, placementType: val })}
+                    onChange={(val) =>
+                      setEditDraft({
+                        ...editDraft,
+                        placementType: val,
+                        ...(val !== 'C2C Subcontractor' ? { vendorId: '', vendorName: '' } : {}),
+                      })
+                    }
                     ariaLabel="Placement Model"
                     options={['C2C Subcontractor', 'W2 Hourly', '1099', 'Full-Time']}
                   />
                 </div>
               </div>
+
+              {(editDraft.placementType || 'C2C Subcontractor') === 'C2C Subcontractor' && (
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Sub-Vendor Partner
+                  </label>
+                  <SearchableSelectInput
+                    value={editDraft.vendorName || ''}
+                    onChange={(val) => {
+                      const matched = vendors.find(
+                        (v) => v.name.trim().toLowerCase() === val.trim().toLowerCase()
+                      );
+                      setEditDraft({
+                        ...editDraft,
+                        vendorName: val,
+                        vendorId: matched?.id || '',
+                      });
+                    }}
+                    options={vendors.map((v) => ({
+                      id: v.id,
+                      label: v.name,
+                      sublabel: v.location,
+                    }))}
+                    placeholder="Select or type sub-vendor..."
+                    wrapperClassName=""
+                    inputClassName="w-full pl-3 pr-7 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  />
+                  {(() => {
+                    const matched = vendors.find(
+                      (v) =>
+                        v.name.trim().toLowerCase() ===
+                        (editDraft.vendorName || '').trim().toLowerCase()
+                    );
+                    const warning = getVendorComplianceWarning(matched);
+                    return warning ? (
+                      <div className="mt-1.5 flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                        <span>{warning}</span>
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+              )}
 
               <div className="grid grid-cols-3 gap-3">
                 <div>

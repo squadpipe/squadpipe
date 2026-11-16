@@ -13,7 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
-import { BillablePlacement, Candidate } from '../../types';
+import { BillablePlacement, Candidate, Vendor } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
@@ -33,6 +33,7 @@ import {
 interface ConsultantsViewProps {
   candidates: Candidate[];
   placements?: BillablePlacement[];
+  vendors?: Vendor[];
   rateMasked: boolean;
   onOpenResumeParser: () => void;
   onPreviewResume: (candidate: Candidate, startEditing?: boolean) => void;
@@ -47,6 +48,7 @@ interface ConsultantsViewProps {
 export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
   candidates,
   placements = [],
+  vendors = [],
   rateMasked,
   onOpenResumeParser,
   onPreviewResume,
@@ -654,6 +656,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
         <EditConsultantModal
           candidate={editingCandidate}
           isOpen={Boolean(editingCandidate)}
+          vendors={vendors}
           rateMasked={rateMasked}
           onClose={() => setEditingCandidate(null)}
           onUpdateCandidate={onUpdateCandidate}

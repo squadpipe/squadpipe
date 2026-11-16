@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { FileText, Pencil, Upload, X } from 'lucide-react';
-import { Candidate } from '../../../types';
+import { Candidate, Vendor } from '../../../types';
 import { ALLOWED_CV_ACCEPT, validateCvFileSelection } from '../../../utils/cvFiles';
 import { ActionButton } from '../../shared/ActionButton';
 import { SkillTagInput } from '../../shared/SkillTagInput';
@@ -24,6 +24,7 @@ const PIPELINE_STAGE_OPTIONS = [
 interface EditConsultantModalProps {
   candidate: Candidate | null;
   isOpen: boolean;
+  vendors?: Vendor[];
   rateMasked?: boolean;
   onClose: () => void;
   onUpdateCandidate: (candidate: Candidate, cvFile?: File | null) => Promise<void> | void;
@@ -32,6 +33,7 @@ interface EditConsultantModalProps {
 export const EditConsultantModal: React.FC<EditConsultantModalProps> = ({
   candidate,
   isOpen,
+  vendors = [],
   rateMasked = false,
   onClose,
   onUpdateCandidate,
@@ -232,14 +234,37 @@ export const EditConsultantModal: React.FC<EditConsultantModalProps> = ({
               </div>
             </div>
 
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Key Skillset
-              </label>
-              <SkillTagInput
-                value={editForm.skillset}
-                onChange={(nextCsv) => setEditForm({ ...editForm, skillset: nextCsv })}
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                  Partner Vendor <span className="text-slate-400 font-normal">(Optional)</span>
+                </label>
+                <CustomSelect
+                  value={editForm.vendorId || ''}
+                  onChange={(val) => {
+                    const matched = vendors.find((v) => v.id === val);
+                    setEditForm({
+                      ...editForm,
+                      vendorId: val || '',
+                      vendorName: matched?.name || '',
+                    });
+                  }}
+                  ariaLabel="Partner Vendor"
+                  options={[
+                    { value: '', label: 'Direct / Own Bench (No Vendor)' },
+                    ...vendors.map((v) => ({ value: v.id, label: v.name })),
+                  ]}
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                  Key Skillset
+                </label>
+                <SkillTagInput
+                  value={editForm.skillset}
+                  onChange={(nextCsv) => setEditForm({ ...editForm, skillset: nextCsv })}
+                />
+              </div>
             </div>
 
             {/* Original CV Upload / Replace Dropzone */}

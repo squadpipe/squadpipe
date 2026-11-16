@@ -13,6 +13,8 @@ export const CandidateCreateSchema = z.object({
   hourlyRateDisplay: z.string().optional(),
   relocation: z.string().default('Yes'),
   assignedRecruiterId: z.string().optional(),
+  vendorId: z.string().optional().nullable(),
+  vendorName: z.string().optional().nullable(),
 });
 
 export type CandidateCreateInput = z.infer<typeof CandidateCreateSchema>;

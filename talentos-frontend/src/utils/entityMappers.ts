@@ -255,6 +255,8 @@ export const mapCandidateFromApi = (c: any): Candidate => ({
   resumeFileUrl: c.resumeFileUrl || undefined,
   assignedRecruiter: c.assignedRecruiter?.fullName || c.assignedRecruiter || '',
   pipelineStage: formatCandidateStage(c.pipelineStage),
+  vendorId: c.vendorId || c.vendor?.id || undefined,
+  vendorName: c.vendor?.name || c.vendorName || undefined,
   rawSnippet: c.rawSnippet || '',
   customFields: c.customFields,
 });
@@ -311,6 +313,7 @@ export const mapVendorFromApi = (v: any): Vendor => {
     paymentTerms: v.paymentTerms || '',
     invoicingTerms: v.invoicingTerms || '',
     msa: v.msaSigned ? 'Active' : v.msa || 'Pending',
+    coiExpiryDate: v.coiExpiryDate ? safeIsoDate(v.coiExpiryDate) : undefined,
     contacts: mappedContacts,
     customFields: v.customFields,
   };

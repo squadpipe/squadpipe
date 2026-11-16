@@ -11,9 +11,10 @@ import {
   ShieldCheck,
   Star,
   Trash2,
+  UserCheck,
   Users,
 } from 'lucide-react';
-import { BillablePlacement, Vendor } from '../../types';
+import { BillablePlacement, Candidate, Vendor } from '../../types';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { TablePagination } from '../../components/shared/TablePagination';
@@ -23,14 +24,19 @@ import {
   buildInitialVendorContacts,
 } from '../../components/modals/edit/EditVendorModal';
 import { useClientPagination } from '../../utils/usePagination';
+import { useCurrency } from '../../utils/currency';
+import { getDaysRemaining, parseRate } from '../billable/placementUtils';
 
 interface VendorDetailPageProps {
   vendor: Vendor | null;
   backLabel?: string;
   onBack: () => void;
+  candidates?: Candidate[];
   placements?: BillablePlacement[];
   rateMasked?: boolean;
   initialEditing?: boolean;
+  onSelectCandidate?: (candidate: Candidate) => void;
+  onSelectPlacement?: (placement: BillablePlacement) => void;
   onUpdateVendor?: (vendor: Vendor) => Promise<void> | void;
   onDeleteVendor?: (vendor: Vendor) => Promise<void> | void;
 }
@@ -39,12 +45,16 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
   vendor,
   backLabel = 'Back to Vendors',
   onBack,
+  candidates = [],
   placements = [],
   rateMasked = false,
   initialEditing = false,
+  onSelectCandidate,
+  onSelectPlacement,
   onUpdateVendor,
   onDeleteVendor,
 }) => {
+  const { symbol: currencySymbol } = useCurrency();
   const [isEditing, setIsEditing] = useState(initialEditing);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -62,8 +72,16 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
           (p.vendorName && p.vendorName.trim().toLowerCase() === vendor.name.trim().toLowerCase())
       )
     : [];
+  const vendorCandidates = vendor
+    ? candidates.filter(
+        (c) =>
+          (c.vendorId && c.vendorId === vendor.id) ||
+          (c.vendorName && c.vendorName.trim().toLowerCase() === vendor.name.trim().toLowerCase())
+      )
+    : [];
   const contactList = vendor ? buildInitialVendorContacts(vendor) : [];
   const contactsPg = useClientPagination(contactList, 10, vendor?.id);
+  const candidatesPg = useClientPagination(vendorCandidates, 10, vendor?.id);
   const placementsPg = useClientPagination(vendorPlacements, 10, vendor?.id);
 
   if (!vendor) {
@@ -84,6 +102,13 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
 
   const isMsaExecuted = vendor.msa === 'Yes' || vendor.msa === 'Active';
   const primaryContact = contactList.find((c) => c.isPrimary) || contactList[0];
+  const activeVendorPlacements = vendorPlacements.filter(
+    (p) => p.status !== 'Completed' && p.status !== 'Terminated'
+  );
+  const monthlyVendorPayout = Math.round(
+    activeVendorPlacements.reduce((sum, p) => sum + parseRate(p.payRate, 0) * 160, 0)
+  );
+  const coiDaysRemaining = vendor.coiExpiryDate ? getDaysRemaining(vendor.coiExpiryDate) : null;
 
   const specializations = vendor.skillSpecialization
     ? vendor.skillSpecialization
@@ -272,6 +297,75 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
             )}
           </section>
 
+          {/* Supplied Consultants from this Vendor */}
+          <section className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
+            <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <UserCheck className="w-3.5 h-3.5 text-brand-600" />
+                <h2 className="font-bold text-slate-900">
+                  Supplied Consultants ({vendorCandidates.length})
+                </h2>
+              </div>
+            </div>
+            {vendorCandidates.length === 0 ? (
+              <div className="py-10 text-center text-slate-400">
+                No bench or pipeline consultants linked to this vendor yet.
+              </div>
+            ) : (
+              <>
+                <div className="max-h-[340px] overflow-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase">
+                      <tr>
+                        <th className="px-4 py-2.5">Consultant</th>
+                        <th className="px-4 py-2.5">Title</th>
+                        <th className="px-4 py-2.5">Work Auth</th>
+                        <th className="px-4 py-2.5">Target Rate</th>
+                        <th className="px-4 py-2.5 text-right">Stage</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {candidatesPg.pagedItems.map((c) => (
+                        <tr
+                          key={c.id}
+                          onClick={onSelectCandidate ? () => onSelectCandidate(c) : undefined}
+                          className={`group transition-colors ${
+                            onSelectCandidate ? 'hover:bg-slate-50/90 cursor-pointer' : 'hover:bg-slate-50/70'
+                          }`}
+                        >
+                          <td
+                            className={`px-4 py-3 font-semibold text-slate-900 whitespace-nowrap ${
+                              onSelectCandidate ? 'group-hover:text-brand-700 transition-colors' : ''
+                            }`}
+                          >
+                            {c.fullName}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">{c.currentTitle}</td>
+                          <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{c.workAuth}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <MaskedValue value={c.hourlyRate || '—'} isMasked={rateMasked} />
+                          </td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            <StatusBadge stage={c.pipelineStage} size="xs" />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <TablePagination
+                  page={candidatesPg.page}
+                  limit={candidatesPg.limit}
+                  total={candidatesPg.total}
+                  onPageChange={candidatesPg.setPage}
+                  onLimitChange={candidatesPg.setLimit}
+                  itemLabel="consultants"
+                  pageSizeOptions={[10, 20, 50]}
+                />
+              </>
+            )}
+          </section>
+
           {/* Vendor Placements */}
           <section className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
             <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
@@ -299,8 +393,18 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {placementsPg.pagedItems.map((p) => (
-                        <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">
+                        <tr
+                          key={p.id}
+                          onClick={onSelectPlacement ? () => onSelectPlacement(p) : undefined}
+                          className={`group transition-colors ${
+                            onSelectPlacement ? 'hover:bg-slate-50/90 cursor-pointer' : 'hover:bg-slate-50/70'
+                          }`}
+                        >
+                          <td
+                            className={`px-4 py-3 font-semibold text-slate-900 whitespace-nowrap ${
+                              onSelectPlacement ? 'group-hover:text-brand-700 transition-colors' : ''
+                            }`}
+                          >
                             {p.resourceName}
                           </td>
                           <td className="px-4 py-3 text-slate-700 whitespace-nowrap">
@@ -335,13 +439,46 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
           </section>
         </div>
 
-        {/* Right Sidebar: Commercial Terms, Specializations, Custom Attributes & Delete */}
+        {/* Right Sidebar: Summary, Commercial Terms, Specializations, Custom Attributes & Delete */}
         <aside className="space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-4 space-y-3 text-xs">
+            <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              Vendor Summary
+            </h3>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200/70">
+                <div className="text-[10px] font-bold uppercase text-slate-400">Consultants</div>
+                <div className="text-base font-extrabold text-slate-900 mt-0.5">
+                  {vendorCandidates.length}
+                </div>
+              </div>
+              <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200/70">
+                <div className="text-[10px] font-bold uppercase text-slate-400">Active C2C</div>
+                <div className="text-base font-extrabold text-emerald-700 mt-0.5">
+                  {activeVendorPlacements.length}
+                </div>
+              </div>
+              <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200/70">
+                <div className="text-[10px] font-bold uppercase text-slate-400">Est. Payout</div>
+                <div className="text-xs font-extrabold text-slate-900 mt-1 truncate">
+                  <MaskedValue
+                    value={
+                      monthlyVendorPayout > 0
+                        ? `${currencySymbol}${monthlyVendorPayout.toLocaleString()}`
+                        : '—'
+                    }
+                    isMasked={rateMasked}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-4 space-y-3 text-xs">
             <div className="flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                Commercial &amp; Compliance
+                Agreement &amp; Terms
               </h3>
             </div>
             <dl className="space-y-2.5">
@@ -349,6 +486,26 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
                 <dt className="text-slate-400 font-medium">MSA Status</dt>
                 <dd className="text-slate-800 font-semibold text-right">
                   {isMsaExecuted ? 'MSA Executed' : 'Pending Review'}
+                </dd>
+              </div>
+              <div className="flex items-start justify-between gap-2">
+                <dt className="text-slate-400 font-medium">Insurance Expiry</dt>
+                <dd
+                  className={`font-semibold text-right ${
+                    coiDaysRemaining !== null && coiDaysRemaining < 0
+                      ? 'text-rose-600'
+                      : coiDaysRemaining !== null && coiDaysRemaining <= 30
+                      ? 'text-amber-700'
+                      : 'text-slate-800'
+                  }`}
+                >
+                  {vendor.coiExpiryDate
+                    ? coiDaysRemaining !== null && coiDaysRemaining < 0
+                      ? `${vendor.coiExpiryDate} (Expired)`
+                      : coiDaysRemaining !== null && coiDaysRemaining <= 30
+                      ? `${vendor.coiExpiryDate} (${coiDaysRemaining}d)`
+                      : vendor.coiExpiryDate
+                    : 'Not recorded'}
                 </dd>
               </div>
               <div className="flex items-start justify-between gap-2">

@@ -9,6 +9,7 @@ import {
   Play,
   RefreshCw,
   Search,
+  ShieldCheck,
   UserCheck,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
@@ -52,6 +53,7 @@ const FRIENDLY_RULE_NAMES: Record<string, string> = {
   'Same-Day Interview Checklist': 'Interview Prep Reminder',
   'SOW Contract Expiry Sentinel': 'Contract Ending Soon',
   'Contract Expiry Alert': 'Contract Ending Soon',
+  'Vendor COI & MSA Compliance Check': 'Vendor Agreement & Insurance',
   'Direct Candidate Submittal': 'Candidate Submitted',
   'Multi-Applicant Submittal': 'Candidates Submitted',
 };
@@ -118,6 +120,20 @@ const REMINDER_PRESETS: ReminderPreset[] = [
     thenSummary: 'Add a renewal reminder to your Action Center',
     Icon: FileText,
     iconBg: 'bg-emerald-50 text-emerald-600 border-emerald-200',
+  },
+  {
+    key: 'compliance',
+    title: 'Vendor Agreement & Insurance',
+    description: 'Alerts you when a partner vendor has a pending agreement or expiring insurance.',
+    backendCategory: 'COMPLIANCE',
+    triggerEvent: 'VISA_EXPIRING',
+    whenText: 'Partner vendor agreement is pending or insurance expires within',
+    thresholdLabel: 'Remind within:',
+    defaultThreshold: '30 Days',
+    thresholdOptions: ['14 Days', '30 Days', '45 Days'],
+    thenSummary: 'Add a follow-up reminder to your Action Center',
+    Icon: ShieldCheck,
+    iconBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   },
 ];
 

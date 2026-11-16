@@ -16,7 +16,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
-import { BillablePlacement } from '../../types';
+import { BillablePlacement, Vendor } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
@@ -38,6 +38,7 @@ import {
 
 interface BillablePlacementsViewProps {
   placements: BillablePlacement[];
+  vendors?: Vendor[];
   rateMasked: boolean;
   onOpenNewPlacement?: () => void;
   onSelectPlacement?: (placement: BillablePlacement) => void;
@@ -49,6 +50,7 @@ interface BillablePlacementsViewProps {
 
 export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
   placements,
+  vendors = [],
   rateMasked,
   onOpenNewPlacement,
   onSelectPlacement,
@@ -570,6 +572,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
       </div>
 
       <PlacementModals
+        vendors={vendors}
         extendingPlacement={extendingPlacement}
         onCloseExtend={() => setExtendingPlacement(null)}
         onExtendContract={onExtendContract}

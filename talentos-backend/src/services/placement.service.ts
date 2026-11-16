@@ -461,13 +461,16 @@ export class PlacementService {
         data.vendor = { connect: { id: validVendorId } };
       }
     } else if (payload.vendorName !== undefined) {
-      const matchedVendor = payload.vendorName
-        ? await prisma.vendor.findFirst({
-            where: { tenantId: effectiveTenantId, name: { equals: String(payload.vendorName).trim(), mode: 'insensitive' } },
-            select: { id: true },
-          })
-        : null;
-      if (matchedVendor) data.vendor = { connect: { id: matchedVendor.id } };
+      const trimmedVendor = String(payload.vendorName || '').trim();
+      if (!trimmedVendor) {
+        data.vendor = { disconnect: true };
+      } else {
+        const matchedVendor = await prisma.vendor.findFirst({
+          where: { tenantId: effectiveTenantId, name: { equals: trimmedVendor, mode: 'insensitive' } },
+          select: { id: true },
+        });
+        if (matchedVendor) data.vendor = { connect: { id: matchedVendor.id } };
+      }
     }
     const parsedCustomFields = parseCustomFields(payload.customFields);
     if (parsedCustomFields !== undefined) {
@@ -496,6 +499,9 @@ export class PlacementService {
         : typeStr.includes('FULL')
         ? PlacementType.FULL_TIME
         : PlacementType.C2C_SUBCONTRACTOR;
+      if (data.placementType !== PlacementType.C2C_SUBCONTRACTOR && payload.vendorId === undefined && payload.vendorName === undefined) {
+        data.vendor = { disconnect: true };
+      }
     }
 
     const updated = await prisma.placement.update({

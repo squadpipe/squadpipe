@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, X, Check, UserCheck, Briefcase, TrendingUp } from 'lucide-react';
+import { AlertTriangle, DollarSign, X, Check, UserCheck, Briefcase, TrendingUp } from 'lucide-react';
 import { BillablePlacement, Candidate, Client, Requirement, User, Vendor } from '../../../types';
 import { DynamicCustomFieldsSection } from '../../shared/DynamicCustomFieldsSection';
 import { useCurrency } from '../../../utils/currency';
 import { SearchableSelectInput } from '../../shared/SearchableSelectInput';
 import { CustomSelect } from '../../shared/CustomSelect';
 import { ActionButton } from '../../shared/ActionButton';
+import { getVendorComplianceWarning } from '../../../features/billable/placementUtils';
 
 interface AddPlacementModalProps {
   isOpen: boolean;
@@ -108,6 +109,9 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
       return;
     }
     const parsedPay = parseRateNum(c.hourlyRate || '', 0);
+    const candVendor =
+      (c.vendorId ? vendors.find((v) => v.id === c.vendorId) : undefined) ||
+      (c.vendorName ? { name: c.vendorName } : undefined);
     setForm((prev) => ({
       ...prev,
       candidateId: c.id,
@@ -117,6 +121,8 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
       phone: c.phone || prev.phone,
       email: c.email || prev.email,
       recruiter: c.assignedRecruiter || prev.recruiter,
+      placementType: candVendor ? 'C2C Subcontractor' : prev.placementType,
+      vendorName: candVendor ? candVendor.name : prev.vendorName,
     }));
   };
 
@@ -452,6 +458,18 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
                     wrapperClassName=""
                     inputClassName="w-full pl-3 pr-7 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600 focus:outline-none"
                   />
+                  {(() => {
+                    const selectedVen = vendors.find(
+                      (v) => v.name.trim().toLowerCase() === form.vendorName.trim().toLowerCase()
+                    );
+                    const warning = getVendorComplianceWarning(selectedVen);
+                    return warning ? (
+                      <div className="mt-1.5 flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                        <span>{warning}</span>
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               )}
               <div>

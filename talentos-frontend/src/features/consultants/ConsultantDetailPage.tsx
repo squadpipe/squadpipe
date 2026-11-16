@@ -26,7 +26,7 @@ import {
   Trash2,
   UserCheck,
 } from 'lucide-react';
-import { BillablePlacement, Candidate, Requirement, RequirementSubmission } from '../../types';
+import { BillablePlacement, Candidate, Requirement, RequirementSubmission, Vendor } from '../../types';
 import { useCurrency } from '../../utils/currency';
 import { getStageDotClass } from '../../utils/stageStyles';
 import { generateCandidateResumePdf } from '../../utils/pdfGenerator';
@@ -52,11 +52,13 @@ interface ConsultantDetailPageProps {
   onBack: () => void;
   requirements: Requirement[];
   placements?: BillablePlacement[];
+  vendors?: Vendor[];
   rateMasked?: boolean;
   initialEditing?: boolean;
   onSubmitToReq: (candidate: Candidate, req: Requirement) => Promise<void> | void;
   onOpenRequirement?: (req: Requirement) => void;
   onSelectPlacement?: (placement: BillablePlacement) => void;
+  onOpenVendor?: (vendor: Vendor) => void;
   onUpdateCandidate?: (candidate: Candidate, cvFile?: File | null) => Promise<void> | void;
   onDeleteCandidate?: (candidate: Candidate) => Promise<void> | void;
   onNavigateToBillable?: () => void;
@@ -87,11 +89,13 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
   onBack,
   requirements,
   placements = [],
+  vendors = [],
   rateMasked = false,
   initialEditing = false,
   onSubmitToReq,
   onOpenRequirement,
   onSelectPlacement,
+  onOpenVendor,
   onUpdateCandidate,
   onDeleteCandidate,
   onNavigateToBillable,
@@ -833,6 +837,36 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                   {candidate.assignedRecruiter || 'Unassigned'}
                 </dd>
               </div>
+              <div className="flex items-start justify-between gap-2">
+                <dt className="text-slate-400 font-medium shrink-0">Partner Vendor</dt>
+                <dd className="text-slate-800 font-medium text-right min-w-0 [overflow-wrap:anywhere]">
+                  {(() => {
+                    const matchedVendor =
+                      (candidate.vendorId
+                        ? vendors.find((v) => v.id === candidate.vendorId)
+                        : undefined) ||
+                      (candidate.vendorName
+                        ? vendors.find(
+                            (v) => v.name.trim().toLowerCase() === candidate.vendorName!.trim().toLowerCase()
+                          )
+                        : undefined);
+                    const vendorLabel = matchedVendor?.name || candidate.vendorName;
+                    if (!vendorLabel) return <span className="text-slate-500">Direct / Own Bench</span>;
+                    if (matchedVendor && onOpenVendor) {
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => onOpenVendor(matchedVendor)}
+                          className="text-brand-700 font-semibold hover:underline cursor-pointer"
+                        >
+                          {vendorLabel}
+                        </button>
+                      );
+                    }
+                    return <span className="text-amber-700 font-semibold">{vendorLabel}</span>;
+                  })()}
+                </dd>
+              </div>
             </dl>
           </div>
 
@@ -997,6 +1031,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
         <EditConsultantModal
           candidate={candidate}
           isOpen={isEditing}
+          vendors={vendors}
           rateMasked={rateMasked}
           onClose={() => setIsEditing(false)}
           onUpdateCandidate={onUpdateCandidate}

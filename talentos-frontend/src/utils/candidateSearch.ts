@@ -34,6 +34,7 @@ export function matchesCandidateQuery(c: Candidate, search?: string): boolean {
     c.skillset,
     c.currentTitle,
     c.workAuth,
+    c.vendorName,
     c.rawSnippet,
     c.email,
     c.phone,

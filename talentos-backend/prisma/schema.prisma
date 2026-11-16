@@ -210,6 +210,8 @@ model Candidate {
   customFields       Json?                  @default("{}")
   assignedRecruiterId String?
   assignedRecruiter  User?                  @relation("RecruiterCandidates", fields: [assignedRecruiterId], references: [id], onDelete: SetNull)
+  vendorId           String?
+  vendor             Vendor?                @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
 
@@ -221,6 +223,7 @@ model Candidate {
   @@index([email])
   @@index([pipelineStage])
   @@index([assignedRecruiterId])
+  @@index([vendorId])
   @@index([tenantId])
 }
 
@@ -284,6 +287,7 @@ model Vendor {
   updatedAt           DateTime    @updatedAt
 
   contacts            VendorContact[]
+  candidates          Candidate[]
   placements          Placement[]
 
   @@unique([tenantId, name])

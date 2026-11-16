@@ -1744,11 +1744,19 @@ export const App: React.FC = () => {
                 ? 'dashboard'
                 : candDetailReturnView === 'requirement_detail'
                   ? 'pipeline'
-                  : 'consultants'
+                  : candDetailReturnView === 'vendor_detail'
+                    ? 'vendors'
+                    : candDetailReturnView === 'placement_detail'
+                      ? 'billable'
+                      : 'consultants'
               : currentView === 'client_detail'
                 ? 'clients'
                 : currentView === 'vendor_detail'
-                  ? 'vendors'
+                  ? vendorDetailReturnView === 'consultant_detail'
+                    ? 'consultants'
+                    : vendorDetailReturnView === 'placement_detail'
+                      ? 'billable'
+                      : 'vendors'
                   : currentView === 'placement_detail'
                     ? placementDetailReturnView === 'client_detail'
                       ? 'clients'
@@ -1891,6 +1899,7 @@ export const App: React.FC = () => {
             <ConsultantsView
               candidates={candidates}
               placements={placements}
+              vendors={vendors}
               rateMasked={rateMasked}
               onOpenResumeParser={() => setIsResumeModalOpen(true)}
               onPreviewResume={(c, startEditing) =>
@@ -1923,18 +1932,22 @@ export const App: React.FC = () => {
                   ? 'Back to Dashboard'
                   : candDetailReturnView === 'requirement_detail'
                     ? 'Back to Requirement'
-                    : candDetailReturnView === 'placement_detail'
-                      ? 'Back to Placement'
-                      : 'Back to Consultants'
+                    : candDetailReturnView === 'vendor_detail'
+                      ? 'Back to Vendor'
+                      : candDetailReturnView === 'placement_detail'
+                        ? 'Back to Placement'
+                        : 'Back to Consultants'
               }
               onBack={() => handleNavigateView(candDetailReturnView)}
               requirements={requirements}
               placements={placements}
+              vendors={vendors}
               rateMasked={rateMasked}
               initialEditing={candDetailInitialEdit}
               onSubmitToReq={(cand, req) => handleAssignCandidate(req, cand)}
               onOpenRequirement={(req) => handleOpenRequirementDetail(req, 'consultant_detail')}
               onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'consultant_detail')}
+              onOpenVendor={(v) => handleOpenVendorDetail(v, false, 'consultant_detail')}
               onUpdateCandidate={canManageDataOperations ? handleUpdateCandidate : undefined}
               onDeleteCandidate={canManageDataOperations ? handleDeleteCandidate : undefined}
               onNavigateToBillable={() => handleNavigateView('billable')}
@@ -2017,12 +2030,17 @@ export const App: React.FC = () => {
               backLabel={
                 vendorDetailReturnView === 'placement_detail'
                   ? 'Back to Placement'
-                  : 'Back to Vendors'
+                  : vendorDetailReturnView === 'consultant_detail'
+                    ? 'Back to Consultant'
+                    : 'Back to Vendors'
               }
               onBack={() => handleNavigateView(vendorDetailReturnView)}
+              candidates={candidates}
               placements={placements}
               rateMasked={rateMasked}
               initialEditing={vendorDetailInitialEdit}
+              onSelectCandidate={(c) => handleOpenConsultantDetail(c, false, 'vendor_detail')}
+              onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'vendor_detail')}
               onUpdateVendor={canManageDataOperations ? handleUpdateVendor : undefined}
               onDeleteVendor={isAdmin ? handleDeleteVendor : undefined}
             />
@@ -2031,6 +2049,7 @@ export const App: React.FC = () => {
           {currentView === 'billable' && (
             <BillablePlacementsView
               placements={placements}
+              vendors={vendors}
               rateMasked={rateMasked}
               onOpenNewPlacement={!rateMasked ? () => setActiveCreateModal('placement') : undefined}
               onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'billable')}
@@ -2344,6 +2363,7 @@ export const App: React.FC = () => {
         isOpen={activeCreateModal === 'consultant'}
         onClose={() => setActiveCreateModal(null)}
         users={users}
+        vendors={vendors}
         onSave={async (c, cvFile) => {
           const payload = {
             fullName: c.fullName,
@@ -2357,6 +2377,8 @@ export const App: React.FC = () => {
             relocation: c.relocation,
             assignedRecruiter: c.assignedRecruiter,
             pipelineStage: c.pipelineStage,
+            vendorId: c.vendorId || undefined,
+            vendorName: c.vendorName || undefined,
             resumeFileName: cvFile ? cvFile.name : c.resumeName,
             resumeFormat: cvFile ? undefined : c.resumeFormat,
             customFields: c.customFields,

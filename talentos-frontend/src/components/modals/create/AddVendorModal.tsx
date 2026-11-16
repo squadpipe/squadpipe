@@ -21,6 +21,7 @@ const INITIAL_VENDOR_FORM = {
   skillSpecialization: '',
   paymentTerms: 'Net 30',
   msa: 'Yes',
+  coiExpiryDate: '',
 };
 
 export const AddVendorModal: React.FC<AddVendorModalProps> = ({
@@ -62,6 +63,7 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
       paymentTerms: form.paymentTerms,
       invoicingTerms: 'Bi-weekly',
       msa: form.msa === 'Yes' ? 'Active' : 'Pending',
+      coiExpiryDate: form.coiExpiryDate || undefined,
       customFields: customValues,
     };
 
@@ -183,7 +185,7 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Payment Terms</label>
                 <CustomSelect
@@ -195,16 +197,27 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Subcontractor MSA Agreement</label>
+                <label className="block font-semibold text-slate-700 mb-1">Vendor Agreement Status</label>
                 <CustomSelect
                   value={form.msa}
                   onChange={(val) => setForm({ ...form, msa: val })}
-                  ariaLabel="Subcontractor MSA Agreement"
+                  ariaLabel="Vendor Agreement Status"
                   size="sm"
                   options={[
                     { value: 'Yes', label: 'Yes (Executed & Active)' },
-                    { value: 'No', label: 'No (Pending Legal Review)' },
+                    { value: 'No', label: 'No (Pending Review)' },
                   ]}
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Insurance Expiry Date <span className="text-slate-400 font-normal">(Optional)</span>
+                </label>
+                <input
+                  type="date"
+                  value={form.coiExpiryDate}
+                  onChange={(e) => setForm({ ...form, coiExpiryDate: e.target.value })}
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs focus:border-brand-600 focus:outline-none"
                 />
               </div>
             </div>
