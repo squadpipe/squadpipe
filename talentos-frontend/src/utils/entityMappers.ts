@@ -17,6 +17,35 @@ export const safeIsoDate = (val: any, fallback = ''): string => {
   return isNaN(d.getTime()) ? fallback : d.toISOString().split('T')[0];
 };
 
+export const safeIsoDateTime = (val: any, fallback = ''): string => {
+  if (!val || (typeof val !== 'string' && typeof val !== 'number' && !(val instanceof Date))) {
+    return fallback;
+  }
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? fallback : d.toISOString();
+};
+
+export const toDateTimeLocalInput = (val?: string): string => {
+  if (!val) return '';
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(
+    d.getMinutes()
+  )}`;
+};
+
+export const formatDateTimeBadge = (val?: string): string => {
+  if (!val) return '';
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return '';
+  const datePart = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const hasExplicitTime = d.getHours() !== 0 || d.getMinutes() !== 0;
+  if (!hasExplicitTime) return datePart;
+  const timePart = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `${datePart} • ${timePart}`;
+};
+
 export const formatCandidateStage = (stage?: string): string => {
   const map: Record<string, string> = {
     AVAILABLE_BENCH: 'Available / Bench',
@@ -31,6 +60,8 @@ export const formatCandidateStage = (stage?: string): string => {
 };
 
 export const formatRequirementStatus = (status?: string): Requirement['status'] => {
+  const trimmed = String(status || '').trim();
+  if (!trimmed) return 'Requirement';
   const map: Record<string, Requirement['status']> = {
     REQUIREMENT: 'Requirement',
     SUBMITTED: 'Submitted',
@@ -39,7 +70,7 @@ export const formatRequirementStatus = (status?: string): Requirement['status'] 
     ONBOARDING: 'Onboarding',
     CLOSED: 'Onboarding',
   };
-  return (status && map[status]) || (status as Requirement['status']) || 'Requirement';
+  return map[trimmed.toUpperCase()] || (trimmed as Requirement['status']);
 };
 
 export const formatUserRole = (role?: string): string => {
@@ -64,10 +95,11 @@ export const formatUserStatus = (status?: string): User['status'] => {
 };
 
 export const formatSubmissionStage = (stage?: string): RequirementSubmission['stage'] => {
-  const s = String(stage || '').toUpperCase().trim();
-  if (s === 'CLOSED' || s === 'REJECTED') return 'Closed';
-  if (stage === 'Closed') return 'Closed';
-  return formatRequirementStatus(stage);
+  const trimmed = String(stage || '').trim();
+  if (!trimmed) return 'Submitted';
+  const upper = trimmed.toUpperCase();
+  if (upper === 'CLOSED' || upper === 'REJECTED') return 'Closed';
+  return formatRequirementStatus(trimmed);
 };
 
 export const mapSubmissionFromApi = (s: any): RequirementSubmission => {
@@ -87,8 +119,11 @@ export const mapSubmissionFromApi = (s: any): RequirementSubmission => {
     resumeFileUrl: mappedCand?.resumeFileUrl || s.candidate?.resumeFileUrl || undefined,
     stage: formatSubmissionStage(s.stage),
     submissionDate: safeIsoDate(s.submissionDate || s.createdAt),
+    lastClientFeedbackDate: safeIsoDate(s.lastClientFeedbackDate),
     interviewDate: safeIsoDate(s.interviewDate),
+    interviewDateTime: safeIsoDateTime(s.interviewDate),
     interviewNotes: s.interviewNotes || '',
+    recruiterName: s.recruiter?.fullName || '',
     candidate: mappedCand,
   };
 };
@@ -334,7 +369,14 @@ export const mapUserFromApi = (u: any, currentUserEmail?: string): User => ({
   role: formatUserRole(u.role),
   desk: u.desk || '',
   rateMasked: u.rateMasked ?? true,
-  workload: u.workload || '',
+  workload: u.workload || '0 Reqs • 0 Subs • 0 Placements',
+  metrics: u.metrics
+    ? {
+        openReqs: Number(u.metrics.openReqs) || 0,
+        submissions: Number(u.metrics.submissions) || 0,
+        placements: Number(u.metrics.placements) || 0,
+      }
+    : undefined,
   status: formatUserStatus(u.status),
   isCurrentUser: u.isCurrentUser ?? (currentUserEmail ? u.email === currentUserEmail : false),
   lastActive: u.lastActive || 'Active Now',

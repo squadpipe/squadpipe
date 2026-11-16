@@ -3,16 +3,28 @@ import { candidateService } from '../services/candidate.service';
 
 export const getCandidates = async (req: Request, res: Response) => {
   try {
-    const { search, stage, workAuth, page, limit } = req.query;
+    const { search, stage, workAuth, minRate, maxRate, page, limit } = req.query;
     const tenantId = req.user?.tenantId || 'talentos-agency';
     const parsedPage = page ? Math.max(1, parseInt(String(page), 10) || 1) : undefined;
     const parsedLimit = limit ? Math.max(1, Math.min(100, parseInt(String(limit), 10) || 10)) : undefined;
+
+    const allowRateFilter = !req.user?.rateMasked;
+    const parsedMinRate =
+      allowRateFilter && minRate !== undefined && String(minRate).trim() !== ''
+        ? Number(minRate)
+        : undefined;
+    const parsedMaxRate =
+      allowRateFilter && maxRate !== undefined && String(maxRate).trim() !== ''
+        ? Number(maxRate)
+        : undefined;
 
     const result = await candidateService.getCandidatesPaginated({
       tenantId,
       search: search ? String(search) : undefined,
       stage: stage ? String(stage) : undefined,
       workAuth: workAuth ? String(workAuth) : undefined,
+      minRate: parsedMinRate !== undefined && Number.isFinite(parsedMinRate) ? parsedMinRate : undefined,
+      maxRate: parsedMaxRate !== undefined && Number.isFinite(parsedMaxRate) ? parsedMaxRate : undefined,
       page: parsedPage,
       limit: parsedLimit,
     });

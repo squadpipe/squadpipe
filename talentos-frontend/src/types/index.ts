@@ -10,6 +10,11 @@ export interface User {
   desk: string;
   rateMasked: boolean;
   workload: string;
+  metrics?: {
+    openReqs: number;
+    submissions: number;
+    placements: number;
+  };
   status: 'Active' | 'Suspended' | 'Invited';
   isCurrentUser?: boolean;
   lastActive: string;
@@ -92,9 +97,37 @@ export interface RequirementSubmission {
   resumeFileUrl?: string;
   stage: string;
   submissionDate?: string;
+  lastClientFeedbackDate?: string;
   interviewDate?: string;
+  interviewDateTime?: string;
   interviewNotes?: string;
+  recruiterName?: string;
   candidate?: Candidate;
+}
+
+export interface ClientDuplicateWarning {
+  candidateId: string;
+  candidateName: string;
+  existingSubmissionId: string;
+  requirementId: string;
+  requirementCode: string;
+  opportunityTitle: string;
+  clientName: string;
+  stage: string;
+  recruiterName: string | null;
+  submissionDate: string;
+  daysAgo: number;
+}
+
+export interface RecruiterPerformanceRow {
+  userId: string;
+  fullName: string;
+  role: string;
+  desk: string;
+  openReqs: number;
+  submissions: number;
+  interviews: number;
+  placements: number;
 }
 
 export interface Requirement {

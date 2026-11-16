@@ -1,16 +1,21 @@
 import {
   AutomationCategory,
   CandidatePipelineStage,
+  MasterTaxonomyCategory,
   PitchTone,
-  RequirementStatus,
   SlaCategory,
 } from '@prisma/client';
 import { prisma } from '../config/prisma.config';
-import { REQUIREMENT_INCLUDE, requirementStatusMap } from './requirement.service';
+import { DEFAULT_TAXONOMIES } from '../config/taxonomies.config';
+import {
+  REQUIREMENT_INCLUDE,
+  RequirementStatus,
+  normalizeStageValue,
+} from './requirement.service';
 import { slaEngineService } from './slaEngine.service';
 import { automationEngineService } from './automationEngine.service';
 
-const STAGE_RANK: Record<RequirementStatus, number> = {
+const CANONICAL_STAGE_RANK: Record<string, number> = {
   [RequirementStatus.REQUIREMENT]: 0,
   [RequirementStatus.SUBMITTED]: 1,
   [RequirementStatus.INTERVIEW]: 2,
@@ -19,7 +24,18 @@ const STAGE_RANK: Record<RequirementStatus, number> = {
   [RequirementStatus.CLOSED]: -1,
 };
 
-const CANDIDATE_STAGE_FOR_REQ: Partial<Record<RequirementStatus, CandidatePipelineStage>> = {
+const CANONICAL_APPLICANT_STAGES = new Set<string>([
+  RequirementStatus.SUBMITTED,
+  RequirementStatus.INTERVIEW,
+  RequirementStatus.SELECTED,
+  RequirementStatus.ONBOARDING,
+  RequirementStatus.CLOSED,
+]);
+
+const EXCLUDED_APPLICANT_STAGES = new Set(['requirement', 'billable', 'archived']);
+const NON_PROMOTABLE_STAGES = new Set(['closed', 'billable', 'archived']);
+
+const CANDIDATE_STAGE_FOR_REQ: Partial<Record<string, CandidatePipelineStage>> = {
   [RequirementStatus.SUBMITTED]: CandidatePipelineStage.SUBMITTED,
   [RequirementStatus.INTERVIEW]: CandidatePipelineStage.INTERVIEW,
   [RequirementStatus.SELECTED]: CandidatePipelineStage.SELECTED,
@@ -39,35 +55,228 @@ export function normalizePitchTone(input?: unknown): PitchTone {
   return PitchTone.PROFESSIONAL;
 }
 
-/**
- * Given all submission stages for a requirement and the requirement's current status,
- * returns the promoted RequirementStatus if an active applicant has reached a higher milestone
- * (and the requirement isn't already ONBOARDING).
- */
-export function computePromotedRequirementStage(
-  submissionStages: RequirementStatus[],
-  currentStatus: string
-): RequirementStatus | null {
-  if (
-    currentStatus === RequirementStatus.ONBOARDING ||
-    currentStatus === 'Billable' ||
-    currentStatus === 'Archived'
-  ) {
-    return null;
+function buildStageRankMap(orderedStages?: string[]): Map<string, number> {
+  const rankMap = new Map<string, number>();
+  if (orderedStages && orderedStages.length > 0) {
+    orderedStages.forEach((rawStage, index) => {
+      const trimmed = String(rawStage || '').trim();
+      if (!trimmed) return;
+      const lowerRaw = trimmed.toLowerCase();
+      if (NON_PROMOTABLE_STAGES.has(lowerRaw)) {
+        rankMap.set(lowerRaw, -1);
+        return;
+      }
+      const normLower = normalizeStageValue(trimmed).toLowerCase();
+      if (!rankMap.has(lowerRaw)) rankMap.set(lowerRaw, index);
+      if (!rankMap.has(normLower)) rankMap.set(normLower, index);
+    });
+    return rankMap;
   }
 
-  let bestStage: RequirementStatus | null = null;
-  let bestRank = STAGE_RANK[currentStatus as RequirementStatus] ?? 0;
+  for (const [key, rank] of Object.entries(CANONICAL_STAGE_RANK)) {
+    rankMap.set(key.toLowerCase(), rank);
+  }
+  return rankMap;
+}
 
-  for (const stage of submissionStages) {
-    const rank = STAGE_RANK[stage] ?? -1;
+/**
+ * Loads ordered active pipeline stage labels for a tenant from MasterTaxonomy,
+ * falling back to system defaults when none are customized yet.
+ */
+export async function getTenantPipelineStages(tenantId: string): Promise<string[]> {
+  const rows = await prisma.masterTaxonomy.findMany({
+    where: {
+      tenantId,
+      category: MasterTaxonomyCategory.STAGES,
+      active: true,
+    },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    select: { optionValue: true },
+  });
+
+  if (rows.length > 0) {
+    return rows.map((r) => r.optionValue.trim()).filter(Boolean);
+  }
+
+  return DEFAULT_TAXONOMIES
+    .filter((t) => t.category === MasterTaxonomyCategory.STAGES)
+    .map((t) => t.optionValue);
+}
+
+/**
+ * Validates and canonicalizes an incoming applicant submission stage against
+ * canonical milestones and active workspace STAGES taxonomies.
+ */
+export function resolveApplicantStage(stageInput: string, tenantStages: string[]): string {
+  const trimmed = String(stageInput || '').trim();
+  if (!trimmed || trimmed.length > 60) {
+    throw createHttpError(
+      'Invalid applicant stage. Allowed values: active pipeline stages or Closed.',
+      400
+    );
+  }
+
+  const lower = trimmed.toLowerCase();
+  if (EXCLUDED_APPLICANT_STAGES.has(lower)) {
+    throw createHttpError(
+      'Invalid applicant stage. Allowed values: active pipeline stages or Closed.',
+      400
+    );
+  }
+
+  const normalized = normalizeStageValue(trimmed);
+  if (CANONICAL_APPLICANT_STAGES.has(normalized)) {
+    return normalized;
+  }
+
+  const matchedConfigured = tenantStages.find((s) => {
+    const clean = s.trim();
+    return clean.toLowerCase() === lower && !EXCLUDED_APPLICANT_STAGES.has(clean.toLowerCase());
+  });
+  if (matchedConfigured) {
+    return matchedConfigured.trim();
+  }
+
+  throw createHttpError(
+    'Invalid applicant stage. Allowed values: active pipeline stages or Closed.',
+    400
+  );
+}
+
+/**
+ * Computes the highest non-closed stage among active submissions, defaulting to REQUIREMENT.
+ */
+export function computeHighestActiveStage(
+  submissionStages: string[],
+  orderedStages?: string[]
+): string {
+  const rankMap = buildStageRankMap(orderedStages);
+  let bestStage: string = RequirementStatus.REQUIREMENT;
+  let bestRank = -1;
+
+  for (const rawStage of submissionStages) {
+    const normalized = normalizeStageValue(rawStage);
+    if (!normalized) continue;
+    const lower = normalized.toLowerCase();
+    if (NON_PROMOTABLE_STAGES.has(lower)) continue;
+    const rank = rankMap.get(lower) ?? 0;
     if (rank > bestRank) {
       bestRank = rank;
-      bestStage = stage;
+      bestStage = normalized;
     }
   }
 
   return bestStage;
+}
+
+/**
+ * Given all submission stages for a requirement and the requirement's current status,
+ * returns the promoted Requirement status if an active applicant has reached a higher milestone
+ * (and the requirement isn't already ONBOARDING).
+ */
+export function computePromotedRequirementStage(
+  submissionStages: string[],
+  currentStatus: string,
+  orderedStages?: string[]
+): string | null {
+  const normalizedCurrent = normalizeStageValue(currentStatus);
+  const currentLower = normalizedCurrent.toLowerCase();
+  if (
+    normalizedCurrent === RequirementStatus.ONBOARDING ||
+    currentLower === 'billable' ||
+    currentLower === 'archived'
+  ) {
+    return null;
+  }
+
+  const rankMap = buildStageRankMap(orderedStages);
+  let bestStage: string | null = null;
+  let bestRank = rankMap.get(currentLower) ?? 0;
+
+  for (const rawStage of submissionStages) {
+    const normalized = normalizeStageValue(rawStage);
+    if (!normalized) continue;
+    const lower = normalized.toLowerCase();
+    if (NON_PROMOTABLE_STAGES.has(lower)) continue;
+    const rank = rankMap.get(lower) ?? -1;
+    if (rank > bestRank) {
+      bestRank = rank;
+      bestStage = normalized;
+    }
+  }
+
+  return bestStage;
+}
+
+export interface ClientDuplicateWarning {
+  candidateId: string;
+  candidateName: string;
+  existingSubmissionId: string;
+  requirementId: string;
+  requirementCode: string;
+  opportunityTitle: string;
+  clientName: string;
+  stage: string;
+  recruiterName: string | null;
+  submissionDate: string;
+  daysAgo: number;
+}
+
+export function parseOptionalDateInput(val: unknown): Date | null | undefined {
+  if (val === undefined) return undefined;
+  if (val === null) return null;
+  const trimmed = String(val).trim();
+  if (!trimmed) return null;
+  const parsed = new Date(trimmed);
+  if (isNaN(parsed.getTime())) {
+    throw createHttpError('Invalid interview date/time format.', 400);
+  }
+  return parsed;
+}
+
+export function normalizeOptionalNotes(val: unknown): string | null | undefined {
+  if (val === undefined) return undefined;
+  if (val === null) return null;
+  const trimmed = String(val).trim();
+  if (!trimmed) return null;
+  if (trimmed.length > 5000) {
+    throw createHttpError('Notes must be 5,000 characters or fewer.', 400);
+  }
+  return trimmed;
+}
+
+export function formatClientDuplicateWarnings(
+  rows: Array<{
+    id: string;
+    candidateId: string;
+    stage: string;
+    submissionDate: Date;
+    createdAt: Date;
+    candidate?: { fullName: string } | null;
+    recruiter?: { fullName: string } | null;
+    requirement?: { id: string; code: string; opportunityTitle: string; companyName: string } | null;
+  }>,
+  now: Date = new Date()
+): ClientDuplicateWarning[] {
+  const msPerDay = 24 * 60 * 60 * 1000;
+  return rows.map((row) => {
+    const subAt = row.submissionDate || row.createdAt || now;
+    const diffMs = Math.max(0, now.getTime() - new Date(subAt).getTime());
+    const daysAgo = Math.floor(diffMs / msPerDay);
+    return {
+      candidateId: row.candidateId,
+      candidateName: row.candidate?.fullName || 'Consultant',
+      existingSubmissionId: row.id,
+      requirementId: row.requirement?.id || '',
+      requirementCode: row.requirement?.code || '',
+      opportunityTitle: row.requirement?.opportunityTitle || '',
+      clientName: row.requirement?.companyName || 'Client',
+      stage: row.stage,
+      recruiterName: row.recruiter?.fullName || null,
+      submissionDate: new Date(subAt).toISOString(),
+      daysAgo,
+    };
+  });
 }
 
 export interface AttachCandidatesInput {
@@ -210,7 +419,7 @@ export class SubmissionService {
         });
       }
 
-      if (requirement.status === RequirementStatus.REQUIREMENT) {
+      if (normalizeStageValue(requirement.status) === RequirementStatus.REQUIREMENT) {
         await tx.requirement.update({
           where: { id: requirement.id },
           data: { status: RequirementStatus.SUBMITTED },
@@ -254,12 +463,76 @@ export class SubmissionService {
     };
   }
 
+  private async syncPostSubmissionUpdate(params: {
+    tenantId: string;
+    requirementId: string;
+    requirementStatus: string;
+    candidateId: string;
+    candidatePipelineStage: CandidatePipelineStage;
+    mappedStage?: string;
+    tenantStages?: string[];
+  }) {
+    const {
+      tenantId,
+      requirementId,
+      requirementStatus,
+      candidateId,
+      candidatePipelineStage,
+      mappedStage,
+      tenantStages,
+    } = params;
+
+    if (mappedStage) {
+      if (candidatePipelineStage !== CandidatePipelineStage.BILLABLE) {
+        const targetCandStage =
+          CANDIDATE_STAGE_FOR_REQ[mappedStage] ??
+          (candidatePipelineStage === CandidatePipelineStage.AVAILABLE_BENCH &&
+          mappedStage !== RequirementStatus.CLOSED
+            ? CandidatePipelineStage.SUBMITTED
+            : undefined);
+        if (targetCandStage) {
+          await prisma.candidate.update({
+            where: { id: candidateId },
+            data: { pipelineStage: targetCandStage },
+          });
+        }
+      }
+
+      const allSubs = await prisma.submission.findMany({
+        where: { requirementId },
+        select: { stage: true },
+      });
+      const promotedStatus = computePromotedRequirementStage(
+        allSubs.map((s) => s.stage),
+        requirementStatus,
+        tenantStages
+      );
+      if (promotedStatus) {
+        await prisma.requirement.update({
+          where: { id: requirementId },
+          data: { status: promotedStatus },
+        });
+      }
+    }
+
+    try {
+      await slaEngineService.evaluateSlaRadar(tenantId);
+    } catch {
+      // Non-critical SLA sync
+    }
+
+    return prisma.requirement.findUnique({
+      where: { id: requirementId },
+      include: REQUIREMENT_INCLUDE,
+    });
+  }
+
   async updateSubmissionStage(params: {
     submissionId: string;
     tenantId: string;
     stageInput: string;
-    interviewDate?: string;
-    interviewNotes?: string;
+    interviewDate?: string | null;
+    interviewNotes?: string | null;
   }) {
     const { submissionId, tenantId, stageInput, interviewDate, interviewNotes } = params;
 
@@ -272,73 +545,185 @@ export class SubmissionService {
       throw createHttpError('Applicant submission not found for tenant', 404);
     }
 
-    const mappedStage = requirementStatusMap[String(stageInput || '').trim()];
-    if (!mappedStage || mappedStage === RequirementStatus.REQUIREMENT) {
-      throw createHttpError(
-        'Invalid applicant stage. Allowed values: Submitted, Interview, Selected, Onboarding, Closed',
-        400
-      );
-    }
+    const tenantStages = await getTenantPipelineStages(tenantId);
+    const mappedStage = resolveApplicantStage(stageInput, tenantStages);
+    const parsedDate = parseOptionalDateInput(interviewDate);
+    const parsedNotes = normalizeOptionalNotes(interviewNotes);
 
     const updateData: any = { stage: mappedStage };
     if (mappedStage !== RequirementStatus.SUBMITTED) {
       updateData.lastClientFeedbackDate = new Date();
     }
-    if (interviewDate !== undefined) {
-      updateData.interviewDate = interviewDate ? new Date(interviewDate) : null;
-    }
-    if (interviewNotes !== undefined) {
-      updateData.interviewNotes = interviewNotes;
-    }
+    if (parsedDate !== undefined) updateData.interviewDate = parsedDate;
+    if (parsedNotes !== undefined) updateData.interviewNotes = parsedNotes;
 
     const updatedSubmission = await prisma.submission.update({
       where: { id: existing.id },
       data: updateData,
-      include: { candidate: true },
+      include: {
+        candidate: true,
+        recruiter: { select: { id: true, fullName: true } },
+      },
     });
 
-    // Keep Candidate pipeline stage aligned (never downgrade a Billable consultant)
-    if (existing.candidate.pipelineStage !== CandidatePipelineStage.BILLABLE) {
-      const targetCandStage = CANDIDATE_STAGE_FOR_REQ[mappedStage];
-      if (targetCandStage) {
-        await prisma.candidate.update({
-          where: { id: existing.candidateId },
-          data: { pipelineStage: targetCandStage },
-        });
-      }
-    }
-
-    // Advance parent Requirement stage when an applicant reaches a higher active stage
-    const allSubs = await prisma.submission.findMany({
-      where: { requirementId: existing.requirementId },
-      select: { stage: true },
-    });
-    const promotedStatus = computePromotedRequirementStage(
-      allSubs.map((s) => s.stage),
-      existing.requirement.status
-    );
-    if (promotedStatus) {
-      await prisma.requirement.update({
-        where: { id: existing.requirementId },
-        data: { status: promotedStatus },
-      });
-    }
-
-    try {
-      await slaEngineService.evaluateSlaRadar(tenantId);
-    } catch {
-      // Non-critical SLA sync
-    }
-
-    const refreshedRequirement = await prisma.requirement.findUnique({
-      where: { id: existing.requirementId },
-      include: REQUIREMENT_INCLUDE,
+    const refreshedRequirement = await this.syncPostSubmissionUpdate({
+      tenantId,
+      requirementId: existing.requirementId,
+      requirementStatus: existing.requirement.status,
+      candidateId: existing.candidateId,
+      candidatePipelineStage: existing.candidate.pipelineStage,
+      mappedStage,
+      tenantStages,
     });
 
     return {
       submission: updatedSubmission,
       requirement: refreshedRequirement,
     };
+  }
+
+  /**
+   * Updates call/interview notes, scheduled interview date/time, or rejection feedback,
+   * optionally also advancing or closing the applicant stage in the same operation.
+   */
+  async updateSubmissionNotes(params: {
+    submissionId: string;
+    tenantId: string;
+    interviewDate?: string | null;
+    interviewNotes?: string | null;
+    stageInput?: string;
+  }) {
+    const { submissionId, tenantId, interviewDate, interviewNotes, stageInput } = params;
+
+    const existing = await prisma.submission.findFirst({
+      where: { id: submissionId, tenantId },
+      include: { requirement: true, candidate: true },
+    });
+
+    if (!existing) {
+      throw createHttpError('Applicant submission not found for tenant', 404);
+    }
+
+    const parsedDate = parseOptionalDateInput(interviewDate);
+    const parsedNotes = normalizeOptionalNotes(interviewNotes);
+    let tenantStages: string[] | undefined;
+    let mappedStage: string | undefined;
+
+    if (stageInput !== undefined && String(stageInput).trim() !== '') {
+      tenantStages = await getTenantPipelineStages(tenantId);
+      mappedStage = resolveApplicantStage(stageInput, tenantStages);
+    }
+
+    const updateData: any = {};
+    if (mappedStage) updateData.stage = mappedStage;
+    if (parsedDate !== undefined) updateData.interviewDate = parsedDate;
+    if (parsedNotes !== undefined) updateData.interviewNotes = parsedNotes;
+    if (parsedNotes !== undefined || (mappedStage && mappedStage !== RequirementStatus.SUBMITTED)) {
+      updateData.lastClientFeedbackDate = new Date();
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      throw createHttpError('Provide interviewDate, interviewNotes, or stage to update.', 400);
+    }
+
+    const updatedSubmission = await prisma.submission.update({
+      where: { id: existing.id },
+      data: updateData,
+      include: {
+        candidate: true,
+        recruiter: { select: { id: true, fullName: true } },
+      },
+    });
+
+    const refreshedRequirement = await this.syncPostSubmissionUpdate({
+      tenantId,
+      requirementId: existing.requirementId,
+      requirementStatus: existing.requirement.status,
+      candidateId: existing.candidateId,
+      candidatePipelineStage: existing.candidate.pipelineStage,
+      mappedStage,
+      tenantStages,
+    });
+
+    return {
+      submission: updatedSubmission,
+      requirement: refreshedRequirement,
+    };
+  }
+
+  /**
+   * Checks whether any candidate in candidateIds was previously submitted on another
+   * requirement for the same Client / Company so multi-recruiter teams get a re-submission warning.
+   */
+  async checkClientDuplicates(params: {
+    tenantId: string;
+    requirementId: string;
+    candidateIds: string[];
+  }) {
+    const { tenantId, requirementId, candidateIds } = params;
+    const cleanCandidateIds = Array.from(
+      new Set((candidateIds || []).map((id) => String(id || '').trim()).filter(Boolean))
+    );
+
+    const targetReq = await prisma.requirement.findFirst({
+      where: { id: requirementId, tenantId },
+      select: { id: true, clientId: true, companyName: true },
+    });
+
+    if (!targetReq) {
+      throw createHttpError('Requirement not found for tenant', 404);
+    }
+
+    if (cleanCandidateIds.length === 0) {
+      return { warnings: [] as ClientDuplicateWarning[], byCandidateId: {} as Record<string, ClientDuplicateWarning[]> };
+    }
+
+    const companyName = String(targetReq.companyName || '').trim();
+    if (!targetReq.clientId && !companyName) {
+      return { warnings: [] as ClientDuplicateWarning[], byCandidateId: {} as Record<string, ClientDuplicateWarning[]> };
+    }
+
+    const clientFilter: any = targetReq.clientId
+      ? {
+          OR: [
+            { clientId: targetReq.clientId },
+            ...(companyName
+              ? [{ clientId: null, companyName: { equals: companyName, mode: 'insensitive' as const } }]
+              : []),
+          ],
+        }
+      : { companyName: { equals: companyName, mode: 'insensitive' as const } };
+
+    const matchingSubmissions = await prisma.submission.findMany({
+      where: {
+        tenantId,
+        candidateId: { in: cleanCandidateIds },
+        requirementId: { not: targetReq.id },
+        requirement: clientFilter,
+      },
+      orderBy: [{ submissionDate: 'desc' }, { createdAt: 'desc' }],
+      select: {
+        id: true,
+        candidateId: true,
+        stage: true,
+        submissionDate: true,
+        createdAt: true,
+        candidate: { select: { fullName: true } },
+        recruiter: { select: { fullName: true } },
+        requirement: {
+          select: { id: true, code: true, opportunityTitle: true, companyName: true },
+        },
+      },
+    });
+
+    const warnings = formatClientDuplicateWarnings(matchingSubmissions);
+    const byCandidateId: Record<string, ClientDuplicateWarning[]> = {};
+    for (const w of warnings) {
+      if (!byCandidateId[w.candidateId]) byCandidateId[w.candidateId] = [];
+      byCandidateId[w.candidateId].push(w);
+    }
+
+    return { warnings, byCandidateId };
   }
 
   async detachSubmission(params: { submissionId: string; tenantId: string }) {
@@ -387,23 +772,20 @@ export class SubmissionService {
 
     const openPositions = Math.max(1, existing.requirement.openPositions ?? 1);
 
+    const tenantStages = await getTenantPipelineStages(tenantId);
+
     if (
       removedPlacements.count > 0 &&
       activePlacementsCount < openPositions &&
-      existing.requirement.status === RequirementStatus.ONBOARDING
+      normalizeStageValue(existing.requirement.status) === RequirementStatus.ONBOARDING
     ) {
       const activeSubStages = remainingSubs
         .map((s) => s.stage)
-        .filter((st) => st !== RequirementStatus.CLOSED && st !== RequirementStatus.ONBOARDING);
-      let fallbackStatus: RequirementStatus = RequirementStatus.REQUIREMENT;
-      let bestRank = -1;
-      for (const st of activeSubStages) {
-        const rank = STAGE_RANK[st] ?? 0;
-        if (rank > bestRank) {
-          bestRank = rank;
-          fallbackStatus = st;
-        }
-      }
+        .filter((st) => {
+          const norm = normalizeStageValue(st);
+          return norm !== RequirementStatus.CLOSED && norm !== RequirementStatus.ONBOARDING;
+        });
+      const fallbackStatus = computeHighestActiveStage(activeSubStages, tenantStages);
       await prisma.requirement.update({
         where: { id: existing.requirementId },
         data: { status: fallbackStatus },
@@ -411,7 +793,7 @@ export class SubmissionService {
     } else if (
       remainingSubs.length === 0 &&
       activePlacementsCount === 0 &&
-      existing.requirement.status === RequirementStatus.SUBMITTED
+      normalizeStageValue(existing.requirement.status) === RequirementStatus.SUBMITTED
     ) {
       await prisma.requirement.update({
         where: { id: existing.requirementId },

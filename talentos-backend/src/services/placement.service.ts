@@ -3,6 +3,8 @@ import { CandidatePipelineStage, PlacementStatus, Prisma, DeploymentType, Placem
 import { automationEngineService } from './automationEngine.service';
 import { slaEngineService } from './slaEngine.service';
 import { parseCustomFields } from '../utils/customFields';
+import { RequirementStatus, normalizeStageValue } from './requirement.service';
+import { computeHighestActiveStage, getTenantPipelineStages } from './submission.service';
 
 export interface PlacementFilterParams {
   search?: string;
@@ -689,17 +691,19 @@ export class PlacementService {
             },
           });
           if (activePlaced < Math.max(1, reqRecord.openPositions)) {
-            const subs = await prisma.submission.findMany({
-              where: { requirementId: existing.requirementId },
-              select: { stage: true },
-            });
-            const nextStatus = subs.some((s) => s.stage === 'SELECTED')
-              ? 'SELECTED'
-              : subs.some((s) => s.stage === 'INTERVIEW')
-              ? 'INTERVIEW'
-              : subs.some((s) => s.stage === 'SUBMITTED')
-              ? 'SUBMITTED'
-              : 'REQUIREMENT';
+            const [subs, tenantStages] = await Promise.all([
+              prisma.submission.findMany({
+                where: { requirementId: existing.requirementId },
+                select: { stage: true },
+              }),
+              getTenantPipelineStages(existing.tenantId),
+            ]);
+            const nextStatus = computeHighestActiveStage(
+              subs
+                .map((s) => s.stage)
+                .filter((st) => normalizeStageValue(st) !== RequirementStatus.ONBOARDING),
+              tenantStages
+            );
             await prisma.requirement.update({
               where: { id: existing.requirementId },
               data: { status: nextStatus },

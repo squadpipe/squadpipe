@@ -59,6 +59,11 @@ const ImportDataView = React.lazy(() =>
     default: m.ImportDataView,
   }))
 );
+const RequirementDetailPage = React.lazy(() =>
+  import('./features/requirements/RequirementDetailPage').then((m) => ({
+    default: m.RequirementDetailPage,
+  }))
+);
 const SettingsView = React.lazy(() =>
   import('./features/settings/SettingsView').then((m) => ({
     default: m.SettingsView,
@@ -81,7 +86,6 @@ import { AddPlacementModal } from './components/modals/create/AddPlacementModal'
 import { SignOutModal } from './components/modals/SignOutModal';
 import { ProfileModal } from './components/modals/ProfileModal';
 import { ResumeViewerModal } from './components/modals/ResumeViewerModal';
-import { RequirementDetailModal } from './components/modals/RequirementDetailModal';
 
 import {
   Candidate,
@@ -289,6 +293,22 @@ export const App: React.FC = () => {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [selectedResumeCand, setSelectedResumeCand] = useState<Candidate | null>(null);
   const [selectedReqForDetail, setSelectedReqForDetail] = useState<Requirement | null>(null);
+  const [reqDetailReturnView, setReqDetailReturnView] = useState<string>('pipeline');
+
+  const handleOpenRequirementDetail = (req: Requirement, fromView?: string) => {
+    setReqDetailReturnView(
+      fromView || (currentView !== 'requirement_detail' ? currentView : reqDetailReturnView)
+    );
+    setSelectedReqForDetail(req);
+    setCurrentView('requirement_detail');
+  };
+
+  const handleNavigateView = (nextView: string) => {
+    if (nextView !== 'requirement_detail') {
+      setSelectedReqForDetail(null);
+    }
+    setCurrentView(nextView);
+  };
 
   // Selected items for context modals
   const [activeReq, setActiveReq] = useState<Requirement | null>(null);
@@ -972,6 +992,39 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleUpdateSubmissionNotes = async (
+    req: Requirement,
+    submissionId: string,
+    payload: { interviewDate?: string | null; interviewNotes?: string | null; stage?: string }
+  ) => {
+    try {
+      const res = await apiClient.patch(`/submissions/${submissionId}/notes`, payload);
+      if (res.data?.requirement) {
+        syncUpdatedRequirement(mapRequirementFromApi(res.data.requirement));
+      } else {
+        await fetchRequirements();
+      }
+      await Promise.all([
+        fetchCandidates(),
+        fetchSidebarCounts(),
+        fetchSlaTasks(),
+        fetchAutomations(),
+      ]);
+      showToast(
+        'Notes Saved',
+        `Saved applicant call notes & feedback on ${req.code}.`,
+        'fa-solid fa-circle-check text-brand-600'
+      );
+    } catch (e: any) {
+      showToast(
+        'Save Failed',
+        e?.response?.data?.message || 'Could not save applicant notes.',
+        'fa-solid fa-circle-exclamation text-rose-500'
+      );
+      throw e;
+    }
+  };
+
   const handleDetachSubmission = async (req: Requirement, submissionId: string) => {
     try {
       const res = await apiClient.delete(`/submissions/${submissionId}`);
@@ -1372,9 +1425,10 @@ export const App: React.FC = () => {
     } else if (action === 'checklist') {
       setCurrentView('vendors');
     } else {
-      setCurrentView('pipeline');
       if (matchedReq) {
-        setSelectedReqForDetail(matchedReq);
+        handleOpenRequirementDetail(matchedReq, 'pipeline');
+      } else {
+        handleNavigateView('pipeline');
       }
     }
     setIsSlaOpen(false);
@@ -1530,8 +1584,14 @@ export const App: React.FC = () => {
 
       {/* Obsidian Dark Sidebar with live counts & profile popover */}
       <Sidebar
-        currentView={currentView}
-        onNavigate={setCurrentView}
+        currentView={
+          currentView === 'requirement_detail'
+            ? reqDetailReturnView === 'dashboard'
+              ? 'dashboard'
+              : 'pipeline'
+            : currentView
+        }
+        onNavigate={handleNavigateView}
         counts={computedSidebarCounts}
         currentUser={currentUser}
         isAdmin={isAdmin}
@@ -1565,9 +1625,9 @@ export const App: React.FC = () => {
               placements={placements}
               slaTasks={slaTasks}
               rateMasked={rateMasked}
-              onNavigate={setCurrentView}
+              onNavigate={handleNavigateView}
               onOpenCreateReq={() => setActiveCreateModal('requirement')}
-              onSelectReq={(r) => setSelectedReqForDetail(r)}
+              onSelectReq={(r) => handleOpenRequirementDetail(r, 'dashboard')}
               onUpdateReq={handleUpdateRequirement}
               onDeleteReq={canManageDataOperations ? handleDeleteRequirement : undefined}
               onPreviewResumeByName={(candName) => {
@@ -1603,10 +1663,37 @@ export const App: React.FC = () => {
                 setActiveReq(req);
                 setIsPlacementWizardOpen(true);
               }}
-              onSelectReq={(r) => setSelectedReqForDetail(r)}
+              onSelectReq={(r) => handleOpenRequirementDetail(r, 'pipeline')}
               onOpenAddReq={() => setActiveCreateModal('requirement')}
               onUpdateReq={handleUpdateRequirement}
               onDeleteReq={canManageDataOperations ? handleDeleteRequirement : undefined}
+            />
+          )}
+
+          {currentView === 'requirement_detail' && (
+            <RequirementDetailPage
+              requirement={
+                requirements.find((r) => r.id === selectedReqForDetail?.id) ||
+                selectedReqForDetail
+              }
+              backLabel={
+                reqDetailReturnView === 'dashboard' ? 'Back to Dashboard' : 'Back to Pipeline'
+              }
+              onBack={() => handleNavigateView(reqDetailReturnView)}
+              candidates={candidates}
+              rateMasked={rateMasked}
+              onAssignCandidate={handleAssignCandidate}
+              onAttachCandidates={handleAttachCandidates}
+              onUpdateSubmissionStage={handleUpdateSubmissionStage}
+              onUpdateSubmissionNotes={handleUpdateSubmissionNotes}
+              onDetachSubmission={handleDetachSubmission}
+              onOpenResumePreview={(cand) => setSelectedResumeCand(cand)}
+              onOpenPlacementWizard={(req, cand) => {
+                setActiveCandidate(cand || null);
+                setActiveReq(req);
+                setIsPlacementWizardOpen(true);
+              }}
+              onUpdateReq={handleUpdateRequirement}
             />
           )}
 
@@ -1843,28 +1930,6 @@ export const App: React.FC = () => {
           handleAssignCandidate(req, candidate).catch(() => {});
         }}
         showToast={showToast}
-      />
-
-      {/* Job Requisition Detail & Inline Multi-Applicant Bench Matcher Modal */}
-      <RequirementDetailModal
-        isOpen={Boolean(selectedReqForDetail)}
-        onClose={() => setSelectedReqForDetail(null)}
-        requirement={
-          requirements.find((r) => r.id === selectedReqForDetail?.id) ||
-          selectedReqForDetail
-        }
-        candidates={candidates}
-        onAssignCandidate={handleAssignCandidate}
-        onAttachCandidates={handleAttachCandidates}
-        onUpdateSubmissionStage={handleUpdateSubmissionStage}
-        onDetachSubmission={handleDetachSubmission}
-        onOpenResumePreview={(cand) => setSelectedResumeCand(cand)}
-        onOpenPlacementWizard={(req, cand) => {
-          setActiveCandidate(cand || null);
-          setActiveReq(req);
-          setIsPlacementWizardOpen(true);
-        }}
-        onUpdateReq={handleUpdateRequirement}
       />
 
       {/* Specialized Modals */}

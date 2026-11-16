@@ -28,6 +28,8 @@ export const Topbar: React.FC<TopbarProps> = ({
         return 'Dashboard Overview';
       case 'pipeline':
         return 'Opportunity Pipeline';
+      case 'requirement_detail':
+        return 'Requirement Details';
       case 'consultants':
         return 'Consultant Directory';
       case 'clients':

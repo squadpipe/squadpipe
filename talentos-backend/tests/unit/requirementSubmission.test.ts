@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { RequirementStatus } from '@prisma/client';
-import { parseOpenPositions } from '../../src/services/requirement.service';
+import { RequirementStatus, parseOpenPositions } from '../../src/services/requirement.service';
 import {
+  computeHighestActiveStage,
   computePromotedRequirementStage,
   normalizePitchTone,
+  resolveApplicantStage,
 } from '../../src/services/submission.service';
 
 export const runRequirementSubmissionTests = () => {
@@ -53,7 +54,58 @@ export const runRequirementSubmissionTests = () => {
     null
   );
 
-  // 3. PitchTone normalization
+  // 3. Dynamic custom applicant stage validation & ordered promotion
+  const customStages = [
+    'Requirement',
+    'Submitted',
+    'Client Screen',
+    'Interview',
+    'Final Panel',
+    'Selected',
+    'Onboarding',
+    'Billable',
+    'Archived',
+  ];
+
+  assert.equal(resolveApplicantStage('submitted', customStages), RequirementStatus.SUBMITTED);
+  assert.equal(resolveApplicantStage('Closed', customStages), RequirementStatus.CLOSED);
+  assert.equal(resolveApplicantStage('client screen', customStages), 'Client Screen');
+  assert.equal(resolveApplicantStage('Final Panel', customStages), 'Final Panel');
+
+  for (const invalidStage of ['', '   ', 'Requirement', 'Billable', 'Archived', 'NonExistentStage']) {
+    assert.throws(
+      () => resolveApplicantStage(invalidStage, customStages),
+      (err: any) => err?.statusCode === 400,
+      `Expected HTTP 400 validation error for stage=${String(invalidStage)}`
+    );
+  }
+
+  assert.equal(
+    computePromotedRequirementStage(['Client Screen'], RequirementStatus.SUBMITTED, customStages),
+    'Client Screen'
+  );
+  assert.equal(
+    computePromotedRequirementStage(
+      ['Client Screen', 'Final Panel'],
+      RequirementStatus.INTERVIEW,
+      customStages
+    ),
+    'Final Panel'
+  );
+  assert.equal(
+    computePromotedRequirementStage(['Client Screen'], RequirementStatus.SELECTED, customStages),
+    null
+  );
+  assert.equal(
+    computeHighestActiveStage([RequirementStatus.SUBMITTED, 'Final Panel', RequirementStatus.CLOSED], customStages),
+    'Final Panel'
+  );
+  assert.equal(
+    computeHighestActiveStage([RequirementStatus.CLOSED], customStages),
+    RequirementStatus.REQUIREMENT
+  );
+
+  // 4. PitchTone normalization
   assert.equal(normalizePitchTone('High-Impact'), 'HIGH_IMPACT');
   assert.equal(normalizePitchTone('Technical Focus'), 'TECHNICAL_FOCUS');
   assert.equal(normalizePitchTone('Professional'), 'PROFESSIONAL');

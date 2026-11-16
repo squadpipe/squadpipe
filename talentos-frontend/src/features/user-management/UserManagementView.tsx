@@ -269,6 +269,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                 <th className="py-3 px-5">Member</th>
                 <th className="py-3 px-4">Role</th>
                 <th className="py-3 px-4">Desk</th>
+                <th className="py-3 px-4">Live Workload</th>
                 <th className="py-3 px-4">Rate Access</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-5 text-right">Actions</th>
@@ -277,7 +278,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
             <tbody className="divide-y divide-slate-100">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-10 text-center text-xs text-slate-400">
+                  <td colSpan={7} className="py-10 text-center text-xs text-slate-400">
                     {search.trim() || roleFilter !== 'All' || statusFilter !== 'All' ? (
                       <>
                         No team members match the current filters.{' '}
@@ -352,6 +353,13 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
 
                       {/* Desk */}
                       <td className="py-3 px-4 text-slate-700">{u.desk}</td>
+
+                      {/* Live Workload */}
+                      <td className="py-3 px-4">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200/80 text-[11px] font-medium text-slate-700 whitespace-nowrap">
+                          {u.workload || '0 Reqs • 0 Subs • 0 Placements'}
+                        </span>
+                      </td>
 
                       {/* Rate Access Toggle */}
                       <td className="py-3 px-4">

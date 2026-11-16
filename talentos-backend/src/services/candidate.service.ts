@@ -13,8 +13,79 @@ export interface CandidateFilterParams {
   search?: string;
   stage?: string;
   workAuth?: string;
+  minRate?: number;
+  maxRate?: number;
   page?: number;
   limit?: number;
+}
+
+export function parseCandidateSearchTokens(search?: string): string[] {
+  const raw = String(search || '').trim();
+  if (!raw) return [];
+
+  const tokens: string[] = [];
+  const regex = /"([^"]+)"|(\S+)/g;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(raw)) !== null) {
+    const token = (match[1] ?? match[2] ?? '').replace(/^,+|,+$/g, '').trim();
+    if (!token) continue;
+    const upper = token.toUpperCase();
+    if (upper === 'AND' || token === '&' || token === '+') continue;
+    tokens.push(token);
+    if (tokens.length >= 8) break;
+  }
+  return tokens;
+}
+
+export function buildCandidateWhereClause(params: CandidateFilterParams): Prisma.CandidateWhereInput {
+  const { search, stage, workAuth, minRate, maxRate, tenantId } = params;
+  const where: Prisma.CandidateWhereInput = {};
+
+  if (tenantId) {
+    where.tenantId = tenantId;
+  }
+
+  const andClauses: Prisma.CandidateWhereInput[] = [];
+  const tokens = parseCandidateSearchTokens(search);
+  for (const token of tokens) {
+    andClauses.push({
+      OR: [
+        { fullName: { contains: token, mode: 'insensitive' } },
+        { skillset: { contains: token, mode: 'insensitive' } },
+        { currentTitle: { contains: token, mode: 'insensitive' } },
+        { workAuth: { contains: token, mode: 'insensitive' } },
+        { rawSnippet: { contains: token, mode: 'insensitive' } },
+        { email: { contains: token, mode: 'insensitive' } },
+        { phone: { contains: token, mode: 'insensitive' } },
+      ],
+    });
+  }
+
+  const hasMinRate = typeof minRate === 'number' && Number.isFinite(minRate) && minRate >= 0;
+  const hasMaxRate = typeof maxRate === 'number' && Number.isFinite(maxRate) && maxRate >= 0;
+  if (hasMinRate || hasMaxRate) {
+    const rateCond: Prisma.DecimalNullableFilter = {
+      ...(hasMinRate ? { gte: minRate } : {}),
+      ...(hasMaxRate ? { lte: maxRate } : {}),
+    };
+    andClauses.push({
+      OR: [{ hourlyRateW2: rateCond }, { hourlyRateC2c: rateCond }],
+    });
+  }
+
+  if (andClauses.length > 0) {
+    where.AND = andClauses;
+  }
+
+  if (stage && stage !== 'ALL' && stage !== 'All') {
+    const mappedStage = stageMap[stage] || (stage as CandidatePipelineStage);
+    where.pipelineStage = mappedStage;
+  }
+  if (workAuth && workAuth !== 'ALL' && workAuth !== 'All') {
+    where.workAuth = { contains: String(workAuth).trim(), mode: 'insensitive' };
+  }
+
+  return where;
 }
 
 export const stageMap: Record<string, CandidatePipelineStage> = {
@@ -36,33 +107,7 @@ export const stageMap: Record<string, CandidatePipelineStage> = {
 
 export class CandidateService {
   private buildWhereClause(params: CandidateFilterParams): Prisma.CandidateWhereInput {
-    const { search, stage, workAuth, tenantId } = params;
-    const where: Prisma.CandidateWhereInput = {};
-
-    if (tenantId) {
-      where.tenantId = tenantId;
-    }
-
-    const q = search ? String(search).trim() : '';
-    if (q) {
-      where.OR = [
-        { fullName: { contains: q, mode: 'insensitive' } },
-        { skillset: { contains: q, mode: 'insensitive' } },
-        { currentTitle: { contains: q, mode: 'insensitive' } },
-        { workAuth: { contains: q, mode: 'insensitive' } },
-        { email: { contains: q, mode: 'insensitive' } },
-        { phone: { contains: q, mode: 'insensitive' } }
-      ];
-    }
-    if (stage && stage !== 'ALL' && stage !== 'All') {
-      const mappedStage = stageMap[stage] || (stage as CandidatePipelineStage);
-      where.pipelineStage = mappedStage;
-    }
-    if (workAuth && workAuth !== 'ALL' && workAuth !== 'All') {
-      where.workAuth = { contains: String(workAuth).trim(), mode: 'insensitive' };
-    }
-
-    return where;
+    return buildCandidateWhereClause(params);
   }
 
   async getCandidates(params: CandidateFilterParams) {

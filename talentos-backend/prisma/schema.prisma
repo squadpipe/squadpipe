@@ -354,7 +354,7 @@ model Submission {
   candidate              Candidate         @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   recruiterId            String?
   recruiter              User?             @relation("RecruiterSubmissions", fields: [recruiterId], references: [id], onDelete: SetNull)
-  stage                  RequirementStatus @default(SUBMITTED)
+  stage                  String            @default("SUBMITTED")
   pitchEmailSubject      String?
   pitchEmailBody         String?           @db.Text
   pitchTone              PitchTone         @default(PROFESSIONAL)

@@ -3,6 +3,7 @@ import { runPlacementCalculationTests } from './unit/placement.test';
 import { runSecurityHardeningTests } from './unit/securityHardening.test';
 import { runRequirementSubmissionTests } from './unit/requirementSubmission.test';
 import { runEmailTemplateTests } from './unit/emailTemplate.test';
+import { runRecruiterWorkflowTests } from './unit/recruiterWorkflows.test';
 
 async function runAllBackendTests() {
   console.log('========================================================');
@@ -15,6 +16,7 @@ async function runAllBackendTests() {
     runSecurityHardeningTests();
     runRequirementSubmissionTests();
     runEmailTemplateTests();
+    runRecruiterWorkflowTests();
 
     console.log('\n========================================================');
     console.log('🎉 ALL BACKEND TESTS PASSED (100% Success)');

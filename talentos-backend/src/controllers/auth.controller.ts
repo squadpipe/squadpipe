@@ -10,6 +10,16 @@ import { getJwtAccessExpiry, getJwtAccessSecret } from '../config/jwt.config';
 import { getTenantSettings, saveGeneralSettings } from '../config/smtp.config';
 import { smtpService } from '../services/smtp.service';
 import { renderOtpEmail } from '../services/emailTemplate.service';
+import { analyticsService } from '../services/analytics.service';
+
+async function resolveUserLiveWorkload(userId: string, tenantId: string, fallback: string | null) {
+  try {
+    const map = await analyticsService.getLiveWorkloadsMap(tenantId, [userId]);
+    return map.get(userId)?.workloadText || fallback || '0 Reqs • 0 Subs • 0 Placements';
+  } catch {
+    return fallback || '0 Reqs • 0 Subs • 0 Placements';
+  }
+}
 
 const OTP_RESEND_COOLDOWN_SECONDS = 120;
 
@@ -84,6 +94,8 @@ export const login = async (req: Request, res: Response) => {
     }
   });
 
+  const liveWorkload = await resolveUserLiveWorkload(user.id, authPayload.tenantId, user.workload);
+
   res.json({
     success: true,
     message: `Welcome back, ${user.fullName}`,
@@ -97,7 +109,7 @@ export const login = async (req: Request, res: Response) => {
       role: user.role,
       desk: user.desk,
       rateMasked: user.rateMasked,
-      workload: user.workload,
+      workload: liveWorkload,
       status: user.status,
       isCurrentUser: true,
       lastActive: 'Active Now'
@@ -121,6 +133,7 @@ export const me = async (req: Request, res: Response) => {
   const tenantId = user.tenantId || req.user.tenantId;
   const settings = await getTenantSettings(tenantId);
   const resolvedAgencyName = settings.general.agencyName?.trim() || user.agencyName || 'SquadPipe Staffing';
+  const liveWorkload = await resolveUserLiveWorkload(user.id, tenantId, user.workload);
 
   res.json({
     success: true,
@@ -133,7 +146,7 @@ export const me = async (req: Request, res: Response) => {
       role: user.role,
       desk: user.desk,
       rateMasked: user.rateMasked,
-      workload: user.workload,
+      workload: liveWorkload,
       status: user.status,
       isCurrentUser: true,
       lastActive: 'Active Now'
@@ -183,6 +196,8 @@ export const updateProfile = async (req: Request, res: Response) => {
         ...(agencyName !== undefined ? { agencyName: String(agencyName).trim() } : {})
       }
     });
+    const liveWorkload = await resolveUserLiveWorkload(updated.id, updated.tenantId, updated.workload);
+
     res.json({
       success: true,
       data: {
@@ -194,7 +209,7 @@ export const updateProfile = async (req: Request, res: Response) => {
         role: updated.role,
         desk: updated.desk,
         rateMasked: updated.rateMasked,
-        workload: updated.workload,
+        workload: liveWorkload,
         status: updated.status,
         isCurrentUser: true,
         lastActive: 'Active Now'
@@ -275,7 +290,7 @@ export const signup = async (req: Request, res: Response) => {
         desk: assignedDesk,
         rateMasked,
         status: UserStatus.ACTIVE,
-        workload: '0 Requisitions • 0 Submissions',
+        workload: '0 Reqs • 0 Subs • 0 Placements',
         lastActiveAt: new Date()
       }
     });

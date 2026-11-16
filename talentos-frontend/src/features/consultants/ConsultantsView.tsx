@@ -24,6 +24,12 @@ import { ModalPortal } from '../../components/shared/ModalPortal';
 import { SkillTagInput } from '../../components/shared/SkillTagInput';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapCandidateFromApi } from '../../utils/entityMappers';
+import { useMasterTaxonomies } from '../../components/shared/DynamicCustomFieldsSection';
+import {
+  extractResumeMatchExcerpt,
+  matchesCandidateQuery,
+  parseCandidateHourlyRate,
+} from '../../utils/candidateSearch';
 import {
   ALLOWED_CV_ACCEPT,
   downloadOriginalCandidateCv,
@@ -57,6 +63,9 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
 }) => {
   const [search, setSearch] = useState('');
   const [workAuthFilter, setWorkAuthFilter] = useState('All');
+  const [stageFilter, setStageFilter] = useState('All');
+  const [minRate, setMinRate] = useState('');
+  const [maxRate, setMaxRate] = useState('');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [tableRows, setTableRows] = useState<Candidate[]>(() => candidates.slice(0, 10));
@@ -69,6 +78,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
   const [isDownloadingEditCv, setIsDownloadingEditCv] = useState(false);
   const [candidateToDelete, setCandidateToDelete] = useState<Candidate | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const taxonomies = useMasterTaxonomies(true);
 
   useEffect(() => {
     setEditCvFile(null);
@@ -92,22 +102,39 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
     cand.pipelineStage === 'Billable' || getLinkedPlacements(cand).length > 0;
 
   const debouncedSearch = useDebounce(search, 150);
+  const debouncedMinRate = useDebounce(minRate, 200);
+  const debouncedMaxRate = useDebounce(maxRate, 200);
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, workAuthFilter]);
+  }, [debouncedSearch, workAuthFilter, stageFilter, debouncedMinRate, debouncedMaxRate]);
 
   useEffect(() => {
     let active = true;
-    const q = debouncedSearch.toLowerCase();
+    const minNum = !rateMasked && debouncedMinRate.trim() !== '' ? Number(debouncedMinRate) : NaN;
+    const maxNum = !rateMasked && debouncedMaxRate.trim() !== '' ? Number(debouncedMaxRate) : NaN;
+
     const localFiltered = candidates.filter((c) => {
-      const matchesSearch =
-        !q ||
-        c.fullName.toLowerCase().includes(q) ||
-        c.skillset.toLowerCase().includes(q) ||
-        c.currentTitle.toLowerCase().includes(q);
-      const matchesAuth = workAuthFilter === 'All' || c.workAuth.includes(workAuthFilter);
-      return matchesSearch && matchesAuth;
+      const matchesSearch = matchesCandidateQuery(c, debouncedSearch);
+      const matchesAuth =
+        workAuthFilter === 'All' ||
+        (c.workAuth || '').toLowerCase().includes(workAuthFilter.toLowerCase());
+      const matchesStage =
+        stageFilter === 'All' ||
+        (c.pipelineStage || '').toLowerCase() === stageFilter.toLowerCase();
+
+      let matchesRate = true;
+      if (!rateMasked && (Number.isFinite(minNum) || Number.isFinite(maxNum))) {
+        const numericRate = parseCandidateHourlyRate(c.hourlyRate);
+        if (numericRate === null) {
+          matchesRate = false;
+        } else {
+          if (Number.isFinite(minNum) && numericRate < minNum) matchesRate = false;
+          if (Number.isFinite(maxNum) && numericRate > maxNum) matchesRate = false;
+        }
+      }
+
+      return matchesSearch && matchesAuth && matchesStage && matchesRate;
     });
 
     if (candidates.length > 0) {
@@ -123,6 +150,9 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
         params: {
           search: debouncedSearch.trim() || undefined,
           workAuth: workAuthFilter !== 'All' ? workAuthFilter : undefined,
+          stage: stageFilter !== 'All' ? stageFilter : undefined,
+          minRate: !rateMasked && Number.isFinite(minNum) ? minNum : undefined,
+          maxRate: !rateMasked && Number.isFinite(maxNum) ? maxNum : undefined,
           page,
           limit,
         },
@@ -146,9 +176,32 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
     return () => {
       active = false;
     };
-  }, [debouncedSearch, workAuthFilter, page, limit, candidates]);
+  }, [
+    debouncedSearch,
+    workAuthFilter,
+    stageFilter,
+    debouncedMinRate,
+    debouncedMaxRate,
+    rateMasked,
+    page,
+    limit,
+    candidates,
+  ]);
 
   const filtered = tableRows;
+  const hasActiveFilters =
+    Boolean(search.trim()) ||
+    workAuthFilter !== 'All' ||
+    stageFilter !== 'All' ||
+    (!rateMasked && (Boolean(minRate.trim()) || Boolean(maxRate.trim())));
+
+  const clearAllFilters = () => {
+    setSearch('');
+    setWorkAuthFilter('All');
+    setStageFilter('All');
+    setMinRate('');
+    setMaxRate('');
+  };
 
   return (
     <section className="max-w-7xl mx-auto space-y-5 animate-fade-in">
@@ -192,23 +245,70 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
       {/* Main Roster Table Card */}
       <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
         {/* Subheader Filter Bar */}
-        <div className="px-5 py-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
-          <div className="flex items-center gap-3">
-            <span className="font-semibold text-xs text-slate-900">
+        <div className="px-5 py-3 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-slate-50/50">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-xs text-slate-900 mr-1">
               {totalRows} Active Consultants
             </span>
             <select
+              aria-label="Filter by work authorization"
               value={workAuthFilter}
               onChange={(e) => setWorkAuthFilter(e.target.value)}
               className="py-1 px-2.5 bg-white border border-slate-200 rounded-md text-xs font-semibold text-slate-700 cursor-pointer outline-none"
             >
               <option value="All">All Authorizations</option>
-              <option value="US Citizen">US Citizen</option>
-              <option value="Green Card">Green Card</option>
-              <option value="H-1B">H-1B</option>
-              <option value="TN Visa">TN Visa</option>
-              <option value="OPT">OPT / CPT</option>
+              {taxonomies.workAuth.map((auth) => (
+                <option key={auth} value={auth}>
+                  {auth}
+                </option>
+              ))}
             </select>
+            <select
+              aria-label="Filter by pipeline stage"
+              value={stageFilter}
+              onChange={(e) => setStageFilter(e.target.value)}
+              className="py-1 px-2.5 bg-white border border-slate-200 rounded-md text-xs font-semibold text-slate-700 cursor-pointer outline-none"
+            >
+              <option value="All">All Stages</option>
+              <option value="Available / Bench">Available / Bench</option>
+              <option value="Submitted">Submitted</option>
+              <option value="Interview">Interview</option>
+              <option value="Selected">Selected</option>
+              <option value="Onboarding">Onboarding</option>
+              <option value="Billable">Billable</option>
+            </select>
+            {!rateMasked && (
+              <div className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+                <input
+                  type="number"
+                  min={0}
+                  value={minRate}
+                  onChange={(e) => setMinRate(e.target.value)}
+                  placeholder="Min $/hr"
+                  aria-label="Minimum hourly rate"
+                  className="w-20 px-2 py-1 text-xs border border-slate-200 rounded-md bg-white text-slate-700 outline-none focus:border-brand-500"
+                />
+                <span>–</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={maxRate}
+                  onChange={(e) => setMaxRate(e.target.value)}
+                  placeholder="Max $/hr"
+                  aria-label="Maximum hourly rate"
+                  className="w-20 px-2 py-1 text-xs border border-slate-200 rounded-md bg-white text-slate-700 outline-none focus:border-brand-500"
+                />
+              </div>
+            )}
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="text-[11px] font-semibold text-brand-600 hover:text-brand-700 hover:underline px-1 cursor-pointer"
+              >
+                Reset
+              </button>
+            )}
           </div>
 
           <div className="relative">
@@ -217,8 +317,8 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name, skill, title..."
-              className="pl-8 pr-3 py-1 text-xs border border-slate-200 rounded-md bg-white w-64 text-slate-700 outline-none focus:border-brand-500"
+              placeholder="Search name, skills, or resume text (e.g. Kubernetes AND Terraform)..."
+              className="pl-8 pr-3 py-1 text-xs border border-slate-200 rounded-md bg-white w-full sm:w-80 text-slate-700 outline-none focus:border-brand-500"
             />
           </div>
         </div>
@@ -245,15 +345,12 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                     colSpan={8}
                     className="px-6 py-10 text-center text-xs text-slate-400"
                   >
-                    {search.trim() || workAuthFilter !== 'All' ? (
+                    {hasActiveFilters ? (
                       <>
                         No consultants match your current filters.{' '}
                         <button
                           type="button"
-                          onClick={() => {
-                            setSearch('');
-                            setWorkAuthFilter('All');
-                          }}
+                          onClick={clearAllFilters}
                           className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
                         >
                           Clear Filters
@@ -311,7 +408,15 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
 
                   {/* Current Title */}
                   <td className="px-4 py-3 text-slate-800 font-medium">
-                    {c.currentTitle}
+                    <div>{c.currentTitle}</div>
+                    {search.trim() && (() => {
+                      const excerpt = extractResumeMatchExcerpt(c.rawSnippet, search);
+                      return excerpt ? (
+                        <div className="text-[10px] font-normal text-brand-700 bg-brand-50/70 border border-brand-200/70 rounded px-1.5 py-0.5 mt-1 max-w-xs truncate" title={excerpt}>
+                          CV match: {excerpt}
+                        </div>
+                      ) : null;
+                    })()}
                   </td>
 
                   {/* Key Skillset */}

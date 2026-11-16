@@ -1,8 +1,35 @@
 import { prisma } from '../config/prisma.config';
-import { RequirementStatus, PlacementStatus, Prisma, WorkModel, AutomationCategory } from '@prisma/client';
+import { PlacementStatus, Prisma, WorkModel, AutomationCategory } from '@prisma/client';
 import { slaEngineService } from './slaEngine.service';
 import { automationEngineService } from './automationEngine.service';
 import { parseCustomFields } from '../utils/customFields';
+
+export const RequirementStatus = {
+  REQUIREMENT: 'REQUIREMENT',
+  SUBMITTED: 'SUBMITTED',
+  INTERVIEW: 'INTERVIEW',
+  SELECTED: 'SELECTED',
+  ONBOARDING: 'ONBOARDING',
+  CLOSED: 'CLOSED',
+} as const;
+
+export type RequirementStatus =
+  (typeof RequirementStatus)[keyof typeof RequirementStatus];
+
+const CANONICAL_STAGE_BY_LOWER: Record<string, RequirementStatus> = {
+  requirement: RequirementStatus.REQUIREMENT,
+  submitted: RequirementStatus.SUBMITTED,
+  interview: RequirementStatus.INTERVIEW,
+  selected: RequirementStatus.SELECTED,
+  onboarding: RequirementStatus.ONBOARDING,
+  closed: RequirementStatus.CLOSED,
+};
+
+export function normalizeStageValue(input?: unknown): string {
+  const trimmed = String(input ?? '').trim();
+  if (!trimmed) return '';
+  return CANONICAL_STAGE_BY_LOWER[trimmed.toLowerCase()] || trimmed;
+}
 
 export interface RequirementFilterParams {
   tenantId?: string;
@@ -66,7 +93,10 @@ export const REQUIREMENT_INCLUDE = {
     select: { id: true, fullName: true, role: true, desk: true },
   },
   submissions: {
-    include: { candidate: true },
+    include: {
+      candidate: true,
+      recruiter: { select: { id: true, fullName: true } },
+    },
     orderBy: { createdAt: 'desc' as const },
   },
   placements: {

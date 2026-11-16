@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { placementService } from '../services/placement.service';
 import { submissionService } from '../services/submission.service';
+import { analyticsService } from '../services/analytics.service';
 import { csvImporterService } from '../services/csvImporter.service';
 import { resumeParserClientService } from '../services/resumeParserClient.service';
 import { smtpService } from '../services/smtp.service';
@@ -117,6 +118,20 @@ router.get('/dashboard/metrics', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'Failed to fetch dashboard metrics' });
+  }
+});
+
+router.get('/dashboard/recruiter-performance', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const period = req.query.period ? String(req.query.period).trim().toLowerCase() : 'week';
+    const report = await analyticsService.getRecruiterPerformance(tenantId, period);
+    res.json({ success: true, data: report });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch recruiter performance metrics',
+    });
   }
 });
 
@@ -428,6 +443,35 @@ router.patch('/requirements/:id/stage', requirementController.updateRequirementS
 router.delete('/requirements/:id', requireRole(LEADERSHIP_ROLES), requirementController.deleteRequirement);
 
 // Submissions (Candidates / Applicants to Requirement — One-to-Many)
+router.get('/submissions/duplicate-check', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const requirementId = String(req.query.requirementId || '').trim();
+    const rawCandidateIds = String(req.query.candidateIds || '').trim();
+    const candidateIds = rawCandidateIds
+      ? rawCandidateIds.split(',').map((id) => id.trim()).filter(Boolean)
+      : [];
+
+    if (!requirementId) {
+      return res.status(400).json({ success: false, message: 'requirementId query param is required' });
+    }
+
+    const result = await submissionService.checkClientDuplicates({
+      tenantId,
+      requirementId,
+      candidateIds,
+    });
+
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    const status = error?.statusCode || 500;
+    res.status(status).json({
+      success: false,
+      message: error.message || 'Failed to check duplicate client submissions',
+    });
+  }
+});
+
 router.post('/submissions', async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
@@ -489,6 +533,32 @@ router.patch('/submissions/:id/stage', async (req: Request, res: Response) => {
   } catch (error: any) {
     const status = error?.statusCode || 500;
     res.status(status).json({ success: false, message: error.message || 'Failed to update applicant stage' });
+  }
+});
+
+router.patch('/submissions/:id/notes', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'talentos-agency';
+    const { id } = req.params;
+    const { interviewDate, interviewNotes, stage, status } = req.body;
+    const stageInput = stage || status;
+
+    const result = await submissionService.updateSubmissionNotes({
+      submissionId: id,
+      tenantId,
+      interviewDate,
+      interviewNotes,
+      stageInput,
+    });
+
+    res.json({
+      success: true,
+      data: result.submission,
+      requirement: result.requirement,
+    });
+  } catch (error: any) {
+    const status = error?.statusCode || 500;
+    res.status(status).json({ success: false, message: error.message || 'Failed to save applicant notes' });
   }
 });
 

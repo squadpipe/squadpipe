@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { smtpService } from './smtp.service';
 import { getTenantSettings } from '../config/smtp.config';
 import { renderInviteEmail } from './emailTemplate.service';
+import { analyticsService, formatLiveWorkloadText } from './analytics.service';
 
 export interface UserFilterParams {
   search?: string;
@@ -57,6 +58,25 @@ export class UserService {
       createdAt: true
     };
 
+    const enrichUsers = async (rows: Array<{ id: string; tenantId: string; workload: string | null; [k: string]: any }>) => {
+      if (rows.length === 0) return rows;
+      const scopeTenant = tenantId || rows[0].tenantId;
+      const workloads = await analyticsService.getLiveWorkloadsMap(
+        scopeTenant,
+        rows.map((r) => r.id)
+      );
+      return rows.map((r) => {
+        const live = workloads.get(r.id);
+        return {
+          ...r,
+          workload: live?.workloadText || formatLiveWorkloadText(0, 0, 0),
+          metrics: live
+            ? { openReqs: live.openReqs, submissions: live.submissions, placements: live.placements }
+            : { openReqs: 0, submissions: 0, placements: 0 },
+        };
+      });
+    };
+
     const hasPagination = params.page !== undefined || params.limit !== undefined;
     if (!hasPagination) {
       const data = await prisma.user.findMany({
@@ -64,9 +84,10 @@ export class UserService {
         select,
         orderBy: { createdAt: 'desc' }
       });
+      const enriched = await enrichUsers(data);
       return {
-        data,
-        pagination: { page: 1, limit: data.length || 10, total: data.length, totalPages: 1 }
+        data: enriched,
+        pagination: { page: 1, limit: enriched.length || 10, total: enriched.length, totalPages: 1 }
       };
     }
 
@@ -84,7 +105,7 @@ export class UserService {
     ]);
 
     return {
-      data,
+      data: await enrichUsers(data),
       pagination: {
         page,
         limit,

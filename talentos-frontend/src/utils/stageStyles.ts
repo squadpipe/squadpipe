@@ -126,3 +126,74 @@ export function normalizeSlaBadgeClass(badgeClass?: string): string {
   }
   return raw;
 }
+
+const EXCLUDED_REQUIREMENT_STAGES = new Set(['billable', 'archived']);
+const EXCLUDED_APPLICANT_STAGES = new Set(['requirement', 'billable', 'archived']);
+
+function collectStageOptions(
+  source: string[],
+  excluded: Set<string>,
+  trailingStages: string[],
+  currentStage?: string
+): string[] {
+  const result: string[] = [];
+  const seen = new Set<string>();
+
+  for (const raw of source) {
+    const clean = String(raw || '').trim();
+    if (!clean) continue;
+    const lower = clean.toLowerCase();
+    if (excluded.has(lower) || seen.has(lower)) continue;
+    seen.add(lower);
+    result.push(clean);
+  }
+
+  for (const trailing of trailingStages) {
+    const lower = trailing.toLowerCase();
+    if (!seen.has(lower)) {
+      seen.add(lower);
+      result.push(trailing);
+    }
+  }
+
+  const current = String(currentStage || '').trim();
+  if (current && !seen.has(current.toLowerCase())) {
+    result.push(current);
+  }
+
+  return result;
+}
+
+/**
+ * Returns the case-insensitive index of a stage within the workspace stage list (or 0).
+ */
+export function getStageIndex(stage?: string, stages?: string[]): number {
+  if (!stage || !Array.isArray(stages) || stages.length === 0) return 0;
+  const target = stage.trim().toLowerCase();
+  const idx = stages.findIndex((s) => s.trim().toLowerCase() === target);
+  return idx >= 0 ? idx : 0;
+}
+
+/**
+ * Derives requirement pipeline stage options from workspace MasterTaxonomy STAGES,
+ * excluding Billable/Archived unless already assigned on the requirement.
+ */
+export function buildRequirementStageOptions(stages?: string[], currentStage?: string): string[] {
+  const source =
+    Array.isArray(stages) && stages.length > 0
+      ? stages
+      : ['Requirement', 'Submitted', 'Interview', 'Selected', 'Onboarding'];
+  return collectStageOptions(source, EXCLUDED_REQUIREMENT_STAGES, [], currentStage);
+}
+
+/**
+ * Derives applicant submission stage options from workspace MasterTaxonomy STAGES,
+ * excluding Requirement/Billable/Archived and ensuring Closed and the current stage are present.
+ */
+export function buildApplicantStageOptions(stages?: string[], currentStage?: string): string[] {
+  const source =
+    Array.isArray(stages) && stages.length > 0
+      ? stages
+      : ['Submitted', 'Interview', 'Selected', 'Onboarding'];
+  return collectStageOptions(source, EXCLUDED_APPLICANT_STAGES, ['Closed'], currentStage);
+}
