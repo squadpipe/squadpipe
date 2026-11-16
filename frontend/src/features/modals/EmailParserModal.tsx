@@ -522,19 +522,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Target Company *</label>
-                    {extractedReq.companyName.trim() &&
-                      !clients.some(
-                        (c) =>
-                          stripClientLocation(c.name).toLowerCase() ===
-                          extractedReq.companyName.trim().toLowerCase()
-                      ) && (
-                        <span className="text-[9px] font-medium text-brand-800 bg-brand-500/[0.08] px-1.5 py-0.5 rounded">
-                          New client (auto-saved on create)
-                        </span>
-                      )}
-                  </div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Target Company *</label>
                   <SearchableSelectInput
                     value={extractedReq.companyName}
                     onChange={(val) => {
@@ -565,6 +553,18 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                     newOptionBadge="Auto-saved on create"
                     inputClassName="w-full pl-2.5 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 font-bold focus:border-brand-600 focus:outline-none"
                   />
+                  {extractedReq.companyName.trim() &&
+                    !clients.some(
+                      (c) =>
+                        stripClientLocation(c.name).toLowerCase() ===
+                        extractedReq.companyName.trim().toLowerCase()
+                    ) && (
+                      <div className="mt-1">
+                        <span className="inline-block text-[10px] font-medium text-brand-800 bg-brand-500/[0.08] px-1.5 py-0.5 rounded">
+                          New client (auto-saved on create)
+                        </span>
+                      </div>
+                    )}
                 </div>
 
                 <div>
