@@ -108,6 +108,46 @@ interface DynamicCustomFieldsSectionProps {
   isOpen?: boolean;
 }
 
+function isWideCustomField(field: CustomField): boolean {
+  const typeUpper = String(field.type || 'Text').toUpperCase();
+  if (typeUpper === 'NUMBER' || typeUpper === 'DATE' || typeUpper === 'CURRENCY ($)') {
+    return false;
+  }
+  const nameLower = String(field.name || '').toLowerCase();
+  return /(url|link|linkedin|website|portfolio|github|note|remark|comment|summary|description|address|skill)/.test(
+    nameLower
+  );
+}
+
+/**
+ * Computes responsive grid spans for a 2-column form grid so single fields,
+ * wide fields (URLs, notes, addresses), and trailing unpaired fields take full width.
+ */
+function computeCustomFieldSpans(fields: CustomField[]): string[] {
+  const spans = fields.map(() => '');
+  let col = 0;
+
+  for (let i = 0; i < fields.length; i++) {
+    if (isWideCustomField(fields[i])) {
+      if (col === 1) {
+        spans[i - 1] = 'sm:col-span-2';
+      }
+      spans[i] = 'sm:col-span-2';
+      col = 0;
+    } else if (col === 0) {
+      if (i === fields.length - 1) {
+        spans[i] = 'sm:col-span-2';
+      } else {
+        col = 1;
+      }
+    } else {
+      col = 0;
+    }
+  }
+
+  return spans;
+}
+
 export const DynamicCustomFieldsSection: React.FC<DynamicCustomFieldsSectionProps> = ({
   entity,
   values,
@@ -150,6 +190,8 @@ export const DynamicCustomFieldsSection: React.FC<DynamicCustomFieldsSectionProp
     onChange({ ...values, [fieldName]: val });
   };
 
+  const fieldSpans = computeCustomFieldSpans(fields);
+
   return (
     <div className="pt-3.5 border-t border-slate-100 space-y-3">
       <div className="flex items-center justify-between">
@@ -158,12 +200,12 @@ export const DynamicCustomFieldsSection: React.FC<DynamicCustomFieldsSectionProp
         </span>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-        {fields.map((field) => {
+        {fields.map((field, index) => {
           const val = values[field.name] ?? '';
           const fieldType = String(field.type || 'Text');
 
           return (
-            <div key={field.id || field.name}>
+            <div key={field.id || field.name} className={fieldSpans[index]}>
               <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                 {field.name} {field.required ? '*' : ''}
               </label>

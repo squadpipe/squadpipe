@@ -219,7 +219,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
             className="px-3 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
           >
             <FileText className="w-3.5 h-3.5 text-brand-600" />
-            <span>Resume Parser</span>
+            <span>Upload Resume</span>
           </button>
           {onOpenAddConsultant && (
             <button

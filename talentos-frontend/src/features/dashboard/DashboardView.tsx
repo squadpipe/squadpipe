@@ -553,7 +553,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-xs text-slate-900">Today's Priority Action Queue</h3>
+                  <h3 className="font-bold text-xs text-slate-900">Action Items &amp; Reminders</h3>
                   <StatusBadge
                     label={`${slaTasks.filter((t) => !t.done).length} Pending`}
                     tone="emerald"
@@ -561,7 +561,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   />
                 </div>
                 <span className="text-[10px] text-slate-400">
-                  Overdue client feedback, interviews, and expiring contracts
+                  Client follow-ups, upcoming interviews, and ending contracts
                 </span>
               </div>
             </div>
@@ -574,15 +574,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     const res = await apiClient.post('/sla-tasks/evaluate');
                     const count = res.data?.data?.createdTasksCount ?? 0;
                     await onRefreshSla?.();
-                    showToast('Rules Evaluated', `Evaluated SLA criteria across pipeline (${count} new alert(s)).`);
+                    showToast('Reminders Checked', `Checked your pipeline (${count} new reminder${count === 1 ? '' : 's'} found).`);
                   } catch {
-                    showToast('Evaluation Failed', 'Unable to evaluate SLA rules right now.', 'fa-solid fa-triangle-exclamation text-rose-500');
+                    showToast('Check Failed', 'Unable to check reminders right now.', 'fa-solid fa-triangle-exclamation text-rose-500');
                   } finally {
                     setIsEvaluatingSla(false);
                   }
                 }}
                 disabled={isEvaluatingSla}
-                title="Re-evaluate SLA rules across pipeline"
+                title="Check pipeline reminders now"
                 className="w-6 h-6 rounded border border-slate-200 text-slate-600 hover:text-brand-600 hover:bg-slate-50 disabled:opacity-60 flex items-center justify-center text-[11px] transition-colors cursor-pointer"
               >
                 <RefreshCw className={`w-3 h-3 ${isEvaluatingSla ? 'animate-spin' : ''}`} />
@@ -591,7 +591,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 onClick={onOpenSlaDrawer}
                 className="text-xs font-semibold text-brand-600 hover:underline flex items-center gap-1 cursor-pointer"
               >
-                <span>Open Queue</span>
+                <span>View All</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -600,7 +600,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="space-y-2">
             {slaTasks.filter((t) => !t.done).length === 0 ? (
               <div className="py-8 text-center text-xs text-slate-400 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
-                No pending SLA priority actions right now.
+                No pending reminders right now.
               </div>
             ) : (
               slaTasks

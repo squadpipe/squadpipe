@@ -280,7 +280,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   currentView === 'import_data' ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-200'
                 }`}
               />
-              <span>Import & Migration</span>
+              <span>Import Data</span>
             </div>
             <span className="text-[9px] text-slate-400 font-medium bg-white/[0.04] px-1.5 py-0.5 rounded">
               CSV/Excel

@@ -47,11 +47,11 @@ export const Topbar: React.FC<TopbarProps> = ({
       case 'user_management':
         return 'User Management & Team Permissions';
       case 'custom_fields':
-        return 'Custom Fields & Master Taxonomy';
+        return 'Custom Fields & Dropdown Options';
       case 'automation':
         return 'Smart Reminders';
       case 'import_data':
-        return 'Data Import & Migration';
+        return 'Import Candidates & Resumes';
       case 'settings_general':
         return 'General Settings';
       default:

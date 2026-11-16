@@ -323,10 +323,10 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-white text-sm">
-                <span>Client Email Job Order Intake Parser</span>
+                <span>Create Job from Client Email</span>
               </h3>
               <p className="text-[11px] text-slate-400">
-                Paste any client email — automatically extracts company, role, hiring lead, skills, work model &amp; rates.
+                Paste any client email to auto-fill company, role, hiring lead, skills, work model &amp; rates.
               </p>
             </div>
           </div>

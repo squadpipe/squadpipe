@@ -266,13 +266,13 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
             </div>
             <div>
               <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                <span>Add Consultant — Resume Parser</span>
+                <span>Add Consultant from Resume</span>
                 <span className="text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded">
-                  Pattern Engine
+                  Auto-Fill
                 </span>
               </h2>
               <div className="text-[11px] text-slate-400 mt-0.5">
-                Instant client-side pattern extraction for Word (.docx) &amp; PDF resumes. Or switch to CSV Bulk Import.
+                Upload a Word (.docx) or PDF resume to fill in candidate details automatically.
               </div>
             </div>
           </div>
@@ -319,19 +319,19 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
               {hasParsedFile && !selectedCvFile && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white text-slate-700 border border-slate-200 text-[10px] font-medium">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  <span>File Parsed</span>
+                  <span>Resume Loaded</span>
                 </span>
               )}
             </div>
           </div>
 
-          {/* Progress State (Pattern Scanning) */}
+          {/* Progress State */}
           {isParsing && (
             <div className="p-3 bg-brand-50 border border-brand-200 rounded-lg text-brand-900 space-y-1.5 animate-fade-in">
               <div className="flex items-center justify-between text-xs font-semibold">
                 <span className="flex items-center gap-2">
                   <Loader2 className="w-3.5 h-3.5 text-brand-600 animate-spin" />
-                  <span>Scanning Document &amp; Extracting Entities via Pattern Engine...</span>
+                  <span>Reading resume details...</span>
                 </span>
                 <span >{parseProgress}%</span>
               </div>

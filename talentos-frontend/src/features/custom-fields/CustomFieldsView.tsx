@@ -788,8 +788,8 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                   <Tags className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold tracking-tight">Create Entity Custom Field</h3>
-                  <div className="text-[11px] text-slate-400">Configure custom attribute and data schema</div>
+                  <h3 className="text-sm font-bold tracking-tight">Add Custom Field</h3>
+                  <div className="text-[11px] text-slate-400">Create a new field for your records</div>
                 </div>
               </div>
               <button

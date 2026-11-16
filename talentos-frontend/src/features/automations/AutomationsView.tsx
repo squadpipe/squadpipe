@@ -36,6 +36,7 @@ interface ReminderPreset {
   backendCategory: string;
   triggerEvent: string;
   whenText: string;
+  thresholdLabel: string;
   defaultThreshold: string;
   thresholdOptions: string[];
   thenSummary: string;
@@ -43,56 +44,78 @@ interface ReminderPreset {
   iconBg: string;
 }
 
+const FRIENDLY_RULE_NAMES: Record<string, string> = {
+  'Client Feedback Follow-Up': 'Client Feedback Reminder',
+  'Stale Submission Follow-Up': 'Client Feedback Reminder',
+  'Unsourced Job Order Sentinel': 'Jobs Without Applicants',
+  'Unsourced Requirement Alert': 'Jobs Without Applicants',
+  'Same-Day Interview Checklist': 'Interview Prep Reminder',
+  'SOW Contract Expiry Sentinel': 'Contract Ending Soon',
+  'Contract Expiry Alert': 'Contract Ending Soon',
+  'Direct Candidate Submittal': 'Candidate Submitted',
+  'Multi-Applicant Submittal': 'Candidates Submitted',
+};
+
+const formatFriendlyRuleName = (name?: string | null) => {
+  const clean = String(name || '').trim();
+  if (!clean) return 'Smart Reminder';
+  return FRIENDLY_RULE_NAMES[clean] || clean;
+};
+
 const REMINDER_PRESETS: ReminderPreset[] = [
   {
     key: 'feedback',
-    title: 'Stale Submission Follow-Up',
-    description: 'Creates an SLA reminder when a submitted consultant has had no client feedback.',
+    title: 'Client Feedback Reminder',
+    description: 'Reminds you when a candidate was submitted and the client has not replied yet.',
     backendCategory: 'FEEDBACK',
     triggerEvent: 'FEEDBACK_DELAYED',
-    whenText: 'Candidate is awaiting client feedback for',
+    whenText: 'Client has not replied after',
+    thresholdLabel: 'Remind after:',
     defaultThreshold: '2 Days (48h)',
     thresholdOptions: ['24 Hours', '2 Days (48h)', '3 Days (72h)', '5 Days'],
-    thenSummary: 'Create SLA Reminder Task & notify Account Lead',
+    thenSummary: 'Add a follow-up reminder to your Action Center',
     Icon: Clock,
     iconBg: 'bg-amber-50 text-amber-600 border-amber-200',
   },
   {
     key: 'stale_req',
-    title: 'Unsourced Requirement Alert',
-    description: 'Flags open job requirements that still have zero attached applicants.',
+    title: 'Jobs Without Applicants',
+    description: 'Alerts you when an open job requirement still has no candidates attached.',
     backendCategory: 'STALE_REQ',
     triggerEvent: 'STALE_REQ',
-    whenText: 'Open job requirement has 0 candidate submissions for',
+    whenText: 'Open job has no applicants for',
+    thresholdLabel: 'Remind after:',
     defaultThreshold: '24 Hours',
     thresholdOptions: ['24 Hours', '2 Days (48h)', '3 Days (72h)'],
-    thenSummary: 'Create Priority SLA Reminder Task',
+    thenSummary: 'Add a reminder to your Action Center',
     Icon: Bell,
     iconBg: 'bg-slate-100 text-slate-700 border-slate-200',
   },
   {
     key: 'interview',
     title: 'Interview Prep Reminder',
-    description: 'Queues an interview checklist and feedback reminder when moved to Interview.',
+    description: 'Reminds you to prepare the candidate and collect feedback once moved to Interview.',
     backendCategory: 'INTERVIEW',
     triggerEvent: 'INTERVIEW_TODAY',
-    whenText: 'Candidate technical interview is active in stage for',
+    whenText: 'Candidate reaches Interview stage',
+    thresholdLabel: 'Remind:',
     defaultThreshold: 'Today',
     thresholdOptions: ['Immediate', 'Today'],
-    thenSummary: 'Create Interview Prep Task in SLA Center',
+    thenSummary: 'Add an interview prep reminder to your Action Center',
     Icon: Calendar,
     iconBg: 'bg-brand-50 text-brand-700 border-brand-200',
   },
   {
     key: 'contract',
-    title: 'Contract Expiry Alert',
-    description: 'Flags active billable placements nearing their end date for renewal review.',
+    title: 'Contract Ending Soon',
+    description: 'Alerts you before a placement contract ends so you can plan an extension or renewal.',
     backendCategory: 'CONTRACT',
     triggerEvent: 'CONTRACT_ENDING',
-    whenText: 'Active billable placement contract is within',
+    whenText: 'Active contract ends within',
+    thresholdLabel: 'Remind within:',
     defaultThreshold: '30 Days to Expiry',
     thresholdOptions: ['14 Days', '30 Days to Expiry', '45 Days'],
-    thenSummary: 'Create Renewal Alert & notify Account Lead',
+    thenSummary: 'Add a renewal reminder to your Action Center',
     Icon: FileText,
     iconBg: 'bg-emerald-50 text-emerald-600 border-emerald-200',
   },
@@ -147,7 +170,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
             timestamp: lg.createdAt
               ? new Date(lg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
               : 'Now',
-            ruleName: lg.ruleName || 'Smart Reminder',
+            ruleName: formatFriendlyRuleName(lg.ruleName),
             target: lg.target || '',
             conditionsMet: lg.conditionsMet || '',
             actionDispatched: lg.actionDispatched || lg.actionTaken || '',
@@ -193,8 +216,8 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
         if (onToggleRule) onToggleRule(existing.id);
         if (onRefreshAutomations) onRefreshAutomations();
         showToast(
-          !existing.active ? 'Reminder Enabled' : 'Reminder Paused',
-          `${preset.title} is now ${!existing.active ? 'On' : 'Off'}.`
+          !existing.active ? 'Reminder On' : 'Reminder Off',
+          `${preset.title} is now ${!existing.active ? 'turned on' : 'paused'}.`
         );
       } else {
         const res = await apiClient.post('/automations/rules', {
@@ -206,13 +229,13 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
           whenText: preset.whenText,
           threshold: preset.defaultThreshold,
           thenSummary: preset.thenSummary,
-          actionPills: [{ label: 'SLA Reminder Task', icon: 'bell', color: 'slate' }],
+          actionPills: [{ label: 'Action Center Alert', icon: 'bell', color: 'slate' }],
         });
         if (res.data?.data) {
           setActiveRules((prev) => [...prev, res.data.data]);
         }
         if (onRefreshAutomations) onRefreshAutomations();
-        showToast('Reminder Enabled', `${preset.title} is now On.`);
+        showToast('Reminder On', `${preset.title} is now turned on.`);
       }
     } catch (err: any) {
       showToast('Update Failed', err?.response?.data?.message || 'Could not update reminder.');
@@ -244,7 +267,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
       await apiClient.post(`/automations/rules/${rule.id}/test`);
       setLogsRefreshKey((k) => k + 1);
       if (onRefreshAutomations) onRefreshAutomations();
-      showToast('Check Completed', `${preset.title} check logged to SLA & Activity.`);
+      showToast('Check Completed', `${preset.title} was checked and logged below.`);
     } catch (err: any) {
       showToast('Check Failed', err?.response?.data?.message || 'Could not run check.');
     } finally {
@@ -259,9 +282,9 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
       const count = res.data?.data?.createdTasksCount ?? 0;
       setLogsRefreshKey((k) => k + 1);
       if (onRefreshAutomations) onRefreshAutomations();
-      showToast('Reminders Checked', `Evaluated active rules (${count} new SLA alert(s) queued).`);
+      showToast('Reminders Checked', `Checked active reminders (${count} new alert${count === 1 ? '' : 's'} found).`);
     } catch (err: any) {
-      showToast('Check Failed', err?.response?.data?.message || 'Could not evaluate reminders.');
+      showToast('Check Failed', err?.response?.data?.message || 'Could not check reminders.');
     } finally {
       setIsEvaluating(false);
     }
@@ -277,13 +300,13 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
           <div className="flex items-center gap-2.5">
             <h2 className="text-lg font-bold text-slate-900 tracking-tight">Smart Reminders</h2>
             <StatusBadge
-              label={`${activeCount} of ${REMINDER_PRESETS.length} Active`}
+              label={`${activeCount} of ${REMINDER_PRESETS.length} On`}
               tone="emerald"
               size="xs"
             />
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Turn daily in-app reminders on or off. All alerts appear in your SLA Action Center — no email setup needed.
+            Turn automatic reminders on or off. Alerts appear inside your Action Center — no email setup needed.
           </p>
         </div>
 
@@ -294,7 +317,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
           className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isEvaluating ? 'animate-spin' : ''}`} />
-          <span>{isEvaluating ? 'Checking...' : 'Run All Checks'}</span>
+          <span>{isEvaluating ? 'Checking...' : 'Check Now'}</span>
         </button>
       </div>
 
@@ -353,13 +376,13 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2 text-[11px]">
-                  <span className="text-slate-400 font-medium">Trigger after:</span>
+                  <span className="text-slate-400 font-medium">{preset.thresholdLabel}</span>
                   {rule ? (
                     <CustomSelect
                       disabled={!canManageRules}
                       value={thresholdValue}
                       onChange={(val) => handleThresholdChange(rule, val)}
-                      ariaLabel="Trigger threshold"
+                      ariaLabel={`${preset.title} reminder timing`}
                       size="xs"
                       fullWidth={false}
                       minMenuWidth={120}
@@ -380,7 +403,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                     className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
                   >
                     <Play className="w-3 h-3 text-brand-600" />
-                    <span>Run Check</span>
+                    <span>Check Now</span>
                   </button>
                 )}
               </div>
@@ -394,13 +417,13 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
         <div className="flex items-center gap-2.5">
           <UserCheck className="w-4 h-4 text-brand-600 flex-shrink-0" />
           <div>
-            <span className="font-semibold text-slate-900">Onboarding → Billable Auto-Sync is Always On:</span>{' '}
+            <span className="font-semibold text-slate-900">Automatic Placement Setup (Always On):</span>{' '}
             <span className="text-slate-600">
-              Moving a requirement with a consultant to <strong>Onboarding</strong> automatically creates their Billable placement.
+              Moving a candidate to <strong>Onboarding</strong> automatically creates their entry under <strong>Billable Consultants</strong>.
             </span>
           </div>
         </div>
-        <StatusBadge label="Built-In" tone="emerald" size="xs" />
+        <StatusBadge label="Always On" tone="emerald" size="xs" />
       </div>
 
       {/* Recent Activity Log */}
@@ -411,7 +434,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
             <h3 className="font-bold text-xs text-slate-900">Recent Reminder Activity</h3>
             <span className="text-[11px] text-slate-400">({totalLogs})</span>
             <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-500 text-[10px] font-medium">
-              Logs retained for 30 days
+              Saved for 30 days
             </span>
           </div>
           <div className="relative">
@@ -432,7 +455,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
               <tr>
                 <th className="px-4 py-2.5">Time</th>
                 <th className="px-4 py-2.5">Reminder</th>
-                <th className="px-4 py-2.5">Action Taken</th>
+                <th className="px-4 py-2.5">Details</th>
                 <th className="px-4 py-2.5">Status</th>
               </tr>
             </thead>
@@ -440,7 +463,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
               {logRows.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-6 py-8 text-center text-xs text-slate-400">
-                    No reminder activity logged yet. Click <strong>Run All Checks</strong> above to test.
+                    No reminder activity yet. Click <strong>Check Now</strong> above to check for updates.
                   </td>
                 </tr>
               ) : (

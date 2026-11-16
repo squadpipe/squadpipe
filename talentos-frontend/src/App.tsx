@@ -2132,9 +2132,9 @@ export const App: React.FC = () => {
             const res = await apiClient.post('/sla-tasks/evaluate');
             const count = res.data?.data?.createdTasksCount ?? 0;
             await Promise.all([fetchSlaTasks(), fetchAutomations(), fetchSidebarCounts()]);
-            showToast('SLA Scan Complete', `Evaluated workspace rules (${count} new alert(s) queued).`);
+            showToast('Reminders Checked', `Checked active reminders (${count} new alert${count === 1 ? '' : 's'} found).`);
           } catch {
-            showToast('Scan Failed', 'Could not evaluate SLA tasks right now.', 'fa-solid fa-triangle-exclamation text-rose-500');
+            showToast('Check Failed', 'Could not check reminders right now.', 'fa-solid fa-triangle-exclamation text-rose-500');
           }
         }}
         onToggleTaskDone={async (id) => {
@@ -2148,7 +2148,7 @@ export const App: React.FC = () => {
             );
           } catch (e: any) {
             console.warn('API sla-task complete:', e);
-            showApiErrorToast(e, 'Task Update Failed', 'Could not update SLA task status.');
+            showApiErrorToast(e, 'Update Failed', 'Could not update reminder status.');
           }
         }}
       />
@@ -2210,10 +2210,20 @@ export const App: React.FC = () => {
         initialRequirement={
           requirements.find((r) => r.id === activeReq?.id) || activeReq
         }
+        rateMasked={rateMasked}
         onSubmitCandidate={(candidate, requirement) =>
           handleAssignCandidate(requirement, candidate)
         }
         onAttachCandidates={handleAttachCandidates}
+        onOpenCsvImport={
+          canManageDataOperations
+            ? (req) => {
+                setIsMatcherModalOpen(false);
+                setCsvImportTargetReq(req);
+                setIsCsvImportModalOpen(true);
+              }
+            : undefined
+        }
         showToast={showToast}
       />
 

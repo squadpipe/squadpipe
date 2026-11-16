@@ -202,9 +202,9 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   };
 
   const stepTitles = {
-    1: 'Select Source Workbook',
-    2: 'Column Schema Mapping & Validation',
-    3: 'Import Successful',
+    1: 'Choose Spreadsheet File',
+    2: 'Match Columns & Preview',
+    3: 'Import Complete',
   };
 
   return (
@@ -225,8 +225,8 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
               <div className="min-w-0">
                 <h2 className="text-sm font-bold text-slate-900 truncate">
                   {lockedRequirement
-                    ? `Import CSV Candidates to ${lockedRequirement.code}`
-                    : 'Spreadsheet Migration & Column Mapping Wizard'}
+                    ? `Import Spreadsheet Candidates to ${lockedRequirement.code}`
+                    : 'Import Candidates from Spreadsheet'}
                 </h2>
                 <div className="text-[11px] text-slate-500">
                   Step {step} of 3: {stepTitles[step]}

@@ -37,28 +37,28 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
     <section className="max-w-7xl mx-auto space-y-5 animate-fade-in select-none">
       {/* Header */}
       <div>
-        <h2 className="text-lg font-bold text-slate-900 tracking-tight">Data Import &amp; Legacy Migration</h2>
+        <h2 className="text-lg font-bold text-slate-900 tracking-tight">Import Candidates &amp; Resumes</h2>
         <p className="text-xs text-slate-500 mt-0.5">
-          Migrate legacy Excel sheets, Google Sheets, and candidate resume folders into {brandName} CRM.
+          Bring in candidate spreadsheets or upload resumes directly into {brandName}.
         </p>
       </div>
 
-      {/* 2 Streamlined Cards: CSV Import & Resume Parser */}
+      {/* 2 Streamlined Cards: Spreadsheet Import & Resume Upload */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Card 1: Bulk CSV Spreadsheet Import */}
+        {/* Card 1: Import from Spreadsheet */}
         <div className="bg-white rounded-xl border border-slate-200 card-shadow p-6 space-y-4">
           <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
             <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-            <span>Bulk CSV Spreadsheet Import</span>
+            <span>Import from Spreadsheet</span>
           </h3>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Upload candidate rosters from Excel or CSV spreadsheets and map columns to CRM fields with validation.{' '}
+            Upload a CSV or Excel spreadsheet to add multiple candidates at once and match your columns.{' '}
             <button
               type="button"
               onClick={downloadSampleCsv}
               className="font-semibold text-brand-600 hover:text-brand-700 underline cursor-pointer"
             >
-              Download sample CSV
+              Download sample file
             </button>
           </p>
           <div
@@ -66,19 +66,19 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
             className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-brand-600 cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-all group"
           >
             <CloudUpload className="w-8 h-8 text-brand-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-            <div className="text-xs font-semibold text-slate-700">Launch CSV Column Mapper</div>
-            <div className="text-[11px] text-slate-400 mt-1">Preview rows, map fields &amp; bulk import candidates</div>
+            <div className="text-xs font-semibold text-slate-700">Upload Spreadsheet File</div>
+            <div className="text-[11px] text-slate-400 mt-1">Preview rows, match columns &amp; import candidates</div>
           </div>
         </div>
 
-        {/* Card 2: Resume Parser (PDF & Word) */}
+        {/* Card 2: Add Candidate from Resume (PDF & Word) */}
         <div className="bg-white rounded-xl border border-slate-200 card-shadow p-6 space-y-4">
           <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
             <FileText className="w-4 h-4 text-brand-600" />
-            <span>Resume Parser (PDF &amp; Word)</span>
+            <span>Add Candidate from Resume</span>
           </h3>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Extract candidate name, contact details, skills, education, and current title directly from PDF or Word resumes using our offline NLP parser.
+            Upload a PDF or Word resume to automatically fill in the candidate&apos;s name, contact details, skills, education, and job title.
           </p>
           <div
             onClick={() => {
@@ -87,8 +87,8 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
             className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-brand-600 cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-all group"
           >
             <FileText className="w-8 h-8 text-brand-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-            <div className="text-xs font-semibold text-slate-700">Parse Resume File</div>
-            <div className="text-[11px] text-slate-400 mt-1">Offline spaCy &amp; section-aware extraction from PDF/DOCX</div>
+            <div className="text-xs font-semibold text-slate-700">Upload Resume File</div>
+            <div className="text-[11px] text-slate-400 mt-1">Supports PDF and Word (.docx) resumes</div>
           </div>
         </div>
       </div>

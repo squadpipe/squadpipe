@@ -15,10 +15,10 @@ interface SlaDrawerProps {
 
 const SLA_TABS: Array<{ id: string; label: string; categoryKey?: string }> = [
   { id: 'All', label: 'All' },
-  { id: 'AWAITING_FEEDBACK', label: 'Awaiting Feedback', categoryKey: 'AWAITING_FEEDBACK' },
-  { id: 'INTERVIEW_TODAY', label: 'Interview Today', categoryKey: 'INTERVIEW_TODAY' },
-  { id: 'STALE_REQUIREMENT', label: 'Stale Requirement', categoryKey: 'STALE_REQUIREMENT' },
-  { id: 'CONTRACT_EXPIRING', label: 'Contract Expiring', categoryKey: 'CONTRACT_EXPIRING' },
+  { id: 'AWAITING_FEEDBACK', label: 'Waiting on Client', categoryKey: 'AWAITING_FEEDBACK' },
+  { id: 'INTERVIEW_TODAY', label: 'Interview Prep', categoryKey: 'INTERVIEW_TODAY' },
+  { id: 'STALE_REQUIREMENT', label: 'Needs Applicants', categoryKey: 'STALE_REQUIREMENT' },
+  { id: 'CONTRACT_EXPIRING', label: 'Ending Soon', categoryKey: 'CONTRACT_EXPIRING' },
   { id: 'COMPLIANCE_ALERT', label: 'Compliance', categoryKey: 'COMPLIANCE_ALERT' },
   { id: 'Completed', label: 'Completed' },
 ];
@@ -72,9 +72,9 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
                 <Bell className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="font-bold text-slate-800 text-sm">Priority Action Center (SLA)</h3>
+                <h3 className="font-bold text-slate-800 text-sm">Action Center</h3>
                 <p className="text-[11px] text-slate-400">
-                  {pendingCount} actionable items requiring attention today
+                  {pendingCount} {pendingCount === 1 ? 'reminder' : 'reminders'} needing your attention
                 </p>
               </div>
             </div>
@@ -83,7 +83,7 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
                 <button
                   onClick={handleRefresh}
                   disabled={isEvaluating}
-                  title="Run SLA scan now"
+                  title="Check reminders now"
                   className="p-1.5 text-slate-500 hover:text-brand-600 rounded-lg hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
                 >
                   <RefreshCw className={`w-4 h-4 ${isEvaluating ? 'animate-spin' : ''}`} />
@@ -139,7 +139,7 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
               <div className="text-center py-12 text-slate-400 text-xs">
                 <CheckCheck className="w-7 h-7 mx-auto mb-2 text-emerald-400" />
                 <p className="font-semibold text-slate-600">All clear!</p>
-                <p className="mt-1">No pending SLA tasks in this category.</p>
+                <p className="mt-1">No pending reminders in this category.</p>
               </div>
             ) : (
               filteredTasks.map((item) => (
@@ -196,9 +196,9 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
 
           {/* Footer */}
           <div className="p-4 border-t border-slate-100 bg-slate-50/80 text-[11px] text-slate-500 flex justify-between items-center">
-            <span>Deterministic SLA Scanner Active</span>
+            <span>Automatic Reminders Active</span>
             <span className="text-[10px] bg-slate-200 px-2 py-0.5 rounded text-slate-700">
-              Auto-Evaluating
+              Auto-Checking
             </span>
           </div>
         </div>

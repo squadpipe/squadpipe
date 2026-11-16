@@ -890,10 +890,10 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
               <dl className="space-y-1.5">
                 {customFieldEntries.map(([fieldName, value]) => (
                   <div key={fieldName} className="flex items-start justify-between gap-2">
-                    <dt className="text-slate-400 font-medium capitalize">
+                    <dt className="text-slate-400 font-medium capitalize shrink-0">
                       {fieldName.replace(/_/g, ' ')}
                     </dt>
-                    <dd className="text-slate-800 font-medium text-right break-words">
+                    <dd className="text-slate-800 font-medium text-right min-w-0 [overflow-wrap:anywhere]">
                       {String(value)}
                     </dd>
                   </div>
