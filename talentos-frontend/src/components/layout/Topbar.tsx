@@ -44,6 +44,8 @@ export const Topbar: React.FC<TopbarProps> = ({
         return 'Vendor Details';
       case 'billable':
         return 'Billable Consultants';
+      case 'placement_detail':
+        return 'Placement Details';
       case 'user_management':
         return 'User Management & Team Permissions';
       case 'custom_fields':

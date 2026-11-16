@@ -37,6 +37,7 @@ interface ClientDetailPageProps {
   initialEditing?: boolean;
   onClientUpdated?: (updatedClient: Client) => void;
   onOpenRequirement?: (req: Requirement) => void;
+  onSelectPlacement?: (placement: BillablePlacement) => void;
   onDeleteClient?: (client: Client) => Promise<void> | void;
   showToast: (title: string, message: string, icon?: string) => void;
 }
@@ -51,6 +52,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
   initialEditing = false,
   onClientUpdated,
   onOpenRequirement,
+  onSelectPlacement,
   onDeleteClient,
   showToast,
 }) => {
@@ -361,7 +363,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                   onPageChange={contactsPg.setPage}
                   onLimitChange={contactsPg.setLimit}
                   itemLabel="contacts"
-                  pageSizeOptions={[5, 10, 20, 50]}
+                  pageSizeOptions={[10, 20, 50]}
                 />
               </>
             )}
@@ -438,7 +440,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                   onPageChange={reqsPg.setPage}
                   onLimitChange={reqsPg.setLimit}
                   itemLabel="requisitions"
-                  pageSizeOptions={[5, 10, 20, 50]}
+                  pageSizeOptions={[10, 20, 50]}
                 />
               </>
             )}
@@ -470,8 +472,14 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {placementsPg.pagedItems.map((b) => (
-                        <tr key={b.id} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">
+                        <tr
+                          key={b.id}
+                          onClick={onSelectPlacement ? () => onSelectPlacement(b) : undefined}
+                          className={`group transition-colors ${
+                            onSelectPlacement ? 'hover:bg-slate-50/90 cursor-pointer' : 'hover:bg-slate-50/70'
+                          }`}
+                        >
+                          <td className={`px-4 py-3 font-semibold text-slate-900 whitespace-nowrap ${onSelectPlacement ? 'group-hover:text-brand-700 transition-colors' : ''}`}>
                             {b.resourceName}
                           </td>
                           <td className="px-4 py-3 text-slate-600">{b.skillRole}</td>
@@ -496,7 +504,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                   onPageChange={placementsPg.setPage}
                   onLimitChange={placementsPg.setLimit}
                   itemLabel="placements"
-                  pageSizeOptions={[5, 10, 20, 50]}
+                  pageSizeOptions={[10, 20, 50]}
                 />
               </>
             )}

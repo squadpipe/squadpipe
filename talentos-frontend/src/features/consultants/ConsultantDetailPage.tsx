@@ -56,6 +56,7 @@ interface ConsultantDetailPageProps {
   initialEditing?: boolean;
   onSubmitToReq: (candidate: Candidate, req: Requirement) => Promise<void> | void;
   onOpenRequirement?: (req: Requirement) => void;
+  onSelectPlacement?: (placement: BillablePlacement) => void;
   onUpdateCandidate?: (candidate: Candidate, cvFile?: File | null) => Promise<void> | void;
   onDeleteCandidate?: (candidate: Candidate) => Promise<void> | void;
   onNavigateToBillable?: () => void;
@@ -90,6 +91,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
   initialEditing = false,
   onSubmitToReq,
   onOpenRequirement,
+  onSelectPlacement,
   onUpdateCandidate,
   onDeleteCandidate,
   onNavigateToBillable,
@@ -690,7 +692,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                   onPageChange={submissionsPg.setPage}
                   onLimitChange={submissionsPg.setLimit}
                   itemLabel="submissions"
-                  pageSizeOptions={[5, 10, 20, 50]}
+                  pageSizeOptions={[10, 20, 50]}
                 />
               </>
             )}
@@ -714,9 +716,9 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                   </button>
                 )}
               </div>
-              <div className="overflow-x-auto">
+              <div className="max-h-[340px] overflow-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase">
+                  <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase">
                     <tr>
                       <th className="px-4 py-2.5">Client</th>
                       <th className="px-4 py-2.5">Role / Skill</th>
@@ -727,8 +729,14 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {placementsPg.pagedItems.map((p) => (
-                      <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">
+                      <tr
+                        key={p.id}
+                        onClick={onSelectPlacement ? () => onSelectPlacement(p) : undefined}
+                        className={`group transition-colors ${
+                          onSelectPlacement ? 'hover:bg-slate-50/90 cursor-pointer' : 'hover:bg-slate-50/70'
+                        }`}
+                      >
+                        <td className={`px-4 py-3 font-semibold text-slate-900 whitespace-nowrap ${onSelectPlacement ? 'group-hover:text-brand-700 transition-colors' : ''}`}>
                           {p.customer}
                         </td>
                         <td className="px-4 py-3 text-slate-600">
@@ -756,7 +764,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                 onPageChange={placementsPg.setPage}
                 onLimitChange={placementsPg.setLimit}
                 itemLabel="placements"
-                pageSizeOptions={[5, 10, 20, 50]}
+                pageSizeOptions={[10, 20, 50]}
               />
             </section>
           )}

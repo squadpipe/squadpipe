@@ -10,10 +10,7 @@ import {
   Trash2,
   CalendarPlus,
   CalendarX,
-  CheckCircle2,
   AlertTriangle,
-  Clock,
-  X,
   FileSpreadsheet,
   FileText,
   ArrowRight,
@@ -23,51 +20,38 @@ import { BillablePlacement } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
-import { ActionButton } from '../../components/shared/ActionButton';
 import { CustomSelect } from '../../components/shared/CustomSelect';
-import { DynamicCustomFieldsSection } from '../../components/shared/DynamicCustomFieldsSection';
 import { useCurrency } from '../../utils/currency';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapPlacementFromApi } from '../../utils/entityMappers';
 import { getWorkspaceBrandSlug } from '../../utils/workspaceBrand';
-
-interface ExtensionData {
-  newEndDate: string;
-  billing?: string;
-  payRate?: string;
-  purchaseOrderNumber?: string;
-}
+import { PlacementModals } from './PlacementModals';
+import {
+  ExtensionData,
+  formatMargin,
+  formatSpread,
+  getDaysRemaining,
+  getEffectiveStatus,
+  getPlacementStatusMeta,
+  isExpiringSoon,
+} from './placementUtils';
 
 interface BillablePlacementsViewProps {
   placements: BillablePlacement[];
   rateMasked: boolean;
   onOpenNewPlacement?: () => void;
+  onSelectPlacement?: (placement: BillablePlacement) => void;
   onExtendContract?: (placement: BillablePlacement, extensionData?: ExtensionData) => Promise<void> | void;
   onUpdatePlacement?: (placement: BillablePlacement) => Promise<void> | void;
   onDeletePlacement?: (placement: BillablePlacement) => Promise<void> | void;
   showToast?: (title: string, message: string, icon?: string) => void;
 }
 
-const parseRate = (val: any, fallback = 0): number => {
-  const n = parseFloat(String(val ?? '').replace(/[^0-9.]/g, ''));
-  return isNaN(n) ? fallback : n;
-};
-
-const addMonthsToDate = (dateStr: string, months: number): string => {
-  const base = dateStr ? new Date(dateStr + 'T00:00:00') : new Date();
-  if (isNaN(base.getTime())) {
-    const fallback = new Date();
-    fallback.setMonth(fallback.getMonth() + months);
-    return fallback.toISOString().split('T')[0];
-  }
-  base.setMonth(base.getMonth() + months);
-  return base.toISOString().split('T')[0];
-};
-
 export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
   placements,
   rateMasked,
   onOpenNewPlacement,
+  onSelectPlacement,
   onExtendContract,
   onUpdatePlacement,
   onDeletePlacement,
@@ -152,67 +136,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
   const [editingPlacement, setEditingPlacement] = useState<BillablePlacement | null>(null);
   const [deletingPlacement, setDeletingPlacement] = useState<BillablePlacement | null>(null);
   const [extendingPlacement, setExtendingPlacement] = useState<BillablePlacement | null>(null);
-  const [extendForm, setExtendForm] = useState<ExtensionData>({
-    newEndDate: '',
-    billing: '',
-    payRate: '',
-    purchaseOrderNumber: '',
-  });
   const [endingPlacement, setEndingPlacement] = useState<BillablePlacement | null>(null);
-  const [endForm, setEndForm] = useState<{ status: 'Completed' | 'Terminated'; endDate: string }>({
-    status: 'Completed',
-    endDate: new Date().toISOString().split('T')[0],
-  });
-  const [isExtending, setIsExtending] = useState(false);
-  const [isSavingPlacement, setIsSavingPlacement] = useState(false);
-  const [isDeletingPlacement, setIsDeletingPlacement] = useState(false);
-  const [isEndingPlacement, setIsEndingPlacement] = useState(false);
-
-  const openEndModal = (p: BillablePlacement) => {
-    setEndingPlacement(p);
-    setEndForm({
-      status: 'Completed',
-      endDate: new Date().toISOString().split('T')[0],
-    });
-  };
-
-  const handleConfirmEndPlacement = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!endingPlacement || !onUpdatePlacement || isEndingPlacement) return;
-    setIsEndingPlacement(true);
-    try {
-      await onUpdatePlacement({
-        ...endingPlacement,
-        status: endForm.status,
-        endDate: endForm.endDate || endingPlacement.endDate,
-      });
-      setEndingPlacement(null);
-    } catch {
-      // Error toast is already displayed by parent handler; keep modal open
-    } finally {
-      setIsEndingPlacement(false);
-    }
-  };
-
-  const getDaysRemaining = (endDateStr: string): number | null => {
-    if (!endDateStr) return null;
-    const end = new Date(endDateStr + 'T00:00:00').getTime();
-    if (isNaN(end)) return null;
-    return Math.ceil((end - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
-  };
-
-  const isExpiringSoon = (p: BillablePlacement) => {
-    if (p.status === 'Completed' || p.status === 'Terminated') return false;
-    const diff = getDaysRemaining(p.endDate);
-    return diff !== null && diff >= 0 && diff <= 30;
-  };
-
-  const getEffectiveStatus = (p: BillablePlacement): 'Active' | 'Extended' | 'Expiring Soon' | 'Completed' | 'Terminated' => {
-    if (p.status === 'Completed' || p.status === 'Terminated') return p.status;
-    if (isExpiringSoon(p)) return 'Expiring Soon';
-    if (p.status === 'Extended') return 'Extended';
-    return 'Active';
-  };
 
   const filtered = tableRows;
 
@@ -229,28 +153,6 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
       : '0.0';
   const totalMonthlyGrossProfit = Math.round(totalHourlySpread * 160);
   const contractsExpiringSoon = placements.filter((p) => isExpiringSoon(p)).length;
-
-  const formatSpread = (val: any) => {
-    if (val === undefined || val === null || val === '') return '-';
-    const n = Number(val);
-    return isNaN(n) ? '-' : `${n >= 0 ? '+' : '-'}${currencySymbol}${Math.abs(n).toFixed(2)}/hr`;
-  };
-
-  const formatMargin = (val: any) => {
-    if (val === undefined || val === null || val === '') return '-';
-    const n = Number(val);
-    return isNaN(n) ? '-' : `${n.toFixed(1)}% margin`;
-  };
-
-  const openExtendModal = (p: BillablePlacement) => {
-    setExtendingPlacement(p);
-    setExtendForm({
-      newEndDate: addMonthsToDate(p.endDate, 12),
-      billing: p.billing || '',
-      payRate: p.payRate || '',
-      purchaseOrderNumber: p.purchaseOrderNumber || '',
-    });
-  };
 
   const handleExport = () => {
     const headers = [
@@ -278,7 +180,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
       `"${getEffectiveStatus(p)}"`,
       `"${rateMasked ? '••••' : formatRate(p.payRate) || '-'}"`,
       `"${rateMasked ? '••••' : formatRate(p.billing)}"`,
-      `"${rateMasked ? '••••' : formatSpread(p.hourlySpread)}"`,
+      `"${rateMasked ? '••••' : formatSpread(p.hourlySpread, currencySymbol)}"`,
       `"${rateMasked ? '••••' : formatMargin(p.marginPct)}"`,
       `"${p.startDate}"`,
       `"${p.endDate}"`,
@@ -296,31 +198,9 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
   };
 
   const getStatusBadge = (p: BillablePlacement) => {
-    const status = getEffectiveStatus(p);
-    if (status === 'Expiring Soon') {
-      return <StatusBadge label="Expiring <30d" tone="amber" size="xs" />;
-    }
-    if (status === 'Extended') {
-      return <StatusBadge label="Extended" tone="brand" size="xs" />;
-    }
-    if (status === 'Completed') {
-      return <StatusBadge label="Completed" tone="slate" size="xs" />;
-    }
-    if (status === 'Terminated') {
-      return <StatusBadge label="Terminated" tone="rose" size="xs" />;
-    }
-    return <StatusBadge label="Active" tone="emerald" size="xs" />;
+    const meta = getPlacementStatusMeta(p);
+    return <StatusBadge label={meta.label} tone={meta.tone} size="xs" />;
   };
-
-  const editBill = editingPlacement ? parseRate(editingPlacement.billing, 0) : 0;
-  const editPay = editingPlacement ? parseRate(editingPlacement.payRate, 0) : 0;
-  const editSpread = editBill - editPay;
-  const editMargin = editBill > 0 ? ((editSpread / editBill) * 100).toFixed(1) : '0.0';
-
-  const extBill = parseRate(extendForm.billing, 0);
-  const extPay = parseRate(extendForm.payRate, 0);
-  const extSpread = extBill - extPay;
-  const extMargin = extBill > 0 ? ((extSpread / extBill) * 100).toFixed(1) : '0.0';
 
   return (
     <section className="max-w-7xl mx-auto space-y-6 animate-fade-in">
@@ -527,10 +407,16 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                   const daysLeft = getDaysRemaining(p.endDate);
                   const ended = p.status === 'Completed' || p.status === 'Terminated';
                   return (
-                    <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
+                    <tr
+                      key={p.id}
+                      onClick={onSelectPlacement ? () => onSelectPlacement(p) : undefined}
+                      className={`group transition-colors ${
+                        onSelectPlacement ? 'hover:bg-slate-50/90 cursor-pointer' : 'hover:bg-slate-50/80'
+                      }`}
+                    >
                       {/* Customer & PO */}
                       <td className="px-3.5 py-3">
-                        <div className="font-bold text-slate-900">{p.customer}</div>
+                        <div className={`font-bold text-slate-900 ${onSelectPlacement ? 'group-hover:text-brand-700 transition-colors' : ''}`}>{p.customer}</div>
                         <div className="text-[11px] text-slate-500 font-sans mt-0.5">{p.customerContact || 'Hiring Manager'}</div>
                         {p.purchaseOrderNumber && (
                           <div className="mt-1 inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
@@ -543,7 +429,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                       {/* Consultant & Role */}
                       <td className="px-3.5 py-3">
                         <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                          <span>{p.resourceName}</span>
+                          <span className={onSelectPlacement ? 'group-hover:text-brand-700 transition-colors' : ''}>{p.resourceName}</span>
                           <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
                             {p.deployment}
                           </span>
@@ -583,7 +469,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                       {/* Hourly Margin Spread */}
                       <td className="px-3.5 py-3">
                         <div className="font-bold text-emerald-600 text-xs">
-                          <MaskedValue value={formatSpread(p.hourlySpread)} isMasked={rateMasked} />
+                          <MaskedValue value={formatSpread(p.hourlySpread, currencySymbol)} isMasked={rateMasked} />
                         </div>
                         <div className="text-[10px] text-slate-400">
                           <MaskedValue value={formatMargin(p.marginPct)} isMasked={rateMasked} />
@@ -618,11 +504,14 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                       </td>
 
                       {/* Actions */}
-                      <td className="px-3.5 py-3 text-right whitespace-nowrap">
+                      <td
+                        className="px-3.5 py-3 text-right whitespace-nowrap"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <div className="inline-flex items-center justify-end gap-1.5">
                           {onExtendContract && (
                           <button
-                            onClick={() => openExtendModal(p)}
+                            onClick={() => setExtendingPlacement(p)}
                             className="px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[10px] font-semibold transition-colors cursor-pointer inline-flex items-center gap-1"
                           >
                             <CalendarPlus className="w-3 h-3 text-brand-600" />
@@ -631,7 +520,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                           )}
                           {!ended && onUpdatePlacement && (
                             <button
-                              onClick={() => openEndModal(p)}
+                              onClick={() => setEndingPlacement(p)}
                               title="End consultant placement"
                               className="px-2.5 py-1 rounded bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-200 hover:border-rose-200 text-[10px] font-semibold transition-colors cursor-pointer inline-flex items-center gap-1"
                             >
@@ -680,554 +569,19 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
         />
       </div>
 
-      {/* Interactive Extend SOW Modal */}
-      {extendingPlacement && (
-        <div
-          onClick={() => setExtendingPlacement(null)}
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up"
-          >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-700 border border-brand-200 flex items-center justify-center">
-                  <CalendarPlus className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">Extend Contract / SOW</h3>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    {extendingPlacement.resourceName} @ {extendingPlacement.customer}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setExtendingPlacement(null)}
-                className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (isExtending || !onExtendContract) return;
-                setIsExtending(true);
-                try {
-                  await onExtendContract(extendingPlacement, extendForm);
-                  setExtendingPlacement(null);
-                } catch {
-                  // Error toast is already displayed by parent handler; keep modal open
-                } finally {
-                  setIsExtending(false);
-                }
-              }}
-              className="p-6 space-y-4 text-xs"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="font-semibold text-slate-700 text-[11px]">Quick Extension Presets</label>
-                  <span className="text-[10px] text-slate-400">Current End: {extendingPlacement.endDate}</span>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: '+3 Months', months: 3 },
-                    { label: '+6 Months', months: 6 },
-                    { label: '+1 Year', months: 12 },
-                  ].map((preset) => {
-                    const targetDate = addMonthsToDate(extendingPlacement.endDate, preset.months);
-                    const active = extendForm.newEndDate === targetDate;
-                    return (
-                      <button
-                        key={preset.label}
-                        type="button"
-                        onClick={() => setExtendForm((prev) => ({ ...prev, newEndDate: targetDate }))}
-                        className={`py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
-                          active
-                            ? 'bg-brand-600 text-white border-brand-600'
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-brand-50'
-                        }`}
-                      >
-                        {preset.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">New End Date *</label>
-                <input
-                  type="date"
-                  required
-                  value={extendForm.newEndDate}
-                  onChange={(e) => setExtendForm({ ...extendForm, newEndDate: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                />
-              </div>
-
-              <div className="bg-emerald-50/70 border border-emerald-200 rounded-lg px-3.5 py-2.5 flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-emerald-800">Revised Spread Preview</span>
-                <span className="font-bold text-emerald-700">
-                  {extSpread >= 0 ? `+${currencySymbol}${extSpread.toFixed(2)}/hr` : `-${currencySymbol}${Math.abs(extSpread).toFixed(2)}/hr`} ({extMargin}%)
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Client Bill Rate</label>
-                  <input
-                    type="text"
-                    value={extendForm.billing || ''}
-                    onChange={(e) => setExtendForm({ ...extendForm, billing: e.target.value })}
-                    placeholder={`${currencySymbol}115/hr`}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Consultant Pay Rate</label>
-                  <input
-                    type="text"
-                    value={extendForm.payRate || ''}
-                    onChange={(e) => setExtendForm({ ...extendForm, payRate: e.target.value })}
-                    placeholder={`${currencySymbol}85/hr`}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">PO / SOW Reference</label>
-                <input
-                  type="text"
-                  value={extendForm.purchaseOrderNumber || ''}
-                  onChange={(e) => setExtendForm({ ...extendForm, purchaseOrderNumber: e.target.value })}
-                  placeholder="e.g. PO-2026-9901"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                />
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  disabled={isExtending}
-                  onClick={() => setExtendingPlacement(null)}
-                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <ActionButton
-                  type="submit"
-                  loading={isExtending}
-                  loadingText="Extending..."
-                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white rounded-lg text-xs font-semibold cursor-pointer"
-                >
-                  Confirm SOW Extension
-                </ActionButton>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Placement Modal */}
-      {editingPlacement && (
-        <div
-          onClick={() => setEditingPlacement(null)}
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up max-h-[92vh] flex flex-col"
-          >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">Edit Billable Placement</h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">{editingPlacement.resourceName}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditingPlacement(null)}
-                className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (isSavingPlacement) return;
-                setIsSavingPlacement(true);
-                try {
-                  if (onUpdatePlacement) await onUpdatePlacement(editingPlacement);
-                  setEditingPlacement(null);
-                } catch {
-                  // Error toast is already displayed by parent handler; keep modal open
-                } finally {
-                  setIsSavingPlacement(false);
-                }
-              }}
-              className="p-6 space-y-3.5 text-xs overflow-y-auto"
-            >
-              {/* Live Spread Bar */}
-              <div className="bg-emerald-50/70 border border-emerald-200 rounded-lg px-3.5 py-2.5 flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-emerald-800">Hourly Margin Spread</span>
-                <span className="font-bold text-emerald-700">
-                  {editSpread >= 0 ? `+${currencySymbol}${editSpread.toFixed(2)}/hr` : `-${currencySymbol}${Math.abs(editSpread).toFixed(2)}/hr`} ({editMargin}%)
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Consultant Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editingPlacement.resourceName}
-                    onChange={(e) => setEditingPlacement({ ...editingPlacement, resourceName: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Skill / Role *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editingPlacement.skillRole}
-                    onChange={(e) => setEditingPlacement({ ...editingPlacement, skillRole: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Client / Customer *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editingPlacement.customer}
-                    onChange={(e) => setEditingPlacement({ ...editingPlacement, customer: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Client Contact</label>
-                  <input
-                    type="text"
-                    value={editingPlacement.customerContact || ''}
-                    onChange={(e) => setEditingPlacement({ ...editingPlacement, customerContact: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Status</label>
-                  <CustomSelect
-                    value={editingPlacement.status || 'Active'}
-                    onChange={(val) =>
-                      setEditingPlacement({ ...editingPlacement, status: val as any })
-                    }
-                    ariaLabel="Placement Status"
-                    options={['Active', 'Extended', 'Completed', 'Terminated']}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Deployment</label>
-                  <CustomSelect
-                    value={editingPlacement.deployment}
-                    onChange={(val) =>
-                      setEditingPlacement({ ...editingPlacement, deployment: val })
-                    }
-                    ariaLabel="Deployment"
-                    options={['Onshore', 'Nearshore', 'Offshore']}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Placement Model</label>
-                  <CustomSelect
-                    value={editingPlacement.placementType || 'C2C Subcontractor'}
-                    onChange={(val) =>
-                      setEditingPlacement({ ...editingPlacement, placementType: val })
-                    }
-                    ariaLabel="Placement Model"
-                    options={['C2C Subcontractor', 'W2 Hourly', '1099', 'Full-Time']}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Pay Rate</label>
-                  <input
-                    type="text"
-                    value={editingPlacement.payRate || ''}
-                    onChange={(e) => setEditingPlacement({ ...editingPlacement, payRate: e.target.value })}
-                    placeholder={`${currencySymbol}85/hr`}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Bill Rate</label>
-                  <input
-                    type="text"
-                    value={editingPlacement.billing}
-                    onChange={(e) => setEditingPlacement({ ...editingPlacement, billing: e.target.value })}
-                    placeholder={`${currencySymbol}115/hr`}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">PO / SOW #</label>
-                  <input
-                    type="text"
-                    value={editingPlacement.purchaseOrderNumber || ''}
-                    onChange={(e) => setEditingPlacement({ ...editingPlacement, purchaseOrderNumber: e.target.value })}
-                    placeholder="PO-2026-01"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Start Date</label>
-                  <input
-                    type="date"
-                    value={editingPlacement.startDate}
-                    onChange={(e) => setEditingPlacement({ ...editingPlacement, startDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">End Date</label>
-                  <input
-                    type="date"
-                    value={editingPlacement.endDate}
-                    onChange={(e) => setEditingPlacement({ ...editingPlacement, endDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Phone</label>
-                  <input
-                    type="text"
-                    value={editingPlacement.phone || ''}
-                    onChange={(e) => setEditingPlacement({ ...editingPlacement, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Work Email</label>
-                  <input
-                    type="email"
-                    value={editingPlacement.email || ''}
-                    onChange={(e) => setEditingPlacement({ ...editingPlacement, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <DynamicCustomFieldsSection
-                entity="placement"
-                values={(editingPlacement.customFields as Record<string, string>) || {}}
-                onChange={(vals) => setEditingPlacement({ ...editingPlacement, customFields: vals })}
-                isOpen={Boolean(editingPlacement)}
-              />
-
-              <div className="pt-2 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  disabled={isSavingPlacement}
-                  onClick={() => setEditingPlacement(null)}
-                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <ActionButton
-                  type="submit"
-                  loading={isSavingPlacement}
-                  loadingText="Saving..."
-                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
-                >
-                  Save Changes
-                </ActionButton>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Placement Confirmation Modal */}
-      {deletingPlacement && (
-        <div
-          onClick={() => setDeletingPlacement(null)}
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl max-w-sm w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up p-6 space-y-4"
-          >
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">Remove Billable Placement?</h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  This will remove <span className="font-semibold text-slate-700">{deletingPlacement.resourceName}</span>&apos;s placement at{' '}
-                  <span className="font-semibold text-slate-700">{deletingPlacement.customer}</span> from the ledger.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-2 pt-1">
-              <button
-                type="button"
-                disabled={isDeletingPlacement}
-                onClick={() => setDeletingPlacement(null)}
-                className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
-              >
-                Cancel
-              </button>
-              <ActionButton
-                type="button"
-                loading={isDeletingPlacement}
-                loadingText="Removing..."
-                onClick={async () => {
-                  if (isDeletingPlacement) return;
-                  setIsDeletingPlacement(true);
-                  try {
-                    if (onDeletePlacement) await onDeletePlacement(deletingPlacement);
-                    setDeletingPlacement(null);
-                  } catch {
-                    setDeletingPlacement(null);
-                  } finally {
-                    setIsDeletingPlacement(false);
-                  }
-                }}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
-              >
-                Remove Placement
-              </ActionButton>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* End Consultant Placement Modal */}
-      {endingPlacement && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fadeIn">
-          <form
-            onSubmit={handleConfirmEndPlacement}
-            className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden"
-          >
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center">
-                  <CalendarX className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm text-slate-900">End Consultant Placement</h3>
-                  <p className="text-[11px] text-slate-500">
-                    {endingPlacement.resourceName} • {endingPlacement.customer}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEndingPlacement(null)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                  Closure Outcome
-                </label>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {(['Completed', 'Terminated'] as const).map((outcome) => {
-                    const selected = endForm.status === outcome;
-                    return (
-                      <button
-                        key={outcome}
-                        type="button"
-                        onClick={() => setEndForm((prev) => ({ ...prev, status: outcome }))}
-                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                          selected
-                            ? outcome === 'Terminated'
-                              ? 'border-rose-500 bg-rose-50/40 ring-1 ring-rose-500'
-                              : 'border-slate-900 bg-slate-50 ring-1 ring-slate-900'
-                            : 'border-slate-200 bg-white hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="text-xs font-bold text-slate-900">{outcome}</div>
-                        <div className="text-[10px] text-slate-500 mt-0.5">
-                          {outcome === 'Completed' ? 'SOW term fulfilled naturally' : 'Early exit or client offboard'}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
-                  Effective End Date
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={endForm.endDate}
-                  onChange={(e) => setEndForm((prev) => ({ ...prev, endDate: e.target.value }))}
-                  className="w-full px-3 py-2 text-xs font-medium text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
-                />
-              </div>
-
-              <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-[11px] text-slate-600 space-y-1.5">
-                <div className="font-semibold text-slate-800">What happens next</div>
-                <ul className="space-y-1 list-disc list-inside text-slate-500">
-                  <li>Moves placement to the <span className="font-semibold text-slate-700">Ended</span> tab while preserving billing & margin history.</li>
-                  <li>Returns <span className="font-semibold text-slate-700">{endingPlacement.resourceName}</span> to <span className="font-semibold text-slate-700">Available / Bench</span> if no other active SOW exists.</li>
-                  <li>Resolves open contract expiry SLA reminders for this placement.</li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                disabled={isEndingPlacement}
-                onClick={() => setEndingPlacement(null)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
-              >
-                Cancel
-              </button>
-              <ActionButton
-                type="submit"
-                loading={isEndingPlacement}
-                loadingText="Updating..."
-                disabled={!endForm.endDate}
-                icon={<CalendarX className="w-3.5 h-3.5" />}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold cursor-pointer"
-              >
-                Confirm End Placement
-              </ActionButton>
-            </div>
-          </form>
-        </div>
-      )}
+      <PlacementModals
+        extendingPlacement={extendingPlacement}
+        onCloseExtend={() => setExtendingPlacement(null)}
+        onExtendContract={onExtendContract}
+        editingPlacement={editingPlacement}
+        onCloseEdit={() => setEditingPlacement(null)}
+        onUpdatePlacement={onUpdatePlacement}
+        endingPlacement={endingPlacement}
+        onCloseEnd={() => setEndingPlacement(null)}
+        deletingPlacement={deletingPlacement}
+        onCloseDelete={() => setDeletingPlacement(null)}
+        onDeletePlacement={onDeletePlacement}
+      />
     </section>
   );
 };

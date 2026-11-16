@@ -79,6 +79,11 @@ const VendorDetailPage = React.lazy(() =>
     default: m.VendorDetailPage,
   }))
 );
+const PlacementDetailPage = React.lazy(() =>
+  import('./features/billable/PlacementDetailPage').then((m) => ({
+    default: m.PlacementDetailPage,
+  }))
+);
 const SettingsView = React.lazy(() =>
   import('./features/settings/SettingsView').then((m) => ({
     default: m.SettingsView,
@@ -319,6 +324,9 @@ export const App: React.FC = () => {
   const [selectedVendorForDetail, setSelectedVendorForDetail] = useState<Vendor | null>(null);
   const [vendorDetailReturnView, setVendorDetailReturnView] = useState<string>('vendors');
   const [vendorDetailInitialEdit, setVendorDetailInitialEdit] = useState<boolean>(false);
+  const [selectedPlacementForDetail, setSelectedPlacementForDetail] =
+    useState<BillablePlacement | null>(null);
+  const [placementDetailReturnView, setPlacementDetailReturnView] = useState<string>('billable');
 
   const handleOpenRequirementDetail = (req: Requirement, fromView?: string) => {
     setReqDetailReturnView(
@@ -367,21 +375,40 @@ export const App: React.FC = () => {
     setCurrentView('vendor_detail');
   };
 
+  const handleOpenPlacementDetail = (placement: BillablePlacement, fromView?: string) => {
+    setPlacementDetailReturnView(
+      fromView || (currentView !== 'placement_detail' ? currentView : placementDetailReturnView)
+    );
+    setSelectedPlacementForDetail(placement);
+    setCurrentView('placement_detail');
+  };
+
   const handleNavigateView = (nextView: string) => {
-    if (nextView !== 'requirement_detail' && nextView !== 'consultant_detail') {
+    if (!['requirement_detail', 'consultant_detail', 'placement_detail'].includes(nextView)) {
       setSelectedReqForDetail(null);
     }
-    if (nextView !== 'consultant_detail') {
+    if (!['consultant_detail', 'placement_detail'].includes(nextView)) {
       setSelectedCandForDetail(null);
       setCandDetailInitialEdit(false);
     }
-    if (nextView !== 'client_detail' && nextView !== 'requirement_detail') {
+    if (!['client_detail', 'requirement_detail', 'placement_detail'].includes(nextView)) {
       setSelectedClientForDetail(null);
       setClientDetailInitialEdit(false);
     }
-    if (nextView !== 'vendor_detail') {
+    if (!['vendor_detail', 'placement_detail'].includes(nextView)) {
       setSelectedVendorForDetail(null);
       setVendorDetailInitialEdit(false);
+    }
+    if (
+      ![
+        'placement_detail',
+        'client_detail',
+        'vendor_detail',
+        'consultant_detail',
+        'requirement_detail',
+      ].includes(nextView)
+    ) {
+      setSelectedPlacementForDetail(null);
     }
     setCurrentView(nextView);
   };
@@ -673,10 +700,12 @@ export const App: React.FC = () => {
         const raw = ruleRes.value.data.data;
         const formatCategory = (cat?: string) => {
           const upper = String(cat || '').toUpperCase();
-          if (upper === 'FEEDBACK' || upper === 'STALE_REQ' || upper === 'CUSTOM') return 'Feedback';
+          if (upper === 'FEEDBACK') return 'Feedback';
+          if (upper === 'STALE_REQ') return 'STALE_REQ';
           if (upper === 'INTERVIEW') return 'Interview';
           if (upper === 'CONTRACT') return 'Contract';
           if (upper === 'COMPLIANCE') return 'Compliance';
+          if (upper === 'CUSTOM') return 'Custom';
           return cat || 'Feedback';
         };
         const mappedRules = raw.map((rl: any) => ({
@@ -1720,7 +1749,19 @@ export const App: React.FC = () => {
                 ? 'clients'
                 : currentView === 'vendor_detail'
                   ? 'vendors'
-                  : currentView
+                  : currentView === 'placement_detail'
+                    ? placementDetailReturnView === 'client_detail'
+                      ? 'clients'
+                      : placementDetailReturnView === 'vendor_detail'
+                        ? 'vendors'
+                        : placementDetailReturnView === 'consultant_detail'
+                          ? 'consultants'
+                          : placementDetailReturnView === 'requirement_detail'
+                            ? 'pipeline'
+                            : placementDetailReturnView === 'dashboard'
+                              ? 'dashboard'
+                              : 'billable'
+                    : currentView
         }
         onNavigate={handleNavigateView}
         counts={computedSidebarCounts}
@@ -1814,7 +1855,9 @@ export const App: React.FC = () => {
                     ? 'Back to Client'
                     : reqDetailReturnView === 'consultant_detail'
                       ? 'Back to Consultant'
-                      : 'Back to Pipeline'
+                      : reqDetailReturnView === 'placement_detail'
+                        ? 'Back to Placement'
+                        : 'Back to Pipeline'
               }
               onBack={() => handleNavigateView(reqDetailReturnView)}
               candidates={candidates}
@@ -1880,7 +1923,9 @@ export const App: React.FC = () => {
                   ? 'Back to Dashboard'
                   : candDetailReturnView === 'requirement_detail'
                     ? 'Back to Requirement'
-                    : 'Back to Consultants'
+                    : candDetailReturnView === 'placement_detail'
+                      ? 'Back to Placement'
+                      : 'Back to Consultants'
               }
               onBack={() => handleNavigateView(candDetailReturnView)}
               requirements={requirements}
@@ -1889,6 +1934,7 @@ export const App: React.FC = () => {
               initialEditing={candDetailInitialEdit}
               onSubmitToReq={(cand, req) => handleAssignCandidate(req, cand)}
               onOpenRequirement={(req) => handleOpenRequirementDetail(req, 'consultant_detail')}
+              onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'consultant_detail')}
               onUpdateCandidate={canManageDataOperations ? handleUpdateCandidate : undefined}
               onDeleteCandidate={canManageDataOperations ? handleDeleteCandidate : undefined}
               onNavigateToBillable={() => handleNavigateView('billable')}
@@ -1924,7 +1970,11 @@ export const App: React.FC = () => {
                 clients.find((c) => c.id === selectedClientForDetail?.id) ||
                 selectedClientForDetail
               }
-              backLabel="Back to Clients"
+              backLabel={
+                clientDetailReturnView === 'placement_detail'
+                  ? 'Back to Placement'
+                  : 'Back to Clients'
+              }
               onBack={() => handleNavigateView(clientDetailReturnView)}
               requirements={requirements}
               placements={placements}
@@ -1939,6 +1989,7 @@ export const App: React.FC = () => {
                 );
               }}
               onOpenRequirement={(req) => handleOpenRequirementDetail(req, 'client_detail')}
+              onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'client_detail')}
               onDeleteClient={isAdmin ? handleDeleteClient : undefined}
               showToast={showToast}
             />
@@ -1963,7 +2014,11 @@ export const App: React.FC = () => {
                 vendors.find((v) => v.id === selectedVendorForDetail?.id) ||
                 selectedVendorForDetail
               }
-              backLabel="Back to Vendors"
+              backLabel={
+                vendorDetailReturnView === 'placement_detail'
+                  ? 'Back to Placement'
+                  : 'Back to Vendors'
+              }
               onBack={() => handleNavigateView(vendorDetailReturnView)}
               placements={placements}
               rateMasked={rateMasked}
@@ -1978,10 +2033,54 @@ export const App: React.FC = () => {
               placements={placements}
               rateMasked={rateMasked}
               onOpenNewPlacement={!rateMasked ? () => setActiveCreateModal('placement') : undefined}
+              onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'billable')}
               onExtendContract={!rateMasked ? handleExtendContract : undefined}
               onUpdatePlacement={!rateMasked ? handleUpdatePlacement : undefined}
               onDeletePlacement={isAdmin && !rateMasked ? handleDeletePlacement : undefined}
               showToast={showToast}
+            />
+          )}
+
+          {currentView === 'placement_detail' && (
+            <PlacementDetailPage
+              placement={
+                placements.find((p) => p.id === selectedPlacementForDetail?.id) ||
+                selectedPlacementForDetail
+              }
+              backLabel={
+                placementDetailReturnView === 'client_detail'
+                  ? 'Back to Client'
+                  : placementDetailReturnView === 'vendor_detail'
+                    ? 'Back to Vendor'
+                    : placementDetailReturnView === 'consultant_detail'
+                      ? 'Back to Consultant'
+                      : placementDetailReturnView === 'requirement_detail'
+                        ? 'Back to Requirement'
+                        : placementDetailReturnView === 'dashboard'
+                          ? 'Back to Dashboard'
+                          : 'Back to Billable Consultants'
+              }
+              onBack={() => handleNavigateView(placementDetailReturnView)}
+              candidates={candidates}
+              clients={clients}
+              vendors={vendors}
+              requirements={requirements}
+              rateMasked={rateMasked}
+              onExtendContract={!rateMasked ? handleExtendContract : undefined}
+              onUpdatePlacement={!rateMasked ? handleUpdatePlacement : undefined}
+              onDeletePlacement={isAdmin && !rateMasked ? handleDeletePlacement : undefined}
+              onOpenConsultant={(cand) =>
+                handleOpenConsultantDetail(cand, false, 'placement_detail')
+              }
+              onOpenClient={(cl) =>
+                handleOpenClientDetail(cl, false, 'placement_detail')
+              }
+              onOpenVendor={(v) =>
+                handleOpenVendorDetail(v, false, 'placement_detail')
+              }
+              onOpenRequirement={(req) =>
+                handleOpenRequirementDetail(req, 'placement_detail')
+              }
             />
           )}
 

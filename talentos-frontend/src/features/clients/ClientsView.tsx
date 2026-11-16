@@ -299,7 +299,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
           }}
           itemLabel="clients"
           isLoading={isLoadingClients}
-          pageSizeOptions={[5, 10, 20, 50]}
+          pageSizeOptions={[10, 20, 50]}
         />
       </div>
 

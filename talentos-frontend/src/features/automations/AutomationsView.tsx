@@ -199,9 +199,10 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
 
   const findRuleForPreset = (preset: ReminderPreset) =>
     activeRules.find(
-      (r) =>
-        r.triggerEvent === preset.triggerEvent ||
-        String(r.category || '').toUpperCase() === preset.backendCategory
+      (r) => String(r.triggerEvent || '').toUpperCase() === preset.triggerEvent
+    ) ||
+    activeRules.find(
+      (r) => String(r.category || '').toUpperCase() === preset.backendCategory
     );
 
   const handleTogglePreset = async (preset: ReminderPreset) => {

@@ -988,145 +988,147 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
       ) : (
         /* List Mode */
         <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-slate-50 text-[10px] uppercase font-bold text-slate-400 border-b border-slate-200">
-                <th className="py-2.5 px-4">Code & Role</th>
-                <th className="py-2.5 px-4">Client Company</th>
-                <th className="py-2.5 px-4">Required Skills</th>
-                <th className="py-2.5 px-4">Openings & Applicants</th>
-                <th className="py-2.5 px-4">Stage</th>
-                <th className="py-2.5 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredReqs.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-10 px-6 text-center text-xs text-slate-400">
-                    {search.trim() ? (
-                      <>
-                        No requirements match your search.{' '}
-                        <button
-                          type="button"
-                          onClick={() => setSearch('')}
-                          className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
-                        >
-                          Clear Search
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        No requirements found.{' '}
-                        {onOpenAddReq ? (
-                          <>
-                            Click{' '}
-                            <button
-                              type="button"
-                              onClick={onOpenAddReq}
-                              className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
-                            >
-                              Add Requirement
-                            </button>{' '}
-                            to create one.
-                          </>
-                        ) : null}
-                      </>
-                    )}
-                  </td>
+          <div className="max-h-[440px] overflow-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)]">
+                <tr className="text-[10px] uppercase font-bold text-slate-400">
+                  <th className="py-2.5 px-4">Code &amp; Role</th>
+                  <th className="py-2.5 px-4">Client Company</th>
+                  <th className="py-2.5 px-4">Required Skills</th>
+                  <th className="py-2.5 px-4">Openings &amp; Applicants</th>
+                  <th className="py-2.5 px-4">Stage</th>
+                  <th className="py-2.5 px-4 text-right">Actions</th>
                 </tr>
-              ) : (
-                filteredReqs.map((req) => (
-                  <tr key={req.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="py-3 px-4 font-bold text-slate-900">
-                      <span
-                        onClick={() => onSelectReq && onSelectReq(req)}
-                        className="cursor-pointer hover:text-brand-600 transition-colors block"
-                      >
-                        {req.opportunityTitle}
-                      </span>
-                      <div className="text-[10px] text-slate-400 font-medium mt-0.5">
-                        {req.code} &bull; {req.location}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 font-semibold text-slate-700">{req.companyName}</td>
-                    <td className="py-3 px-4 text-slate-600 text-[11px] max-w-xs truncate">
-                      {req.skillsRequired}
-                    </td>
-                    <td className="py-3 px-4">
-                      {(() => {
-                        const openPos = req.openPositions || 1;
-                        const filledPos = req.filledPositions ?? req.activePlacements?.length ?? 0;
-                        const activeSubs = (req.submissions || []).filter((s) => s.stage !== 'Closed');
-                        return (
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span
-                                className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                  filledPos >= openPos
-                                    ? 'bg-emerald-500/[0.08] text-emerald-800'
-                                    : 'bg-slate-100 text-slate-700'
-                                }`}
-                              >
-                                {filledPos > 0 ? `${filledPos}/${openPos} Filled` : `${openPos} Open`}
-                              </span>
-                              <span className="text-[10px] font-medium text-slate-500">
-                                {activeSubs.length} {activeSubs.length === 1 ? 'Applicant' : 'Applicants'}
-                              </span>
-                            </div>
-                            {activeSubs.length > 0 ? (
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredReqs.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-10 px-6 text-center text-xs text-slate-400">
+                      {search.trim() ? (
+                        <>
+                          No requirements match your search.{' '}
+                          <button
+                            type="button"
+                            onClick={() => setSearch('')}
+                            className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                          >
+                            Clear Search
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          No requirements found.{' '}
+                          {onOpenAddReq ? (
+                            <>
+                              Click{' '}
                               <button
                                 type="button"
-                                onClick={() => onSelectReq && onSelectReq(req)}
-                                className="text-left text-[11px] font-semibold text-slate-800 hover:text-brand-600 truncate max-w-[200px] block cursor-pointer"
-                                title={activeSubs.map((s) => `${s.fullName} (${s.stage})`).join(', ')}
+                                onClick={onOpenAddReq}
+                                className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
                               >
-                                {activeSubs.length === 1
-                                  ? activeSubs[0].fullName
-                                  : `${activeSubs[0].fullName} +${activeSubs.length - 1} more`}
-                              </button>
-                            ) : req.resourceName ? (
-                              <span className="text-[11px] font-medium text-slate-700">{req.resourceName}</span>
-                            ) : (
-                              <span className="text-[11px] text-slate-400 italic">Unassigned</span>
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </td>
-                    <td className="py-3 px-4">
-                      <StatusBadge stage={req.status} size="xs" />
-                    </td>
-                    <td className="py-3 px-4 text-right whitespace-nowrap">
-                      <button
-                        onClick={() => onOpenMatcher(req)}
-                        className="px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[10px] font-semibold cursor-pointer transition-colors"
-                      >
-                        Match
-                      </button>
-                      {onUpdateReq && (
-                        <button
-                          onClick={() => setEditingReq({ ...req })}
-                          title="Edit requirement"
-                          className="ml-1.5 p-1 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      {onDeleteReq && (
-                        <button
-                          onClick={() => setReqToDelete(req)}
-                          title="Delete requirement"
-                          className="ml-1 p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                                Add Requirement
+                              </button>{' '}
+                              to create one.
+                            </>
+                          ) : null}
+                        </>
                       )}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filteredReqs.map((req) => (
+                    <tr key={req.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="py-3 px-4 font-bold text-slate-900">
+                        <span
+                          onClick={() => onSelectReq && onSelectReq(req)}
+                          className="cursor-pointer hover:text-brand-600 transition-colors block"
+                        >
+                          {req.opportunityTitle}
+                        </span>
+                        <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+                          {req.code} &bull; {req.location}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 font-semibold text-slate-700">{req.companyName}</td>
+                      <td className="py-3 px-4 text-slate-600 text-[11px] max-w-xs truncate">
+                        {req.skillsRequired}
+                      </td>
+                      <td className="py-3 px-4">
+                        {(() => {
+                          const openPos = req.openPositions || 1;
+                          const filledPos = req.filledPositions ?? req.activePlacements?.length ?? 0;
+                          const activeSubs = (req.submissions || []).filter((s) => s.stage !== 'Closed');
+                          return (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span
+                                  className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                    filledPos >= openPos
+                                      ? 'bg-emerald-500/[0.08] text-emerald-800'
+                                      : 'bg-slate-100 text-slate-700'
+                                  }`}
+                                >
+                                  {filledPos > 0 ? `${filledPos}/${openPos} Filled` : `${openPos} Open`}
+                                </span>
+                                <span className="text-[10px] font-medium text-slate-500">
+                                  {activeSubs.length} {activeSubs.length === 1 ? 'Applicant' : 'Applicants'}
+                                </span>
+                              </div>
+                              {activeSubs.length > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onSelectReq && onSelectReq(req)}
+                                  className="text-left text-[11px] font-semibold text-slate-800 hover:text-brand-600 truncate max-w-[200px] block cursor-pointer"
+                                  title={activeSubs.map((s) => `${s.fullName} (${s.stage})`).join(', ')}
+                                >
+                                  {activeSubs.length === 1
+                                    ? activeSubs[0].fullName
+                                    : `${activeSubs[0].fullName} +${activeSubs.length - 1} more`}
+                                </button>
+                              ) : req.resourceName ? (
+                                <span className="text-[11px] font-medium text-slate-700">{req.resourceName}</span>
+                              ) : (
+                                <span className="text-[11px] text-slate-400 italic">Unassigned</span>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </td>
+                      <td className="py-3 px-4">
+                        <StatusBadge stage={req.status} size="xs" />
+                      </td>
+                      <td className="py-3 px-4 text-right whitespace-nowrap">
+                        <button
+                          onClick={() => onOpenMatcher(req)}
+                          className="px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[10px] font-semibold cursor-pointer transition-colors"
+                        >
+                          Match
+                        </button>
+                        {onUpdateReq && (
+                          <button
+                            onClick={() => setEditingReq({ ...req })}
+                            title="Edit requirement"
+                            className="ml-1.5 p-1 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {onDeleteReq && (
+                          <button
+                            onClick={() => setReqToDelete(req)}
+                            title="Delete requirement"
+                            className="ml-1 p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
           <TablePagination
             page={page}
             limit={limit}
