@@ -16,6 +16,8 @@ import {
   resolveCvStorageProvider,
   sanitizeTenantSegment,
 } from '../../src/services/cvStorage.service';
+import { parseCustomFields } from '../../src/utils/customFields';
+import { requireUnmaskedRates } from '../../src/middlewares/auth.middleware';
 
 function withEnv(overrides: Record<string, string | undefined>, fn: () => void) {
   const previous: Record<string, string | undefined> = {};
@@ -165,6 +167,40 @@ export const runSecurityHardeningTests = () => {
     .map((item) => item.optionValue);
   assert.ok(defaultStageOptions.includes('Billable'), 'Default STAGES taxonomy must include Billable');
   assert.ok(defaultStageOptions.includes('Archived'), 'Default STAGES taxonomy must include Archived');
+
+  // 9. Custom fields normalization
+  assert.deepEqual(parseCustomFields({ clearance: 'Top Secret' }), { clearance: 'Top Secret' });
+  assert.deepEqual(parseCustomFields('{"tier":"Tier 1"}'), { tier: 'Tier 1' });
+  assert.equal(parseCustomFields('not-json'), undefined);
+  assert.equal(parseCustomFields(['invalid-array']), undefined);
+
+  // 10. Rate-masked users cannot invoke commercial placement write routes
+  let blockedStatus = 0;
+  let blockedNext = false;
+  requireUnmaskedRates(
+    { user: { rateMasked: true } } as any,
+    {
+      status(code: number) {
+        blockedStatus = code;
+        return { json: () => undefined };
+      },
+    } as any,
+    () => {
+      blockedNext = true;
+    }
+  );
+  assert.equal(blockedStatus, 403);
+  assert.equal(blockedNext, false);
+
+  let unmaskedNext = false;
+  requireUnmaskedRates(
+    { user: { rateMasked: false } } as any,
+    {} as any,
+    () => {
+      unmaskedNext = true;
+    }
+  );
+  assert.equal(unmaskedNext, true);
 
   console.log('✅ Security, Encryption, CORS & Storage Hardening: PASSED');
 };

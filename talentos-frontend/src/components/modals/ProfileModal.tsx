@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { LogOut, ShieldCheck, X } from 'lucide-react';
 import { User } from '../../types';
+import { ActionButton } from '../shared/ActionButton';
 
 interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser: User | null;
-  onUpdateUser: (updated: User) => void;
+  onUpdateUser: (updated: User) => Promise<void> | void;
   onOpenSignOut: () => void;
   showToast: (title: string, message: string, icon?: string) => void;
 }
@@ -25,6 +26,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     role: '',
     desk: '',
   });
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
@@ -35,19 +37,32 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         desk: currentUser.desk || '',
       });
     }
+    setIsSaving(false);
   }, [currentUser, isOpen]);
 
   if (!isOpen || !currentUser) return null;
 
-  const handleSave = () => {
-    onUpdateUser({
-      ...currentUser,
-      name: formData.name,
-      email: formData.email,
-      desk: formData.desk,
-    });
-    showToast('Profile Updated', 'Your profile details have been saved.', 'fa-solid fa-circle-check text-emerald-500');
-    onClose();
+  const handleSave = async () => {
+    if (isSaving) return;
+    if (!formData.name.trim() || !formData.email.trim()) {
+      showToast('Validation Error', 'Full name and email address are required.', 'fa-solid fa-circle-exclamation text-rose-500');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await onUpdateUser({
+        ...currentUser,
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        desk: formData.desk,
+      });
+      showToast('Profile Updated', 'Your profile details have been saved.', 'fa-solid fa-circle-check text-emerald-500');
+      onClose();
+    } catch {
+      // Error toast is displayed by parent handler; keep modal open
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const initials = (formData.name || 'User')
@@ -167,12 +182,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             <LogOut className="w-3.5 h-3.5" />
             <span>Sign Out</span>
           </button>
-          <button
+          <ActionButton
+            type="button"
+            loading={isSaving}
+            loadingText="Saving..."
             onClick={handleSave}
-            className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-xs transition-colors"
+            className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
           >
             Save Changes
-          </button>
+          </ActionButton>
         </div>
       </div>
     </div>

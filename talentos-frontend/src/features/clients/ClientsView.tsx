@@ -17,6 +17,7 @@ import { ClientDetailDrawer } from '../../components/modals/ClientDetailDrawer';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
+import { DynamicCustomFieldsSection } from '../../components/shared/DynamicCustomFieldsSection';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapClientFromApi } from '../../utils/entityMappers';
 
@@ -103,6 +104,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
         website: editingClient.website,
         boardNumber: editingClient.boardNumber,
         location: editingClient.location,
+        customFields: editingClient.customFields || {},
       });
       if (onClientUpdated) onClientUpdated(editingClient);
       showToast('Client Updated', `${editingClient.name} details updated.`);
@@ -404,6 +406,13 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                   />
                 </div>
               </div>
+
+              <DynamicCustomFieldsSection
+                entity="client"
+                values={(editingClient.customFields as Record<string, string>) || {}}
+                onChange={(vals) => setEditingClient({ ...editingClient, customFields: vals })}
+                isOpen={Boolean(editingClient)}
+              />
 
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button

@@ -2,6 +2,7 @@ import { prisma } from '../config/prisma.config';
 import { CandidatePipelineStage, PlacementStatus, Prisma, DeploymentType, PlacementType, AutomationCategory } from '@prisma/client';
 import { automationEngineService } from './automationEngine.service';
 import { slaEngineService } from './slaEngine.service';
+import { parseCustomFields } from '../utils/customFields';
 
 export interface PlacementFilterParams {
   search?: string;
@@ -164,10 +165,10 @@ export class PlacementService {
     else if (typeStr.includes('1099')) placementType = PlacementType.TEN_NINETY_NINE;
     else if (typeStr.includes('FULL')) placementType = PlacementType.FULL_TIME;
 
-    // Resolve and validate relational IDs so synthetic/stale IDs never fail FK constraints
+    // Resolve and validate relational IDs within tenant so synthetic/cross-tenant IDs cannot link
     let candidateId: string | null = payload.candidateId || null;
     if (candidateId) {
-      const existingCand = await prisma.candidate.findUnique({ where: { id: candidateId }, select: { id: true } });
+      const existingCand = await prisma.candidate.findFirst({ where: { id: candidateId, tenantId }, select: { id: true } });
       if (!existingCand) candidateId = null;
     }
     if (!candidateId && payload.resourceName) {
@@ -180,7 +181,7 @@ export class PlacementService {
 
     let clientId: string | null = payload.clientId || null;
     if (clientId) {
-      const existingClient = await prisma.client.findUnique({ where: { id: clientId }, select: { id: true } });
+      const existingClient = await prisma.client.findFirst({ where: { id: clientId, tenantId }, select: { id: true } });
       if (!existingClient) clientId = null;
     }
     if (!clientId && payload.customer) {
@@ -193,7 +194,7 @@ export class PlacementService {
 
     let vendorId: string | null = payload.vendorId || null;
     if (vendorId) {
-      const existingVendor = await prisma.vendor.findUnique({ where: { id: vendorId }, select: { id: true } });
+      const existingVendor = await prisma.vendor.findFirst({ where: { id: vendorId, tenantId }, select: { id: true } });
       if (!existingVendor) vendorId = null;
     }
     if (!vendorId && payload.vendorName) {
@@ -206,7 +207,7 @@ export class PlacementService {
 
     let requirementId: string | null = payload.requirementId || null;
     if (requirementId) {
-      const existingReq = await prisma.requirement.findUnique({ where: { id: requirementId }, select: { id: true } });
+      const existingReq = await prisma.requirement.findFirst({ where: { id: requirementId, tenantId }, select: { id: true } });
       if (!existingReq) requirementId = null;
     }
 
@@ -251,7 +252,7 @@ export class PlacementService {
 
     let resolvedRecruiterId: string | null = payload.recruiterId || recruiterId || null;
     if (resolvedRecruiterId) {
-      const existingUser = await prisma.user.findUnique({ where: { id: resolvedRecruiterId }, select: { id: true } });
+      const existingUser = await prisma.user.findFirst({ where: { id: resolvedRecruiterId, tenantId }, select: { id: true } });
       if (!existingUser) resolvedRecruiterId = null;
     }
     if (!resolvedRecruiterId && payload.recruiter && typeof payload.recruiter === 'string' && payload.recruiter.trim()) {
@@ -263,6 +264,7 @@ export class PlacementService {
     }
 
     const status = this.mapPlacementStatus(payload.status);
+    const customFields = parseCustomFields(payload.customFields);
 
     const placement = await prisma.placement.create({
       data: {
@@ -288,6 +290,7 @@ export class PlacementService {
         purchaseOrderNumber: payload.purchaseOrderNumber?.trim() || null,
         recruiterId: resolvedRecruiterId,
         status,
+        ...(customFields !== undefined ? { customFields } : {}),
       },
       include: {
         recruiter: { select: { id: true, fullName: true, desk: true } },
@@ -358,11 +361,27 @@ export class PlacementService {
     return placement;
   }
 
+  private async validateTenantReference(
+    findFn: () => Promise<{ id: string } | null>,
+    label: string
+  ): Promise<string> {
+    const rec = await findFn();
+    if (!rec) {
+      const err: any = new Error(`Referenced ${label} does not belong to this workspace.`);
+      err.statusCode = 404;
+      throw err;
+    }
+    return rec.id;
+  }
+
   async updatePlacement(id: string, payload: any, tenantId?: string) {
     const existing = await prisma.placement.findUnique({ where: { id } });
     if (!existing || (tenantId && existing.tenantId !== tenantId)) {
-      throw new Error('Placement not found or unauthorized');
+      const err: any = new Error('Placement not found or unauthorized');
+      err.statusCode = 404;
+      throw err;
     }
+    const effectiveTenantId = tenantId || existing.tenantId;
 
     const billNum =
       payload.billRate !== undefined || payload.billing !== undefined
@@ -396,21 +415,61 @@ export class PlacementService {
       data.purchaseOrderNumber = payload.purchaseOrderNumber ? String(payload.purchaseOrderNumber).trim() : null;
     }
     if (payload.candidateId !== undefined) {
-      data.candidate = payload.candidateId ? { connect: { id: payload.candidateId } } : { disconnect: true };
+      if (!payload.candidateId) {
+        data.candidate = { disconnect: true };
+      } else {
+        const validCandId = await this.validateTenantReference(
+          () =>
+            prisma.candidate.findFirst({
+              where: { id: payload.candidateId, tenantId: effectiveTenantId },
+              select: { id: true },
+            }),
+          'consultant'
+        );
+        data.candidate = { connect: { id: validCandId } };
+      }
     }
     if (payload.clientId !== undefined) {
-      data.client = payload.clientId ? { connect: { id: payload.clientId } } : { disconnect: true };
+      if (!payload.clientId) {
+        data.client = { disconnect: true };
+      } else {
+        const validClientId = await this.validateTenantReference(
+          () =>
+            prisma.client.findFirst({
+              where: { id: payload.clientId, tenantId: effectiveTenantId },
+              select: { id: true },
+            }),
+          'client'
+        );
+        data.client = { connect: { id: validClientId } };
+      }
     }
     if (payload.vendorId !== undefined) {
-      data.vendor = payload.vendorId ? { connect: { id: payload.vendorId } } : { disconnect: true };
-    } else if (payload.vendorName !== undefined && tenantId) {
+      if (!payload.vendorId) {
+        data.vendor = { disconnect: true };
+      } else {
+        const validVendorId = await this.validateTenantReference(
+          () =>
+            prisma.vendor.findFirst({
+              where: { id: payload.vendorId, tenantId: effectiveTenantId },
+              select: { id: true },
+            }),
+          'vendor'
+        );
+        data.vendor = { connect: { id: validVendorId } };
+      }
+    } else if (payload.vendorName !== undefined) {
       const matchedVendor = payload.vendorName
         ? await prisma.vendor.findFirst({
-            where: { tenantId, name: { equals: String(payload.vendorName).trim(), mode: 'insensitive' } },
+            where: { tenantId: effectiveTenantId, name: { equals: String(payload.vendorName).trim(), mode: 'insensitive' } },
             select: { id: true },
           })
         : null;
       if (matchedVendor) data.vendor = { connect: { id: matchedVendor.id } };
+    }
+    const parsedCustomFields = parseCustomFields(payload.customFields);
+    if (parsedCustomFields !== undefined) {
+      data.customFields = parsedCustomFields;
     }
 
     if (payload.status !== undefined) {
@@ -448,7 +507,6 @@ export class PlacementService {
       },
     });
 
-    const effectiveTenantId = tenantId || existing.tenantId;
     if (payload.status !== undefined) {
       const normalizedStatus = this.mapPlacementStatus(payload.status);
       try {

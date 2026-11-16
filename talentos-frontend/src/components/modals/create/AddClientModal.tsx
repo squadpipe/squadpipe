@@ -75,6 +75,8 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
       setCustomValues({});
       showToast('Client Registered', `${newClient.name} account registered under active MSA!`, 'fa-solid fa-circle-check text-brand-600');
       onClose();
+    } catch {
+      // Error toast is already displayed by the parent handler
     } finally {
       setIsSaving(false);
     }

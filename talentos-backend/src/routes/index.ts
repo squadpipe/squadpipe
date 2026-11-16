@@ -14,7 +14,7 @@ import {
 } from '../config/smtp.config';
 import { DEFAULT_TAXONOMIES } from '../config/taxonomies.config';
 import { prisma } from '../config/prisma.config';
-import { authenticateJwt, requireRole } from '../middlewares/auth.middleware';
+import { authenticateJwt, requireRole, requireUnmaskedRates } from '../middlewares/auth.middleware';
 import { rateMaskMiddleware } from '../middlewares/rateMask.middleware';
 import {
   authRateLimiter,
@@ -174,6 +174,13 @@ router.get('/sidebar/counts', async (req: Request, res: Response) => {
 });
 
 // Candidates
+const LEADERSHIP_ROLES: UserRole[] = [
+  UserRole.ADMINISTRATOR,
+  UserRole.SENIOR_RECRUITER,
+  UserRole.ACCOUNT_EXECUTIVE,
+  UserRole.BENCH_SALES_LEAD,
+];
+
 router.get('/candidates', candidateController.getCandidates);
 router.post('/candidates', uploadRateLimiter, optionalSingleCvUpload, candidateController.createCandidate);
 router.get('/candidates/:id', candidateController.getCandidateById);
@@ -181,8 +188,8 @@ router.put('/candidates/:id', uploadRateLimiter, optionalSingleCvUpload, candida
 router.post('/candidates/:id/cv', uploadRateLimiter, optionalSingleCvUpload, candidateController.uploadCandidateCv);
 router.get('/candidates/:id/cv', candidateController.downloadCandidateCv);
 router.patch('/candidates/:id/stage', candidateController.updateCandidate);
-router.delete('/candidates/:id', candidateController.deleteCandidate);
-router.post('/candidates/csv-import', async (req: Request, res: Response) => {
+router.delete('/candidates/:id', requireRole(LEADERSHIP_ROLES), candidateController.deleteCandidate);
+router.post('/candidates/csv-import', requireRole(LEADERSHIP_ROLES), async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
     const recruiterId = req.user?.id;
@@ -418,7 +425,7 @@ router.get('/requirements/:id', requirementController.getRequirementById);
 router.post('/requirements', requirementController.createRequirement);
 router.put('/requirements/:id', requirementController.updateRequirement);
 router.patch('/requirements/:id/stage', requirementController.updateRequirementStage);
-router.delete('/requirements/:id', requirementController.deleteRequirement);
+router.delete('/requirements/:id', requireRole(LEADERSHIP_ROLES), requirementController.deleteRequirement);
 
 // Submissions (Candidates / Applicants to Requirement — One-to-Many)
 router.post('/submissions', async (req: Request, res: Response) => {
@@ -531,11 +538,11 @@ router.post('/clients/:id/contacts', async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: error.message || 'Failed to add client contact' });
   }
 });
-router.delete('/clients/:id', clientController.deleteClient);
+router.delete('/clients/:id', requireRole([UserRole.ADMINISTRATOR]), clientController.deleteClient);
 router.get('/vendors', clientController.getVendors);
 router.post('/vendors', clientController.createVendor);
 router.put('/vendors/:id', clientController.updateVendor);
-router.delete('/vendors/:id', clientController.deleteVendor);
+router.delete('/vendors/:id', requireRole([UserRole.ADMINISTRATOR]), clientController.deleteVendor);
 
 // SMTP Email Dispatch
 router.post('/smtp/send', emailRateLimiter, async (req: Request, res: Response) => {
@@ -623,12 +630,12 @@ router.post('/smtp/send', emailRateLimiter, async (req: Request, res: Response) 
   }
 });
 
-// Placements
+// Placements (commercial financial rate clearance required for mutations)
 router.get('/placements', placementController.getPlacements);
-router.post('/placements', placementController.createPlacement);
-router.put('/placements/:id', placementController.updatePlacement);
-router.post('/placements/:id/extend', placementController.extendPlacement);
-router.delete('/placements/:id', placementController.deletePlacement);
+router.post('/placements', requireUnmaskedRates, placementController.createPlacement);
+router.put('/placements/:id', requireUnmaskedRates, placementController.updatePlacement);
+router.post('/placements/:id/extend', requireUnmaskedRates, placementController.extendPlacement);
+router.delete('/placements/:id', requireRole([UserRole.ADMINISTRATOR]), requireUnmaskedRates, placementController.deletePlacement);
 
 // Users & Roles
 router.get('/users', userController.getUsers);
@@ -980,10 +987,10 @@ router.delete('/taxonomies', requireRole([UserRole.ADMINISTRATOR]), async (req: 
   }
 });
 
-// Automations & Audits
+// Automations & Audits (workspace rule configuration restricted to Administrators)
 router.get('/automations/rules', automationController.getAutomationRules);
-router.post('/automations/rules/seed-defaults', automationController.seedDefaultAutomationRules);
-router.post('/automations/rules', async (req: Request, res: Response) => {
+router.post('/automations/rules/seed-defaults', requireRole([UserRole.ADMINISTRATOR]), automationController.seedDefaultAutomationRules);
+router.post('/automations/rules', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
     const { name, category, triggerEvent, icon, color, whenText, threshold, thenSummary, actionPills } = req.body;
@@ -1037,7 +1044,7 @@ router.post('/automations/rules', async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: error.message || 'Failed to create rule' });
   }
 });
-router.patch('/automations/rules/:id/toggle', async (req: Request, res: Response) => {
+router.patch('/automations/rules/:id/toggle', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
     const rule = await prisma.automationRule.findFirst({ where: { id: req.params.id, tenantId } });
@@ -1051,7 +1058,7 @@ router.patch('/automations/rules/:id/toggle', async (req: Request, res: Response
     res.status(500).json({ success: false, message: 'Failed to toggle rule' });
   }
 });
-router.patch('/automations/rules/:id', async (req: Request, res: Response) => {
+router.patch('/automations/rules/:id', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
     const rule = await prisma.automationRule.findFirst({ where: { id: req.params.id, tenantId } });
@@ -1079,7 +1086,7 @@ router.patch('/automations/rules/:id', async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: error.message || 'Failed to update rule' });
   }
 });
-router.delete('/automations/rules/:id', async (req: Request, res: Response) => {
+router.delete('/automations/rules/:id', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
     const rule = await prisma.automationRule.findFirst({ where: { id: req.params.id, tenantId } });

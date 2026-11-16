@@ -164,13 +164,23 @@ export const updateProfile = async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, message: 'Unauthenticated' });
     }
     const { name, fullName, email, desk, agencyName } = req.body;
+    const nextName = fullName !== undefined || name !== undefined ? String(fullName || name || '').trim() : undefined;
+    const nextEmail = email !== undefined ? String(email || '').trim().toLowerCase() : undefined;
+
+    if (nextName !== undefined && !nextName) {
+      return res.status(400).json({ success: false, message: 'Full name cannot be empty.' });
+    }
+    if (nextEmail !== undefined && (!nextEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail))) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid corporate email address.' });
+    }
+
     const updated = await prisma.user.update({
       where: { id: req.user.id },
       data: {
-        ...(fullName || name ? { fullName: String(fullName || name).trim() } : {}),
-        ...(email ? { email: String(email).trim().toLowerCase() } : {}),
-        ...(desk ? { desk: String(desk).trim() } : {}),
-        ...(agencyName ? { agencyName: String(agencyName).trim() } : {})
+        ...(nextName !== undefined ? { fullName: nextName } : {}),
+        ...(nextEmail !== undefined ? { email: nextEmail } : {}),
+        ...(desk !== undefined ? { desk: String(desk).trim() } : {}),
+        ...(agencyName !== undefined ? { agencyName: String(agencyName).trim() } : {})
       }
     });
     res.json({
@@ -191,6 +201,12 @@ export const updateProfile = async (req: Request, res: Response) => {
       }
     });
   } catch (error: any) {
+    if (error?.code === 'P2002') {
+      return res.status(409).json({
+        success: false,
+        message: 'An account with this email address already exists.',
+      });
+    }
     res.status(500).json({ success: false, message: error.message || 'Failed to update profile' });
   }
 };

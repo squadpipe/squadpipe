@@ -34,6 +34,8 @@ interface SidebarProps {
     activeRules: number;
   };
   currentUser: User | null;
+  isAdmin?: boolean;
+  canImportData?: boolean;
   onOpenProfile: () => void;
   onOpenSignOut: () => void;
 }
@@ -43,11 +45,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNavigate,
   counts,
   currentUser,
+  isAdmin: isAdminProp,
+  canImportData: canImportDataProp,
   onOpenProfile,
   onOpenSignOut,
 }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const displayRole = formatUserRole(currentUser?.role);
+  const isAdmin = isAdminProp ?? displayRole === 'Administrator';
+  const canImportData =
+    canImportDataProp ??
+    ['Administrator', 'Senior Recruiter', 'Account Executive', 'Bench Sales Lead'].includes(displayRole);
 
   const userInitials = (currentUser?.name || 'SquadPipe User')
     .split(' ')
@@ -234,6 +242,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
           </div>
 
+          {isAdmin && (
           <div
             onClick={() => onNavigate('custom_fields')}
             className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
@@ -254,7 +263,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {counts.customFields}
             </span>
           </div>
+          )}
 
+          {canImportData && (
           <div
             onClick={() => onNavigate('import_data')}
             className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
@@ -275,9 +286,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               CSV/Excel
             </span>
           </div>
+          )}
         </div>
 
         {/* Section 4: Settings & Administration */}
+        {isAdmin && (
         <div>
           <div className="px-3.5 text-[10px] font-semibold uppercase tracking-wider mb-1 text-slate-400">
             Settings &amp; Administration
@@ -322,6 +335,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
           </div>
         </div>
+        )}
 
         <div className="h-4"></div>
       </div>

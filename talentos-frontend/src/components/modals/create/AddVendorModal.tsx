@@ -72,6 +72,8 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
       setCustomValues({});
       showToast('Vendor Onboarded', `${newVendor.name} added to vendor network!`, 'fa-solid fa-circle-check text-brand-600');
       onClose();
+    } catch {
+      // Error toast is already displayed by the parent handler
     } finally {
       setIsSaving(false);
     }

@@ -11,10 +11,15 @@ import {
 
 interface TopbarProps {
   currentView: string;
+  canCreatePlacement?: boolean;
   onOpenCreateModal: (type: 'consultant' | 'requirement' | 'client' | 'vendor' | 'placement') => void;
 }
 
-export const Topbar: React.FC<TopbarProps> = ({ currentView, onOpenCreateModal }) => {
+export const Topbar: React.FC<TopbarProps> = ({
+  currentView,
+  canCreatePlacement = true,
+  onOpenCreateModal,
+}) => {
   const [showQuickAddDropdown, setShowQuickAddDropdown] = useState(false);
 
   const getViewTitle = (view: string) => {
@@ -102,6 +107,7 @@ export const Topbar: React.FC<TopbarProps> = ({ currentView, onOpenCreateModal }
                   <Briefcase className="w-4 h-4 text-slate-400 group-hover:text-brand-600 transition-colors flex-shrink-0" />
                   <span className="font-medium">New Requirement</span>
                 </button>
+                {canCreatePlacement && (
                 <button
                   onClick={() => {
                     setShowQuickAddDropdown(false);
@@ -112,6 +118,7 @@ export const Topbar: React.FC<TopbarProps> = ({ currentView, onOpenCreateModal }
                   <FileSpreadsheet className="w-4 h-4 text-slate-400 group-hover:text-brand-600 transition-colors flex-shrink-0" />
                   <span className="font-medium">New Billable Placement</span>
                 </button>
+                )}
               </div>
               <div className="py-1">
                 <button

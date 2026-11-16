@@ -6,6 +6,7 @@ import {
   StoredCvMetadata,
   UploadedCvFile,
 } from './cvStorage.service';
+import { parseCustomFields } from '../utils/customFields';
 
 export interface CandidateFilterParams {
   tenantId?: string;
@@ -145,23 +146,6 @@ export class CandidateService {
     return cand;
   }
 
-  private parseCustomFields(value: unknown): Prisma.InputJsonValue | undefined {
-    if (value === undefined || value === null || value === '') return undefined;
-    if (typeof value === 'string') {
-      try {
-        const parsed = JSON.parse(value);
-        if (parsed && typeof parsed === 'object') return parsed as Prisma.InputJsonValue;
-      } catch {
-        return undefined;
-      }
-      return undefined;
-    }
-    if (typeof value === 'object') {
-      return value as Prisma.InputJsonValue;
-    }
-    return undefined;
-  }
-
   async createCandidate(
     raw: any,
     tenantId: string = 'talentos-agency',
@@ -186,12 +170,12 @@ export class CandidateService {
       `${(raw.fullName || 'Candidate').replace(/\s+/g, '_')}_Resume.pdf`;
     const resumeFormat = storedCv?.resumeFormat || raw.resumeFormat || 'PDF';
     const resumeFileUrl = storedCv?.storageUri || raw.resumeFileUrl || null;
-    const customFields = this.parseCustomFields(raw.customFields);
+    const customFields = parseCustomFields(raw.customFields);
 
     let resolvedRecruiterId: string | null = raw.assignedRecruiterId || recruiterId || null;
     if (resolvedRecruiterId) {
-      const existingUser = await prisma.user.findUnique({
-        where: { id: resolvedRecruiterId },
+      const existingUser = await prisma.user.findFirst({
+        where: { id: resolvedRecruiterId, tenantId },
         select: { id: true },
       });
       if (!existingUser) resolvedRecruiterId = null;
@@ -279,7 +263,7 @@ export class CandidateService {
     if (raw.resumeFileUrl !== undefined) {
       data.resumeFileUrl = raw.resumeFileUrl || null;
     }
-    const parsedCustomFields = this.parseCustomFields(raw.customFields);
+    const parsedCustomFields = parseCustomFields(raw.customFields);
     if (parsedCustomFields !== undefined) {
       data.customFields = parsedCustomFields;
     }

@@ -105,3 +105,13 @@ export const requireRole = (allowedRoles: UserRole[]) => {
   };
 };
 
+export const requireUnmaskedRates = (req: Request, res: Response, next: NextFunction) => {
+  if (req.user?.rateMasked) {
+    return res.status(403).json({
+      success: false,
+      message: 'Commercial rate clearance is required to create, modify, or remove billable placements.',
+    });
+  }
+  next();
+};
+

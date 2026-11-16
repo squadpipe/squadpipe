@@ -5,6 +5,7 @@ import { Vendor, VendorContact } from '../../types';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
+import { DynamicCustomFieldsSection } from '../../components/shared/DynamicCustomFieldsSection';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapVendorFromApi } from '../../utils/entityMappers';
 
@@ -538,6 +539,13 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                   </select>
                 </div>
               </div>
+
+              <DynamicCustomFieldsSection
+                entity="vendor"
+                values={(editingVendor.customFields as Record<string, string>) || {}}
+                onChange={(vals) => setEditingVendor({ ...editingVendor, customFields: vals })}
+                isOpen={Boolean(editingVendor)}
+              />
 
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button

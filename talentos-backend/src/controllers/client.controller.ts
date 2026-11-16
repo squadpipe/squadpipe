@@ -25,8 +25,9 @@ export const createClient = async (req: Request, res: Response) => {
     const client = await clientService.createClient(req.body, tenantId);
     res.status(201).json({ success: true, data: client });
   } catch (error: any) {
-    console.error('Error creating client:', error);
-    res.status(500).json({ success: false, message: error.message || 'Failed to create client' });
+    const status = error?.statusCode || 500;
+    if (status >= 500) console.error('Error creating client:', error);
+    res.status(status).json({ success: false, message: error.message || 'Failed to create client' });
   }
 };
 
@@ -36,7 +37,8 @@ export const updateClient = async (req: Request, res: Response) => {
     const updated = await clientService.updateClient(req.params.id, req.body, tenantId);
     res.json({ success: true, data: updated });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Failed to update client' });
+    const status = error?.statusCode || 500;
+    res.status(status).json({ success: false, message: error.message || 'Failed to update client' });
   }
 };
 
@@ -46,7 +48,8 @@ export const deleteClient = async (req: Request, res: Response) => {
     await clientService.deleteClient(req.params.id, tenantId);
     res.json({ success: true, message: 'Client removed' });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Failed to delete client' });
+    const status = error?.statusCode || 500;
+    res.status(status).json({ success: false, message: error.message || 'Failed to delete client' });
   }
 };
 
@@ -74,8 +77,9 @@ export const createVendor = async (req: Request, res: Response) => {
     const vendor = await clientService.createVendor(req.body, tenantId);
     res.status(201).json({ success: true, data: vendor });
   } catch (error: any) {
-    console.error('Error creating vendor:', error);
-    res.status(500).json({ success: false, message: error.message || 'Failed to create vendor' });
+    const status = error?.statusCode || 500;
+    if (status >= 500) console.error('Error creating vendor:', error);
+    res.status(status).json({ success: false, message: error.message || 'Failed to create vendor' });
   }
 };
 
@@ -85,7 +89,8 @@ export const updateVendor = async (req: Request, res: Response) => {
     const updated = await clientService.updateVendor(req.params.id, req.body, tenantId);
     res.json({ success: true, data: updated });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Failed to update vendor' });
+    const status = error?.statusCode || 500;
+    res.status(status).json({ success: false, message: error.message || 'Failed to update vendor' });
   }
 };
 
@@ -95,6 +100,7 @@ export const deleteVendor = async (req: Request, res: Response) => {
     await clientService.deleteVendor(req.params.id, tenantId);
     res.json({ success: true, message: 'Vendor removed' });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Failed to delete vendor' });
+    const status = error?.statusCode || 500;
+    res.status(status).json({ success: false, message: error.message || 'Failed to delete vendor' });
   }
 };

@@ -2,6 +2,7 @@ import { prisma } from '../config/prisma.config';
 import { RequirementStatus, PlacementStatus, Prisma, WorkModel, AutomationCategory } from '@prisma/client';
 import { slaEngineService } from './slaEngine.service';
 import { automationEngineService } from './automationEngine.service';
+import { parseCustomFields } from '../utils/customFields';
 
 export interface RequirementFilterParams {
   tenantId?: string;
@@ -402,8 +403,8 @@ export class RequirementService {
     }
     if (!resolvedRecruiterId) resolvedRecruiterId = recruiterId || null;
     if (resolvedRecruiterId) {
-      const existingUser = await prisma.user.findUnique({
-        where: { id: resolvedRecruiterId },
+      const existingUser = await prisma.user.findFirst({
+        where: { id: resolvedRecruiterId, tenantId },
         select: { id: true },
       });
       if (!existingUser) resolvedRecruiterId = null;
@@ -432,7 +433,7 @@ export class RequirementService {
         status: mappedStatus,
         rawEmailText: raw.rawEmailText || null,
         missingNotes: raw.missingNotes || null,
-        customFields: raw.customFields ?? {},
+        customFields: parseCustomFields(raw.customFields) ?? {},
         assignedRecruiterId: resolvedRecruiterId
       },
       include: REQUIREMENT_INCLUDE
@@ -459,7 +460,7 @@ export class RequirementService {
     if (raw.companyName !== undefined) data.companyName = String(raw.companyName).trim();
     if (raw.location !== undefined) data.location = String(raw.location).trim();
     if (raw.skillsRequired !== undefined) data.skillsRequired = String(raw.skillsRequired).trim();
-    if (raw.customFields !== undefined) data.customFields = raw.customFields ?? {};
+    if (raw.customFields !== undefined) data.customFields = parseCustomFields(raw.customFields) ?? {};
     if (raw.status !== undefined) {
       data.status = requirementStatusMap[raw.status] || String(raw.status).trim();
     }
@@ -480,8 +481,8 @@ export class RequirementService {
     if (raw.assignedRecruiterId !== undefined) {
       let validRecruiterId: string | null = raw.assignedRecruiterId || null;
       if (validRecruiterId) {
-        const existingUser = await prisma.user.findUnique({
-          where: { id: validRecruiterId },
+        const existingUser = await prisma.user.findFirst({
+          where: { id: validRecruiterId, tenantId: existing.tenantId },
           select: { id: true },
         });
         if (!existingUser) validRecruiterId = null;

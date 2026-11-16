@@ -30,6 +30,9 @@ export const maskFinancialRecord = (record: any): any => {
   if ('hourlySpread' in masked) masked.hourlySpread = 0;
   if ('marginPct' in masked) masked.marginPct = 0;
   if ('billing' in masked) masked.billing = '••••••';
+  if ('totalMonthlyGrossProfit' in masked) masked.totalMonthlyGrossProfit = 0;
+  if ('avgHourlyMarginSpread' in masked) masked.avgHourlyMarginSpread = '0.00';
+  if ('avgMarginPercent' in masked) masked.avgMarginPercent = '0.0';
 
   // Recursively process nested relations
   for (const key of Object.keys(masked)) {

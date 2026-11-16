@@ -1,6 +1,7 @@
 import { prisma } from '../config/prisma.config';
 import { Prisma, SlaCategory } from '@prisma/client';
 import { slaEngineService } from './slaEngine.service';
+import { parseCustomFields } from '../utils/customFields';
 
 export interface ListQueryParams {
   search?: string;
@@ -117,32 +118,46 @@ export class ClientService {
       }];
     }
 
-    return prisma.client.create({
-      data: {
-        tenantId,
-        name,
-        website,
-        boardNumber,
-        location,
-        msaStatus: true,
-        clientType: raw.clientType || 'End Client',
-        contacts: {
-          create: contactsCreate
+    const customFields = parseCustomFields(raw.customFields);
+
+    try {
+      return await prisma.client.create({
+        data: {
+          tenantId,
+          name,
+          website,
+          boardNumber,
+          location,
+          msaStatus: true,
+          clientType: raw.clientType || 'End Client',
+          ...(customFields !== undefined ? { customFields } : {}),
+          contacts: {
+            create: contactsCreate
+          }
+        },
+        include: {
+          contacts: true,
+          requirements: true,
+          placements: true
         }
-      },
-      include: {
-        contacts: true,
-        requirements: true,
-        placements: true
+      });
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        const err: any = new Error(`A client account named "${name}" already exists in this workspace.`);
+        err.statusCode = 409;
+        throw err;
       }
-    });
+      throw error;
+    }
   }
 
   async updateClient(id: string, raw: any, tenantId?: string) {
     if (tenantId) {
       const existing = await prisma.client.findUnique({ where: { id } });
       if (!existing || existing.tenantId !== tenantId) {
-        throw new Error('Client not found or unauthorized');
+        const err: any = new Error('Client not found or unauthorized');
+        err.statusCode = 404;
+        throw err;
       }
     }
 
@@ -151,27 +166,40 @@ export class ClientService {
     if (raw.website !== undefined) data.website = String(raw.website).trim();
     if (raw.boardNumber !== undefined) data.boardNumber = String(raw.boardNumber).trim();
     if (raw.location !== undefined) data.location = String(raw.location).trim();
+    const parsedCustomFields = parseCustomFields(raw.customFields);
+    if (parsedCustomFields !== undefined) data.customFields = parsedCustomFields;
 
-    return prisma.client.update({
-      where: { id },
-      data,
-      include: {
-        contacts: true,
-        requirements: {
-          select: { id: true, code: true, opportunityTitle: true, status: true }
-        },
-        placements: {
-          select: { id: true, resourceName: true, skillRole: true, status: true, billRate: true }
+    try {
+      return await prisma.client.update({
+        where: { id },
+        data,
+        include: {
+          contacts: true,
+          requirements: {
+            select: { id: true, code: true, opportunityTitle: true, status: true }
+          },
+          placements: {
+            select: { id: true, resourceName: true, skillRole: true, status: true, billRate: true }
+          }
         }
+      });
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        const err: any = new Error(`A client account with that name already exists in this workspace.`);
+        err.statusCode = 409;
+        throw err;
       }
-    });
+      throw error;
+    }
   }
 
   async deleteClient(id: string, tenantId?: string) {
     if (tenantId) {
       const existing = await prisma.client.findUnique({ where: { id } });
       if (!existing || existing.tenantId !== tenantId) {
-        throw new Error('Client not found or unauthorized');
+        const err: any = new Error('Client not found or unauthorized');
+        err.statusCode = 404;
+        throw err;
       }
     }
     return prisma.client.delete({ where: { id } });
@@ -273,31 +301,43 @@ export class ClientService {
     const contactsToCreate = normalizedContacts.length > 0
       ? normalizedContacts
       : [{ fullName: contactName, designation: '', phone, email, isPrimary: true }];
+    const customFields = parseCustomFields(raw.customFields);
 
-    const vendor = await prisma.vendor.create({
-      data: {
-        tenantId,
-        name,
-        contactName,
-        phone,
-        email,
-        location,
-        skillSpecialization,
-        paymentTerms,
-        invoicingTerms,
-        msaSigned,
-        ...(coiExpiryDate && !isNaN(coiExpiryDate.getTime()) ? { coiExpiryDate } : {}),
-        contacts: {
-          create: contactsToCreate
-        }
-      },
-      include: {
-        contacts: {
-          orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }]
+    let vendor;
+    try {
+      vendor = await prisma.vendor.create({
+        data: {
+          tenantId,
+          name,
+          contactName,
+          phone,
+          email,
+          location,
+          skillSpecialization,
+          paymentTerms,
+          invoicingTerms,
+          msaSigned,
+          ...(coiExpiryDate && !isNaN(coiExpiryDate.getTime()) ? { coiExpiryDate } : {}),
+          ...(customFields !== undefined ? { customFields } : {}),
+          contacts: {
+            create: contactsToCreate
+          }
         },
-        placements: true
+        include: {
+          contacts: {
+            orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }]
+          },
+          placements: true
+        }
+      });
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        const err: any = new Error(`A vendor partner named "${name}" already exists in this workspace.`);
+        err.statusCode = 409;
+        throw err;
       }
-    });
+      throw error;
+    }
 
     try {
       await slaEngineService.reconcileOpenTasks(tenantId);
@@ -312,7 +352,9 @@ export class ClientService {
   async updateVendor(id: string, raw: any, tenantId?: string) {
     const existing = await prisma.vendor.findUnique({ where: { id } });
     if (!existing || (tenantId && existing.tenantId !== tenantId)) {
-      throw new Error('Vendor not found or unauthorized');
+      const err: any = new Error('Vendor not found or unauthorized');
+      err.statusCode = 404;
+      throw err;
     }
 
     const data: Prisma.VendorUpdateInput = {};
@@ -335,6 +377,8 @@ export class ClientService {
         if (!isNaN(parsed.getTime())) data.coiExpiryDate = parsed;
       }
     }
+    const parsedCustomFields = parseCustomFields(raw.customFields);
+    if (parsedCustomFields !== undefined) data.customFields = parsedCustomFields;
 
     if (Array.isArray(raw.contacts)) {
       const normalized = raw.contacts
@@ -360,16 +404,26 @@ export class ClientService {
       };
     }
 
-    const updated = await prisma.vendor.update({
-      where: { id },
-      data,
-      include: {
-        contacts: {
-          orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }]
-        },
-        placements: true
+    let updated;
+    try {
+      updated = await prisma.vendor.update({
+        where: { id },
+        data,
+        include: {
+          contacts: {
+            orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }]
+          },
+          placements: true
+        }
+      });
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        const err: any = new Error('A vendor partner with that name already exists in this workspace.');
+        err.statusCode = 409;
+        throw err;
       }
-    });
+      throw error;
+    }
 
     try {
       const effectiveTenantId = tenantId || existing.tenantId;
@@ -385,7 +439,9 @@ export class ClientService {
   async deleteVendor(id: string, tenantId?: string) {
     const existing = await prisma.vendor.findUnique({ where: { id } });
     if (!existing || (tenantId && existing.tenantId !== tenantId)) {
-      throw new Error('Vendor not found or unauthorized');
+      const err: any = new Error('Vendor not found or unauthorized');
+      err.statusCode = 404;
+      throw err;
     }
     const deleted = await prisma.vendor.delete({ where: { id } });
     try {

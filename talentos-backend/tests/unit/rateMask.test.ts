@@ -61,6 +61,22 @@ export const runRateMaskTests = () => {
     throw new Error('SECURITY VIOLATION: Nested array items were not masked recursively!');
   }
 
+  // Test Case 4: Aggregate dashboard financial metrics scrubbed
+  const maskedMetrics = maskFinancialRecord({
+    activeReqsCount: 12,
+    totalMonthlyGrossProfit: 48000,
+    avgHourlyMarginSpread: '35.50',
+    avgMarginPercent: '28.4',
+  });
+  if (
+    maskedMetrics.totalMonthlyGrossProfit !== 0 ||
+    maskedMetrics.avgHourlyMarginSpread !== '0.00' ||
+    maskedMetrics.avgMarginPercent !== '0.0' ||
+    maskedMetrics.activeReqsCount !== 12
+  ) {
+    throw new Error('SECURITY VIOLATION: Aggregate dashboard financial metrics leaked!');
+  }
+
   console.log('✅ Rate Masking Security: PASSED (Zero financial figures leaked)');
 };
 

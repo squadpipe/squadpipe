@@ -21,6 +21,7 @@ interface AutomationsViewProps {
   rules: AutomationRule[];
   auditLogs: AutomationAuditLog[];
   tenantId?: string;
+  canManageRules?: boolean;
   onTestTrigger?: (rule: AutomationRule) => void;
   onToggleRule?: (ruleId: string) => void;
   onRefreshAutomations?: () => void;
@@ -99,6 +100,7 @@ const REMINDER_PRESETS: ReminderPreset[] = [
 export const AutomationsView: React.FC<AutomationsViewProps> = ({
   rules,
   auditLogs,
+  canManageRules = true,
   onToggleRule,
   onRefreshAutomations,
   showToast = () => {},
@@ -129,7 +131,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
     let active = true;
     setIsLoadingLogs(true);
     apiClient
-      .get('/automations/logs', {
+      .get('/automations/audit-logs', {
         params: {
           search: debouncedLogSearch.trim() || undefined,
           page: logsPage,
@@ -252,10 +254,11 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
   const handleEvaluateAll = async () => {
     setIsEvaluating(true);
     try {
-      await apiClient.post('/automations/evaluate');
+      const res = await apiClient.post('/sla-tasks/evaluate');
+      const count = res.data?.data?.createdTasksCount ?? 0;
       setLogsRefreshKey((k) => k + 1);
       if (onRefreshAutomations) onRefreshAutomations();
-      showToast('Reminders Checked', 'Evaluated all active reminders against current pipeline.');
+      showToast('Reminders Checked', `Evaluated active rules (${count} new SLA alert(s) queued).`);
     } catch (err: any) {
       showToast('Check Failed', err?.response?.data?.message || 'Could not evaluate reminders.');
     } finally {
@@ -331,12 +334,13 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                 {/* Clean On/Off Switch */}
                 <button
                   type="button"
-                  disabled={isBusy}
-                  onClick={() => handleTogglePreset(preset)}
+                  disabled={isBusy || !canManageRules}
+                  onClick={() => canManageRules && handleTogglePreset(preset)}
                   aria-label={`Toggle ${preset.title}`}
-                  className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors cursor-pointer ${
-                    isActive ? 'bg-emerald-500' : 'bg-slate-200'
-                  }`}
+                  title={!canManageRules ? 'Only workspace administrators can modify reminder rules' : undefined}
+                  className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors ${
+                    canManageRules ? 'cursor-pointer' : 'opacity-60 cursor-not-allowed'
+                  } ${isActive ? 'bg-emerald-500' : 'bg-slate-200'}`}
                 >
                   <span
                     className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-xs transition-transform ${
@@ -351,9 +355,10 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                   <span className="text-slate-400 font-medium">Trigger after:</span>
                   {rule ? (
                     <select
+                      disabled={!canManageRules}
                       value={thresholdValue}
                       onChange={(e) => handleThresholdChange(rule, e.target.value)}
-                      className="px-2 py-1 rounded-md border border-slate-200 bg-slate-50 text-slate-700 font-semibold text-[11px] outline-none focus:border-brand-500 cursor-pointer"
+                      className="px-2 py-1 rounded-md border border-slate-200 bg-slate-50 text-slate-700 font-semibold text-[11px] outline-none focus:border-brand-500 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       {thresholdOptions.map((opt) => (
                         <option key={opt} value={opt}>

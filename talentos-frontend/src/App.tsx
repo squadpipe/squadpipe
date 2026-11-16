@@ -15,7 +15,7 @@ import {
   initWorkspaceBrand,
   setWorkspaceBrand,
 } from './utils/workspaceBrand';
-import { mapCandidateFromApi, mapRequirementFromApi, mapVendorFromApi } from './utils/entityMappers';
+import { mapCandidateFromApi, mapClientFromApi, mapRequirementFromApi, mapVendorFromApi } from './utils/entityMappers';
 import { buildCandidateFormData } from './utils/cvFiles';
 import { normalizeSlaBadgeClass } from './utils/stageStyles';
 
@@ -248,6 +248,7 @@ const normalizePlacement = (p: any): BillablePlacement => {
     requirementId: p.requirementId || undefined,
     clientId: p.clientId || p.client?.id || undefined,
     vendorId: p.vendorId || p.vendor?.id || undefined,
+    customFields: p.customFields || {},
   };
 };
 
@@ -467,21 +468,7 @@ export const App: React.FC = () => {
     try {
       const res = await apiClient.get('/clients');
       if (res.data?.data) {
-        const raw = res.data.data;
-        const mapped = raw.map((cl: any) => ({
-          id: cl.id,
-          name: cl.name || '',
-          website: cl.website || '',
-          boardNumber: cl.boardNumber || '',
-          location: cl.location || '',
-          contacts: (cl.contacts || []).map((cnt: any) => ({
-            name: cnt.fullName || cnt.name || '',
-            designation: cnt.designation || '',
-            phone: cnt.phone || '',
-            email: cnt.email || '',
-            isPrimary: cnt.isPrimary ?? false,
-          })),
-        }));
+        const mapped = res.data.data.map(mapClientFromApi);
         setClients(mapped);
         setSidebarCounts((prev) => ({ ...prev, clients: mapped.length }));
         loadedEntities.current.add('clients');
@@ -495,19 +482,7 @@ export const App: React.FC = () => {
     try {
       const res = await apiClient.get('/vendors');
       if (res.data?.data) {
-        const raw = res.data.data;
-        const mapped = raw.map((v: any) => ({
-          id: v.id,
-          name: v.name || '',
-          contactName: v.contactName || '',
-          phone: v.phone || '',
-          email: v.email || '',
-          location: v.location || '',
-          skillSpecialization: v.skillSpecialization || '',
-          paymentTerms: v.paymentTerms || '',
-          invoicingTerms: v.invoicingTerms || '',
-          msa: v.msaSigned ? 'Active' : v.msa || 'Pending',
-        }));
+        const mapped = res.data.data.map(mapVendorFromApi);
         setVendors(mapped);
         setSidebarCounts((prev) => ({ ...prev, vendors: mapped.length }));
         loadedEntities.current.add('vendors');
@@ -710,6 +685,24 @@ export const App: React.FC = () => {
     initWorkspaceBrand(true);
   }, [authToken]);
 
+  const normalizedUserRole = formatUserRole(currentUser?.role);
+  const isAdmin = normalizedUserRole === 'Administrator';
+  const canManageDataOperations = [
+    'Administrator',
+    'Senior Recruiter',
+    'Account Executive',
+    'Bench Sales Lead',
+  ].includes(normalizedUserRole);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    if (!isAdmin && ['custom_fields', 'settings_general', 'user_management'].includes(currentView)) {
+      setCurrentView('dashboard');
+    } else if (!canManageDataOperations && currentView === 'import_data') {
+      setCurrentView('dashboard');
+    }
+  }, [currentUser, isAdmin, canManageDataOperations, currentView]);
+
   // 2. ON-DEMAND / VIEW-SCOPED FETCHING: Only call APIs for the active view when opened!
   useEffect(() => {
     if (!authToken && !currentUser) return;
@@ -862,8 +855,10 @@ export const App: React.FC = () => {
       }
     }
 
+    let previousReqSnapshot: Requirement | null = null;
     setRequirements((prev) => {
       const existing = prev.find((r) => r.id === req.id);
+      previousReqSnapshot = existing || req;
       const updated = existing ? { ...existing, status: newStatus } : { ...req, status: newStatus };
       return updateRequirementInList(prev, updated);
     });
@@ -878,8 +873,12 @@ export const App: React.FC = () => {
       fetchSidebarCounts();
       fetchSlaTasks();
       fetchAutomations();
-    } catch (e) {
-      console.warn('API status change:', e);
+    } catch (e: any) {
+      if (previousReqSnapshot) {
+        syncUpdatedRequirement(previousReqSnapshot);
+      }
+      console.warn('API status change failed:', e);
+      showApiErrorToast(e, 'Stage Update Failed', `Could not move ${req.code} to ${newStatus}.`);
     }
   };
 
@@ -1246,9 +1245,9 @@ export const App: React.FC = () => {
       setClients((prev) => prev.filter((cl) => cl.id !== client.id));
       fetchSidebarCounts();
       showToast('Client Removed', `${client.name} deleted.`, 'fa-solid fa-trash-can text-slate-500');
-    } catch (e) {
+    } catch (e: any) {
       console.warn('API delete client:', e);
-      showToast('Delete Failed', `Could not delete ${client.name}.`, 'fa-solid fa-circle-exclamation text-rose-500');
+      showApiErrorToast(e, 'Delete Failed', `Could not delete ${client.name}.`);
     }
   };
 
@@ -1259,9 +1258,9 @@ export const App: React.FC = () => {
       fetchSidebarCounts();
       fetchSlaTasks();
       showToast('Vendor Removed', `${vendor.name} deleted.`, 'fa-solid fa-trash-can text-slate-500');
-    } catch (e) {
+    } catch (e: any) {
       console.warn('API delete vendor:', e);
-      showToast('Delete Failed', `Could not delete ${vendor.name}.`, 'fa-solid fa-circle-exclamation text-rose-500');
+      showApiErrorToast(e, 'Delete Failed', `Could not delete ${vendor.name}.`);
     }
   };
 
@@ -1292,11 +1291,8 @@ export const App: React.FC = () => {
       showToast('Placement Removed', `${placement.resourceName}'s placement removed.`, 'fa-solid fa-trash-can text-slate-500');
     } catch (e: any) {
       console.warn('API delete placement:', e);
-      showToast(
-        'Delete Failed',
-        e?.response?.data?.message || `Could not delete placement.`,
-        'fa-solid fa-circle-exclamation text-rose-500'
-      );
+      showApiErrorToast(e, 'Delete Failed', `Could not delete placement.`);
+      throw e;
     }
   };
 
@@ -1318,49 +1314,47 @@ export const App: React.FC = () => {
         : {}),
     };
 
-    let updatedPlacement: BillablePlacement | null = null;
     try {
       const res = await apiClient.post(`/placements/${placement.id}/extend`, payload);
-      if (res.data?.data) {
-        updatedPlacement = normalizePlacement(res.data.data);
-      }
+      const updatedPlacement = res.data?.data ? normalizePlacement(res.data.data) : null;
+      syncCandidateStageForPlacement(updatedPlacement || placement, 'Billable', placements);
+      setPlacements((prev) =>
+        prev.map((p) => {
+          if (p.id !== placement.id) return p;
+          if (updatedPlacement) return { ...p, ...updatedPlacement };
+          const billing = extensionData?.billing || p.billing;
+          const payRate = extensionData?.payRate || p.payRate || '';
+          const billNum = parseFloat(String(billing).replace(/[^0-9.]/g, '')) || 0;
+          const payNum = parseFloat(String(payRate).replace(/[^0-9.]/g, '')) || 0;
+          const hourlySpread = billNum - payNum;
+          const marginPct = billNum > 0 ? parseFloat(((hourlySpread / billNum) * 100).toFixed(2)) : 0;
+          return {
+            ...p,
+            endDate: newEnd,
+            status: 'Extended',
+            billing,
+            payRate,
+            hourlySpread,
+            marginPct,
+            purchaseOrderNumber: extensionData?.purchaseOrderNumber ?? p.purchaseOrderNumber,
+          };
+        })
+      );
       fetchCandidates();
       fetchRequirements();
       fetchSidebarCounts();
       fetchSlaTasks();
       fetchAutomations();
-    } catch (e) {
-      console.warn('API placement extension:', e);
+      showToast(
+        'Contract Extended',
+        `SOW for ${placement.resourceName} extended through ${newEnd}!`,
+        'fa-solid fa-circle-check text-emerald-400'
+      );
+    } catch (e: any) {
+      console.warn('API placement extension failed:', e);
+      showApiErrorToast(e, 'Extension Failed', `Could not extend SOW for ${placement.resourceName}.`);
+      throw e;
     }
-
-    syncCandidateStageForPlacement(updatedPlacement || placement, 'Billable', placements);
-    setPlacements((prev) =>
-      prev.map((p) => {
-        if (p.id !== placement.id) return p;
-        if (updatedPlacement) return { ...p, ...updatedPlacement };
-        const billing = extensionData?.billing || p.billing;
-        const payRate = extensionData?.payRate || p.payRate || '';
-        const billNum = parseFloat(String(billing).replace(/[^0-9.]/g, '')) || 0;
-        const payNum = parseFloat(String(payRate).replace(/[^0-9.]/g, '')) || 0;
-        const hourlySpread = billNum - payNum;
-        const marginPct = billNum > 0 ? parseFloat(((hourlySpread / billNum) * 100).toFixed(2)) : 0;
-        return {
-          ...p,
-          endDate: newEnd,
-          status: 'Extended',
-          billing,
-          payRate,
-          hourlySpread,
-          marginPct,
-          purchaseOrderNumber: extensionData?.purchaseOrderNumber ?? p.purchaseOrderNumber,
-        };
-      })
-    );
-    showToast(
-      'Contract Extended',
-      `SOW for ${placement.resourceName} extended through ${newEnd}!`,
-      'fa-solid fa-circle-check text-emerald-400'
-    );
   };
 
   const handleTaskAction = (task: SlaTask) => {
@@ -1429,27 +1423,28 @@ export const App: React.FC = () => {
   };
 
   const handleUpdateProfile = async (updated: User) => {
-    let savedUser = updated;
     try {
       const res = await apiClient.patch('/auth/profile', {
         name: updated.name,
         email: updated.email,
         desk: updated.desk,
       });
-      if (res.data?.data) {
-        savedUser = {
-          ...updated,
-          ...res.data.data,
-          role: formatUserRole(res.data.data.role || updated.role),
-          status: formatUserStatus(res.data.data.status || updated.status),
-        };
-      }
-    } catch (e) {
-      console.warn('API update profile:', e);
+      const savedUser: User = res.data?.data
+        ? {
+            ...updated,
+            ...res.data.data,
+            role: formatUserRole(res.data.data.role || updated.role),
+            status: formatUserStatus(res.data.data.status || updated.status),
+          }
+        : updated;
+      setCurrentUser(savedUser);
+      updateStoredCurrentUser(savedUser);
+      setUsers((prev) => prev.map((u) => (u.id === savedUser.id ? savedUser : u)));
+    } catch (e: any) {
+      console.warn('API update profile failed:', e);
+      showApiErrorToast(e, 'Profile Update Failed', 'Could not update your profile details.');
+      throw e;
     }
-    setCurrentUser(savedUser);
-    updateStoredCurrentUser(savedUser);
-    setUsers((prev) => prev.map((u) => (u.id === savedUser.id ? savedUser : u)));
   };
 
   // If unauthenticated, render the full-screen Mineral Carbon Login View
@@ -1539,6 +1534,8 @@ export const App: React.FC = () => {
         onNavigate={setCurrentView}
         counts={computedSidebarCounts}
         currentUser={currentUser}
+        isAdmin={isAdmin}
+        canImportData={canManageDataOperations}
         onOpenProfile={() => setShowProfileModal(true)}
         onOpenSignOut={() => setShowSignOutModal(true)}
       />
@@ -1548,6 +1545,7 @@ export const App: React.FC = () => {
         {/* Topbar with clean design matching prototype (Left: View Title, Right: + Quick Add dropdown) */}
         <Topbar
           currentView={currentView}
+          canCreatePlacement={!rateMasked}
           onOpenCreateModal={(type) => setActiveCreateModal(type)}
         />
 
@@ -1571,7 +1569,7 @@ export const App: React.FC = () => {
               onOpenCreateReq={() => setActiveCreateModal('requirement')}
               onSelectReq={(r) => setSelectedReqForDetail(r)}
               onUpdateReq={handleUpdateRequirement}
-              onDeleteReq={handleDeleteRequirement}
+              onDeleteReq={canManageDataOperations ? handleDeleteRequirement : undefined}
               onPreviewResumeByName={(candName) => {
                 const c = candidates.find((cand) => cand.fullName === candName);
                 if (c) setSelectedResumeCand(c);
@@ -1608,7 +1606,7 @@ export const App: React.FC = () => {
               onSelectReq={(r) => setSelectedReqForDetail(r)}
               onOpenAddReq={() => setActiveCreateModal('requirement')}
               onUpdateReq={handleUpdateRequirement}
-              onDeleteReq={handleDeleteRequirement}
+              onDeleteReq={canManageDataOperations ? handleDeleteRequirement : undefined}
             />
           )}
 
@@ -1620,10 +1618,10 @@ export const App: React.FC = () => {
               onOpenResumeParser={() => setIsResumeModalOpen(true)}
               onPreviewResume={(c) => setSelectedResumeCand(c)}
               onOpenAddConsultant={() => setActiveCreateModal('consultant')}
-              onOpenCsvImport={() => setCurrentView('import_data')}
+              onOpenCsvImport={canManageDataOperations ? () => setCurrentView('import_data') : undefined}
               onNavigateToBillable={() => setCurrentView('billable')}
               onUpdateCandidate={handleUpdateCandidate}
-              onDeleteCandidate={handleDeleteCandidate}
+              onDeleteCandidate={canManageDataOperations ? handleDeleteCandidate : undefined}
             />
           )}
 
@@ -1633,7 +1631,7 @@ export const App: React.FC = () => {
               requirements={requirements}
               placements={placements}
               onOpenAddClient={() => setActiveCreateModal('client')}
-              onDeleteClient={handleDeleteClient}
+              onDeleteClient={isAdmin ? handleDeleteClient : undefined}
               onClientUpdated={(updatedClient) =>
                 setClients((prev) =>
                   prev.map((c) => (c.id === updatedClient.id ? updatedClient : c))
@@ -1648,7 +1646,7 @@ export const App: React.FC = () => {
               vendors={vendors}
               onOpenAddVendor={() => setActiveCreateModal('vendor')}
               onUpdateVendor={handleUpdateVendor}
-              onDeleteVendor={handleDeleteVendor}
+              onDeleteVendor={isAdmin ? handleDeleteVendor : undefined}
             />
           )}
 
@@ -1656,15 +1654,15 @@ export const App: React.FC = () => {
             <BillablePlacementsView
               placements={placements}
               rateMasked={rateMasked}
-              onOpenNewPlacement={() => setActiveCreateModal('placement')}
-              onExtendContract={handleExtendContract}
-              onUpdatePlacement={handleUpdatePlacement}
-              onDeletePlacement={handleDeletePlacement}
+              onOpenNewPlacement={!rateMasked ? () => setActiveCreateModal('placement') : undefined}
+              onExtendContract={!rateMasked ? handleExtendContract : undefined}
+              onUpdatePlacement={!rateMasked ? handleUpdatePlacement : undefined}
+              onDeletePlacement={isAdmin && !rateMasked ? handleDeletePlacement : undefined}
               showToast={showToast}
             />
           )}
 
-          {currentView === 'user_management' && (
+          {currentView === 'user_management' && isAdmin && (
             <UserManagementView
               users={users}
               onToggleRateMask={async (user) => {
@@ -1752,7 +1750,7 @@ export const App: React.FC = () => {
             />
           )}
 
-          {currentView === 'custom_fields' && (
+          {currentView === 'custom_fields' && isAdmin && (
             <CustomFieldsView
               customFields={customFields}
               onAddCustomField={(f) => setCustomFields((prev) => [...prev, f])}
@@ -1765,6 +1763,7 @@ export const App: React.FC = () => {
               rules={rules}
               auditLogs={auditLogs}
               tenantId={currentUser?.tenantId || 'talentos-agency'}
+              canManageRules={isAdmin}
               onToggleRule={(id) => {
                 setRules((prev) =>
                   prev.map((r) => (r.id === id ? { ...r, active: !r.active } : r))
@@ -1779,7 +1778,7 @@ export const App: React.FC = () => {
             />
           )}
 
-          {currentView === 'import_data' && (
+          {currentView === 'import_data' && canManageDataOperations && (
             <ImportDataView
               onImportCandidates={(newCands) => {
                 setCandidates((prev) => [...newCands, ...prev]);
@@ -1790,7 +1789,7 @@ export const App: React.FC = () => {
             />
           )}
 
-            {currentView === 'settings_general' && (
+            {currentView === 'settings_general' && isAdmin && (
               <SettingsView
                 activeTab="general"
                 onTabChange={() => setCurrentView('settings_general')}
@@ -1826,11 +1825,9 @@ export const App: React.FC = () => {
                 t.id === id ? { ...t, done: typeof nextDone === 'boolean' ? nextDone : !t.done } : t
               )
             );
-          } catch (e) {
+          } catch (e: any) {
             console.warn('API sla-task complete:', e);
-            setSlaTasks((prev) =>
-              prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
-            );
+            showApiErrorToast(e, 'Task Update Failed', 'Could not update SLA task status.');
           }
         }}
       />
@@ -1981,27 +1978,16 @@ export const App: React.FC = () => {
         isOpen={activeCreateModal === 'client'}
         onClose={() => setActiveCreateModal(null)}
         onSave={async (cl) => {
-          let saved = cl;
           try {
             const res = await apiClient.post('/clients', cl);
-            if (res.data?.data?.id) {
-              saved = {
-                ...cl,
-                id: res.data.data.id,
-                contacts: (res.data.data.contacts || cl.contacts || []).map((cnt: any) => ({
-                  name: cnt.fullName || cnt.name || '',
-                  designation: cnt.designation || '',
-                  phone: cnt.phone || '',
-                  email: cnt.email || '',
-                  isPrimary: cnt.isPrimary ?? false,
-                })),
-              };
-            }
+            const saved = res.data?.data?.id ? mapClientFromApi(res.data.data) : cl;
             fetchSidebarCounts();
-          } catch (e) {
-            console.warn('API save client:', e);
+            setClients((prev) => [saved, ...prev]);
+          } catch (e: any) {
+            console.warn('API save client failed:', e);
+            showApiErrorToast(e, 'Client Save Failed', `Could not register ${cl.name}.`);
+            throw e;
           }
-          setClients((prev) => [saved, ...prev]);
         }}
         showToast={showToast}
       />
@@ -2010,17 +1996,16 @@ export const App: React.FC = () => {
         isOpen={activeCreateModal === 'vendor'}
         onClose={() => setActiveCreateModal(null)}
         onSave={async (v) => {
-          let saved = v;
           try {
             const res = await apiClient.post('/vendors', v);
-            if (res.data?.data?.id) {
-              saved = { ...v, id: res.data.data.id };
-            }
+            const saved = res.data?.data?.id ? mapVendorFromApi(res.data.data) : v;
             fetchSidebarCounts();
-          } catch (e) {
-            console.warn('API save vendor:', e);
+            setVendors((prev) => [saved, ...prev]);
+          } catch (e: any) {
+            console.warn('API save vendor failed:', e);
+            showApiErrorToast(e, 'Vendor Save Failed', `Could not register ${v.name}.`);
+            throw e;
           }
-          setVendors((prev) => [saved, ...prev]);
         }}
         showToast={showToast}
       />
@@ -2034,38 +2019,37 @@ export const App: React.FC = () => {
         vendors={vendors}
         requirements={requirements}
         onSave={async (p) => {
-          let saved = p;
           try {
             const res = await apiClient.post('/placements', p);
-            if (res.data?.data) {
-              saved = normalizePlacement(res.data.data);
-            }
+            const saved = res.data?.data ? normalizePlacement(res.data.data) : p;
             fetchSidebarCounts();
-          } catch (e) {
-            console.warn('API save placement:', e);
-          }
-          setPlacements((prev) => [saved, ...prev]);
-          if (saved.candidateId || saved.resourceName) {
-            const targetName = saved.resourceName.trim().toLowerCase();
-            setCandidates((prev) =>
-              prev.map((c) =>
-                (saved.candidateId && c.id === saved.candidateId) ||
-                c.fullName.trim().toLowerCase() === targetName
-                  ? { ...c, pipelineStage: 'Billable' }
-                  : c
-              )
-            );
-          }
-          if (saved.requirementId) {
-            setRequirements((prev) => {
-              const target = prev.find((r) => r.id === saved.requirementId);
-              if (!target) return prev;
-              return updateRequirementInList(prev, {
-                ...target,
-                status: 'Onboarding',
-                resourceName: saved.resourceName || target.resourceName,
+            setPlacements((prev) => [saved, ...prev]);
+            if (saved.candidateId || saved.resourceName) {
+              const targetName = saved.resourceName.trim().toLowerCase();
+              setCandidates((prev) =>
+                prev.map((c) =>
+                  (saved.candidateId && c.id === saved.candidateId) ||
+                  c.fullName.trim().toLowerCase() === targetName
+                    ? { ...c, pipelineStage: 'Billable' }
+                    : c
+                )
+              );
+            }
+            if (saved.requirementId) {
+              setRequirements((prev) => {
+                const target = prev.find((r) => r.id === saved.requirementId);
+                if (!target) return prev;
+                return updateRequirementInList(prev, {
+                  ...target,
+                  status: 'Onboarding',
+                  resourceName: saved.resourceName || target.resourceName,
+                });
               });
-            });
+            }
+          } catch (e: any) {
+            console.warn('API save placement failed:', e);
+            showApiErrorToast(e, 'Placement Failed', `Could not activate placement for ${p.resourceName}.`);
+            throw e;
           }
         }}
         showToast={showToast}

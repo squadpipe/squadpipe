@@ -132,7 +132,7 @@ export function renderSubmissionEmail(params: {
     brandName: params.brandName,
     badgeText: 'Candidate Submission',
     footerNote:
-      `Confidential candidate profile prepared via ${senderContext}.`,
+      `Confidential candidate profile from ${senderContext}.`,
     data: {
       recipientName: params.recipientName || 'Hiring Team',
       requirementTitle: params.requirementTitle || 'Open Requisition',

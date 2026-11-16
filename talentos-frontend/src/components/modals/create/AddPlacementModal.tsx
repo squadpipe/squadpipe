@@ -201,6 +201,8 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
         'fa-solid fa-circle-check text-emerald-500'
       );
       onClose();
+    } catch {
+      // Error toast is already displayed by the parent handler
     } finally {
       setIsSaving(false);
     }
