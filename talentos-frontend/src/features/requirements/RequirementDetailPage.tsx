@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   AlertTriangle,
   ArrowLeft,
+  Briefcase,
+  Building2,
   Calendar,
   Check,
   FileSpreadsheet,
@@ -123,7 +125,9 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   const [busySubId, setBusySubId] = useState<string | null>(null);
   const [confirmDetachId, setConfirmDetachId] = useState<string | null>(null);
   const [editingNotesSub, setEditingNotesSub] = useState<RequirementSubmission | null>(null);
+  const [notesModalMode, setNotesModalMode] = useState<'notes' | 'interview' | 'closed'>('notes');
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [confirmDeleteNoteId, setConfirmDeleteNoteId] = useState<string | null>(null);
   const [busyNoteId, setBusyNoteId] = useState<string | null>(null);
   const [draftInterviewDate, setDraftInterviewDate] = useState('');
   const [draftNotesText, setDraftNotesText] = useState('');
@@ -165,6 +169,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     setBenchSearch('');
     setBenchWorkAuth('All');
     setConfirmDetachId(null);
+    setConfirmDeleteNoteId(null);
     setEditingNotesSub(null);
     setEditingNoteId(null);
     setBusyNoteId(null);
@@ -400,8 +405,13 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     ]
   );
 
-  const openNotesEditor = (sub: RequirementSubmission, targetNote?: SubmissionNote | null) => {
+  const openNotesEditor = (
+    sub: RequirementSubmission,
+    mode: 'notes' | 'interview' | 'closed' = 'notes',
+    targetNote?: SubmissionNote | null
+  ) => {
     setEditingNotesSub(sub);
+    setNotesModalMode(mode);
     setDraftInterviewDate(sub.interviewDateTime || sub.interviewDate || '');
     if (targetNote) {
       setEditingNoteId(targetNote.id);
@@ -417,8 +427,14 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     const liveSub = submissions.find((s) => s.id === editingNotesSub.id) || editingNotesSub;
     const cleanText = draftNotesText.trim();
     const prevDate = liveSub.interviewDateTime || liveSub.interviewDate || '';
-    const dateChanged = draftInterviewDate !== prevDate;
+    const dateChanged = notesModalMode === 'interview' && draftInterviewDate !== prevDate;
 
+    if (notesModalMode === 'notes' && !cleanText) {
+      return;
+    }
+    if (notesModalMode === 'closed' && !cleanText) {
+      return;
+    }
     if (editingNoteId && !cleanText) {
       return;
     }
@@ -441,7 +457,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
       });
       setEditingNoteId(null);
       setDraftNotesText('');
-      if (!cleanText) {
+      if (notesModalMode !== 'notes' || !cleanText) {
         setEditingNotesSub(null);
       }
     } catch {
@@ -630,37 +646,48 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
       </div>
 
       {/* Main Header Card */}
-      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow px-5 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="space-y-1 min-w-0">
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <h1 className="text-lg font-bold text-slate-900 tracking-tight truncate">
-              {requirement.opportunityTitle}
-            </h1>
-            <StatusBadge
-              stage={requirement.status}
-              dotClass={getStageDotClass(
-                requirement.status,
-                getStageIndex(requirement.status, taxonomies.stages)
-              )}
-              size="xs"
-            />
+      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow px-6 py-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex items-start gap-4 min-w-0">
+          <div className="w-12 h-12 rounded-xl bg-brand-50 border border-brand-200/70 text-brand-600 flex items-center justify-center flex-shrink-0">
+            <Briefcase className="w-6 h-6" />
           </div>
-          <div className="flex items-center gap-2.5 text-xs text-slate-500 flex-wrap">
-            <span className="font-semibold text-slate-700">{requirement.companyName}</span>
-            <span className="text-slate-300">&bull;</span>
-            <span className="inline-flex items-center gap-1">
-              <MapPin className="w-3 h-3 text-slate-400" />
-              <span>{requirement.location}</span>
-            </span>
-            <span className="text-slate-300">&bull;</span>
-            <span className="text-slate-600 font-medium">
-              {filledPositions} / {openPositions}{' '}
-              {openPositions === 1 ? 'position' : 'positions'} filled
-            </span>
+          <div className="space-y-1.5 min-w-0">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-lg font-bold text-slate-900 tracking-tight truncate">
+                {requirement.opportunityTitle}
+              </h1>
+              <StatusBadge
+                stage={requirement.status}
+                dotClass={getStageDotClass(
+                  requirement.status,
+                  getStageIndex(requirement.status, taxonomies.stages)
+                )}
+                size="xs"
+              />
+            </div>
+            <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 font-semibold text-slate-700">
+                <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                <span>{requirement.companyName}</span>
+              </span>
+              <span className="text-slate-300">&bull;</span>
+              <span className="inline-flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                <span>{requirement.location}</span>
+              </span>
+              <span className="text-slate-300">&bull;</span>
+              <span className="inline-flex items-center gap-1.5 text-slate-600 font-medium">
+                <UsersRound className="w-3.5 h-3.5 text-slate-400" />
+                <span>
+                  {filledPositions} / {openPositions}{' '}
+                  {openPositions === 1 ? 'position' : 'positions'} filled
+                </span>
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+        <div className="flex items-center gap-2.5 flex-wrap flex-shrink-0">
           {onUpdateReq && (
             <button
               type="button"
@@ -670,7 +697,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                 setEditOpenPosError('');
                 setIsEditing(true);
               }}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Pencil className="w-3.5 h-3.5" />
               <span>Edit Requirement</span>
@@ -688,7 +715,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                 );
                 onOpenPlacementWizard(requirement, firstCandidate);
               }}
-              className="px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3.5 py-2 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
               <span>Activate Placement</span>
@@ -698,7 +725,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
           <button
             type="button"
             onClick={() => setShowBenchPicker(true)}
-            className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="px-3.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <UserPlus className="w-3.5 h-3.5" />
             <span>
@@ -790,10 +817,10 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase">
                     <tr>
-                      <th className="pl-4 pr-2 py-2.5">Applicant</th>
-                      <th className="px-2.5 py-2.5 whitespace-nowrap">Rate</th>
-                      <th className="px-2.5 py-2.5 whitespace-nowrap">Stage</th>
-                      <th className="pl-2 pr-4 py-2.5 text-right whitespace-nowrap">Actions</th>
+                      <th className="pl-5 pr-4 py-3">Applicant</th>
+                      <th className="px-4 py-3 whitespace-nowrap">Rate</th>
+                      <th className="px-4 py-3 whitespace-nowrap">Stage</th>
+                      <th className="pl-4 pr-5 py-3 text-right whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -819,13 +846,13 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
 
                       return (
                         <tr key={sub.id} className="hover:bg-slate-50/70 transition-colors align-middle">
-                          <td className="pl-4 pr-2 py-3 min-w-[240px]">
-                            <div className="flex items-center gap-2.5">
+                          <td className="pl-5 pr-4 py-4 min-w-[250px]">
+                            <div className="flex items-center gap-3">
                               <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-[11px] flex-shrink-0">
                                 {initials}
                               </div>
-                              <div className="min-w-0 flex-1 space-y-0.5">
-                                <div className="flex items-center gap-1.5 flex-wrap">
+                              <div className="min-w-0 flex-1 space-y-1.5">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   {candObj ? (
                                     <button
                                       type="button"
@@ -848,15 +875,27 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                                     <StatusBadge label="Active Placement" tone="emerald" size="xs" />
                                   )}
                                 </div>
-                                <div className="flex items-center gap-1.5 flex-wrap text-[11px] leading-snug">
+                                <div className="flex items-center gap-x-2 gap-y-1 flex-wrap text-[11px] leading-snug">
                                   <span className="font-medium text-slate-600">
                                     {sub.currentTitle || 'Consultant'}
                                   </span>
                                   {formattedInterview && (
-                                    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-brand-50 text-brand-700 border border-brand-200/80 font-medium whitespace-nowrap">
-                                      <Calendar className="w-2.5 h-2.5 shrink-0" />
-                                      <span>{formattedInterview}</span>
-                                    </span>
+                                    !isLegacy && onUpdateSubmissionNotes ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => openNotesEditor(sub, 'interview')}
+                                        title="Click to update interview schedule"
+                                        className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-brand-50 hover:bg-brand-100/80 text-brand-700 border border-brand-200/80 font-medium whitespace-nowrap cursor-pointer transition-colors"
+                                      >
+                                        <Calendar className="w-2.5 h-2.5 shrink-0" />
+                                        <span>{formattedInterview}</span>
+                                      </button>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-brand-50 text-brand-700 border border-brand-200/80 font-medium whitespace-nowrap">
+                                        <Calendar className="w-2.5 h-2.5 shrink-0" />
+                                        <span>{formattedInterview}</span>
+                                      </span>
+                                    )
                                   )}
                                 </div>
                                 {metaLine && (
@@ -871,7 +910,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                             </div>
                           </td>
 
-                          <td className="px-2.5 py-3 whitespace-nowrap text-slate-700">
+                          <td className="px-4 py-4 whitespace-nowrap text-slate-700">
                             {sub.hourlyRate ? (
                               <MaskedValue value={formatRate(sub.hourlyRate)} isMasked={rateMasked} />
                             ) : (
@@ -879,7 +918,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                             )}
                           </td>
 
-                          <td className="px-2.5 py-3 whitespace-nowrap">
+                          <td className="px-4 py-4 whitespace-nowrap">
                             {!isLegacy && onUpdateSubmissionStage ? (
                               <CustomSelect
                                 ariaLabel={`Stage for ${sub.fullName}`}
@@ -915,7 +954,10 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                                       onUpdateSubmissionNotes &&
                                       (nextLower === 'interview' || nextLower === 'closed')
                                     ) {
-                                      openNotesEditor({ ...sub, stage: nextStage });
+                                      openNotesEditor(
+                                        { ...sub, stage: nextStage },
+                                        nextLower === 'interview' ? 'interview' : 'closed'
+                                      );
                                     }
                                   } catch {
                                     // Error toast handled by caller; keep select synced to persisted stage
@@ -933,13 +975,13 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                             )}
                           </td>
 
-                          <td className="pl-2 pr-4 py-3 text-right whitespace-nowrap">
-                            <div className="inline-flex items-center gap-1.5">
+                          <td className="pl-4 pr-5 py-4 text-right whitespace-nowrap">
+                            <div className="inline-flex items-center gap-2">
                               {!isLegacy && onUpdateSubmissionNotes && (
                                 <button
                                   type="button"
-                                  onClick={() => openNotesEditor(sub)}
-                                  className={`px-2 py-1 rounded-md border text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap ${
+                                  onClick={() => openNotesEditor(sub, 'notes')}
+                                  className={`px-2.5 py-1 rounded-md border text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap ${
                                     editingNotesSub?.id === sub.id
                                       ? 'bg-brand-50 border-brand-300 text-brand-700'
                                       : subNotes.length > 0
@@ -952,21 +994,11 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                                 </button>
                               )}
 
-                              {candObj && (
-                                <button
-                                  type="button"
-                                  onClick={() => onOpenResumePreview(candObj)}
-                                  className="px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50 text-[11px] font-semibold cursor-pointer whitespace-nowrap"
-                                >
-                                  Profile
-                                </button>
-                              )}
-
                               {!placed && !isPositionsFull && (
                                 <button
                                   type="button"
                                   onClick={() => onOpenPlacementWizard(requirement, candObj)}
-                                  className="px-2 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-semibold cursor-pointer transition-colors whitespace-nowrap"
+                                  className="px-2.5 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-semibold cursor-pointer transition-colors whitespace-nowrap"
                                 >
                                   Place
                                 </button>
@@ -1437,6 +1469,9 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
         const liveEditingSub =
           submissions.find((s) => s.id === editingNotesSub.id) || editingNotesSub;
         const liveNotes = liveEditingSub.notes || [];
+        const isInterviewMode = notesModalMode === 'interview';
+        const isClosedMode = notesModalMode === 'closed';
+        const isNotesMode = notesModalMode === 'notes';
         const isClosedModalStage = liveEditingSub.stage.trim().toLowerCase() === 'closed';
         const modalStageIdx = getStageIndex(liveEditingSub.stage, taxonomies.stages);
         const modalInitials = liveEditingSub.fullName
@@ -1446,16 +1481,24 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
           .slice(0, 2)
           .toUpperCase();
         const prevDate = liveEditingSub.interviewDateTime || liveEditingSub.interviewDate || '';
-        const dateChanged = draftInterviewDate !== prevDate;
+        const dateChanged = isInterviewMode && draftInterviewDate !== prevDate;
         const hasNoteText = Boolean(draftNotesText.trim());
         const submitDisabled =
           isSavingNotes ||
-          (editingNoteId ? !hasNoteText : !hasNoteText && !dateChanged);
-        const submitLabel = editingNoteId
+          (isInterviewMode
+            ? !hasNoteText && !dateChanged
+            : !hasNoteText);
+        const submitLabel = isClosedMode
+          ? 'Save Feedback'
+          : isInterviewMode
+          ? hasNoteText && dateChanged
+            ? 'Save Schedule & Note'
+            : hasNoteText
+            ? 'Save Note'
+            : 'Save Schedule'
+          : editingNoteId
           ? 'Update Note'
-          : hasNoteText
-          ? 'Add Note'
-          : 'Save Schedule';
+          : 'Add Note';
 
         return (
           <div
@@ -1468,7 +1511,9 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                 handleSaveSubmissionNotes();
               }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-xl bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-visible flex flex-col animate-fade-in"
+              className={`w-full ${
+                isNotesMode ? 'max-w-xl' : 'max-w-lg'
+              } bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-visible flex flex-col animate-fade-in`}
             >
               {/* Modal Header */}
               <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 rounded-t-2xl flex items-center justify-between gap-3">
@@ -1505,35 +1550,39 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
 
               {/* Modal Body */}
               <div className="p-5 space-y-4 overflow-visible">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1.5">
-                    Interview Date &amp; Time
-                  </label>
-                  <DateTimePicker
-                    value={draftInterviewDate}
-                    onChange={setDraftInterviewDate}
-                    placeholder="Select interview date & time..."
-                    ariaLabel={`Interview date for ${liveEditingSub.fullName}`}
-                  />
-                </div>
+                {isInterviewMode && (
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1.5">
+                      Interview Date &amp; Time
+                    </label>
+                    <DateTimePicker
+                      value={draftInterviewDate}
+                      onChange={setDraftInterviewDate}
+                      placeholder="Select interview date & time..."
+                      ariaLabel={`Interview date for ${liveEditingSub.fullName}`}
+                    />
+                  </div>
+                )}
 
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
                     <label className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
                       <span
                         className={`w-1.5 h-1.5 rounded-full ${
-                          isClosedModalStage ? 'bg-rose-500' : 'bg-brand-600'
+                          isClosedMode || isClosedModalStage ? 'bg-rose-500' : 'bg-brand-600'
                         }`}
                       />
                       <span>
-                        {editingNoteId
-                          ? 'Edit Note'
-                          : isClosedModalStage
+                        {isClosedMode
                           ? 'Add Rejection Feedback'
+                          : isInterviewMode
+                          ? 'Interview Note (Optional)'
+                          : editingNoteId
+                          ? 'Edit Note'
                           : 'Add Note'}
                       </span>
                     </label>
-                    {editingNoteId && (
+                    {isNotesMode && editingNoteId && (
                       <button
                         type="button"
                         onClick={() => {
@@ -1548,7 +1597,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                     )}
                   </div>
 
-                  {isClosedModalStage && (
+                  {isClosedMode && (
                     <div className="flex items-center gap-1.5 flex-wrap mb-2">
                       {QUICK_REJECTION_REASONS.map((reason) => (
                         <button
@@ -1573,106 +1622,110 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                   <textarea
                     ref={notesTextareaRef}
                     rows={3}
-                    autoFocus
+                    autoFocus={!isInterviewMode}
                     aria-label={`Call notes and feedback for ${liveEditingSub.fullName}`}
                     value={draftNotesText}
                     onChange={(e) => setDraftNotesText(e.target.value)}
                     placeholder={
-                      isClosedModalStage
+                      isClosedMode
                         ? 'Why did the client reject or close out this applicant? (e.g. Budget ceiling, needed hands-on GCP)'
+                        : isInterviewMode
+                        ? 'Optional interview round notes, panel details, or prep instructions...'
                         : 'Log recruiter call summary, Round 1/2 debrief, or client feedback...'
                     }
                     className="w-full px-3 py-2.5 text-xs border border-slate-200 rounded-lg bg-slate-50/40 focus:bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/10 transition-colors"
                   />
                 </div>
 
-                {/* All Notes List inside Modal */}
-                <div className="space-y-2 pt-1 border-t border-slate-100">
-                  <div className="flex items-center justify-between text-[10.5px] font-bold uppercase tracking-wider text-slate-500">
-                    <span>All Notes ({liveNotes.length})</span>
-                  </div>
-                  {liveNotes.length === 0 ? (
-                    <div className="py-4 text-center text-[11px] text-slate-400 bg-slate-50/60 rounded-lg border border-dashed border-slate-200">
-                      No notes added for {liveEditingSub.fullName} yet.
+                {/* All Notes List (Notes view only) */}
+                {isNotesMode && (
+                  <div className="space-y-2 pt-1 border-t border-slate-100">
+                    <div className="flex items-center justify-between text-[10.5px] font-bold uppercase tracking-wider text-slate-500">
+                      <span>All Notes ({liveNotes.length})</span>
                     </div>
-                  ) : (
-                    <div className="max-h-52 overflow-y-auto space-y-2 pr-0.5">
-                      {liveNotes.map((note) => {
-                        const noteTime = formatDateTimeBadge(note.updatedAt || note.createdAt);
-                        const isBeingEdited = editingNoteId === note.id;
-                        const isNoteClosed =
-                          (note.stage || '').trim().toLowerCase() === 'closed' ||
-                          isClosedModalStage;
-                        return (
-                          <div
-                            key={note.id}
-                            className={`rounded-xl border px-3.5 py-2.5 text-xs transition-colors ${
-                              isBeingEdited
-                                ? 'border-brand-400 bg-brand-50/40'
-                                : 'border-slate-200 bg-slate-50/70'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5 text-[10.5px] text-slate-400 flex-wrap min-w-0">
-                                <span className="font-semibold text-slate-700 whitespace-nowrap">
-                                  {note.authorName}
-                                </span>
-                                {noteTime && (
-                                  <span className="whitespace-nowrap">&middot; {noteTime}</span>
-                                )}
-                                {note.updatedAt && (
-                                  <span className="whitespace-nowrap">(edited)</span>
-                                )}
-                                {isNoteClosed && (
-                                  <span className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 font-medium whitespace-nowrap">
-                                    Rejection Feedback
+                    {liveNotes.length === 0 ? (
+                      <div className="py-4 text-center text-[11px] text-slate-400 bg-slate-50/60 rounded-lg border border-dashed border-slate-200">
+                        No notes added for {liveEditingSub.fullName} yet.
+                      </div>
+                    ) : (
+                      <div className="max-h-52 overflow-y-auto space-y-2 pr-0.5">
+                        {liveNotes.map((note) => {
+                          const noteTime = formatDateTimeBadge(note.updatedAt || note.createdAt);
+                          const isBeingEdited = editingNoteId === note.id;
+                          const isNoteClosed =
+                            (note.stage || '').trim().toLowerCase() === 'closed' ||
+                            isClosedModalStage;
+                          return (
+                            <div
+                              key={note.id}
+                              className={`rounded-xl border px-3.5 py-2.5 text-xs transition-colors ${
+                                isBeingEdited
+                                  ? 'border-brand-400 bg-brand-50/40'
+                                  : 'border-slate-200 bg-slate-50/70'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5 text-[10.5px] text-slate-400 flex-wrap min-w-0">
+                                  <span className="font-semibold text-slate-700 whitespace-nowrap">
+                                    {note.authorName}
                                   </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-0.5 flex-shrink-0">
-                                <button
-                                  type="button"
-                                  disabled={busyNoteId === note.id || isSavingNotes}
-                                  onClick={() => {
-                                    setEditingNoteId(note.id);
-                                    setDraftNotesText(note.text);
-                                    notesTextareaRef.current?.focus();
-                                  }}
-                                  title="Edit note"
-                                  aria-label={`Edit note by ${note.authorName}`}
-                                  className={`p-1 rounded transition-colors cursor-pointer ${
-                                    isBeingEdited
-                                      ? 'text-brand-600 bg-white'
-                                      : 'text-slate-400 hover:text-brand-600 hover:bg-white'
-                                  }`}
-                                >
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={busyNoteId === note.id || isSavingNotes}
-                                  onClick={() => handleDeleteSubmissionNote(liveEditingSub, note.id)}
-                                  title="Delete note"
-                                  aria-label={`Delete note by ${note.authorName}`}
-                                  className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                                >
-                                  {busyNoteId === note.id ? (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                  {noteTime && (
+                                    <span className="whitespace-nowrap">&middot; {noteTime}</span>
                                   )}
-                                </button>
+                                  {note.updatedAt && (
+                                    <span className="whitespace-nowrap">(edited)</span>
+                                  )}
+                                  {isNoteClosed && (
+                                    <span className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 font-medium whitespace-nowrap">
+                                      Rejection Feedback
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-0.5 flex-shrink-0">
+                                  <button
+                                    type="button"
+                                    disabled={busyNoteId === note.id || isSavingNotes}
+                                    onClick={() => {
+                                      setEditingNoteId(note.id);
+                                      setDraftNotesText(note.text);
+                                      notesTextareaRef.current?.focus();
+                                    }}
+                                    title="Edit note"
+                                    aria-label={`Edit note by ${note.authorName}`}
+                                    className={`p-1 rounded transition-colors cursor-pointer ${
+                                      isBeingEdited
+                                        ? 'text-brand-600 bg-white'
+                                        : 'text-slate-400 hover:text-brand-600 hover:bg-white'
+                                    }`}
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={busyNoteId === note.id || isSavingNotes}
+                                    onClick={() => handleDeleteSubmissionNote(liveEditingSub, note.id)}
+                                    title="Delete note"
+                                    aria-label={`Delete note by ${note.authorName}`}
+                                    className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                  >
+                                    {busyNoteId === note.id ? (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    )}
+                                  </button>
+                                </div>
                               </div>
+                              <p className="text-slate-700 whitespace-pre-line break-words leading-relaxed mt-1">
+                                {note.text}
+                              </p>
                             </div>
-                            <p className="text-slate-700 whitespace-pre-line break-words leading-relaxed mt-1">
-                              {note.text}
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Modal Footer */}
@@ -1683,7 +1736,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                   onClick={() => setEditingNotesSub(null)}
                   className="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
                 >
-                  Close
+                  {isClosedMode || isInterviewMode ? 'Skip' : 'Close'}
                 </button>
                 <ActionButton
                   type="submit"

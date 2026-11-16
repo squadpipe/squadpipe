@@ -318,14 +318,14 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
       </div>
 
       {/* Main Header Card */}
-      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow px-5 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow px-6 py-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-4 min-w-0">
           <div className="w-12 h-12 rounded-xl bg-[#141615] text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0">
             {initials}
           </div>
-          <div className="space-y-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-lg font-bold text-slate-900 tracking-tight truncate">
+          <div className="space-y-1.5 min-w-0">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-lg sm:text-[19px] font-bold text-slate-900 tracking-tight truncate">
                 {candidate.fullName}
               </h1>
               {candidate.pipelineStage && (
@@ -341,7 +341,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2.5 text-xs text-slate-500 flex-wrap">
+            <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
               <span className="font-semibold text-brand-600">
                 {candidate.currentTitle || 'Technology Consultant'}
               </span>
@@ -358,7 +358,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                 <>
                   <span className="text-slate-300">&bull;</span>
                   <span className="inline-flex items-center gap-1">
-                    <MapPin className="w-3 h-3 text-slate-400" />
+                    <MapPin className="w-3.5 h-3.5 text-slate-400" />
                     <span>Relocation: {candidate.relocation}</span>
                   </span>
                 </>
@@ -367,12 +367,12 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+        <div className="flex items-center gap-2.5 flex-wrap flex-shrink-0">
           {onUpdateCandidate && (
             <button
               type="button"
               onClick={() => setIsEditing(true)}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Pencil className="w-3.5 h-3.5" />
               <span>Edit Profile</span>
@@ -385,7 +385,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
               disabled={isDownloadingCv}
               onClick={handleDownloadOriginalCv}
               title={`Download original stored CV${candidate.resumeName ? ` (${candidate.resumeName})` : ''}`}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
+              className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
             >
               {isDownloadingCv ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-600" />
@@ -400,7 +400,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
             type="button"
             onClick={downloadProfileBriefPdf}
             title={`Export branded ${brandName} consultant brief PDF (summary only — not the original CV)`}
-            className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+            className="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
           >
             <Download className="w-3.5 h-3.5 text-slate-300" />
             <span>Profile PDF</span>
@@ -411,7 +411,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
             <button
               type="button"
               onClick={() => setShowQuickSubmitDropdown((prev) => !prev)}
-              className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Send className="w-3.5 h-3.5" />
               <span>Submit to Req</span>

@@ -117,14 +117,14 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
       </div>
 
       {/* Main Header Card */}
-      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow px-5 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex items-start sm:items-center gap-3.5 min-w-0">
-          <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100 shadow-2xs shrink-0">
+      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow px-6 py-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-4 min-w-0">
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100 shadow-2xs shrink-0">
             <Handshake className="w-5 h-5" />
           </div>
-          <div className="space-y-1 min-w-0">
+          <div className="space-y-1.5 min-w-0">
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-lg font-bold text-slate-900 tracking-tight truncate">
+              <h1 className="text-lg sm:text-[19px] font-bold text-slate-900 tracking-tight truncate">
                 {vendor.name}
               </h1>
               <StatusBadge
@@ -133,9 +133,9 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
                 size="xs"
               />
             </div>
-            <div className="flex items-center gap-2.5 text-xs text-slate-500 flex-wrap">
+            <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
               <span className="inline-flex items-center gap-1">
-                <MapPin className="w-3 h-3 text-slate-400" />
+                <MapPin className="w-3.5 h-3.5 text-slate-400" />
                 <span>{vendor.location || 'Location not specified'}</span>
               </span>
               {vendor.paymentTerms && (
@@ -154,12 +154,12 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+        <div className="flex items-center gap-2.5 flex-wrap flex-shrink-0">
           {onUpdateVendor && (
             <button
               type="button"
               onClick={openEditModal}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Pencil className="w-3.5 h-3.5" />
               <span>Edit Vendor</span>
