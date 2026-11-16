@@ -16,6 +16,7 @@ app.use(
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['X-User-Role', 'X-Rate-Masked'],
   })
 );
 app.use(express.json({ limit: '10mb' }));

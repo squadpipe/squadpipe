@@ -48,6 +48,11 @@ export const maskFinancialRecord = (record: any): any => {
 };
 
 export const rateMaskMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  if (req.user) {
+    res.setHeader('X-User-Role', req.user.role);
+    res.setHeader('X-Rate-Masked', String(Boolean(req.user.rateMasked)));
+  }
+
   const originalJson = res.json;
 
   res.json = function (body: any) {

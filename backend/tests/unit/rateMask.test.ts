@@ -1,4 +1,5 @@
-import { maskFinancialRecord } from '../../src/middlewares/rateMask.middleware';
+import assert from 'assert';
+import { maskFinancialRecord, rateMaskMiddleware } from '../../src/middlewares/rateMask.middleware';
 
 export const runRateMaskTests = () => {
   console.log('--- Running Rate Masking Security Tests ---');
@@ -76,6 +77,32 @@ export const runRateMaskTests = () => {
   ) {
     throw new Error('SECURITY VIOLATION: Aggregate dashboard financial metrics leaked!');
   }
+
+  // Test Case 5: rateMaskMiddleware emits live sync headers and masks payload
+  const headers: Record<string, string> = {};
+  let capturedBody: any = null;
+  let nextCalled = false;
+  const mockReq: any = {
+    user: { id: 'u1', role: 'TECHNICAL_RECRUITER', rateMasked: true },
+  };
+  const mockRes: any = {
+    setHeader: (key: string, val: string) => {
+      headers[key] = val;
+    },
+    json: (body: any) => {
+      capturedBody = body;
+      return mockRes;
+    },
+  };
+  rateMaskMiddleware(mockReq, mockRes, () => {
+    nextCalled = true;
+  });
+  assert.strictEqual(nextCalled, true);
+  assert.strictEqual(headers['X-User-Role'], 'TECHNICAL_RECRUITER');
+  assert.strictEqual(headers['X-Rate-Masked'], 'true');
+  mockRes.json({ success: true, data: { billRate: 120, hourlyRate: '$100/hr' } });
+  assert.strictEqual(capturedBody.data.billRate, 0);
+  assert.strictEqual(capturedBody.data.hourlyRate, '••••••');
 
   console.log('✅ Rate Masking Security: PASSED (Zero financial figures leaked)');
 };

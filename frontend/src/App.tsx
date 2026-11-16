@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { AppIcon } from './components/shared/AppIcon';
-import { apiClient, AUTH_EXPIRED_EVENT } from './config/api.config';
+import { apiClient, AUTH_EXPIRED_EVENT, USER_SESSION_SYNC_EVENT } from './config/api.config';
 import {
   clearAuthSession,
   getStoredAuthToken,
@@ -817,11 +817,8 @@ export const App: React.FC = () => {
     'Bench Sales Lead',
   ].includes(normalizedUserRole);
 
-  // 2. ON-DEMAND / VIEW-SCOPED FETCHING: Only call APIs for the active view when opened!
-  useEffect(() => {
-    if (!authToken && !currentUser) return;
-
-    switch (currentView) {
+  const loadEntitiesForView = (view: string, adminAccess: boolean) => {
+    switch (view) {
       case 'dashboard':
         // Only fetch Dashboard requirements, candidates, placements, and SLA radar
         if (!loadedEntities.current.has('requirements')) fetchRequirements();
@@ -831,6 +828,7 @@ export const App: React.FC = () => {
         break;
 
       case 'pipeline':
+      case 'requirement_detail':
         if (!loadedEntities.current.has('requirements')) fetchRequirements();
         if (!loadedEntities.current.has('candidates')) fetchCandidates();
         break;
@@ -843,13 +841,19 @@ export const App: React.FC = () => {
         break;
 
       case 'clients':
+      case 'client_detail':
         if (!loadedEntities.current.has('clients')) fetchClients();
         if (!loadedEntities.current.has('requirements')) fetchRequirements();
         if (!loadedEntities.current.has('placements')) fetchPlacements();
         break;
 
       case 'vendors':
+      case 'vendor_detail':
         if (!loadedEntities.current.has('vendors')) fetchVendors();
+        if (view === 'vendor_detail') {
+          if (!loadedEntities.current.has('candidates')) fetchCandidates();
+          if (!loadedEntities.current.has('placements')) fetchPlacements();
+        }
         break;
 
       case 'billable':
@@ -863,7 +867,7 @@ export const App: React.FC = () => {
         break;
 
       case 'user_management':
-        if (isAdmin && !loadedEntities.current.has('users')) fetchUsers();
+        if (adminAccess && !loadedEntities.current.has('users')) fetchUsers();
         break;
 
       case 'automation':
@@ -871,12 +875,187 @@ export const App: React.FC = () => {
         break;
 
       case 'custom_fields':
-        if (isAdmin && !loadedEntities.current.has('custom_fields')) fetchCustomFields();
+        if (adminAccess && !loadedEntities.current.has('custom_fields')) fetchCustomFields();
         break;
 
       default:
         break;
     }
+  };
+
+  // Live permission & rate-masking synchronization (page load, tab focus, 60s active check, and API headers)
+  const SESSION_SYNC_INTERVAL_MS = 60_000;
+  const currentViewRef = React.useRef(currentView);
+  currentViewRef.current = currentView;
+  const currentUserRef = React.useRef(currentUser);
+  currentUserRef.current = currentUser;
+  const rateMaskedRef = React.useRef(rateMasked);
+  rateMaskedRef.current = rateMasked;
+  const selectedDetailIdsRef = React.useRef({
+    candId: selectedCandForDetail?.id,
+    reqId: selectedReqForDetail?.id,
+    placementId: selectedPlacementForDetail?.id,
+  });
+  selectedDetailIdsRef.current = {
+    candId: selectedCandForDetail?.id,
+    reqId: selectedReqForDetail?.id,
+    placementId: selectedPlacementForDetail?.id,
+  };
+  const lastSessionSyncAtRef = React.useRef<number>(0);
+  const inFlightSessionSyncRef = React.useRef<boolean>(false);
+
+  const applySyncedUser = React.useCallback(
+    (incoming: Partial<User> & { role?: string; rateMasked?: boolean }) => {
+      const prevUser = currentUserRef.current;
+      if (!prevUser) return;
+
+      const prevRole = formatUserRole(prevUser.role);
+      const nextRole = incoming.role ? formatUserRole(incoming.role) : prevRole;
+      const prevMasked = Boolean(rateMaskedRef.current);
+      const nextMasked =
+        typeof incoming.rateMasked === 'boolean' ? incoming.rateMasked : prevMasked;
+
+      const roleChanged = prevRole !== nextRole;
+      const maskChanged = prevMasked !== nextMasked;
+
+      const mergedUser: User = {
+        ...prevUser,
+        ...incoming,
+        role: nextRole,
+        status: formatUserStatus(incoming.status || prevUser.status),
+        rateMasked: nextMasked,
+      };
+
+      const hasDetailsChange =
+        roleChanged ||
+        maskChanged ||
+        mergedUser.name !== prevUser.name ||
+        mergedUser.email !== prevUser.email ||
+        mergedUser.agencyName !== prevUser.agencyName ||
+        mergedUser.desk !== prevUser.desk;
+
+      if (hasDetailsChange) {
+        currentUserRef.current = mergedUser;
+        setCurrentUser(mergedUser);
+        updateStoredCurrentUser(mergedUser);
+      }
+
+      if (maskChanged) {
+        rateMaskedRef.current = nextMasked;
+        setRateMasked(nextMasked);
+        if (nextMasked) {
+          setIsPlacementWizardOpen(false);
+          setActiveCreateModal((prev) => (prev === 'placement' ? null : prev));
+          setCandidates([]);
+          setRequirements([]);
+          setPlacements([]);
+          setSelectedCandForDetail((prev) => (prev ? { ...prev, hourlyRate: '••••••' } : null));
+          setSelectedReqForDetail((prev) =>
+            prev ? { ...prev, targetBillRate: 0, targetPayRate: 0 } : null
+          );
+          setSelectedPlacementForDetail((prev) =>
+            prev
+              ? { ...prev, billing: '••••••', payRate: '••••••', hourlySpread: 0, marginPct: 0 }
+              : null
+          );
+        }
+      }
+
+      if (roleChanged || maskChanged) {
+        const nextIsAdmin = nextRole === 'Administrator';
+        loadedEntities.current.clear();
+        fetchSidebarCounts();
+        loadEntitiesForView(currentViewRef.current, nextIsAdmin);
+        if (maskChanged) {
+          const { candId, reqId, placementId } = selectedDetailIdsRef.current;
+          if (currentViewRef.current === 'consultant_detail' && candId) {
+            apiClient
+              .get(`/candidates/${candId}`)
+              .then((r) => r.data?.data && setSelectedCandForDetail(mapCandidateFromApi(r.data.data)))
+              .catch(() => {});
+          } else if (currentViewRef.current === 'requirement_detail' && reqId) {
+            apiClient
+              .get(`/requirements/${reqId}`)
+              .then((r) => r.data?.data && setSelectedReqForDetail(mapRequirementFromApi(r.data.data)))
+              .catch(() => {});
+          } else if (currentViewRef.current === 'placement_detail' && placementId) {
+            apiClient
+              .get(`/placements/${placementId}`)
+              .then((r) => r.data?.data && setSelectedPlacementForDetail(normalizePlacement(r.data.data)))
+              .catch(() => {});
+          }
+        }
+      }
+    },
+    []
+  );
+
+  const syncUserSession = React.useCallback(
+    async (lite: boolean) => {
+      if (!authToken && !currentUserRef.current) return;
+      if (inFlightSessionSyncRef.current) return;
+      inFlightSessionSyncRef.current = true;
+      lastSessionSyncAtRef.current = Date.now();
+      try {
+        const res = await apiClient.get('/auth/me', {
+          params: lite ? { lite: '1' } : undefined,
+        });
+        if (res.data?.user) {
+          applySyncedUser(res.data.user);
+        }
+      } catch {
+        // 401/suspended responses are handled by apiClient interceptor
+      } finally {
+        inFlightSessionSyncRef.current = false;
+      }
+    },
+    [authToken, applySyncedUser]
+  );
+
+  useEffect(() => {
+    const handleHeaderSync = (event: Event) => {
+      const customEvent = event as CustomEvent<{ role?: string; rateMasked?: boolean }>;
+      if (!customEvent.detail || !currentUserRef.current) return;
+      lastSessionSyncAtRef.current = Date.now();
+      applySyncedUser(customEvent.detail);
+    };
+    window.addEventListener(USER_SESSION_SYNC_EVENT, handleHeaderSync);
+    return () => window.removeEventListener(USER_SESSION_SYNC_EVENT, handleHeaderSync);
+  }, [applySyncedUser]);
+
+  useEffect(() => {
+    if (!authToken) return;
+
+    // Sync full session once on initial page load / refresh (skip redundant call right after login)
+    if (Date.now() - lastSessionSyncAtRef.current > 2_000) {
+      syncUserSession(false);
+    }
+
+    const maybeLiteSync = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastSessionSyncAtRef.current < SESSION_SYNC_INTERVAL_MS) return;
+      syncUserSession(true);
+    };
+
+    const onVisibilityOrFocus = () => {
+      maybeLiteSync();
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityOrFocus);
+    window.addEventListener('focus', onVisibilityOrFocus);
+    const intervalId = window.setInterval(maybeLiteSync, SESSION_SYNC_INTERVAL_MS);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityOrFocus);
+      window.removeEventListener('focus', onVisibilityOrFocus);
+      window.clearInterval(intervalId);
+    };
+  }, [authToken, syncUserSession]);
+
+  // 2. ON-DEMAND / VIEW-SCOPED FETCHING: Only call APIs for the active view when opened!
+  useEffect(() => {
+    if (!authToken && !currentUser) return;
+    loadEntitiesForView(currentView, isAdmin);
   }, [currentView, authToken]);
 
   // Ensure clients, users, and candidates are available when opening create or wizard modals
@@ -1672,6 +1851,7 @@ export const App: React.FC = () => {
         <LoginView
           onLoginSuccess={(user, token) => {
             resetWorkspaceState();
+            lastSessionSyncAtRef.current = Date.now();
             const normalizedUser: User = {
               ...user,
               role: formatUserRole(user.role),

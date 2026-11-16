@@ -122,6 +122,25 @@ export const me = async (req: Request, res: Response) => {
     return res.status(401).json({ success: false, message: 'Unauthenticated' });
   }
 
+  // Lightweight permission sync skips workload & settings queries using fresh req.user from authenticateJwt
+  const isLite = req.query.lite === '1' || req.query.lite === 'true';
+  if (isLite) {
+    return res.json({
+      success: true,
+      user: {
+        id: req.user.id,
+        name: req.user.fullName,
+        email: req.user.email,
+        agencyName: req.user.agencyName || 'SquadPipe Staffing',
+        tenantId: req.user.tenantId,
+        role: req.user.role,
+        rateMasked: req.user.rateMasked,
+        isCurrentUser: true,
+        lastActive: 'Active Now',
+      },
+    });
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: req.user.id }
   });
