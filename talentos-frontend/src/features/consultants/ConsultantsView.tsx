@@ -334,14 +334,14 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase">
               <tr>
-                <th className="px-4 py-3">Full Name</th>
-                <th className="px-4 py-3">Work Auth</th>
-                <th className="px-4 py-3">Current Title</th>
-                <th className="px-4 py-3">Key Skillset</th>
-                <th className="px-4 py-3">Hourly Rate</th>
-                <th className="px-4 py-3">Relocation</th>
-                <th className="px-4 py-3">Stage</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th className="px-4 py-3 whitespace-nowrap">Full Name</th>
+                <th className="px-4 py-3 whitespace-nowrap">Work Auth</th>
+                <th className="px-4 py-3 whitespace-nowrap">Current Title</th>
+                <th className="px-4 py-3 whitespace-nowrap">Key Skillset</th>
+                <th className="px-4 py-3 whitespace-nowrap">Hourly Rate</th>
+                <th className="px-4 py-3 whitespace-nowrap">Relocation</th>
+                <th className="px-4 py-3 whitespace-nowrap">Stage</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -414,8 +414,13 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                   </td>
 
                   {/* Current Title */}
-                  <td className="px-4 py-3 text-slate-800 font-medium">
-                    <div>{c.currentTitle}</div>
+                  <td className="px-4 py-3 text-slate-800 font-medium min-w-[160px] max-w-[220px]">
+                    <div className="leading-snug">{c.currentTitle}</div>
+                    {c.vendorName && (
+                      <div className="text-[10px] text-amber-700 font-medium mt-0.5 truncate">
+                        via {c.vendorName}
+                      </div>
+                    )}
                     {search.trim() && (() => {
                       const excerpt = extractResumeMatchExcerpt(c.rawSnippet, search);
                       return excerpt ? (
@@ -427,20 +432,36 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                   </td>
 
                   {/* Key Skillset */}
-                  <td className="px-4 py-3 max-w-xs">
-                    <div className="flex flex-wrap gap-1">
-                      {c.skillset
+                  <td className="px-4 py-3 max-w-[240px]">
+                    {(() => {
+                      const skills = (c.skillset || '')
                         .split(',')
-                        .slice(0, 3)
-                        .map((sk) => (
-                          <span
-                            key={sk}
-                            className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-medium"
-                          >
-                            {sk.trim()}
-                          </span>
-                        ))}
-                    </div>
+                        .map((s) => s.trim())
+                        .filter(Boolean);
+                      const visible = skills.slice(0, 2);
+                      const remaining = skills.length - visible.length;
+                      return (
+                        <div className="flex flex-wrap items-center gap-1">
+                          {visible.map((sk) => (
+                            <span
+                              key={sk}
+                              title={sk}
+                              className="inline-block max-w-[130px] truncate text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-medium"
+                            >
+                              {sk}
+                            </span>
+                          ))}
+                          {remaining > 0 && (
+                            <span
+                              title={skills.slice(2).join(', ')}
+                              className="inline-block text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-semibold whitespace-nowrap"
+                            >
+                              +{remaining}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </td>
 
                   {/* Hourly Rate */}
