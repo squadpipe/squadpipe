@@ -45,8 +45,8 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   const [roleFilter, setRoleFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Invited' | 'Suspended'>('All');
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
-  const [tableUsers, setTableUsers] = useState<User[]>(() => users.slice(0, 10));
+  const [limit, setLimit] = useState(5);
+  const [tableUsers, setTableUsers] = useState<User[]>(() => users.slice(0, 5));
   const [totalUsers, setTotalUsers] = useState(users.length);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);

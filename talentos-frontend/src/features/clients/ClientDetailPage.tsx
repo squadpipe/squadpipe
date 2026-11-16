@@ -111,9 +111,9 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
   const clientPlacements = client
     ? placements.filter((p) => p.customer.toLowerCase() === client.name.toLowerCase())
     : [];
-  const contactsPg = useClientPagination(client?.contacts || [], 10, client?.id);
-  const reqsPg = useClientPagination(clientReqs, 10, client?.id);
-  const placementsPg = useClientPagination(clientPlacements, 10, client?.id);
+  const contactsPg = useClientPagination(client?.contacts || [], 5, client?.id);
+  const reqsPg = useClientPagination(clientReqs, 5, client?.id);
+  const placementsPg = useClientPagination(clientPlacements, 5, client?.id);
 
   if (!client) {
     return (
@@ -304,15 +304,11 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
         <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
           <button
             type="button"
-            onClick={() => setIsEditingClient((prev) => !prev)}
-            className={`px-3 py-1.5 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
-              isEditingClient
-                ? 'bg-slate-900 border-slate-900 text-white'
-                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-            }`}
+            onClick={() => setIsEditingClient(true)}
+            className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Pencil className="w-3.5 h-3.5" />
-            <span>{isEditingClient ? 'Close Editor' : 'Edit Client'}</span>
+            <span>Edit Client</span>
           </button>
 
           <button
@@ -325,105 +321,6 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
           </button>
         </div>
       </div>
-
-      {/* Inline Full-Width Edit Client Form */}
-      {isEditingClient && (
-        <form
-          onSubmit={handleSaveClientDetails}
-          className="bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-4 text-xs"
-        >
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600">
-              Edit Client Account
-            </h2>
-            <button
-              type="button"
-              disabled={isSavingClient}
-              onClick={() => setIsEditingClient(false)}
-              className="text-slate-400 hover:text-slate-700 p-1 rounded cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Company Name *
-              </label>
-              <input
-                type="text"
-                required
-                value={clientEditForm.name}
-                onChange={(e) => setClientEditForm({ ...clientEditForm, name: e.target.value })}
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">Website</label>
-              <input
-                type="text"
-                value={clientEditForm.website}
-                onChange={(e) => setClientEditForm({ ...clientEditForm, website: e.target.value })}
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Main Switchboard
-              </label>
-              <input
-                type="text"
-                value={clientEditForm.boardNumber}
-                onChange={(e) =>
-                  setClientEditForm({ ...clientEditForm, boardNumber: e.target.value })
-                }
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                HQ Location *
-              </label>
-              <input
-                type="text"
-                required
-                value={clientEditForm.location}
-                onChange={(e) =>
-                  setClientEditForm({ ...clientEditForm, location: e.target.value })
-                }
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-              />
-            </div>
-          </div>
-
-          <DynamicCustomFieldsSection
-            entity="client"
-            values={clientEditForm.customFields || {}}
-            onChange={(vals) => setClientEditForm({ ...clientEditForm, customFields: vals })}
-            isOpen={isEditingClient}
-          />
-
-          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-            <button
-              type="button"
-              disabled={isSavingClient}
-              onClick={() => setIsEditingClient(false)}
-              className="px-3.5 py-1.5 border border-slate-200 bg-white rounded-lg text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
-            >
-              Cancel
-            </button>
-            <ActionButton
-              type="submit"
-              loading={isSavingClient}
-              loadingText="Saving..."
-              className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
-            >
-              Save Changes
-            </ActionButton>
-          </div>
-        </form>
-      )}
 
       {/* Main 2-Column Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
@@ -440,94 +337,13 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               </div>
               <button
                 type="button"
-                onClick={() => setShowAddContact((prev) => !prev)}
+                onClick={() => setShowAddContact(true)}
                 className="text-brand-600 font-semibold hover:underline text-xs inline-flex items-center gap-1 cursor-pointer"
               >
-                {showAddContact ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3" strokeWidth={2.4} />}
-                <span>{showAddContact ? 'Cancel' : 'Add Contact'}</span>
+                <Plus className="w-3 h-3" strokeWidth={2.4} />
+                <span>Add Contact</span>
               </button>
             </div>
-
-            {showAddContact && (
-              <form
-                onSubmit={handleSaveContact}
-                className="p-4 bg-slate-50 border-b border-slate-200 space-y-3"
-              >
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-bold uppercase text-slate-500">
-                      Full Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={contactForm.name}
-                      onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
-                      placeholder="e.g., Sarah Connor"
-                      className="mt-1 w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold uppercase text-slate-500">
-                      Designation
-                    </label>
-                    <input
-                      type="text"
-                      value={contactForm.designation}
-                      onChange={(e) =>
-                        setContactForm({ ...contactForm, designation: e.target.value })
-                      }
-                      placeholder="VP Engineering"
-                      className="mt-1 w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold uppercase text-slate-500">
-                      Email *
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={contactForm.email}
-                      onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
-                      placeholder="sarah@client.com"
-                      className="mt-1 w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold uppercase text-slate-500">Phone</label>
-                    <input
-                      type="text"
-                      value={contactForm.phone}
-                      onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
-                      placeholder="+1 (555) 234-5678"
-                      className="mt-1 w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center justify-between pt-1">
-                  <label className="flex items-center gap-1.5 text-[11px] font-medium text-slate-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={contactForm.isPrimary}
-                      onChange={(e) =>
-                        setContactForm({ ...contactForm, isPrimary: e.target.checked })
-                      }
-                      className="rounded border-slate-300"
-                    />
-                    <span>Mark as Primary Hiring Lead</span>
-                  </label>
-                  <ActionButton
-                    type="submit"
-                    loading={isSavingContact}
-                    loadingText="Saving..."
-                    className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold cursor-pointer"
-                  >
-                    Save Contact
-                  </ActionButton>
-                </div>
-              </form>
-            )}
 
             {client.contacts.length === 0 ? (
               <div className="py-10 text-center text-slate-400">
@@ -598,7 +414,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                   onPageChange={contactsPg.setPage}
                   onLimitChange={contactsPg.setLimit}
                   itemLabel="contacts"
-                  pageSizeOptions={[10, 20, 50]}
+                  pageSizeOptions={[5, 10, 20, 50]}
                 />
               </>
             )}
@@ -675,7 +491,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                   onPageChange={reqsPg.setPage}
                   onLimitChange={reqsPg.setLimit}
                   itemLabel="requisitions"
-                  pageSizeOptions={[10, 20, 50]}
+                  pageSizeOptions={[5, 10, 20, 50]}
                 />
               </>
             )}
@@ -733,7 +549,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                   onPageChange={placementsPg.setPage}
                   onLimitChange={placementsPg.setLimit}
                   itemLabel="placements"
-                  pageSizeOptions={[10, 20, 50]}
+                  pageSizeOptions={[5, 10, 20, 50]}
                 />
               </>
             )}
@@ -879,6 +695,248 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
           )}
         </aside>
       </div>
+
+      {/* Edit Client Account Modal */}
+      {isEditingClient && (
+        <div
+          onClick={() => !isSavingClient && setIsEditingClient(false)}
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden flex flex-col animate-fade-in max-h-[92vh]"
+          >
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shrink-0">
+                  <Building2 className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-sm font-bold text-white truncate">Edit Client Account</h2>
+                  <div className="text-[11px] text-slate-400 mt-0.5 truncate">{client.name}</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isSavingClient}
+                onClick={() => setIsEditingClient(false)}
+                aria-label="Close modal"
+                className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveClientDetails} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Company Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={clientEditForm.name}
+                      onChange={(e) => setClientEditForm({ ...clientEditForm, name: e.target.value })}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Website
+                    </label>
+                    <input
+                      type="text"
+                      value={clientEditForm.website}
+                      onChange={(e) => setClientEditForm({ ...clientEditForm, website: e.target.value })}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Main Switchboard
+                    </label>
+                    <input
+                      type="text"
+                      value={clientEditForm.boardNumber}
+                      onChange={(e) =>
+                        setClientEditForm({ ...clientEditForm, boardNumber: e.target.value })
+                      }
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      HQ Location *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={clientEditForm.location}
+                      onChange={(e) =>
+                        setClientEditForm({ ...clientEditForm, location: e.target.value })
+                      }
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <DynamicCustomFieldsSection
+                  entity="client"
+                  values={clientEditForm.customFields || {}}
+                  onChange={(vals) => setClientEditForm({ ...clientEditForm, customFields: vals })}
+                  isOpen={isEditingClient}
+                />
+              </div>
+
+              <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
+                <button
+                  type="button"
+                  disabled={isSavingClient}
+                  onClick={() => setIsEditingClient(false)}
+                  className="px-3.5 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <ActionButton
+                  type="submit"
+                  loading={isSavingClient}
+                  loadingText="Saving..."
+                  className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                >
+                  Save Changes
+                </ActionButton>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Client Contact Modal */}
+      {showAddContact && (
+        <div
+          onClick={() => !isSavingContact && setShowAddContact(false)}
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden flex flex-col animate-fade-in max-h-[92vh]"
+          >
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shrink-0">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-sm font-bold text-white truncate">Add Client Contact</h2>
+                  <div className="text-[11px] text-slate-400 mt-0.5 truncate">{client.name}</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isSavingContact}
+                onClick={() => setShowAddContact(false)}
+                aria-label="Close modal"
+                className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveContact} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      autoFocus
+                      value={contactForm.name}
+                      onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
+                      placeholder="e.g., Sarah Connor"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Designation
+                    </label>
+                    <input
+                      type="text"
+                      value={contactForm.designation}
+                      onChange={(e) =>
+                        setContactForm({ ...contactForm, designation: e.target.value })
+                      }
+                      placeholder="VP Engineering"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Email *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={contactForm.email}
+                      onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                      placeholder="sarah@client.com"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Phone
+                    </label>
+                    <input
+                      type="text"
+                      value={contactForm.phone}
+                      onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
+                      placeholder="+1 (555) 234-5678"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <label className="inline-flex items-center gap-2 text-[11px] font-medium text-slate-700 cursor-pointer pt-1">
+                  <input
+                    type="checkbox"
+                    checked={contactForm.isPrimary}
+                    onChange={(e) =>
+                      setContactForm({ ...contactForm, isPrimary: e.target.checked })
+                    }
+                    className="rounded border-slate-300"
+                  />
+                  <span>Mark as Primary Hiring Lead</span>
+                </label>
+              </div>
+
+              <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
+                <button
+                  type="button"
+                  disabled={isSavingContact}
+                  onClick={() => setShowAddContact(false)}
+                  className="px-3.5 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <ActionButton
+                  type="submit"
+                  loading={isSavingContact}
+                  loadingText="Saving..."
+                  className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold cursor-pointer"
+                >
+                  Save Contact
+                </ActionButton>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </section>
   );
 };

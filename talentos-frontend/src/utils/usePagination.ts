@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
  */
 export function useClientPagination<T>(
   items: T[],
-  initialLimit = 10,
+  initialLimit = 5,
   resetKey?: string | number
 ) {
   const [page, setPage] = useState(1);

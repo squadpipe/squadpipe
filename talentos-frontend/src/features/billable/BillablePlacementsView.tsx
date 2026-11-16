@@ -78,8 +78,8 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Expiring Soon' | 'Extended' | 'Ended'>('All');
   const [modelFilter, setModelFilter] = useState<'All' | 'W2 Hourly' | 'C2C Subcontractor' | '1099' | 'Full-Time'>('All');
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
-  const [tableRows, setTableRows] = useState<BillablePlacement[]>(() => placements.slice(0, 10));
+  const [limit, setLimit] = useState(5);
+  const [tableRows, setTableRows] = useState<BillablePlacement[]>(() => placements.slice(0, 5));
   const [totalRows, setTotalRows] = useState(placements.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
 

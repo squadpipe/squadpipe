@@ -81,8 +81,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [tableSearch, setTableSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
-  const [tableRows, setTableRows] = useState<Requirement[]>(() => requirements.slice(0, 10));
+  const [limit, setLimit] = useState(5);
+  const [tableRows, setTableRows] = useState<Requirement[]>(() => requirements.slice(0, 5));
   const [totalRows, setTotalRows] = useState(requirements.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
   const [editingReq, setEditingReq] = useState<Requirement | null>(null);

@@ -21,9 +21,10 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
   onLimitChange,
   itemLabel = 'results',
   isLoading = false,
-  pageSizeOptions = [10, 20, 50],
+  pageSizeOptions = [5, 10, 20, 50],
 }) => {
-  if (total <= 10) {
+  const minThreshold = pageSizeOptions.length > 0 ? Math.min(...pageSizeOptions) : 5;
+  if (total <= minThreshold) {
     return null;
   }
 

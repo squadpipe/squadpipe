@@ -14,6 +14,7 @@ import { apiClient } from '../../config/api.config';
 import { Client, Requirement, BillablePlacement } from '../../types';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { EditClientModal } from '../../components/modals/edit/EditClientModal';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapClientFromApi } from '../../utils/entityMappers';
 
@@ -23,7 +24,9 @@ interface ClientsViewProps {
   placements: BillablePlacement[];
   onOpenAddClient: () => void;
   onSelectClient: (client: Client, startEditing?: boolean) => void;
+  onClientUpdated?: (updatedClient: Client) => void;
   onDeleteClient?: (client: Client) => void;
+  showToast: (title: string, message: string, icon?: string) => void;
 }
 
 export const ClientsView: React.FC<ClientsViewProps> = ({
@@ -32,14 +35,17 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   placements,
   onOpenAddClient,
   onSelectClient,
+  onClientUpdated,
   onDeleteClient,
+  showToast,
 }) => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
+  const [limit, setLimit] = useState(5);
   const [serverClients, setServerClients] = useState<Client[]>([]);
   const [totalClients, setTotalClients] = useState(clients.length);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
 
   const debouncedSearch = useDebounce(search, 300);
 
@@ -293,7 +299,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
           }}
           itemLabel="clients"
           isLoading={isLoadingClients}
-          pageSizeOptions={[10, 20, 50]}
+          pageSizeOptions={[5, 10, 20, 50]}
         />
       </div>
     </section>

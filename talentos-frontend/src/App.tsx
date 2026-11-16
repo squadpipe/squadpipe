@@ -1864,6 +1864,7 @@ export const App: React.FC = () => {
               }
               onNavigateToBillable={() => setCurrentView('billable')}
               canEditCandidate={canManageDataOperations}
+              onUpdateCandidate={canManageDataOperations ? handleUpdateCandidate : undefined}
               onDeleteCandidate={canManageDataOperations ? handleDeleteCandidate : undefined}
             />
           )}
@@ -1904,7 +1905,16 @@ export const App: React.FC = () => {
               onSelectClient={(client, startEditing) =>
                 handleOpenClientDetail(client, Boolean(startEditing), 'clients')
               }
+              onClientUpdated={(updatedClient) => {
+                setClients((prev) =>
+                  prev.map((c) => (c.id === updatedClient.id ? updatedClient : c))
+                );
+                setSelectedClientForDetail((prev) =>
+                  prev && prev.id === updatedClient.id ? updatedClient : prev
+                );
+              }}
               onDeleteClient={isAdmin ? handleDeleteClient : undefined}
+              showToast={showToast}
             />
           )}
 
@@ -1942,6 +1952,7 @@ export const App: React.FC = () => {
                 handleOpenVendorDetail(vendor, Boolean(startEditing), 'vendors')
               }
               canEditVendor={canManageDataOperations}
+              onUpdateVendor={canManageDataOperations ? handleUpdateVendor : undefined}
               onDeleteVendor={isAdmin ? handleDeleteVendor : undefined}
             />
           )}

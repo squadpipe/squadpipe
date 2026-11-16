@@ -19,6 +19,7 @@ import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { ModalPortal } from '../../components/shared/ModalPortal';
+import { EditConsultantModal } from '../../components/modals/edit/EditConsultantModal';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapCandidateFromApi } from '../../utils/entityMappers';
 import { useCurrency } from '../../utils/currency';
@@ -39,6 +40,7 @@ interface ConsultantsViewProps {
   onOpenCsvImport?: () => void;
   onNavigateToBillable?: () => void;
   canEditCandidate?: boolean;
+  onUpdateCandidate?: (candidate: Candidate, cvFile?: File | null) => Promise<void> | void;
   onDeleteCandidate?: (candidate: Candidate) => Promise<void> | void;
 }
 
@@ -52,6 +54,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
   onOpenCsvImport,
   onNavigateToBillable,
   canEditCandidate = true,
+  onUpdateCandidate,
   onDeleteCandidate,
 }) => {
   const [search, setSearch] = useState('');
@@ -60,10 +63,11 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
   const [minRate, setMinRate] = useState('');
   const [maxRate, setMaxRate] = useState('');
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
-  const [tableRows, setTableRows] = useState<Candidate[]>(() => candidates.slice(0, 10));
+  const [limit, setLimit] = useState(5);
+  const [tableRows, setTableRows] = useState<Candidate[]>(() => candidates.slice(0, 5));
   const [totalRows, setTotalRows] = useState(candidates.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
+  const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
   const [candidateToDelete, setCandidateToDelete] = useState<Candidate | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const { symbol: currencySymbol } = useCurrency();

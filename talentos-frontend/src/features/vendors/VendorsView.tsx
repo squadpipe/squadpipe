@@ -4,6 +4,7 @@ import { apiClient } from '../../config/api.config';
 import { Vendor, VendorContact } from '../../types';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { EditVendorModal } from '../../components/modals/edit/EditVendorModal';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapVendorFromApi } from '../../utils/entityMappers';
 
@@ -12,6 +13,7 @@ interface VendorsViewProps {
   onOpenAddVendor: () => void;
   onSelectVendor: (vendor: Vendor, startEditing?: boolean) => void;
   canEditVendor?: boolean;
+  onUpdateVendor?: (vendor: Vendor) => Promise<void> | void;
   onDeleteVendor?: (vendor: Vendor) => void;
 }
 
@@ -20,14 +22,16 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
   onOpenAddVendor,
   onSelectVendor,
   canEditVendor = true,
+  onUpdateVendor,
   onDeleteVendor,
 }) => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
-  const [tableRows, setTableRows] = useState<Vendor[]>(() => vendors.slice(0, 10));
+  const [limit, setLimit] = useState(5);
+  const [tableRows, setTableRows] = useState<Vendor[]>(() => vendors.slice(0, 5));
   const [totalRows, setTotalRows] = useState(vendors.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
+  const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
 
   const debouncedSearch = useDebounce(search, 150);
 
