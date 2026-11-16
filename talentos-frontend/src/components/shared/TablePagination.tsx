@@ -21,14 +21,18 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
   onLimitChange,
   itemLabel = 'results',
   isLoading = false,
-  pageSizeOptions = [5, 10, 20, 50],
+  pageSizeOptions = [10, 20, 50],
 }) => {
+  if (total <= 10) {
+    return null;
+  }
+
   const safeLimit = Math.max(1, limit);
   const totalPages = Math.max(1, Math.ceil(total / safeLimit));
   const currentPage = Math.min(Math.max(1, page), totalPages);
 
-  const startItem = total === 0 ? 0 : (currentPage - 1) * safeLimit + 1;
-  const endItem = total === 0 ? 0 : Math.min(currentPage * safeLimit, total);
+  const startItem = (currentPage - 1) * safeLimit + 1;
+  const endItem = Math.min(currentPage * safeLimit, total);
 
   const buildPageTokens = (): Array<number | 'ellipsis-left' | 'ellipsis-right'> => {
     if (totalPages <= 7) {
@@ -50,15 +54,18 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
   const pageTokens = buildPageTokens();
 
   return (
-    <div className="px-5 py-3 border-t border-slate-200/80 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-      <div className="flex flex-wrap items-center gap-3 text-slate-500">
+    <div className="px-4 py-1.5 border-t border-slate-100 bg-slate-50/40 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+      <div className="flex flex-wrap items-center gap-2.5 text-slate-500">
         <span>
-          Showing <strong className="font-semibold text-slate-800">{startItem}–{endItem}</strong> of{' '}
-          <strong className="font-semibold text-slate-800">{total}</strong> {itemLabel}
+          <strong className="font-semibold text-slate-700">
+            {startItem}–{endItem}
+          </strong>{' '}
+          of <strong className="font-semibold text-slate-700">{total}</strong> {itemLabel}
         </span>
 
         {onLimitChange && (
-          <div className="inline-flex items-center gap-1.5 text-[11px] text-slate-500">
+          <div className="inline-flex items-center gap-1.5 text-[11px] text-slate-400">
+            <span>&bull;</span>
             <span>Rows:</span>
             <CustomSelect
               value={String(safeLimit)}
@@ -66,7 +73,8 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
               ariaLabel="Rows per page"
               size="xs"
               fullWidth={false}
-              minMenuWidth={72}
+              minMenuWidth={64}
+              className="!py-0.5 !px-1.5 !h-6 !text-[11px]"
               options={pageSizeOptions.map((size) => ({
                 value: String(size),
                 label: String(size),
@@ -78,26 +86,25 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
         {isLoading && (
           <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
             <Loader2 className="w-3 h-3 animate-spin" />
-            <span>Syncing...</span>
           </span>
         )}
       </div>
 
-      <div className="flex items-center gap-1 self-end sm:self-auto">
+      <div className="flex items-center gap-0.5">
         <button
           type="button"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage <= 1 || isLoading}
-          className="px-2.5 py-1 rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-40 disabled:pointer-events-none font-medium inline-flex items-center gap-1 transition-colors cursor-pointer"
+          aria-label="Previous page"
+          className="h-6 w-6 rounded border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-35 disabled:pointer-events-none inline-flex items-center justify-center transition-colors cursor-pointer"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
-          <span>Prev</span>
         </button>
 
         {pageTokens.map((token) =>
           typeof token === 'string' ? (
-            <span key={token} className="px-1.5 text-slate-400 select-none">
-              ...
+            <span key={token} className="px-1 text-slate-400 select-none">
+              &hellip;
             </span>
           ) : (
             <button
@@ -105,10 +112,10 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
               type="button"
               onClick={() => onPageChange(token)}
               disabled={isLoading}
-              className={`min-w-[28px] h-7 px-2 rounded-md border text-[11px] font-semibold transition-colors cursor-pointer ${
+              className={`min-w-[24px] h-6 px-1.5 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
                 token === currentPage
-                  ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
-                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
+                  ? 'bg-slate-900 text-white shadow-2xs'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >
               {token}
@@ -120,9 +127,9 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
           type="button"
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage >= totalPages || isLoading}
-          className="px-2.5 py-1 rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-40 disabled:pointer-events-none font-medium inline-flex items-center gap-1 transition-colors cursor-pointer"
+          aria-label="Next page"
+          className="h-6 w-6 rounded border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-35 disabled:pointer-events-none inline-flex items-center justify-center transition-colors cursor-pointer"
         >
-          <span>Next</span>
           <ChevronRight className="w-3.5 h-3.5" />
         </button>
       </div>

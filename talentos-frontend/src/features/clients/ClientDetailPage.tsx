@@ -111,9 +111,9 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
   const clientPlacements = client
     ? placements.filter((p) => p.customer.toLowerCase() === client.name.toLowerCase())
     : [];
-  const contactsPg = useClientPagination(client?.contacts || [], 5, client?.id);
-  const reqsPg = useClientPagination(clientReqs, 5, client?.id);
-  const placementsPg = useClientPagination(clientPlacements, 5, client?.id);
+  const contactsPg = useClientPagination(client?.contacts || [], 10, client?.id);
+  const reqsPg = useClientPagination(clientReqs, 10, client?.id);
+  const placementsPg = useClientPagination(clientPlacements, 10, client?.id);
 
   if (!client) {
     return (
@@ -598,7 +598,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                   onPageChange={contactsPg.setPage}
                   onLimitChange={contactsPg.setLimit}
                   itemLabel="contacts"
-                  pageSizeOptions={[5, 10, 20]}
+                  pageSizeOptions={[10, 20, 50]}
                 />
               </>
             )}
@@ -675,7 +675,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                   onPageChange={reqsPg.setPage}
                   onLimitChange={reqsPg.setLimit}
                   itemLabel="requisitions"
-                  pageSizeOptions={[5, 10, 20]}
+                  pageSizeOptions={[10, 20, 50]}
                 />
               </>
             )}
@@ -733,7 +733,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                   onPageChange={placementsPg.setPage}
                   onLimitChange={placementsPg.setLimit}
                   itemLabel="placements"
-                  pageSizeOptions={[5, 10, 20]}
+                  pageSizeOptions={[10, 20, 50]}
                 />
               </>
             )}

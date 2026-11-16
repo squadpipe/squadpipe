@@ -200,8 +200,8 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
     [linkedPlacements]
   );
 
-  const submissionsPg = useClientPagination(linkedSubmissions, 5, candidate?.id);
-  const placementsPg = useClientPagination(linkedPlacements, 5, candidate?.id);
+  const submissionsPg = useClientPagination(linkedSubmissions, 10, candidate?.id);
+  const placementsPg = useClientPagination(linkedPlacements, 10, candidate?.id);
 
   if (!candidate) {
     return (
@@ -1013,7 +1013,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                   onPageChange={submissionsPg.setPage}
                   onLimitChange={submissionsPg.setLimit}
                   itemLabel="submissions"
-                  pageSizeOptions={[5, 10, 20]}
+                  pageSizeOptions={[10, 20, 50]}
                 />
               </>
             )}
@@ -1079,7 +1079,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                 onPageChange={placementsPg.setPage}
                 onLimitChange={placementsPg.setLimit}
                 itemLabel="placements"
-                pageSizeOptions={[5, 10, 20]}
+                pageSizeOptions={[10, 20, 50]}
               />
             </section>
           )}

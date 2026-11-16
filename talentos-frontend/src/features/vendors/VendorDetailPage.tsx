@@ -92,8 +92,8 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
       )
     : [];
   const contactList = vendor ? buildInitialVendorContacts(vendor) : [];
-  const contactsPg = useClientPagination(contactList, 5, vendor?.id);
-  const placementsPg = useClientPagination(vendorPlacements, 5, vendor?.id);
+  const contactsPg = useClientPagination(contactList, 10, vendor?.id);
+  const placementsPg = useClientPagination(vendorPlacements, 10, vendor?.id);
 
   if (!vendor) {
     return (
@@ -606,7 +606,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
                   onPageChange={contactsPg.setPage}
                   onLimitChange={contactsPg.setLimit}
                   itemLabel="contacts"
-                  pageSizeOptions={[5, 10, 20]}
+                  pageSizeOptions={[10, 20, 50]}
                 />
               </>
             )}
@@ -668,7 +668,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
                   onPageChange={placementsPg.setPage}
                   onLimitChange={placementsPg.setLimit}
                   itemLabel="placements"
-                  pageSizeOptions={[5, 10, 20]}
+                  pageSizeOptions={[10, 20, 50]}
                 />
               </>
             )}
