@@ -152,7 +152,7 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Main Board Phone</label>
+                <label className="block font-semibold text-slate-700 mb-1">Phone</label>
                 <input
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}

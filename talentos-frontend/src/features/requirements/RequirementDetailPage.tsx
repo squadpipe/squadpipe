@@ -411,6 +411,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     targetNote?: SubmissionNote | null
   ) => {
     setEditingNotesSub(sub);
+    setConfirmDeleteNoteId(null);
     setNotesModalMode(mode);
     setDraftInterviewDate(sub.interviewDateTime || sub.interviewDate || '');
     if (targetNote) {
@@ -475,6 +476,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
         action: 'delete',
         noteId,
       });
+      setConfirmDeleteNoteId(null);
       if (editingNoteId === noteId) {
         setEditingNoteId(null);
         setDraftNotesText('');
@@ -625,7 +627,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   );
 
   return (
-    <section className="max-w-7xl mx-auto space-y-4 animate-fade-in">
+    <section className="max-w-7xl mx-auto space-y-5 animate-fade-in">
       {/* Slim Breadcrumb */}
       <div className="flex items-center gap-2 text-xs">
         <button
@@ -1681,39 +1683,73 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                                     </span>
                                   )}
                                 </div>
-                                <div className="flex items-center gap-0.5 flex-shrink-0">
-                                  <button
-                                    type="button"
-                                    disabled={busyNoteId === note.id || isSavingNotes}
-                                    onClick={() => {
-                                      setEditingNoteId(note.id);
-                                      setDraftNotesText(note.text);
-                                      notesTextareaRef.current?.focus();
-                                    }}
-                                    title="Edit note"
-                                    aria-label={`Edit note by ${note.authorName}`}
-                                    className={`p-1 rounded transition-colors cursor-pointer ${
-                                      isBeingEdited
-                                        ? 'text-brand-600 bg-white'
-                                        : 'text-slate-400 hover:text-brand-600 hover:bg-white'
-                                    }`}
-                                  >
-                                    <Pencil className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={busyNoteId === note.id || isSavingNotes}
-                                    onClick={() => handleDeleteSubmissionNote(liveEditingSub, note.id)}
-                                    title="Delete note"
-                                    aria-label={`Delete note by ${note.authorName}`}
-                                    className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                                  >
-                                    {busyNoteId === note.id ? (
-                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    ) : (
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    )}
-                                  </button>
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  {confirmDeleteNoteId === note.id ? (
+                                    <div className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 rounded-md px-1.5 py-0.5 text-[10px]">
+                                      {busyNoteId === note.id ? (
+                                        <span className="inline-flex items-center gap-1 text-rose-700 font-semibold px-1 py-0.5">
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                          Deleting...
+                                        </span>
+                                      ) : (
+                                        <>
+                                          <span className="text-rose-700 font-semibold">
+                                            Delete?
+                                          </span>
+                                          <button
+                                            type="button"
+                                            disabled={isSavingNotes}
+                                            onClick={() =>
+                                              handleDeleteSubmissionNote(liveEditingSub, note.id)
+                                            }
+                                            className="px-1.5 py-0.5 rounded bg-rose-600 hover:bg-rose-700 text-white font-bold transition-colors cursor-pointer disabled:opacity-50"
+                                          >
+                                            Yes
+                                          </button>
+                                          <button
+                                            type="button"
+                                            disabled={isSavingNotes}
+                                            onClick={() => setConfirmDeleteNoteId(null)}
+                                            className="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-600 font-semibold border border-slate-200 transition-colors cursor-pointer disabled:opacity-50"
+                                          >
+                                            No
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <button
+                                        type="button"
+                                        disabled={busyNoteId === note.id || isSavingNotes}
+                                        onClick={() => {
+                                          setConfirmDeleteNoteId(null);
+                                          setEditingNoteId(note.id);
+                                          setDraftNotesText(note.text);
+                                          notesTextareaRef.current?.focus();
+                                        }}
+                                        title="Edit note"
+                                        aria-label={`Edit note by ${note.authorName}`}
+                                        className={`p-1 rounded transition-colors cursor-pointer ${
+                                          isBeingEdited
+                                            ? 'text-brand-600 bg-white'
+                                            : 'text-slate-400 hover:text-brand-600 hover:bg-white'
+                                        }`}
+                                      >
+                                        <Pencil className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={Boolean(busyNoteId) || isSavingNotes}
+                                        onClick={() => setConfirmDeleteNoteId(note.id)}
+                                        title="Delete note"
+                                        aria-label={`Delete note by ${note.authorName}`}
+                                        className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer disabled:opacity-40"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </>
+                                  )}
                                 </div>
                               </div>
                               <p className="text-slate-700 whitespace-pre-line break-words leading-relaxed mt-1">
@@ -1733,7 +1769,10 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                 <button
                   type="button"
                   disabled={isSavingNotes}
-                  onClick={() => setEditingNotesSub(null)}
+                  onClick={() => {
+                    setConfirmDeleteNoteId(null);
+                    setEditingNotesSub(null);
+                  }}
                   className="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
                 >
                   {isClosedMode || isInterviewMode ? 'Skip' : 'Close'}

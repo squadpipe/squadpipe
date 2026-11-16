@@ -126,12 +126,13 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Main Switchboard
+                  Phone
                 </label>
                 <input
                   type="text"
                   value={form.boardNumber}
                   onChange={(e) => setForm({ ...form, boardNumber: e.target.value })}
+                  placeholder="+1 (800) 000-0000"
                   className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
                 />
               </div>

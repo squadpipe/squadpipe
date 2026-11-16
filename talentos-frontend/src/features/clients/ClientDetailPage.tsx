@@ -533,9 +533,9 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
 
             <dl className="space-y-2 border-t border-slate-100 pt-3">
               <div className="flex items-start justify-between gap-2">
-                <dt className="text-slate-400 font-medium">Switchboard</dt>
+                <dt className="text-slate-400 font-medium">Phone</dt>
                 <dd className="text-slate-800 font-medium text-right">
-                  {client.boardNumber || 'Direct Corporate Line'}
+                  {client.boardNumber || '—'}
                 </dd>
               </div>
               <div className="flex items-start justify-between gap-2">
