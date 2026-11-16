@@ -64,6 +64,21 @@ const RequirementDetailPage = React.lazy(() =>
     default: m.RequirementDetailPage,
   }))
 );
+const ConsultantDetailPage = React.lazy(() =>
+  import('./features/consultants/ConsultantDetailPage').then((m) => ({
+    default: m.ConsultantDetailPage,
+  }))
+);
+const ClientDetailPage = React.lazy(() =>
+  import('./features/clients/ClientDetailPage').then((m) => ({
+    default: m.ClientDetailPage,
+  }))
+);
+const VendorDetailPage = React.lazy(() =>
+  import('./features/vendors/VendorDetailPage').then((m) => ({
+    default: m.VendorDetailPage,
+  }))
+);
 const SettingsView = React.lazy(() =>
   import('./features/settings/SettingsView').then((m) => ({
     default: m.SettingsView,
@@ -85,7 +100,6 @@ import { AddVendorModal } from './components/modals/create/AddVendorModal';
 import { AddPlacementModal } from './components/modals/create/AddPlacementModal';
 import { SignOutModal } from './components/modals/SignOutModal';
 import { ProfileModal } from './components/modals/ProfileModal';
-import { ResumeViewerModal } from './components/modals/ResumeViewerModal';
 import { CsvImportModal } from './components/modals/CsvImportModal';
 
 import {
@@ -294,9 +308,17 @@ export const App: React.FC = () => {
 
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [selectedResumeCand, setSelectedResumeCand] = useState<Candidate | null>(null);
   const [selectedReqForDetail, setSelectedReqForDetail] = useState<Requirement | null>(null);
   const [reqDetailReturnView, setReqDetailReturnView] = useState<string>('pipeline');
+  const [selectedCandForDetail, setSelectedCandForDetail] = useState<Candidate | null>(null);
+  const [candDetailReturnView, setCandDetailReturnView] = useState<string>('consultants');
+  const [candDetailInitialEdit, setCandDetailInitialEdit] = useState<boolean>(false);
+  const [selectedClientForDetail, setSelectedClientForDetail] = useState<Client | null>(null);
+  const [clientDetailReturnView, setClientDetailReturnView] = useState<string>('clients');
+  const [clientDetailInitialEdit, setClientDetailInitialEdit] = useState<boolean>(false);
+  const [selectedVendorForDetail, setSelectedVendorForDetail] = useState<Vendor | null>(null);
+  const [vendorDetailReturnView, setVendorDetailReturnView] = useState<string>('vendors');
+  const [vendorDetailInitialEdit, setVendorDetailInitialEdit] = useState<boolean>(false);
 
   const handleOpenRequirementDetail = (req: Requirement, fromView?: string) => {
     setReqDetailReturnView(
@@ -306,9 +328,60 @@ export const App: React.FC = () => {
     setCurrentView('requirement_detail');
   };
 
+  const handleOpenConsultantDetail = (
+    cand: Candidate,
+    startEditing = false,
+    fromView?: string
+  ) => {
+    setCandDetailReturnView(
+      fromView || (currentView !== 'consultant_detail' ? currentView : candDetailReturnView)
+    );
+    setSelectedCandForDetail(cand);
+    setCandDetailInitialEdit(Boolean(startEditing));
+    setCurrentView('consultant_detail');
+  };
+
+  const handleOpenClientDetail = (
+    client: Client,
+    startEditing = false,
+    fromView?: string
+  ) => {
+    setClientDetailReturnView(
+      fromView || (currentView !== 'client_detail' ? currentView : clientDetailReturnView)
+    );
+    setSelectedClientForDetail(client);
+    setClientDetailInitialEdit(Boolean(startEditing));
+    setCurrentView('client_detail');
+  };
+
+  const handleOpenVendorDetail = (
+    vendor: Vendor,
+    startEditing = false,
+    fromView?: string
+  ) => {
+    setVendorDetailReturnView(
+      fromView || (currentView !== 'vendor_detail' ? currentView : vendorDetailReturnView)
+    );
+    setSelectedVendorForDetail(vendor);
+    setVendorDetailInitialEdit(Boolean(startEditing));
+    setCurrentView('vendor_detail');
+  };
+
   const handleNavigateView = (nextView: string) => {
-    if (nextView !== 'requirement_detail') {
+    if (nextView !== 'requirement_detail' && nextView !== 'consultant_detail') {
       setSelectedReqForDetail(null);
+    }
+    if (nextView !== 'consultant_detail') {
+      setSelectedCandForDetail(null);
+      setCandDetailInitialEdit(false);
+    }
+    if (nextView !== 'client_detail' && nextView !== 'requirement_detail') {
+      setSelectedClientForDetail(null);
+      setClientDetailInitialEdit(false);
+    }
+    if (nextView !== 'vendor_detail') {
+      setSelectedVendorForDetail(null);
+      setVendorDetailInitialEdit(false);
     }
     setCurrentView(nextView);
   };
@@ -1173,7 +1246,7 @@ export const App: React.FC = () => {
       const res = await apiClient.put(`/candidates/${updated.id}`, requestBody);
       const saved: Candidate = res.data?.data ? mapCandidateFromApi(res.data.data) : updated;
       setCandidates((prev) => prev.map((c) => (c.id === saved.id ? { ...c, ...saved } : c)));
-      setSelectedResumeCand((prev) => (prev && prev.id === saved.id ? { ...prev, ...saved } : prev));
+      setSelectedCandForDetail((prev) => (prev && prev.id === saved.id ? { ...prev, ...saved } : prev));
       showToast(
         cvFile ? 'CV & Consultant Updated' : 'Consultant Updated',
         cvFile ? `${saved.fullName} profile and CV file saved.` : `${saved.fullName} details saved.`,
@@ -1210,6 +1283,7 @@ export const App: React.FC = () => {
       const res = await apiClient.put(`/vendors/${updated.id}`, updated);
       const saved: Vendor = res.data?.data ? mapVendorFromApi(res.data.data) : updated;
       setVendors((prev) => prev.map((v) => (v.id === saved.id ? { ...v, ...saved } : v)));
+      setSelectedVendorForDetail((prev) => (prev && prev.id === saved.id ? { ...prev, ...saved } : prev));
       fetchSlaTasks();
       fetchAutomations();
       showToast('Vendor Updated', `${saved.name} details saved.`, 'fa-solid fa-circle-check text-emerald-500');
@@ -1631,8 +1705,22 @@ export const App: React.FC = () => {
           currentView === 'requirement_detail'
             ? reqDetailReturnView === 'dashboard'
               ? 'dashboard'
-              : 'pipeline'
-            : currentView
+              : reqDetailReturnView === 'client_detail'
+                ? 'clients'
+                : reqDetailReturnView === 'consultant_detail'
+                  ? 'consultants'
+                  : 'pipeline'
+            : currentView === 'consultant_detail'
+              ? candDetailReturnView === 'dashboard'
+                ? 'dashboard'
+                : candDetailReturnView === 'requirement_detail'
+                  ? 'pipeline'
+                  : 'consultants'
+              : currentView === 'client_detail'
+                ? 'clients'
+                : currentView === 'vendor_detail'
+                  ? 'vendors'
+                  : currentView
         }
         onNavigate={handleNavigateView}
         counts={computedSidebarCounts}
@@ -1675,7 +1763,7 @@ export const App: React.FC = () => {
               onDeleteReq={canManageDataOperations ? handleDeleteRequirement : undefined}
               onPreviewResumeByName={(candName) => {
                 const c = candidates.find((cand) => cand.fullName === candName);
-                if (c) setSelectedResumeCand(c);
+                if (c) handleOpenConsultantDetail(c, false, 'dashboard');
               }}
               onStatusChange={handleStatusChange}
               onOpenMatcher={(req) => {
@@ -1720,7 +1808,13 @@ export const App: React.FC = () => {
                 selectedReqForDetail
               }
               backLabel={
-                reqDetailReturnView === 'dashboard' ? 'Back to Dashboard' : 'Back to Pipeline'
+                reqDetailReturnView === 'dashboard'
+                  ? 'Back to Dashboard'
+                  : reqDetailReturnView === 'client_detail'
+                    ? 'Back to Client'
+                    : reqDetailReturnView === 'consultant_detail'
+                      ? 'Back to Consultant'
+                      : 'Back to Pipeline'
               }
               onBack={() => handleNavigateView(reqDetailReturnView)}
               candidates={candidates}
@@ -1730,7 +1824,9 @@ export const App: React.FC = () => {
               onUpdateSubmissionStage={handleUpdateSubmissionStage}
               onUpdateSubmissionNotes={handleUpdateSubmissionNotes}
               onDetachSubmission={handleDetachSubmission}
-              onOpenResumePreview={(cand) => setSelectedResumeCand(cand)}
+              onOpenResumePreview={(cand) =>
+                handleOpenConsultantDetail(cand, false, 'requirement_detail')
+              }
               onOpenPlacementWizard={(req, cand) => {
                 setActiveCandidate(cand || null);
                 setActiveReq(req);
@@ -1754,7 +1850,9 @@ export const App: React.FC = () => {
               placements={placements}
               rateMasked={rateMasked}
               onOpenResumeParser={() => setIsResumeModalOpen(true)}
-              onPreviewResume={(c) => setSelectedResumeCand(c)}
+              onPreviewResume={(c, startEditing) =>
+                handleOpenConsultantDetail(c, Boolean(startEditing), 'consultants')
+              }
               onOpenAddConsultant={() => setActiveCreateModal('consultant')}
               onOpenCsvImport={
                 canManageDataOperations
@@ -1765,8 +1863,35 @@ export const App: React.FC = () => {
                   : undefined
               }
               onNavigateToBillable={() => setCurrentView('billable')}
-              onUpdateCandidate={handleUpdateCandidate}
+              canEditCandidate={canManageDataOperations}
               onDeleteCandidate={canManageDataOperations ? handleDeleteCandidate : undefined}
+            />
+          )}
+
+          {currentView === 'consultant_detail' && (
+            <ConsultantDetailPage
+              candidate={
+                candidates.find((c) => c.id === selectedCandForDetail?.id) ||
+                selectedCandForDetail
+              }
+              backLabel={
+                candDetailReturnView === 'dashboard'
+                  ? 'Back to Dashboard'
+                  : candDetailReturnView === 'requirement_detail'
+                    ? 'Back to Requirement'
+                    : 'Back to Consultants'
+              }
+              onBack={() => handleNavigateView(candDetailReturnView)}
+              requirements={requirements}
+              placements={placements}
+              rateMasked={rateMasked}
+              initialEditing={candDetailInitialEdit}
+              onSubmitToReq={(cand, req) => handleAssignCandidate(req, cand)}
+              onOpenRequirement={(req) => handleOpenRequirementDetail(req, 'consultant_detail')}
+              onUpdateCandidate={canManageDataOperations ? handleUpdateCandidate : undefined}
+              onDeleteCandidate={canManageDataOperations ? handleDeleteCandidate : undefined}
+              onNavigateToBillable={() => handleNavigateView('billable')}
+              showToast={showToast}
             />
           )}
 
@@ -1776,12 +1901,35 @@ export const App: React.FC = () => {
               requirements={requirements}
               placements={placements}
               onOpenAddClient={() => setActiveCreateModal('client')}
+              onSelectClient={(client, startEditing) =>
+                handleOpenClientDetail(client, Boolean(startEditing), 'clients')
+              }
               onDeleteClient={isAdmin ? handleDeleteClient : undefined}
-              onClientUpdated={(updatedClient) =>
+            />
+          )}
+
+          {currentView === 'client_detail' && (
+            <ClientDetailPage
+              client={
+                clients.find((c) => c.id === selectedClientForDetail?.id) ||
+                selectedClientForDetail
+              }
+              backLabel="Back to Clients"
+              onBack={() => handleNavigateView(clientDetailReturnView)}
+              requirements={requirements}
+              placements={placements}
+              rateMasked={rateMasked}
+              initialEditing={clientDetailInitialEdit}
+              onClientUpdated={(updatedClient) => {
                 setClients((prev) =>
                   prev.map((c) => (c.id === updatedClient.id ? updatedClient : c))
-                )
-              }
+                );
+                setSelectedClientForDetail((prev) =>
+                  prev && prev.id === updatedClient.id ? updatedClient : prev
+                );
+              }}
+              onOpenRequirement={(req) => handleOpenRequirementDetail(req, 'client_detail')}
+              onDeleteClient={isAdmin ? handleDeleteClient : undefined}
               showToast={showToast}
             />
           )}
@@ -1790,7 +1938,26 @@ export const App: React.FC = () => {
             <VendorsView
               vendors={vendors}
               onOpenAddVendor={() => setActiveCreateModal('vendor')}
-              onUpdateVendor={handleUpdateVendor}
+              onSelectVendor={(vendor, startEditing) =>
+                handleOpenVendorDetail(vendor, Boolean(startEditing), 'vendors')
+              }
+              canEditVendor={canManageDataOperations}
+              onDeleteVendor={isAdmin ? handleDeleteVendor : undefined}
+            />
+          )}
+
+          {currentView === 'vendor_detail' && (
+            <VendorDetailPage
+              vendor={
+                vendors.find((v) => v.id === selectedVendorForDetail?.id) ||
+                selectedVendorForDetail
+              }
+              backLabel="Back to Vendors"
+              onBack={() => handleNavigateView(vendorDetailReturnView)}
+              placements={placements}
+              rateMasked={rateMasked}
+              initialEditing={vendorDetailInitialEdit}
+              onUpdateVendor={canManageDataOperations ? handleUpdateVendor : undefined}
               onDeleteVendor={isAdmin ? handleDeleteVendor : undefined}
             />
           )}
@@ -1982,19 +2149,6 @@ export const App: React.FC = () => {
             showApiErrorToast(e, 'Task Update Failed', 'Could not update SLA task status.');
           }
         }}
-      />
-
-      {/* Candidate Resume Dossier Preview Modal */}
-      <ResumeViewerModal
-        isOpen={Boolean(selectedResumeCand)}
-        onClose={() => setSelectedResumeCand(null)}
-        candidate={selectedResumeCand}
-        requirements={requirements}
-        rateMasked={rateMasked}
-        onSubmitToReq={(candidate, req) => {
-          handleAssignCandidate(req, candidate).catch(() => {});
-        }}
-        showToast={showToast}
       />
 
       {/* Specialized Modals */}

@@ -32,10 +32,16 @@ export const Topbar: React.FC<TopbarProps> = ({
         return 'Requirement Details';
       case 'consultants':
         return 'Consultant Directory';
+      case 'consultant_detail':
+        return 'Consultant Profile';
       case 'clients':
         return 'Client Directory';
+      case 'client_detail':
+        return 'Client Details';
       case 'vendors':
         return 'Staffing Vendors';
+      case 'vendor_detail':
+        return 'Vendor Details';
       case 'billable':
         return 'Billable Consultants';
       case 'user_management':

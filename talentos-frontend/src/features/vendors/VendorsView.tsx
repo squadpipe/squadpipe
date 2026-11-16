@@ -1,25 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Pencil, Plus, Search, Star, Trash2, Users, X } from 'lucide-react';
+import { ChevronRight, Pencil, Plus, Search, Trash2, Users } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Vendor, VendorContact } from '../../types';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
-import { ActionButton } from '../../components/shared/ActionButton';
-import { DynamicCustomFieldsSection } from '../../components/shared/DynamicCustomFieldsSection';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapVendorFromApi } from '../../utils/entityMappers';
 
 interface VendorsViewProps {
   vendors: Vendor[];
   onOpenAddVendor: () => void;
-  onUpdateVendor?: (vendor: Vendor) => void;
+  onSelectVendor: (vendor: Vendor, startEditing?: boolean) => void;
+  canEditVendor?: boolean;
   onDeleteVendor?: (vendor: Vendor) => void;
 }
 
 export const VendorsView: React.FC<VendorsViewProps> = ({
   vendors,
   onOpenAddVendor,
-  onUpdateVendor,
+  onSelectVendor,
+  canEditVendor = true,
   onDeleteVendor,
 }) => {
   const [search, setSearch] = useState('');
@@ -28,8 +28,6 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
   const [tableRows, setTableRows] = useState<Vendor[]>(() => vendors.slice(0, 10));
   const [totalRows, setTotalRows] = useState(vendors.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
-  const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
-  const [isSavingVendor, setIsSavingVendor] = useState(false);
 
   const debouncedSearch = useDebounce(search, 150);
 
@@ -139,16 +137,13 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                 <th className="px-4 py-3">Payment Terms</th>
                 <th className="px-4 py-3">Invoicing</th>
                 <th className="px-4 py-3">MSA Status</th>
-                {(onUpdateVendor || onDeleteVendor) && <th className="px-4 py-3 text-right">Actions</th>}
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
               {filtered.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={onUpdateVendor || onDeleteVendor ? 9 : 8}
-                    className="px-6 py-10 text-center text-xs text-slate-400"
-                  >
+                  <td colSpan={9} className="px-6 py-10 text-center text-xs text-slate-400">
                     {search.trim() ? (
                       <>
                         No staffing vendors match your search.{' '}
@@ -187,7 +182,11 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                 const primaryContact = contactList.find((c) => c.isPrimary) || contactList[0];
                 const extraCount = Math.max(0, contactList.length - 1);
                 return (
-                  <tr key={v.id} className="hover:bg-slate-50/80 transition-colors">
+                  <tr
+                    key={v.id}
+                    onClick={() => onSelectVendor(v, false)}
+                    className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                  >
                     <td className="px-4 py-3 font-semibold text-slate-900">{v.name}</td>
                     <td className="px-4 py-3 text-slate-800">
                       <div
@@ -220,44 +219,42 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                         size="xs"
                       />
                     </td>
-                    {(onUpdateVendor || onDeleteVendor) && (
-                      <td className="px-4 py-3 text-right whitespace-nowrap">
-                        <div className="inline-flex items-center gap-1">
-                          {onUpdateVendor && (
-                            <button
-                              onClick={() => {
-                                const initialContacts: VendorContact[] =
-                                  v.contacts && v.contacts.length > 0
-                                    ? v.contacts.map((c) => ({ ...c }))
-                                    : [
-                                        {
-                                          fullName: v.contactName || '',
-                                          designation: '',
-                                          phone: v.phone || '',
-                                          email: v.email || '',
-                                          isPrimary: true,
-                                        },
-                                      ];
-                                setEditingVendor({ ...v, contacts: initialContacts });
-                              }}
-                              title="Edit vendor"
-                              className="p-1.5 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          {onDeleteVendor && (
-                            <button
-                              onClick={() => onDeleteVendor(v)}
-                              title="Delete vendor"
-                              className="p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    )}
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <div
+                        className="inline-flex items-center gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => onSelectVendor(v, false)}
+                          title="View vendor details"
+                          className="px-2 py-1 rounded text-[11px] font-semibold text-brand-600 hover:bg-brand-50 inline-flex items-center gap-0.5 transition-colors cursor-pointer"
+                        >
+                          <span>View</span>
+                          <ChevronRight className="w-3 h-3" />
+                        </button>
+                        {canEditVendor && (
+                          <button
+                            type="button"
+                            onClick={() => onSelectVendor(v, true)}
+                            title="Edit vendor"
+                            className="p-1.5 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {onDeleteVendor && (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteVendor(v)}
+                            title="Delete vendor"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 );
               })
@@ -278,297 +275,6 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
           isLoading={isLoadingRows}
         />
       </div>
-
-      {/* Edit Vendor Modal */}
-      {editingVendor && (
-        <div
-          onClick={() => setEditingVendor(null)}
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up max-h-[90vh] flex flex-col"
-          >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">Edit Vendor</h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">{editingVendor.name}</p>
-              </div>
-              <button
-                onClick={() => setEditingVendor(null)}
-                className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (isSavingVendor) return;
-                const contacts = (editingVendor.contacts || []).filter(
-                  (c) => c.fullName.trim() || c.email.trim()
-                );
-                const primary = contacts.find((c) => c.isPrimary) || contacts[0];
-                const payload: Vendor = {
-                  ...editingVendor,
-                  contactName: primary?.fullName || editingVendor.contactName,
-                  email: primary?.email || editingVendor.email,
-                  phone: primary?.phone || editingVendor.phone,
-                  contacts,
-                };
-                setIsSavingVendor(true);
-                try {
-                  if (onUpdateVendor) await onUpdateVendor(payload);
-                  setEditingVendor(null);
-                } catch {
-                  // Error toast is already displayed by parent handler; keep modal open
-                } finally {
-                  setIsSavingVendor(false);
-                }
-              }}
-              className="p-6 space-y-4 text-xs overflow-y-auto"
-            >
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Vendor Company *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editingVendor.name}
-                    onChange={(e) => setEditingVendor({ ...editingVendor, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Location</label>
-                  <input
-                    type="text"
-                    value={editingVendor.location}
-                    onChange={(e) => setEditingVendor({ ...editingVendor, location: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Multi-Contact List */}
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                    Vendor Contacts ({(editingVendor.contacts || []).length})
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setEditingVendor({
-                        ...editingVendor,
-                        contacts: [
-                          ...(editingVendor.contacts || []),
-                          {
-                            fullName: '',
-                            designation: '',
-                            phone: '',
-                            email: '',
-                            isPrimary: (editingVendor.contacts || []).length === 0,
-                          },
-                        ],
-                      })
-                    }
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-slate-200 text-brand-600 hover:bg-brand-50 text-[11px] font-semibold cursor-pointer"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>Add Contact</span>
-                  </button>
-                </div>
-
-                <div className="space-y-2.5">
-                  {(editingVendor.contacts || []).map((contact, idx) => (
-                    <div
-                      key={contact.id || idx}
-                      className="p-3 rounded-lg bg-white border border-slate-200 space-y-2"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setEditingVendor({
-                              ...editingVendor,
-                              contacts: (editingVendor.contacts || []).map((c, cIdx) => ({
-                                ...c,
-                                isPrimary: cIdx === idx,
-                              })),
-                            })
-                          }
-                          className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border cursor-pointer transition-colors ${
-                            contact.isPrimary
-                              ? 'bg-[#141615] text-white border-[#141615]'
-                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                          }`}
-                        >
-                          <Star
-                            className={`w-2.5 h-2.5 ${
-                              contact.isPrimary ? 'fill-amber-400 text-amber-400' : 'text-slate-400'
-                            }`}
-                          />
-                          <span>{contact.isPrimary ? 'Primary Contact' : 'Set Primary'}</span>
-                        </button>
-                        {(editingVendor.contacts || []).length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const next = (editingVendor.contacts || []).filter((_, cIdx) => cIdx !== idx);
-                              if (next.length > 0 && !next.some((c) => c.isPrimary)) {
-                                next[0].isPrimary = true;
-                              }
-                              setEditingVendor({ ...editingVendor, contacts: next });
-                            }}
-                            title="Remove contact"
-                            className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 cursor-pointer"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="text"
-                          required
-                          placeholder="Full name *"
-                          value={contact.fullName}
-                          onChange={(e) =>
-                            setEditingVendor({
-                              ...editingVendor,
-                              contacts: (editingVendor.contacts || []).map((c, cIdx) =>
-                                cIdx === idx ? { ...c, fullName: e.target.value } : c
-                              ),
-                            })
-                          }
-                          className="px-2.5 py-1.5 border border-slate-200 rounded-md text-xs focus:border-brand-600 focus:outline-none"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Designation / Role"
-                          value={contact.designation || ''}
-                          onChange={(e) =>
-                            setEditingVendor({
-                              ...editingVendor,
-                              contacts: (editingVendor.contacts || []).map((c, cIdx) =>
-                                cIdx === idx ? { ...c, designation: e.target.value } : c
-                              ),
-                            })
-                          }
-                          className="px-2.5 py-1.5 border border-slate-200 rounded-md text-xs focus:border-brand-600 focus:outline-none"
-                        />
-                        <input
-                          type="email"
-                          required
-                          placeholder="Email *"
-                          value={contact.email}
-                          onChange={(e) =>
-                            setEditingVendor({
-                              ...editingVendor,
-                              contacts: (editingVendor.contacts || []).map((c, cIdx) =>
-                                cIdx === idx ? { ...c, email: e.target.value } : c
-                              ),
-                            })
-                          }
-                          className="px-2.5 py-1.5 border border-slate-200 rounded-md text-xs focus:border-brand-600 focus:outline-none"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Phone"
-                          value={contact.phone || ''}
-                          onChange={(e) =>
-                            setEditingVendor({
-                              ...editingVendor,
-                              contacts: (editingVendor.contacts || []).map((c, cIdx) =>
-                                cIdx === idx ? { ...c, phone: e.target.value } : c
-                              ),
-                            })
-                          }
-                          className="px-2.5 py-1.5 border border-slate-200 rounded-md text-xs focus:border-brand-600 focus:outline-none"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Specialization</label>
-                <input
-                  type="text"
-                  value={editingVendor.skillSpecialization}
-                  onChange={(e) => setEditingVendor({ ...editingVendor, skillSpecialization: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Payment Terms</label>
-                  <select
-                    value={editingVendor.paymentTerms}
-                    onChange={(e) => setEditingVendor({ ...editingVendor, paymentTerms: e.target.value })}
-                    className="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
-                  >
-                    <option value="Net 15">Net 15</option>
-                    <option value="Net 30">Net 30</option>
-                    <option value="Net 45">Net 45</option>
-                    <option value="Net 60">Net 60</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Invoicing</label>
-                  <input
-                    type="text"
-                    value={editingVendor.invoicingTerms}
-                    onChange={(e) => setEditingVendor({ ...editingVendor, invoicingTerms: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">MSA Status</label>
-                  <select
-                    value={editingVendor.msa === 'Yes' || editingVendor.msa === 'Active' ? 'Yes' : 'Pending'}
-                    onChange={(e) => setEditingVendor({ ...editingVendor, msa: e.target.value })}
-                    className="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
-                  >
-                    <option value="Yes">MSA Executed</option>
-                    <option value="Pending">Pending Review</option>
-                  </select>
-                </div>
-              </div>
-
-              <DynamicCustomFieldsSection
-                entity="vendor"
-                values={(editingVendor.customFields as Record<string, string>) || {}}
-                onChange={(vals) => setEditingVendor({ ...editingVendor, customFields: vals })}
-                isOpen={Boolean(editingVendor)}
-              />
-
-              <div className="pt-2 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  disabled={isSavingVendor}
-                  onClick={() => setEditingVendor(null)}
-                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <ActionButton
-                  type="submit"
-                  loading={isSavingVendor}
-                  loadingText="Saving..."
-                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
-                >
-                  Save Changes
-                </ActionButton>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </section>
   );
 };

@@ -9,15 +9,11 @@ import {
   Search,
   Trash2,
   Users,
-  X,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Client, Requirement, BillablePlacement } from '../../types';
-import { ClientDetailDrawer } from '../../components/modals/ClientDetailDrawer';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
-import { ActionButton } from '../../components/shared/ActionButton';
-import { DynamicCustomFieldsSection } from '../../components/shared/DynamicCustomFieldsSection';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapClientFromApi } from '../../utils/entityMappers';
 
@@ -26,9 +22,8 @@ interface ClientsViewProps {
   requirements: Requirement[];
   placements: BillablePlacement[];
   onOpenAddClient: () => void;
+  onSelectClient: (client: Client, startEditing?: boolean) => void;
   onDeleteClient?: (client: Client) => void;
-  onClientUpdated?: (updatedClient: Client) => void;
-  showToast?: (title: string, message: string, icon?: string) => void;
 }
 
 export const ClientsView: React.FC<ClientsViewProps> = ({
@@ -36,9 +31,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   requirements,
   placements,
   onOpenAddClient,
+  onSelectClient,
   onDeleteClient,
-  onClientUpdated,
-  showToast = () => {},
 }) => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -46,9 +40,6 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   const [serverClients, setServerClients] = useState<Client[]>([]);
   const [totalClients, setTotalClients] = useState(clients.length);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [isSavingClient, setIsSavingClient] = useState(false);
 
   const debouncedSearch = useDebounce(search, 300);
 
@@ -93,28 +84,6 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   }, [debouncedSearch, page, limit, clients]);
 
   const filtered = serverClients;
-
-  const handleSaveClientEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingClient) return;
-    setIsSavingClient(true);
-    try {
-      await apiClient.put(`/clients/${editingClient.id}`, {
-        name: editingClient.name,
-        website: editingClient.website,
-        boardNumber: editingClient.boardNumber,
-        location: editingClient.location,
-        customFields: editingClient.customFields || {},
-      });
-      if (onClientUpdated) onClientUpdated(editingClient);
-      showToast('Client Updated', `${editingClient.name} details updated.`);
-      setEditingClient(null);
-    } catch (err: any) {
-      showToast('Update Failed', err.response?.data?.message || 'Could not update client.');
-    } finally {
-      setIsSavingClient(false);
-    }
-  };
 
   return (
     <section className="max-w-7xl mx-auto space-y-5 animate-fade-in">
@@ -213,7 +182,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                   return (
                     <tr
                       key={client.id}
-                      onClick={() => setSelectedClient(client)}
+                      onClick={() => onSelectClient(client, false)}
                       className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                     >
                       <td className="px-4 py-3">
@@ -279,7 +248,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                         <div className="inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
-                            onClick={() => setSelectedClient(client)}
+                            onClick={() => onSelectClient(client, false)}
                             title="View client details"
                             className="px-2 py-1 rounded text-[11px] font-semibold text-brand-600 hover:bg-brand-50 inline-flex items-center gap-0.5 transition-colors cursor-pointer"
                           >
@@ -288,7 +257,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                           </button>
                           <button
                             type="button"
-                            onClick={() => setEditingClient({ ...client })}
+                            onClick={() => onSelectClient(client, true)}
                             title="Edit client"
                             className="p-1.5 rounded text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors cursor-pointer"
                           >
@@ -327,115 +296,6 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
           pageSizeOptions={[10, 20, 50]}
         />
       </div>
-
-      {/* Client Detail Flyout Drawer */}
-      <ClientDetailDrawer
-        isOpen={Boolean(selectedClient)}
-        onClose={() => setSelectedClient(null)}
-        client={selectedClient}
-        requirements={requirements}
-        placements={placements}
-        onClientUpdated={(updated) => {
-          setSelectedClient(updated);
-          if (onClientUpdated) onClientUpdated(updated);
-        }}
-        showToast={showToast}
-      />
-
-      {/* Edit Client Modal */}
-      {editingClient && (
-        <div
-          onClick={() => setEditingClient(null)}
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up"
-          >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">Edit Client Account</h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">{editingClient.name}</p>
-              </div>
-              <button
-                onClick={() => setEditingClient(null)}
-                className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveClientEdit} className="p-6 space-y-3.5 text-xs">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Company Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={editingClient.name}
-                  onChange={(e) => setEditingClient({ ...editingClient, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Website</label>
-                <input
-                  type="text"
-                  value={editingClient.website}
-                  onChange={(e) => setEditingClient({ ...editingClient, website: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Switchboard Phone</label>
-                  <input
-                    type="text"
-                    value={editingClient.boardNumber}
-                    onChange={(e) => setEditingClient({ ...editingClient, boardNumber: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Location *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editingClient.location}
-                    onChange={(e) => setEditingClient({ ...editingClient, location: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <DynamicCustomFieldsSection
-                entity="client"
-                values={(editingClient.customFields as Record<string, string>) || {}}
-                onChange={(vals) => setEditingClient({ ...editingClient, customFields: vals })}
-                isOpen={Boolean(editingClient)}
-              />
-
-              <div className="pt-2 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  disabled={isSavingClient}
-                  onClick={() => setEditingClient(null)}
-                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <ActionButton
-                  type="submit"
-                  loading={isSavingClient}
-                  loadingText="Saving..."
-                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
-                >
-                  Save Changes
-                </ActionButton>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </section>
   );
 };
