@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AlertTriangle, DollarSign, X, Check, UserCheck, Briefcase, TrendingUp } from 'lucide-react';
 import { BillablePlacement, Candidate, Client, Requirement, User, Vendor } from '../../../types';
 import { DynamicCustomFieldsSection } from '../../shared/DynamicCustomFieldsSection';
-import { useCurrency } from '../../../utils/currency';
+import { inferPlacementTypeFromRate, parseRateNumber, useCurrency } from '../../../utils/currency';
 import { SearchableSelectInput } from '../../shared/SearchableSelectInput';
 import { CustomSelect } from '../../shared/CustomSelect';
 import { ActionButton } from '../../shared/ActionButton';
@@ -84,10 +84,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
 
   if (!isOpen) return null;
 
-  const parseRateNum = (val: string, fallback = 0) => {
-    const n = parseFloat(String(val || '').replace(/[^0-9.]/g, ''));
-    return isNaN(n) ? fallback : n;
-  };
+  const parseRateNum = (val: string, fallback = 0) => parseRateNumber(val, fallback);
 
   const billNum = parseRateNum(form.billing, 0);
   const payNum = parseRateNum(form.payRate, 0);
@@ -121,7 +118,9 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
       phone: c.phone || prev.phone,
       email: c.email || prev.email,
       recruiter: c.assignedRecruiter || prev.recruiter,
-      placementType: candVendor ? 'C2C Subcontractor' : prev.placementType,
+      placementType: candVendor
+        ? 'C2C Subcontractor'
+        : inferPlacementTypeFromRate(c.hourlyRate) || prev.placementType,
       vendorName: candVendor ? candVendor.name : prev.vendorName,
     }));
   };

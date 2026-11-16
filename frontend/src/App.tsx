@@ -8,7 +8,7 @@ import {
   getStoredCurrentUserRaw,
   updateStoredCurrentUser,
 } from './utils/authStorage';
-import { formatRateDisplay, getCurrencySymbol, initWorkspaceCurrency } from './utils/currency';
+import { formatRateDisplay, getCurrencySymbol, initWorkspaceCurrency, parseRateNumber } from './utils/currency';
 import {
   DEFAULT_WORKSPACE_BRAND,
   getWorkspaceBrand,
@@ -209,10 +209,7 @@ const normalizePlacement = (p: any): BillablePlacement => {
   };
   const status = statusMap[statusRaw] || 'Active';
 
-  const parseNum = (val: any): number => {
-    const n = parseFloat(String(val ?? '').replace(/[^0-9.]/g, ''));
-    return isNaN(n) ? 0 : n;
-  };
+  const parseNum = (val: any): number => parseRateNumber(val, 0);
 
   const sym = getCurrencySymbol();
   let billing = '';
@@ -1353,8 +1350,8 @@ export const App: React.FC = () => {
   const handleUpdatePlacement = async (updated: BillablePlacement) => {
     try {
       const existingBeforeSave = placements.find((p) => p.id === updated.id);
-      const billNum = parseFloat(String(updated.billing || '0').replace(/[^0-9.]/g, '')) || 0;
-      const payNum = parseFloat(String(updated.payRate || '0').replace(/[^0-9.]/g, '')) || 0;
+      const billNum = parseRateNumber(updated.billing, 0);
+      const payNum = parseRateNumber(updated.payRate, 0);
       const hourlySpread = billNum - payNum;
       const marginPct = billNum > 0 ? parseFloat(((hourlySpread / billNum) * 100).toFixed(2)) : 0;
       const payload = { ...updated, hourlySpread, marginPct };
@@ -1523,8 +1520,8 @@ export const App: React.FC = () => {
           if (updatedPlacement) return { ...p, ...updatedPlacement };
           const billing = extensionData?.billing || p.billing;
           const payRate = extensionData?.payRate || p.payRate || '';
-          const billNum = parseFloat(String(billing).replace(/[^0-9.]/g, '')) || 0;
-          const payNum = parseFloat(String(payRate).replace(/[^0-9.]/g, '')) || 0;
+          const billNum = parseRateNumber(billing, 0);
+          const payNum = parseRateNumber(payRate, 0);
           const hourlySpread = billNum - payNum;
           const marginPct = billNum > 0 ? parseFloat(((hourlySpread / billNum) * 100).toFixed(2)) : 0;
           return {
@@ -2447,6 +2444,7 @@ export const App: React.FC = () => {
         onSave={async (r) => {
           const res = await apiClient.post('/requirements', r);
           const saved = res.data?.data ? mapRequirementFromApi(res.data.data) : r;
+          fetchClients();
           fetchSidebarCounts();
           fetchSlaTasks();
           fetchAutomations();

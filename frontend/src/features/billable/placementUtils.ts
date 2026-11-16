@@ -1,5 +1,6 @@
 import { BillablePlacement, Vendor } from '../../types';
 import { StatusTone } from '../../components/shared/StatusBadge';
+import { parseRateNumber } from '../../utils/currency';
 
 export interface ExtensionData {
   newEndDate: string;
@@ -15,10 +16,7 @@ export type EffectivePlacementStatus =
   | 'Completed'
   | 'Terminated';
 
-export const parseRate = (val: unknown, fallback = 0): number => {
-  const n = parseFloat(String(val ?? '').replace(/[^0-9.]/g, ''));
-  return isNaN(n) ? fallback : n;
-};
+export const parseRate = (val: unknown, fallback = 0): number => parseRateNumber(val, fallback);
 
 export const addMonthsToDate = (dateStr: string, months: number): string => {
   const base = dateStr ? new Date(dateStr + 'T00:00:00') : new Date();

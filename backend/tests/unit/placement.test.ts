@@ -1,3 +1,6 @@
+import assert from 'assert';
+import { parseRateNumber } from '../../src/utils/rateParser';
+
 export const runPlacementCalculationTests = () => {
   console.log('--- Running Commercial Placement Margin Tests ---');
 
@@ -23,6 +26,15 @@ export const runPlacementCalculationTests = () => {
     }
   }
 
-  console.log('✅ Placement Margin Calculations: PASSED (Exact prototype arithmetic match)');
+  assert.strictEqual(parseRateNumber('$115/hr (C2C)'), 115);
+  assert.strictEqual(parseRateNumber('$90/hr (W2)'), 90);
+  assert.strictEqual(parseRateNumber('$100/hr (1099)'), 100);
+  assert.strictEqual(parseRateNumber('W2 $85/hr'), 85);
+  assert.strictEqual(parseRateNumber('C-2-C $120.50/hr'), 120.5);
+  assert.strictEqual(parseRateNumber('$1,250.50/hr'), 1250.5);
+  assert.strictEqual(parseRateNumber('', 65), 65);
+  assert.strictEqual(parseRateNumber(undefined, 90), 90);
+
+  console.log('✅ Placement Margin & Rate Parser Calculations: PASSED (Exact prototype arithmetic match)');
 };
 

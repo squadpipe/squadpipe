@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Check, Plus, X } from 'lucide-react';
 import { Candidate, Requirement, Client, Vendor, BillablePlacement } from '../../types';
-import { formatRateDisplay, useCurrency } from '../../utils/currency';
+import { formatRateDisplay, parseRateNumber, useCurrency } from '../../utils/currency';
 import { CustomSelect } from './CustomSelect';
 
 interface QuickAddModalProps {
@@ -188,8 +188,8 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
         showToast('Required Fields', 'Resource Name and Customer are required.');
         return;
       }
-      const billNum = parseFloat(placeForm.billing.replace(/[^0-9.]/g, '')) || 0;
-      const payNum = parseFloat(placeForm.payRate.replace(/[^0-9.]/g, '')) || 0;
+      const billNum = parseRateNumber(placeForm.billing, 0);
+      const payNum = parseRateNumber(placeForm.payRate, 0);
       const spread = billNum > payNum ? billNum - payNum : 0;
       const margin = billNum > 0 ? (spread / billNum) * 100 : 0;
 

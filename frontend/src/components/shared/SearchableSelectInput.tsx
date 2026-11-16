@@ -13,6 +13,7 @@ interface SearchableSelectInputProps {
   options: SearchableSelectOption[];
   placeholder?: string;
   emptyLabel?: string;
+  newOptionBadge?: string;
   required?: boolean;
   wrapperClassName?: string;
   inputClassName?: string;
@@ -27,12 +28,14 @@ export const SearchableSelectInput: React.FC<SearchableSelectInputProps> = ({
   options,
   placeholder = 'Select or type...',
   emptyLabel = 'No matching options',
+  newOptionBadge = 'New',
   required = false,
   wrapperClassName = 'mt-0.5',
   inputClassName = 'w-full pl-2.5 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 font-medium focus:border-brand-600 focus:outline-none',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [filterActive, setFilterActive] = useState(false);
+  const [highlightedIdx, setHighlightedIdx] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,12 +43,14 @@ export const SearchableSelectInput: React.FC<SearchableSelectInputProps> = ({
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
         setFilterActive(false);
+        setHighlightedIdx(-1);
       }
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setIsOpen(false);
         setFilterActive(false);
+        setHighlightedIdx(-1);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -81,6 +86,15 @@ export const SearchableSelectInput: React.FC<SearchableSelectInputProps> = ({
   const exactMatch = uniqueOptions.some(
     (opt) => opt.label.toLowerCase() === value.trim().toLowerCase()
   );
+  const hasNewOption = Boolean(value.trim() && !exactMatch);
+  const totalMenuCount = filteredOptions.length + (hasNewOption ? 1 : 0);
+
+  const selectValueAndClose = (nextValue: string) => {
+    onChange(nextValue);
+    setIsOpen(false);
+    setFilterActive(false);
+    setHighlightedIdx(-1);
+  };
 
   return (
     <div ref={containerRef} className={`relative ${wrapperClassName}`}>
@@ -92,11 +106,35 @@ export const SearchableSelectInput: React.FC<SearchableSelectInputProps> = ({
           onFocus={() => {
             setIsOpen(true);
             setFilterActive(false);
+            setHighlightedIdx(-1);
           }}
           onChange={(e) => {
             onChange(e.target.value);
             setIsOpen(true);
             setFilterActive(true);
+            setHighlightedIdx(-1);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown' && totalMenuCount > 0) {
+              e.preventDefault();
+              setIsOpen(true);
+              setHighlightedIdx((prev) => (prev + 1) % totalMenuCount);
+            } else if (e.key === 'ArrowUp' && totalMenuCount > 0) {
+              e.preventDefault();
+              setIsOpen(true);
+              setHighlightedIdx((prev) => (prev <= 0 ? totalMenuCount - 1 : prev - 1));
+            } else if (e.key === 'Enter' && isOpen) {
+              if (highlightedIdx >= 0 && highlightedIdx < filteredOptions.length) {
+                e.preventDefault();
+                selectValueAndClose(filteredOptions[highlightedIdx].label);
+              } else if (hasNewOption) {
+                e.preventDefault();
+                selectValueAndClose(value.trim());
+              } else if (filteredOptions.length === 1 && filterActive) {
+                e.preventDefault();
+                selectValueAndClose(filteredOptions[0].label);
+              }
+            }
           }}
           placeholder={placeholder}
           autoComplete="off"
@@ -108,6 +146,7 @@ export const SearchableSelectInput: React.FC<SearchableSelectInputProps> = ({
           onClick={() => {
             setIsOpen((prev) => !prev);
             setFilterActive(false);
+            setHighlightedIdx(-1);
           }}
           aria-label="Toggle options"
           className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
@@ -126,22 +165,23 @@ export const SearchableSelectInput: React.FC<SearchableSelectInputProps> = ({
             </div>
           ) : (
             <>
-              {filteredOptions.map((opt) => {
+              {filteredOptions.map((opt, idx) => {
                 const isSelected = value.trim().toLowerCase() === opt.label.toLowerCase();
+                const isHighlighted = idx === highlightedIdx;
                 return (
                   <button
                     key={opt.id || opt.label}
                     type="button"
                     onMouseDown={(e) => {
                       e.preventDefault();
-                      onChange(opt.label);
-                      setIsOpen(false);
-                      setFilterActive(false);
+                      selectValueAndClose(opt.label);
                     }}
                     className={`w-full px-3 py-2 text-left flex items-center justify-between gap-2 transition-colors cursor-pointer ${
                       isSelected
                         ? 'bg-brand-50/70 text-brand-700'
-                        : 'text-slate-700 hover:bg-slate-50'
+                        : isHighlighted
+                          ? 'bg-slate-100 text-slate-900'
+                          : 'text-slate-700 hover:bg-slate-50'
                     }`}
                   >
                     <div className="min-w-0 flex-1">
@@ -159,20 +199,25 @@ export const SearchableSelectInput: React.FC<SearchableSelectInputProps> = ({
                 );
               })}
 
-              {value.trim() && !exactMatch && (
+              {hasNewOption && (
                 <button
                   type="button"
                   onMouseDown={(e) => {
                     e.preventDefault();
-                    onChange(value.trim());
-                    setIsOpen(false);
-                    setFilterActive(false);
+                    selectValueAndClose(value.trim());
                   }}
-                  className="w-full px-3 py-2 text-left border-t border-slate-100 text-[11px] text-brand-600 hover:bg-brand-50/50 font-semibold flex items-center justify-between gap-2 cursor-pointer"
+                  className={`w-full px-3 py-2 text-left border-t border-slate-100 text-[11px] font-semibold flex items-center justify-between gap-2 cursor-pointer ${
+                    highlightedIdx === filteredOptions.length
+                      ? 'bg-brand-100/70 text-brand-800'
+                      : 'bg-brand-50/60 text-brand-700 hover:bg-brand-50'
+                  }`}
                 >
-                  <span className="truncate">Use &ldquo;{value.trim()}&rdquo;</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-medium flex-shrink-0">
-                    New
+                  <span className="truncate inline-flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-brand-600 flex-shrink-0" />
+                    <span className="truncate">&ldquo;{value.trim()}&rdquo;</span>
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-white border border-brand-200 text-brand-700 font-medium flex-shrink-0">
+                    {newOptionBadge}
                   </span>
                 </button>
               )}

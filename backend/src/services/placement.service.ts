@@ -3,6 +3,7 @@ import { CandidatePipelineStage, PlacementStatus, Prisma, DeploymentType, Placem
 import { automationEngineService } from './automationEngine.service';
 import { slaEngineService } from './slaEngine.service';
 import { parseCustomFields } from '../utils/customFields';
+import { parseRateNumber } from '../utils/rateParser';
 import { RequirementStatus, normalizeStageValue } from './requirement.service';
 import { computeHighestActiveStage, getTenantPipelineStages } from './submission.service';
 
@@ -16,10 +17,7 @@ export interface PlacementFilterParams {
 
 export class PlacementService {
   private parseRate(val: any, fallback: number): number {
-    if (typeof val === 'number') return isNaN(val) ? fallback : val;
-    const cleaned = String(val ?? '').replace(/[^0-9.]/g, '');
-    const parsed = parseFloat(cleaned);
-    return isNaN(parsed) ? fallback : parsed;
+    return parseRateNumber(val, fallback);
   }
 
   private mapPlacementStatus(status?: string): PlacementStatus {

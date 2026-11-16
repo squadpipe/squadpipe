@@ -8,7 +8,7 @@ import {
   BillablePlacement,
   User,
 } from '../types';
-import { formatRateDisplay, getCurrencySymbol } from './currency';
+import { formatRateDisplay, getCurrencySymbol, parseRateNumber } from './currency';
 
 export const safeIsoDate = (val: any, fallback = ''): string => {
   if (!val || (typeof val !== 'string' && typeof val !== 'number' && !(val instanceof Date))) {
@@ -247,7 +247,12 @@ export const mapCandidateFromApi = (c: any): Candidate => ({
   currentTitle: c.currentTitle || '',
   skillset: c.skillset || '',
   hourlyRate: formatRateDisplay(
-    c.hourlyRateDisplay || (c.hourlyRateW2 ? `${getCurrencySymbol()}${c.hourlyRateW2}/hr (W2)` : '')
+    c.hourlyRateDisplay ||
+      (c.hourlyRateW2
+        ? `${getCurrencySymbol()}${c.hourlyRateW2}/hr (W2)`
+        : c.hourlyRateC2c
+          ? `${getCurrencySymbol()}${c.hourlyRateC2c}/hr (C2C)`
+          : '')
   ),
   relocation: c.relocation || 'Yes',
   resumeName: c.resumeFileName || '',
@@ -352,10 +357,7 @@ export const mapPlacementFromApi = (p: any): BillablePlacement => {
   };
   const status = statusMap[statusRaw] || 'Active';
 
-  const parseNum = (val: any): number => {
-    const n = parseFloat(String(val ?? '').replace(/[^0-9.]/g, ''));
-    return isNaN(n) ? 0 : n;
-  };
+  const parseNum = (val: any): number => parseRateNumber(val, 0);
 
   const sym = getCurrencySymbol();
   let billing = '';

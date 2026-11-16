@@ -7,6 +7,7 @@ import {
   UploadedCvFile,
 } from './cvStorage.service';
 import { parseCustomFields } from '../utils/customFields';
+import { parseRateNumber } from '../utils/rateParser';
 
 export interface CandidateFilterParams {
   tenantId?: string;
@@ -233,7 +234,7 @@ export class CandidateService {
     cvFile?: UploadedCvFile
   ) {
     const rateDisplay = raw.hourlyRateDisplay || raw.hourlyRate || '$90/hr (W2)';
-    const rateDigits = parseInt(String(rateDisplay).replace(/\D/g, ''), 10) || 90;
+    const rateDigits = Math.round(parseRateNumber(rateDisplay, 90)) || 90;
     const isC2C = String(rateDisplay).toUpperCase().includes('C2C');
 
     const mappedStage = stageMap[raw.pipelineStage] || CandidatePipelineStage.AVAILABLE_BENCH;
@@ -352,7 +353,7 @@ export class CandidateService {
     if (raw.hourlyRate !== undefined || raw.hourlyRateDisplay !== undefined) {
       const rateDisplay = String(raw.hourlyRateDisplay || raw.hourlyRate || '');
       data.hourlyRateDisplay = rateDisplay;
-      const rateDigits = parseInt(rateDisplay.replace(/\D/g, ''), 10) || 90;
+      const rateDigits = Math.round(parseRateNumber(rateDisplay, 90)) || 90;
       const isC2C = rateDisplay.toUpperCase().includes('C2C');
       data.hourlyRateW2 = isC2C ? null : rateDigits;
       data.hourlyRateC2c = isC2C ? rateDigits : null;

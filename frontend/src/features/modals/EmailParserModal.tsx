@@ -24,6 +24,63 @@ const cleanField = (val?: any) =>
     .replace(/^[\s:•\-–—]+|[\s*]+$/g, '')
     .trim();
 
+const stripClientLocation = (name?: string) =>
+  String(name || '')
+    .replace(/\s+Location:\s*.*$/i, '')
+    .trim();
+
+const normalizeCompanyKey = (name?: string) =>
+  stripClientLocation(name)
+    .toLowerCase()
+    .replace(/[.,]+/g, ' ')
+    .replace(/\b(incorporated|inc|llc|ltd|limited|corp|corporation|co)\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const findMatchingClient = (
+  rawCompany: string,
+  clientsList: Client[],
+  rawEmail?: string
+): Client | undefined => {
+  const clean = stripClientLocation(rawCompany);
+  if (clean) {
+    const exactLower = clean.toLowerCase();
+    const exact = clientsList.find(
+      (c) => stripClientLocation(c.name).toLowerCase() === exactLower
+    );
+    if (exact) return exact;
+
+    const normKey = normalizeCompanyKey(clean);
+    if (normKey) {
+      const normMatches = clientsList.filter(
+        (c) => normalizeCompanyKey(c.name) === normKey
+      );
+      if (normMatches.length === 1) return normMatches[0];
+
+      if (normKey.length >= 3) {
+        const prefixMatches = clientsList.filter((c) => {
+          const ck = normalizeCompanyKey(c.name);
+          return ck.length >= 3 && (ck.startsWith(normKey) || normKey.startsWith(ck));
+        });
+        if (prefixMatches.length === 1) return prefixMatches[0];
+      }
+    }
+  }
+
+  if (!clean && rawEmail) {
+    const emailLower = rawEmail.toLowerCase();
+    const mentioned = clientsList.filter((c) => {
+      const label = stripClientLocation(c.name).toLowerCase();
+      if (label.length < 3) return false;
+      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`\\b${escaped}\\b`, 'i').test(emailLower);
+    });
+    if (mentioned.length === 1) return mentioned[0];
+  }
+
+  return undefined;
+};
+
 interface EmailParserModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -68,6 +125,8 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
   const [highlightedSkillIdx, setHighlightedSkillIdx] = useState<number>(-1);
   const [extractedReq, setExtractedReq] = useState(EMPTY_FORM);
   const lastParsedTextRef = useRef<string>('');
+  const clientsRef = useRef<Client[]>(clients);
+  clientsRef.current = clients;
 
   const parseEmailText = async (textToParse: string) => {
     const cleanInput = textToParse.trim();
@@ -92,25 +151,48 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
           : rawWorkModel.includes('onsite')
           ? 'Onsite'
           : 'Remote';
+        const parsedCompany = stripClientLocation(cleanField(d.companyName || d.clientName));
+        const matchedClient = findMatchingClient(parsedCompany, clientsRef.current, cleanInput);
+        const resolvedCompany = matchedClient
+          ? stripClientLocation(matchedClient.name)
+          : parsedCompany;
 
-        setExtractedReq((prev) => ({
-          ...prev,
-          companyName: cleanField(d.companyName || d.clientName) || prev.companyName,
-          opportunityTitle: cleanField(d.opportunityTitle || d.jobTitle) || prev.opportunityTitle,
-          openPositions: d.openPositions ? String(d.openPositions) : prev.openPositions || '1',
-          location: cleanField(d.location) || prev.location || 'Remote',
-          workModel: detectedWorkModel,
-          clientContact: cleanField(d.clientContact || d.contactName) || prev.clientContact,
-          clientContactTitle: cleanField(d.clientContactTitle || d.contactTitle) || prev.clientContactTitle,
-          clientContactEmail: cleanField(d.clientContactEmail) || prev.clientContactEmail,
-          skillsRequired: parsedSkills || prev.skillsRequired,
-          assignedRecruiter: cleanField(d.assignedRecruiter) || prev.assignedRecruiter || users[0]?.name || '',
-          targetBillRate: parsedBillRate || prev.targetBillRate,
-          targetPayRate: parsedPayRate || prev.targetPayRate,
-          missingNotes: Array.isArray(d.missingFields)
-            ? d.missingFields.join(', ')
-            : cleanField(d.missingNotes) || 'Extraction complete.',
-        }));
+        setExtractedReq((prev) => {
+          const nextLocation =
+            cleanField(d.location) ||
+            prev.location ||
+            matchedClient?.location ||
+            'Remote';
+          return {
+            ...prev,
+            companyName: resolvedCompany || prev.companyName,
+            opportunityTitle: cleanField(d.opportunityTitle || d.jobTitle) || prev.opportunityTitle,
+            openPositions: d.openPositions ? String(d.openPositions) : prev.openPositions || '1',
+            location:
+              nextLocation === 'Remote' && matchedClient?.location
+                ? matchedClient.location
+                : nextLocation,
+            workModel: detectedWorkModel,
+            clientContact:
+              cleanField(d.clientContact || d.contactName) ||
+              prev.clientContact ||
+              matchedClient?.contacts?.[0]?.name ||
+              '',
+            clientContactTitle:
+              cleanField(d.clientContactTitle || d.contactTitle) ||
+              prev.clientContactTitle ||
+              matchedClient?.contacts?.[0]?.designation ||
+              '',
+            clientContactEmail: cleanField(d.clientContactEmail) || prev.clientContactEmail,
+            skillsRequired: parsedSkills || prev.skillsRequired,
+            assignedRecruiter: cleanField(d.assignedRecruiter) || prev.assignedRecruiter || users[0]?.name || '',
+            targetBillRate: parsedBillRate || prev.targetBillRate,
+            targetPayRate: parsedPayRate || prev.targetPayRate,
+            missingNotes: Array.isArray(d.missingFields)
+              ? d.missingFields.join(', ')
+              : cleanField(d.missingNotes) || 'Extraction complete.',
+          };
+        });
         setHasParsed(true);
       }
     } catch (err: any) {
@@ -128,6 +210,37 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
     lastParsedTextRef.current = '';
     setExtractedReq(EMPTY_FORM);
   }, [isOpen]);
+
+  // If clients finish loading after email parsing, resolve/match the extracted company automatically
+  useEffect(() => {
+    if (!isOpen || !hasParsed || clients.length === 0) return;
+    setExtractedReq((prev) => {
+      const matched = findMatchingClient(prev.companyName, clients, rawEmailText);
+      if (!matched) return prev;
+      const canonicalName = stripClientLocation(matched.name);
+      const nextContact = prev.clientContact || matched.contacts?.[0]?.name || '';
+      const nextTitle = prev.clientContactTitle || matched.contacts?.[0]?.designation || '';
+      const nextLoc =
+        (!prev.location || prev.location === 'Remote') && matched.location
+          ? matched.location
+          : prev.location;
+      if (
+        canonicalName === prev.companyName &&
+        nextContact === prev.clientContact &&
+        nextTitle === prev.clientContactTitle &&
+        nextLoc === prev.location
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        companyName: canonicalName,
+        clientContact: nextContact,
+        clientContactTitle: nextTitle,
+        location: nextLoc,
+      };
+    });
+  }, [clients, isOpen, hasParsed]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -414,11 +527,11 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                     {extractedReq.companyName.trim() &&
                       !clients.some(
                         (c) =>
-                          c.name.replace(/\s+Location:\s*.*$/i, '').trim().toLowerCase() ===
+                          stripClientLocation(c.name).toLowerCase() ===
                           extractedReq.companyName.trim().toLowerCase()
                       ) && (
                         <span className="text-[9px] font-medium text-brand-800 bg-brand-500/[0.08] px-1.5 py-0.5 rounded">
-                          New client (auto-saved)
+                          New client (auto-saved on create)
                         </span>
                       )}
                   </div>
@@ -426,7 +539,8 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                     value={extractedReq.companyName}
                     onChange={(val) => {
                       const selClient = clients.find(
-                        (c) => c.name.trim().toLowerCase() === val.trim().toLowerCase()
+                        (c) =>
+                          stripClientLocation(c.name).toLowerCase() === val.trim().toLowerCase()
                       );
                       setExtractedReq((prev) => ({
                         ...prev,
@@ -443,11 +557,12 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                     }}
                     options={clients.map((c) => ({
                       id: c.id,
-                      label: c.name.replace(/\s+Location:\s*.*$/i, '').trim(),
+                      label: stripClientLocation(c.name),
                       sublabel: c.location,
                     }))}
                     placeholder="Select or type client company..."
                     emptyLabel="No saved clients — type company name"
+                    newOptionBadge="Auto-saved on create"
                     inputClassName="w-full pl-2.5 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 font-bold focus:border-brand-600 focus:outline-none"
                   />
                 </div>
@@ -739,7 +854,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
             <button
               type="button"
               onClick={handleApprove}
-              disabled={isSaving}
+              disabled={isSaving || isParsing}
               className="px-4 py-2 text-xs font-semibold bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:opacity-60 text-white rounded-lg shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
             >
               {isSaving ? (

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AlertTriangle, Check, ChevronDown, DollarSign, Lock, Search, X, UserCheck } from 'lucide-react';
 import { BillablePlacement, Requirement, Candidate, Vendor } from '../../types';
-import { useCurrency } from '../../utils/currency';
+import { inferPlacementTypeFromRate, parseRateNumber, useCurrency } from '../../utils/currency';
 import { getStageBadgeClass } from '../../utils/stageStyles';
 import { SearchableSelectInput } from '../../components/shared/SearchableSelectInput';
 import { CustomSelect } from '../../components/shared/CustomSelect';
@@ -40,10 +40,6 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
   const isPositionsFull = Boolean(requirement && filledPositions >= openPositions);
   const getContactStr = (c: any) => (typeof c === 'object' && c !== null ? c.fullName || c.name || '' : String(c || ''));
   const getRecruiterStr = (r: any) => (typeof r === 'object' && r !== null ? r.fullName || r.name || '' : String(r || ''));
-  const parseNum = (val: any, fallback = 0) => {
-    const n = parseFloat(String(val ?? '').replace(/[^0-9.]/g, ''));
-    return isNaN(n) ? fallback : n;
-  };
 
   const [formData, setFormData] = useState({
     candidateId: candidate?.id || '',
@@ -89,15 +85,19 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
         ) ||
         null;
 
-      const resolvedPay =
-        requirement?.targetPayRate ||
-        (matchedCandidate?.hourlyRate ? parseNum(matchedCandidate.hourlyRate, 0) : 0);
+      const candPay = matchedCandidate?.hourlyRate
+        ? parseRateNumber(matchedCandidate.hourlyRate, 0)
+        : 0;
+      const resolvedPay = candPay > 0 ? candPay : requirement?.targetPayRate || 0;
 
       const candVendor =
         (matchedCandidate?.vendorId
           ? vendors.find((v) => v.id === matchedCandidate.vendorId)
           : undefined) ||
         (matchedCandidate?.vendorName ? { name: matchedCandidate.vendorName } : undefined);
+      const inferredType = candVendor
+        ? 'C2C Subcontractor'
+        : inferPlacementTypeFromRate(matchedCandidate?.hourlyRate) || 'W2 Hourly';
 
       setFormData({
         candidateId: matchedCandidate?.id || (reqSubCandIds.size === 1 ? Array.from(reqSubCandIds)[0] : ''),
@@ -112,7 +112,7 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
         endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
         billRate: requirement?.targetBillRate || 0,
         payRate: resolvedPay,
-        placementType: candVendor ? 'C2C Subcontractor' : 'W2 Hourly',
+        placementType: inferredType,
         vendorName: candVendor?.name || '',
         purchaseOrderNumber: '',
         recruiter: getRecruiterStr(requirement?.assignedRecruiter || matchedCandidate?.assignedRecruiter),
@@ -152,10 +152,13 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
       setFormData((prev) => ({ ...prev, candidateId: '' }));
       return;
     }
-    const candPay = sel.hourlyRate ? parseNum(sel.hourlyRate, 0) : 0;
+    const candPay = sel.hourlyRate ? parseRateNumber(sel.hourlyRate, 0) : 0;
     const candVendor =
       (sel.vendorId ? vendors.find((v) => v.id === sel.vendorId) : undefined) ||
       (sel.vendorName ? { name: sel.vendorName } : undefined);
+    const inferredType = candVendor
+      ? 'C2C Subcontractor'
+      : inferPlacementTypeFromRate(sel.hourlyRate);
     setFormData((prev) => ({
       ...prev,
       candidateId: sel.id,
@@ -165,7 +168,7 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
       skillRole: prev.skillRole || sel.currentTitle || '',
       payRate: candPay > 0 ? candPay : prev.payRate,
       recruiter: prev.recruiter || getRecruiterStr(sel.assignedRecruiter),
-      placementType: candVendor ? 'C2C Subcontractor' : prev.placementType,
+      placementType: inferredType || prev.placementType,
       vendorName: candVendor ? candVendor.name : prev.vendorName,
     }));
   };

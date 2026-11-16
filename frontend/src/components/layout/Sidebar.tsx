@@ -41,6 +41,13 @@ interface SidebarProps {
   onOpenSignOut: () => void;
 }
 
+const RestrictedBadge: React.FC = () => (
+  <span className="inline-flex items-center gap-1 text-[9px] text-amber-300/80 font-medium bg-amber-500/10 border border-amber-400/15 px-1.5 py-0.5 rounded">
+    <Lock className="w-2.5 h-2.5" />
+    <span>Restricted</span>
+  </span>
+);
+
 export const Sidebar: React.FC<SidebarProps> = ({
   currentView,
   onNavigate,
@@ -243,28 +250,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
           </div>
 
-          {isAdmin && (
           <div
             onClick={() => onNavigate('custom_fields')}
+            title={!isAdmin ? 'Restricted to Administrators' : 'Manage Custom Fields & Taxonomies'}
             className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
               currentView === 'custom_fields'
                 ? 'bg-[#1F2422] text-white shadow-xs font-semibold'
-                : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
+                : isAdmin
+                  ? 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
+                  : 'text-slate-500 hover:bg-white/[0.03] hover:text-slate-300'
             }`}
           >
             <div className="flex items-center gap-2.5">
               <Tags
                 className={`w-4 h-4 flex-shrink-0 transition-colors ${
-                  currentView === 'custom_fields' ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-200'
+                  currentView === 'custom_fields'
+                    ? 'text-brand-400'
+                    : isAdmin
+                      ? 'text-slate-400 group-hover:text-slate-200'
+                      : 'text-slate-500 group-hover:text-slate-300'
                 }`}
               />
               <span>Custom Fields</span>
             </div>
-            <span className="text-[10px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded">
-              {counts.customFields}
-            </span>
+            {isAdmin ? (
+              <span className="text-[10px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded">
+                {counts.customFields}
+              </span>
+            ) : (
+              <RestrictedBadge />
+            )}
           </div>
-          )}
 
           <div
             onClick={() => onNavigate('import_data')}
@@ -298,16 +314,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 CSV/Excel
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-[9px] text-amber-300/80 font-medium bg-amber-500/10 border border-amber-400/15 px-1.5 py-0.5 rounded">
-                <Lock className="w-2.5 h-2.5" />
-                <span>Restricted</span>
-              </span>
+              <RestrictedBadge />
             )}
           </div>
         </div>
 
         {/* Section 4: Settings & Administration */}
-        {isAdmin && (
         <div>
           <div className="px-3.5 text-[10px] font-semibold uppercase tracking-wider mb-1 text-slate-400">
             Settings &amp; Administration
@@ -315,44 +327,64 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           <div
             onClick={() => onNavigate('settings_general')}
+            title={!isAdmin ? 'Restricted to Administrators' : 'Workspace General Settings'}
             className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
               currentView === 'settings_general'
                 ? 'bg-[#1F2422] text-white shadow-xs font-semibold'
-                : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
+                : isAdmin
+                  ? 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
+                  : 'text-slate-500 hover:bg-white/[0.03] hover:text-slate-300'
             }`}
           >
             <div className="flex items-center gap-2.5">
               <SlidersHorizontal
                 className={`w-4 h-4 flex-shrink-0 transition-colors ${
-                  currentView === 'settings_general' ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-200'
+                  currentView === 'settings_general'
+                    ? 'text-brand-400'
+                    : isAdmin
+                      ? 'text-slate-400 group-hover:text-slate-200'
+                      : 'text-slate-500 group-hover:text-slate-300'
                 }`}
               />
               <span>General Settings</span>
             </div>
+            {!isAdmin && (
+              <RestrictedBadge />
+            )}
           </div>
 
           <div
             onClick={() => onNavigate('user_management')}
+            title={!isAdmin ? 'Restricted to Administrators' : 'Manage Users & Permissions'}
             className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
               currentView === 'user_management'
                 ? 'bg-[#1F2422] text-white shadow-xs font-semibold'
-                : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
+                : isAdmin
+                  ? 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
+                  : 'text-slate-500 hover:bg-white/[0.03] hover:text-slate-300'
             }`}
           >
             <div className="flex items-center gap-2.5">
               <UserCog
                 className={`w-4 h-4 flex-shrink-0 transition-colors ${
-                  currentView === 'user_management' ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-200'
+                  currentView === 'user_management'
+                    ? 'text-brand-400'
+                    : isAdmin
+                      ? 'text-slate-400 group-hover:text-slate-200'
+                      : 'text-slate-500 group-hover:text-slate-300'
                 }`}
               />
               <span>User Management</span>
             </div>
-            <span className="text-[10px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded">
-              {counts.users} Users
-            </span>
+            {isAdmin ? (
+              <span className="text-[10px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded">
+                {counts.users} Users
+              </span>
+            ) : (
+              <RestrictedBadge />
+            )}
           </div>
         </div>
-        )}
 
         <div className="h-4"></div>
       </div>

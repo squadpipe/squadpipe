@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Briefcase, Plus, X } from 'lucide-react';
 import { Requirement, Client, User } from '../../../types';
 import { DynamicCustomFieldsSection, useMasterTaxonomies } from '../../shared/DynamicCustomFieldsSection';
-import { formatRateDisplay, useCurrency } from '../../../utils/currency';
+import { formatRateDisplay, parseRateNumber, useCurrency } from '../../../utils/currency';
 import { SearchableSelectInput } from '../../shared/SearchableSelectInput';
 import { CustomSelect } from '../../shared/CustomSelect';
 import { ActionButton } from '../../shared/ActionButton';
@@ -68,7 +68,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
     }
 
     const nextCode = `REQ-${1040 + Math.floor(Math.random() * 50)}`;
-    const billRateNum = parseInt(form.targetRate.replace(/\D/g, ''), 10) || 115;
+    const billRateNum = parseRateNumber(form.targetRate, 115) || 115;
 
     const newReq: Requirement = {
       id: 'req_' + Date.now(),
@@ -158,7 +158,9 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
                   value={form.companyName}
                   onChange={(val) => {
                     const selClient = clients.find(
-                      (c) => c.name.trim().toLowerCase() === val.trim().toLowerCase()
+                      (c) =>
+                        c.name.replace(/\s+Location:\s*.*$/i, '').trim().toLowerCase() ===
+                        val.trim().toLowerCase()
                     );
                     setForm({
                       ...form,

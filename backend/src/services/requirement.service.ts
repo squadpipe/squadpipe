@@ -3,6 +3,7 @@ import { PlacementStatus, Prisma, WorkModel, AutomationCategory } from '@prisma/
 import { slaEngineService } from './slaEngine.service';
 import { automationEngineService } from './automationEngine.service';
 import { parseCustomFields } from '../utils/customFields';
+import { parseRateNumber } from '../utils/rateParser';
 
 export const RequirementStatus = {
   REQUIREMENT: 'REQUIREMENT',
@@ -350,7 +351,7 @@ export class RequirementService {
 
     const billRateNum = typeof raw.targetBillRate === 'number' && raw.targetBillRate > 0
       ? raw.targetBillRate
-      : parseInt(String(raw.targetRate || raw.targetBillRate || '115').replace(/\D/g, ''), 10) || 115;
+      : Math.round(parseRateNumber(raw.targetRate || raw.targetBillRate, 115)) || 115;
     const payRateNum = typeof raw.targetPayRate === 'number' && raw.targetPayRate > 0
       ? raw.targetPayRate
       : Math.round(billRateNum * 0.75);
