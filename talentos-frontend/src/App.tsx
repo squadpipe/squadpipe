@@ -86,6 +86,7 @@ import { AddPlacementModal } from './components/modals/create/AddPlacementModal'
 import { SignOutModal } from './components/modals/SignOutModal';
 import { ProfileModal } from './components/modals/ProfileModal';
 import { ResumeViewerModal } from './components/modals/ResumeViewerModal';
+import { CsvImportModal } from './components/modals/CsvImportModal';
 
 import {
   Candidate,
@@ -285,6 +286,8 @@ export const App: React.FC = () => {
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [isMatcherModalOpen, setIsMatcherModalOpen] = useState(false);
   const [isPlacementWizardOpen, setIsPlacementWizardOpen] = useState(false);
+  const [isCsvImportModalOpen, setIsCsvImportModalOpen] = useState(false);
+  const [csvImportTargetReq, setCsvImportTargetReq] = useState<Requirement | null>(null);
   const [activeCreateModal, setActiveCreateModal] = useState<
     'consultant' | 'requirement' | 'client' | 'vendor' | 'placement' | null
   >(null);
@@ -906,6 +909,37 @@ export const App: React.FC = () => {
     setRequirements((prev) => updateRequirementInList(prev, mapped));
     setSelectedReqForDetail((prev) => (prev && prev.id === mapped.id ? mapped : prev));
     setActiveReq((prev) => (prev && prev.id === mapped.id ? mapped : prev));
+  };
+
+  const mergeImportedCandidates = (incoming: Candidate[], markSubmitted = false) => {
+    if (!incoming || incoming.length === 0) return;
+    const normalized = markSubmitted
+      ? incoming.map((c) =>
+          c.pipelineStage === 'Available / Bench' ? { ...c, pipelineStage: 'Submitted' } : c
+        )
+      : incoming;
+    setCandidates((prev) => {
+      const byId = new Map(normalized.map((c) => [c.id, c]));
+      const remaining = prev.filter((c) => !byId.has(c.id));
+      return [...normalized, ...remaining];
+    });
+    fetchSidebarCounts();
+  };
+
+  const handleCsvImportCompleted = async ({
+    candidates: importedCandidates,
+    updatedRequirement,
+  }: {
+    candidates: Candidate[];
+    updatedRequirement: Requirement | null;
+  }) => {
+    mergeImportedCandidates(importedCandidates, Boolean(updatedRequirement));
+    if (updatedRequirement) {
+      syncUpdatedRequirement(updatedRequirement);
+      await Promise.all([fetchSidebarCounts(), fetchSlaTasks(), fetchAutomations()]);
+    } else {
+      fetchCandidates();
+    }
   };
 
   const handleAttachCandidates = async (req: Requirement, candidateIds: string[]) => {
@@ -1703,6 +1737,14 @@ export const App: React.FC = () => {
                 setIsPlacementWizardOpen(true);
               }}
               onUpdateReq={handleUpdateRequirement}
+              onOpenCsvImport={
+                canManageDataOperations
+                  ? (req) => {
+                      setCsvImportTargetReq(req);
+                      setIsCsvImportModalOpen(true);
+                    }
+                  : undefined
+              }
             />
           )}
 
@@ -1714,7 +1756,14 @@ export const App: React.FC = () => {
               onOpenResumeParser={() => setIsResumeModalOpen(true)}
               onPreviewResume={(c) => setSelectedResumeCand(c)}
               onOpenAddConsultant={() => setActiveCreateModal('consultant')}
-              onOpenCsvImport={canManageDataOperations ? () => setCurrentView('import_data') : undefined}
+              onOpenCsvImport={
+                canManageDataOperations
+                  ? () => {
+                      setCsvImportTargetReq(null);
+                      setIsCsvImportModalOpen(true);
+                    }
+                  : undefined
+              }
               onNavigateToBillable={() => setCurrentView('billable')}
               onUpdateCandidate={handleUpdateCandidate}
               onDeleteCandidate={canManageDataOperations ? handleDeleteCandidate : undefined}
@@ -1876,11 +1925,18 @@ export const App: React.FC = () => {
 
           {currentView === 'import_data' && canManageDataOperations && (
             <ImportDataView
-              onImportCandidates={(newCands) => {
-                setCandidates((prev) => [...newCands, ...prev]);
-              }}
+              onImportCandidates={(newCands) => mergeImportedCandidates(newCands)}
               onOpenResumeParser={() => setIsResumeModalOpen(true)}
               onNavigate={setCurrentView}
+              requirements={requirements}
+              onRequirementUpdated={(updatedReq) => {
+                syncUpdatedRequirement(updatedReq);
+                fetchCandidates();
+                fetchSidebarCounts();
+                fetchSlaTasks();
+                fetchAutomations();
+              }}
+              onOpenRequirement={(req) => handleOpenRequirementDetail(req, 'pipeline')}
               showToast={showToast}
             />
           )}
@@ -1951,8 +2007,29 @@ export const App: React.FC = () => {
         }}
         onSwitchToCsvImport={() => {
           setIsResumeModalOpen(false);
-          setCurrentView('import_data');
+          if (canManageDataOperations) {
+            setCsvImportTargetReq(null);
+            setIsCsvImportModalOpen(true);
+          }
         }}
+        showToast={showToast}
+      />
+
+      <CsvImportModal
+        isOpen={isCsvImportModalOpen && canManageDataOperations}
+        onClose={() => {
+          setIsCsvImportModalOpen(false);
+          setCsvImportTargetReq(null);
+        }}
+        requirements={requirements}
+        lockedRequirement={
+          csvImportTargetReq
+            ? requirements.find((r) => r.id === csvImportTargetReq.id) || csvImportTargetReq
+            : null
+        }
+        onImportComplete={handleCsvImportCompleted}
+        onNavigate={setCurrentView}
+        onOpenRequirement={(req) => handleOpenRequirementDetail(req, 'pipeline')}
         showToast={showToast}
       />
 

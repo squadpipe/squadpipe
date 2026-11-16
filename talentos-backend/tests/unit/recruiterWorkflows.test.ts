@@ -15,6 +15,7 @@ import {
   buildRecruiterPerformanceRows,
   formatLiveWorkloadText,
 } from '../../src/services/analytics.service';
+import { parseCsvHourlyRates } from '../../src/services/csvImporter.service';
 
 export const runRecruiterWorkflowTests = () => {
   console.log('--- Running Recruiter Notes, Performance, Search & Duplicate Tests ---');
@@ -179,6 +180,22 @@ export const runRecruiterWorkflowTests = () => {
   const afterDelete = parseSubmissionNotes(deletedRaw);
   assert.equal(afterDelete.length, 1);
   assert.equal(afterDelete[0].text, 'Round 2 scheduled for Thursday');
+
+  // 6. CSV importer W2 / C2C / default hourly rate parsing
+  const w2Rate = parseCsvHourlyRates('$95/hr (W2)');
+  assert.equal(w2Rate.hourlyRateDisplay, '$95/hr (W2)');
+  assert.equal(w2Rate.hourlyRateW2, 95);
+  assert.equal(w2Rate.hourlyRateC2c, null);
+
+  const c2cRate = parseCsvHourlyRates('$115/hr (C2C)');
+  assert.equal(c2cRate.hourlyRateDisplay, '$115/hr (C2C)');
+  assert.equal(c2cRate.hourlyRateW2, null);
+  assert.equal(c2cRate.hourlyRateC2c, 115);
+
+  const defaultRate = parseCsvHourlyRates('');
+  assert.equal(defaultRate.hourlyRateDisplay, '$90/hr (W2)');
+  assert.equal(defaultRate.hourlyRateW2, 90);
+  assert.equal(defaultRate.hourlyRateC2c, null);
 
   console.log('✅ Recruiter Notes, Performance, Search & Duplicate Tests: PASSED');
 };

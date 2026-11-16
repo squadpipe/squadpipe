@@ -209,10 +209,42 @@ router.post('/candidates/csv-import', requireRole(LEADERSHIP_ROLES), async (req:
     const tenantId = req.user?.tenantId || 'talentos-agency';
     const recruiterId = req.user?.id;
     const rows = Array.isArray(req.body) ? req.body : req.body.rows || [];
+    const rawRequirementId = !Array.isArray(req.body) ? req.body?.requirementId : undefined;
+    const requirementId = rawRequirementId ? String(rawRequirementId).trim() : '';
+
+    if (requirementId) {
+      const targetReq = await prisma.requirement.findFirst({
+        where: { id: requirementId, tenantId },
+        select: { id: true },
+      });
+      if (!targetReq) {
+        return res.status(404).json({ success: false, message: 'Target requirement not found' });
+      }
+    }
+
     const results = await csvImporterService.importCandidates(rows, tenantId, recruiterId);
+
+    if (requirementId && results.length > 0) {
+      const attached = await submissionService.attachCandidates({
+        tenantId,
+        recruiterId,
+        requirementId,
+        candidateIds: results.map((c) => c.id),
+      });
+      return res.json({
+        success: true,
+        count: results.length,
+        data: results,
+        attachedCount: attached.addedCount,
+        skippedDuplicatesCount: attached.skippedDuplicatesCount,
+        requirement: attached.requirement,
+      });
+    }
+
     res.json({ success: true, count: results.length, data: results });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'CSV Import failed' });
+    const status = error?.statusCode || 500;
+    res.status(status).json({ success: false, message: error.message || 'CSV Import failed' });
   }
 });
 

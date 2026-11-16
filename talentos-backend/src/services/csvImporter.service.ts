@@ -14,6 +14,18 @@ export interface CsvCandidateRow {
   assignedRecruiterId?: string;
 }
 
+export function parseCsvHourlyRates(rateDisplayInput?: string) {
+  const rateDisplay = String(rateDisplayInput || '').trim() || '$90/hr (W2)';
+  const rateMatch = rateDisplay.match(/(\d+(?:\.\d+)?)/);
+  const rateDigits = rateMatch ? Math.round(parseFloat(rateMatch[1])) || 90 : 90;
+  const isC2C = rateDisplay.toUpperCase().includes('C2C');
+  return {
+    hourlyRateDisplay: rateDisplay,
+    hourlyRateW2: isC2C ? null : rateDigits,
+    hourlyRateC2c: isC2C ? rateDigits : null,
+  };
+}
+
 export class CsvImporterService {
   async importCandidates(rows: CsvCandidateRow[], tenantId: string = 'talentos-agency', recruiterId?: string) {
     const results = [];
@@ -21,6 +33,9 @@ export class CsvImporterService {
     for (const row of rows) {
       if (!row.fullName || !row.email) continue;
       const normalizedEmail = row.email.trim().toLowerCase();
+      const { hourlyRateDisplay, hourlyRateW2, hourlyRateC2c } = parseCsvHourlyRates(
+        row.hourlyRateDisplay
+      );
 
       const created = await prisma.candidate.upsert({
         where: {
@@ -33,7 +48,9 @@ export class CsvImporterService {
           currentTitle: row.currentTitle || '',
           skillset: row.skillset || '',
           workAuth: row.workAuth || 'US Citizen',
-          hourlyRateDisplay: row.hourlyRateDisplay || '$90/hr (W2)',
+          hourlyRateDisplay,
+          hourlyRateW2,
+          hourlyRateC2c,
         },
         create: {
           tenantId,
@@ -44,7 +61,9 @@ export class CsvImporterService {
           education: row.education || "Master's Degree",
           currentTitle: row.currentTitle || 'Software Engineer',
           skillset: row.skillset || 'Technical Skills',
-          hourlyRateDisplay: row.hourlyRateDisplay || '$90/hr (W2)',
+          hourlyRateDisplay,
+          hourlyRateW2,
+          hourlyRateC2c,
           relocation: row.relocation || 'Yes',
           pipelineStage: CandidatePipelineStage.AVAILABLE_BENCH,
           assignedRecruiterId: recruiterId || row.assignedRecruiterId || null,

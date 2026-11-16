@@ -76,6 +76,7 @@ interface RequirementDetailPageProps {
   onOpenResumePreview: (candidate: Candidate) => void;
   onOpenPlacementWizard: (req: Requirement, candidate?: Candidate | null) => void;
   onUpdateReq?: (req: Requirement) => Promise<void> | void;
+  onOpenCsvImport?: (req: Requirement) => void;
 }
 
 const BENCH_PAGE_SIZE = 50;
@@ -104,6 +105,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   onOpenResumePreview,
   onOpenPlacementWizard,
   onUpdateReq,
+  onOpenCsvImport,
 }) => {
   const { formatRate, symbol: currencySymbol } = useCurrency();
   const taxonomies = useMasterTaxonomies(true);
@@ -1318,15 +1320,32 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                   {requirement.code} &bull; {requirement.opportunityTitle}
                 </p>
               </div>
-              <button
-                type="button"
-                disabled={isAttaching}
-                onClick={() => setShowBenchPicker(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
-                aria-label="Close candidate picker"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                {onOpenCsvImport && (
+                  <button
+                    type="button"
+                    disabled={isAttaching}
+                    onClick={() => {
+                      setShowBenchPicker(false);
+                      onOpenCsvImport(requirement);
+                    }}
+                    className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-800 inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                    title="Import candidates from CSV and attach directly to this requirement"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Import CSV</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  disabled={isAttaching}
+                  onClick={() => setShowBenchPicker(false)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
+                  aria-label="Close candidate picker"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between gap-2 flex-wrap bg-white">
