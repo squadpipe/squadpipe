@@ -82,6 +82,16 @@ export interface Vendor {
   customFields?: Record<string, any>;
 }
 
+export interface SubmissionNote {
+  id: string;
+  text: string;
+  authorName: string;
+  authorId?: string;
+  stage?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface RequirementSubmission {
   id: string;
   candidateId: string;
@@ -101,6 +111,7 @@ export interface RequirementSubmission {
   interviewDate?: string;
   interviewDateTime?: string;
   interviewNotes?: string;
+  notes?: SubmissionNote[];
   recruiterName?: string;
   candidate?: Candidate;
 }

@@ -540,7 +540,7 @@ router.patch('/submissions/:id/notes', async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'talentos-agency';
     const { id } = req.params;
-    const { interviewDate, interviewNotes, stage, status } = req.body;
+    const { interviewDate, interviewNotes, stage, status, action, noteId, noteText } = req.body;
     const stageInput = stage || status;
 
     const result = await submissionService.updateSubmissionNotes({
@@ -549,6 +549,11 @@ router.patch('/submissions/:id/notes', async (req: Request, res: Response) => {
       interviewDate,
       interviewNotes,
       stageInput,
+      action,
+      noteId,
+      noteText,
+      authorId: req.user?.id,
+      authorName: req.user?.fullName,
     });
 
     res.json({

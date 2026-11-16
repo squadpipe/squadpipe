@@ -995,7 +995,14 @@ export const App: React.FC = () => {
   const handleUpdateSubmissionNotes = async (
     req: Requirement,
     submissionId: string,
-    payload: { interviewDate?: string | null; interviewNotes?: string | null; stage?: string }
+    payload: {
+      interviewDate?: string | null;
+      interviewNotes?: string | null;
+      stage?: string;
+      action?: 'add' | 'edit' | 'delete';
+      noteId?: string;
+      noteText?: string | null;
+    }
   ) => {
     try {
       const res = await apiClient.patch(`/submissions/${submissionId}/notes`, payload);
@@ -1011,8 +1018,10 @@ export const App: React.FC = () => {
         fetchAutomations(),
       ]);
       showToast(
-        'Notes Saved',
-        `Saved applicant call notes & feedback on ${req.code}.`,
+        payload.action === 'delete' ? 'Note Removed' : 'Notes Saved',
+        payload.action === 'delete'
+          ? `Removed applicant note on ${req.code}.`
+          : `Saved applicant call notes & feedback on ${req.code}.`,
         'fa-solid fa-circle-check text-brand-600'
       );
     } catch (e: any) {

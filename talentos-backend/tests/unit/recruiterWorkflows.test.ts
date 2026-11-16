@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import { UserRole } from '@prisma/client';
 import {
+  applySubmissionNoteMutation,
   formatClientDuplicateWarnings,
   normalizeOptionalNotes,
   parseOptionalDateInput,
+  parseSubmissionNotes,
 } from '../../src/services/submission.service';
 import {
   buildCandidateWhereClause,
@@ -138,6 +140,45 @@ export const runRecruiterWorkflowTests = () => {
   assert.equal(perf.totals.interviews, 1);
   assert.equal(perf.totals.placements, 1);
   assert.equal(formatLiveWorkloadText(1, 2, 1), '1 Req • 2 Subs • 1 Placement');
+
+  // 5. Multiple submission notes parsing, adding, editing & deleting
+  const legacyParsed = parseSubmissionNotes('ROund 1 done', 'Nakul', '2026-11-16T08:00:00.000Z');
+  assert.equal(legacyParsed.length, 1);
+  assert.equal(legacyParsed[0].id, 'legacy_0');
+  assert.equal(legacyParsed[0].text, 'ROund 1 done');
+
+  const addedRaw = applySubmissionNoteMutation({
+    existingRaw: 'ROund 1 done',
+    action: 'add',
+    noteText: 'Round 2 scheduled for Thursday',
+    authorName: 'Priya',
+    fallbackAuthor: 'Nakul',
+    now: new Date('2026-11-16T09:00:00.000Z'),
+  });
+  const afterAdd = parseSubmissionNotes(addedRaw);
+  assert.equal(afterAdd.length, 2);
+  assert.equal(afterAdd[0].text, 'Round 2 scheduled for Thursday');
+  assert.equal(afterAdd[1].text, 'ROund 1 done');
+
+  const editedRaw = applySubmissionNoteMutation({
+    existingRaw: addedRaw,
+    action: 'edit',
+    noteId: 'legacy_0',
+    noteText: 'Round 1 passed',
+    now: new Date('2026-11-16T09:30:00.000Z'),
+  });
+  const afterEdit = parseSubmissionNotes(editedRaw);
+  assert.equal(afterEdit[1].text, 'Round 1 passed');
+  assert.ok(afterEdit[1].updatedAt);
+
+  const deletedRaw = applySubmissionNoteMutation({
+    existingRaw: editedRaw,
+    action: 'delete',
+    noteId: 'legacy_0',
+  });
+  const afterDelete = parseSubmissionNotes(deletedRaw);
+  assert.equal(afterDelete.length, 1);
+  assert.equal(afterDelete[0].text, 'Round 2 scheduled for Thursday');
 
   console.log('✅ Recruiter Notes, Performance, Search & Duplicate Tests: PASSED');
 };

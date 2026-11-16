@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import {
   AutomationCategory,
   CandidatePipelineStage,
@@ -243,6 +244,148 @@ export function normalizeOptionalNotes(val: unknown): string | null | undefined 
     throw createHttpError('Notes must be 5,000 characters or fewer.', 400);
   }
   return trimmed;
+}
+
+export interface SubmissionNoteItem {
+  id: string;
+  text: string;
+  authorName: string;
+  authorId?: string;
+  stage?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export function parseSubmissionNotes(
+  raw?: string | null,
+  fallbackAuthor?: string | null,
+  fallbackDate?: Date | string | null
+): SubmissionNoteItem[] {
+  const trimmed = String(raw || '').trim();
+  if (!trimmed) return [];
+
+  const defaultIso = fallbackDate ? new Date(fallbackDate).toISOString() : new Date().toISOString();
+
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        const items: SubmissionNoteItem[] = [];
+        for (let i = 0; i < parsed.length; i++) {
+          const item = parsed[i];
+          if (item && typeof item === 'object' && typeof item.text === 'string' && item.text.trim()) {
+            items.push({
+              id: typeof item.id === 'string' && item.id.trim() ? item.id.trim() : `note_${i}`,
+              text: item.text.trim(),
+              authorName:
+                typeof item.authorName === 'string' && item.authorName.trim()
+                  ? item.authorName.trim()
+                  : fallbackAuthor?.trim() || 'Recruiter',
+              ...(typeof item.authorId === 'string' && item.authorId.trim()
+                ? { authorId: item.authorId.trim() }
+                : {}),
+              ...(typeof item.stage === 'string' && item.stage.trim()
+                ? { stage: item.stage.trim() }
+                : {}),
+              createdAt:
+                typeof item.createdAt === 'string' && item.createdAt.trim()
+                  ? item.createdAt
+                  : defaultIso,
+              ...(typeof item.updatedAt === 'string' && item.updatedAt.trim()
+                ? { updatedAt: item.updatedAt }
+                : {}),
+            });
+          }
+        }
+        return items;
+      }
+    } catch {
+      // Fallback to legacy single plain-text note below
+    }
+  }
+
+  return [
+    {
+      id: 'legacy_0',
+      text: trimmed,
+      authorName: fallbackAuthor?.trim() || 'Recruiter',
+      createdAt: defaultIso,
+    },
+  ];
+}
+
+export function applySubmissionNoteMutation(params: {
+  existingRaw?: string | null;
+  action: 'add' | 'edit' | 'delete';
+  noteId?: string;
+  noteText?: string | null;
+  authorId?: string;
+  authorName?: string;
+  stage?: string;
+  fallbackAuthor?: string | null;
+  fallbackDate?: Date | string | null;
+  now?: Date;
+}): string | null {
+  const {
+    existingRaw,
+    action,
+    noteId,
+    noteText,
+    authorId,
+    authorName,
+    stage,
+    fallbackAuthor,
+    fallbackDate,
+    now = new Date(),
+  } = params;
+
+  const existingList = parseSubmissionNotes(existingRaw, fallbackAuthor, fallbackDate);
+  const nowIso = now.toISOString();
+
+  if (action === 'add') {
+    const cleanText = normalizeOptionalNotes(noteText);
+    if (!cleanText) {
+      throw createHttpError('Note text cannot be empty.', 400);
+    }
+    const nextNote: SubmissionNoteItem = {
+      id: crypto.randomUUID(),
+      text: cleanText,
+      authorName: authorName?.trim() || 'Recruiter',
+      ...(authorId ? { authorId } : {}),
+      ...(stage ? { stage } : {}),
+      createdAt: nowIso,
+    };
+    return JSON.stringify([nextNote, ...existingList]);
+  }
+
+  if (action === 'edit') {
+    const targetId = String(noteId || '').trim();
+    if (!targetId) {
+      throw createHttpError('noteId is required to edit a note.', 400);
+    }
+    const cleanText = normalizeOptionalNotes(noteText);
+    if (!cleanText) {
+      throw createHttpError('Note text cannot be empty.', 400);
+    }
+    if (!existingList.some((n) => n.id === targetId)) {
+      throw createHttpError('Note not found on this submission.', 404);
+    }
+    const updatedList = existingList.map((n) =>
+      n.id === targetId ? { ...n, text: cleanText, updatedAt: nowIso } : n
+    );
+    return JSON.stringify(updatedList);
+  }
+
+  if (action === 'delete') {
+    const targetId = String(noteId || '').trim();
+    if (!targetId) {
+      throw createHttpError('noteId is required to delete a note.', 400);
+    }
+    const updatedList = existingList.filter((n) => n.id !== targetId);
+    return updatedList.length > 0 ? JSON.stringify(updatedList) : null;
+  }
+
+  throw createHttpError('Invalid note action.', 400);
 }
 
 export function formatClientDuplicateWarnings(
@@ -592,12 +735,32 @@ export class SubmissionService {
     interviewDate?: string | null;
     interviewNotes?: string | null;
     stageInput?: string;
+    action?: 'add' | 'edit' | 'delete';
+    noteId?: string;
+    noteText?: string | null;
+    authorId?: string;
+    authorName?: string;
   }) {
-    const { submissionId, tenantId, interviewDate, interviewNotes, stageInput } = params;
+    const {
+      submissionId,
+      tenantId,
+      interviewDate,
+      interviewNotes,
+      stageInput,
+      action,
+      noteId,
+      noteText,
+      authorId,
+      authorName,
+    } = params;
 
     const existing = await prisma.submission.findFirst({
       where: { id: submissionId, tenantId },
-      include: { requirement: true, candidate: true },
+      include: {
+        requirement: true,
+        candidate: true,
+        recruiter: { select: { id: true, fullName: true } },
+      },
     });
 
     if (!existing) {
@@ -605,7 +768,6 @@ export class SubmissionService {
     }
 
     const parsedDate = parseOptionalDateInput(interviewDate);
-    const parsedNotes = normalizeOptionalNotes(interviewNotes);
     let tenantStages: string[] | undefined;
     let mappedStage: string | undefined;
 
@@ -617,13 +779,34 @@ export class SubmissionService {
     const updateData: any = {};
     if (mappedStage) updateData.stage = mappedStage;
     if (parsedDate !== undefined) updateData.interviewDate = parsedDate;
-    if (parsedNotes !== undefined) updateData.interviewNotes = parsedNotes;
-    if (parsedNotes !== undefined || (mappedStage && mappedStage !== RequirementStatus.SUBMITTED)) {
+
+    if (action) {
+      updateData.interviewNotes = applySubmissionNoteMutation({
+        existingRaw: existing.interviewNotes,
+        action,
+        noteId,
+        noteText,
+        authorId,
+        authorName,
+        stage: mappedStage || existing.stage,
+        fallbackAuthor: existing.recruiter?.fullName,
+        fallbackDate: existing.lastClientFeedbackDate || existing.submissionDate || existing.createdAt,
+      });
+      updateData.lastClientFeedbackDate = new Date();
+    } else {
+      const parsedNotes = normalizeOptionalNotes(interviewNotes);
+      if (parsedNotes !== undefined) {
+        updateData.interviewNotes = parsedNotes;
+        updateData.lastClientFeedbackDate = new Date();
+      }
+    }
+
+    if (mappedStage && mappedStage !== RequirementStatus.SUBMITTED) {
       updateData.lastClientFeedbackDate = new Date();
     }
 
     if (Object.keys(updateData).length === 0) {
-      throw createHttpError('Provide interviewDate, interviewNotes, or stage to update.', 400);
+      throw createHttpError('Provide a note action, interviewDate, interviewNotes, or stage.', 400);
     }
 
     const updatedSubmission = await prisma.submission.update({

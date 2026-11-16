@@ -20,6 +20,7 @@ import {
   Requirement,
   Candidate,
   RequirementSubmission,
+  SubmissionNote,
   ClientDuplicateWarning,
 } from '../../types';
 import { useCurrency } from '../../utils/currency';
@@ -62,7 +63,14 @@ interface RequirementDetailPageProps {
   onUpdateSubmissionNotes?: (
     req: Requirement,
     submissionId: string,
-    payload: { interviewDate?: string | null; interviewNotes?: string | null; stage?: string }
+    payload: {
+      interviewDate?: string | null;
+      interviewNotes?: string | null;
+      stage?: string;
+      action?: 'add' | 'edit' | 'delete';
+      noteId?: string;
+      noteText?: string | null;
+    }
   ) => Promise<void> | void;
   onDetachSubmission?: (req: Requirement, submissionId: string) => Promise<void> | void;
   onOpenResumePreview: (candidate: Candidate) => void;
@@ -110,6 +118,8 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   const [busySubId, setBusySubId] = useState<string | null>(null);
   const [confirmDetachId, setConfirmDetachId] = useState<string | null>(null);
   const [editingNotesSub, setEditingNotesSub] = useState<RequirementSubmission | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [busyNoteId, setBusyNoteId] = useState<string | null>(null);
   const [draftInterviewDate, setDraftInterviewDate] = useState('');
   const [draftNotesText, setDraftNotesText] = useState('');
   const [isSavingNotes, setIsSavingNotes] = useState(false);
@@ -150,6 +160,8 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     setBenchWorkAuth('All');
     setConfirmDetachId(null);
     setEditingNotesSub(null);
+    setEditingNoteId(null);
+    setBusyNoteId(null);
     setDraftInterviewDate('');
     setDraftNotesText('');
     setClientDuplicateMap({});
@@ -382,25 +394,70 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     ]
   );
 
-  const openNotesEditor = (sub: RequirementSubmission) => {
+  const openNotesEditor = (sub: RequirementSubmission, targetNote?: SubmissionNote | null) => {
     setEditingNotesSub(sub);
     setDraftInterviewDate(sub.interviewDateTime || sub.interviewDate || '');
-    setDraftNotesText(sub.interviewNotes || '');
+    if (targetNote) {
+      setEditingNoteId(targetNote.id);
+      setDraftNotesText(targetNote.text);
+    } else {
+      setEditingNoteId(null);
+      setDraftNotesText('');
+    }
   };
 
   const handleSaveSubmissionNotes = async () => {
     if (!requirement || !onUpdateSubmissionNotes || !editingNotesSub || isSavingNotes) return;
+    const liveSub = submissions.find((s) => s.id === editingNotesSub.id) || editingNotesSub;
+    const cleanText = draftNotesText.trim();
+    const prevDate = liveSub.interviewDateTime || liveSub.interviewDate || '';
+    const dateChanged = draftInterviewDate !== prevDate;
+
+    if (editingNoteId && !cleanText) {
+      return;
+    }
+    if (!editingNoteId && !cleanText && !dateChanged) {
+      setEditingNotesSub(null);
+      return;
+    }
+
     setIsSavingNotes(true);
     try {
-      await onUpdateSubmissionNotes(requirement, editingNotesSub.id, {
-        interviewDate: draftInterviewDate ? draftInterviewDate : null,
-        interviewNotes: draftNotesText,
+      await onUpdateSubmissionNotes(requirement, liveSub.id, {
+        ...(cleanText
+          ? {
+              action: editingNoteId ? 'edit' : 'add',
+              ...(editingNoteId ? { noteId: editingNoteId } : {}),
+              noteText: cleanText,
+            }
+          : {}),
+        ...(dateChanged ? { interviewDate: draftInterviewDate || null } : {}),
       });
+      setEditingNoteId(null);
       setEditingNotesSub(null);
     } catch {
       // Toast handled by parent caller
     } finally {
       setIsSavingNotes(false);
+    }
+  };
+
+  const handleDeleteSubmissionNote = async (sub: RequirementSubmission, noteId: string) => {
+    if (!requirement || !onUpdateSubmissionNotes || busyNoteId) return;
+    setBusyNoteId(noteId);
+    try {
+      await onUpdateSubmissionNotes(requirement, sub.id, {
+        action: 'delete',
+        noteId,
+      });
+      if (editingNoteId === noteId) {
+        setEditingNoteId(null);
+        setDraftNotesText('');
+      }
+    } catch {
+      // Toast handled by parent caller
+    } finally {
+      setBusyNoteId(null);
     }
   };
 
@@ -862,6 +919,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                   .slice(0, 2)
                   .toUpperCase();
                 const formattedInterview = formatDateTimeBadge(sub.interviewDateTime || sub.interviewDate);
+                const subNotes = sub.notes || [];
                 const isClosedStage = sub.stage.trim().toLowerCase() === 'closed';
 
                 return (
@@ -977,7 +1035,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                             }`}
                           >
                             <MessageSquare className="w-3 h-3" />
-                            <span>{sub.interviewNotes || formattedInterview ? 'Edit Notes' : 'Notes'}</span>
+                            <span>{subNotes.length > 0 ? `Notes (${subNotes.length})` : 'Add Note'}</span>
                           </button>
                         )}
 
@@ -1046,18 +1104,63 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                       </div>
                     </div>
 
-                    {sub.interviewNotes && (
-                      <div
-                        className={`border-l-2 pl-3 pr-3 py-1.5 rounded-r-md text-[11px] leading-relaxed ${
-                          isClosedStage
-                            ? 'border-rose-400 bg-rose-50/50 text-rose-900'
-                            : 'border-brand-400 bg-slate-50/70 text-slate-700'
-                        }`}
-                      >
-                        <span className="font-semibold text-slate-900">
-                          {isClosedStage ? 'Rejection Reason: ' : 'Call & Interview Notes: '}
-                        </span>
-                        <span className="whitespace-pre-line">{sub.interviewNotes}</span>
+                    {subNotes.length > 0 && (
+                      <div className="rounded-lg border border-slate-200/70 bg-slate-50/60 divide-y divide-slate-200/60">
+                        {subNotes.map((note) => {
+                          const noteTime = formatDateTimeBadge(note.updatedAt || note.createdAt);
+                          const isNoteClosed =
+                            (note.stage || '').trim().toLowerCase() === 'closed' || isClosedStage;
+                          return (
+                            <div
+                              key={note.id}
+                              className="px-3 py-2 flex items-start justify-between gap-2 text-[11px]"
+                            >
+                              <div className="min-w-0 flex-1 space-y-0.5">
+                                <div className="flex items-center gap-1.5 text-[10px] text-slate-400 flex-wrap">
+                                  <span className="font-semibold text-slate-600">{note.authorName}</span>
+                                  {noteTime ? <span>· {noteTime}</span> : null}
+                                  {note.updatedAt ? <span>· (edited)</span> : null}
+                                  {isNoteClosed ? (
+                                    <span className="px-1.5 py-0.2 rounded bg-rose-50 text-rose-700 font-medium">
+                                      Rejection Feedback
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <p className="text-slate-700 whitespace-pre-line leading-relaxed">
+                                  {note.text}
+                                </p>
+                              </div>
+                              {!isLegacy && onUpdateSubmissionNotes && (
+                                <div className="flex items-center gap-0.5 flex-shrink-0">
+                                  <button
+                                    type="button"
+                                    disabled={busyNoteId === note.id}
+                                    onClick={() => openNotesEditor(sub, note)}
+                                    title="Edit note"
+                                    aria-label={`Edit note by ${note.authorName}`}
+                                    className="p-1 rounded text-slate-400 hover:text-brand-600 hover:bg-white transition-colors cursor-pointer"
+                                  >
+                                    <Pencil className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={busyNoteId === note.id}
+                                    onClick={() => handleDeleteSubmissionNote(sub, note.id)}
+                                    title="Delete note"
+                                    aria-label={`Delete note by ${note.authorName}`}
+                                    className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                  >
+                                    {busyNoteId === note.id ? (
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="w-3 h-3" />
+                                    )}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -1450,14 +1553,27 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
 
       {/* Applicant Call Notes, Interview Schedule & Rejection Feedback Modal */}
       {editingNotesSub && (() => {
-        const isClosedModalStage = editingNotesSub.stage.trim().toLowerCase() === 'closed';
-        const modalStageIdx = getStageIndex(editingNotesSub.stage, taxonomies.stages);
-        const modalInitials = editingNotesSub.fullName
+        const liveEditingSub =
+          submissions.find((s) => s.id === editingNotesSub.id) || editingNotesSub;
+        const isClosedModalStage = liveEditingSub.stage.trim().toLowerCase() === 'closed';
+        const modalStageIdx = getStageIndex(liveEditingSub.stage, taxonomies.stages);
+        const modalInitials = liveEditingSub.fullName
           .split(' ')
           .map((n) => n[0])
           .join('')
           .slice(0, 2)
           .toUpperCase();
+        const prevDate = liveEditingSub.interviewDateTime || liveEditingSub.interviewDate || '';
+        const dateChanged = draftInterviewDate !== prevDate;
+        const hasNoteText = Boolean(draftNotesText.trim());
+        const submitDisabled =
+          isSavingNotes ||
+          (editingNoteId ? !hasNoteText : !hasNoteText && !dateChanged);
+        const submitLabel = editingNoteId
+          ? 'Update Note'
+          : hasNoteText
+          ? 'Add Note'
+          : 'Save Schedule';
 
         return (
           <div
@@ -1481,11 +1597,11 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h4 className="text-sm font-bold text-slate-900 truncate">
-                        {editingNotesSub.fullName}
+                        {liveEditingSub.fullName}
                       </h4>
                       <StatusBadge
-                        stage={editingNotesSub.stage}
-                        dotClass={getStageDotClass(editingNotesSub.stage, modalStageIdx)}
+                        stage={liveEditingSub.stage}
+                        dotClass={getStageDotClass(liveEditingSub.stage, modalStageIdx)}
                         size="xs"
                       />
                     </div>
@@ -1515,7 +1631,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                     value={draftInterviewDate}
                     onChange={setDraftInterviewDate}
                     placeholder="Select interview date & time..."
-                    ariaLabel={`Interview date for ${editingNotesSub.fullName}`}
+                    ariaLabel={`Interview date for ${liveEditingSub.fullName}`}
                   />
                 </div>
 
@@ -1528,9 +1644,11 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                         }`}
                       />
                       <span>
-                        {isClosedModalStage
-                          ? 'Client Rejection Reason & Feedback'
-                          : 'Recruiter Call Notes & Interview Debrief'}
+                        {editingNoteId
+                          ? 'Edit Note'
+                          : isClosedModalStage
+                          ? 'Add Rejection Feedback'
+                          : 'Add Call / Interview Note'}
                       </span>
                     </label>
                   </div>
@@ -1560,13 +1678,13 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                   <textarea
                     rows={4}
                     autoFocus
-                    aria-label={`Call notes and feedback for ${editingNotesSub.fullName}`}
+                    aria-label={`Call notes and feedback for ${liveEditingSub.fullName}`}
                     value={draftNotesText}
                     onChange={(e) => setDraftNotesText(e.target.value)}
                     placeholder={
                       isClosedModalStage
                         ? 'Why did the client reject or close out this applicant? (e.g. Budget ceiling, needed hands-on GCP)'
-                        : 'Log recruiter call summary, Round 1/2 interview notes, rate confirmation, or client feedback...'
+                        : 'Log recruiter call summary, Round 1/2 debrief, or client feedback...'
                     }
                     className="w-full px-3 py-2.5 text-xs border border-slate-200 rounded-lg bg-slate-50/40 focus:bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/10 transition-colors"
                   />
@@ -1587,10 +1705,11 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                   type="submit"
                   loading={isSavingNotes}
                   loadingText="Saving..."
+                  disabled={submitDisabled}
                   spinnerClassName="w-3.5 h-3.5 animate-spin flex-shrink-0"
-                  className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                  className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
                 >
-                  Save Notes
+                  {submitLabel}
                 </ActionButton>
               </div>
             </form>

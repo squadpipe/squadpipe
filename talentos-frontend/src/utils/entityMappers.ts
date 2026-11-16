@@ -1,6 +1,7 @@
 import {
   Requirement,
   RequirementSubmission,
+  SubmissionNote,
   Candidate,
   Client,
   Vendor,
@@ -102,8 +103,65 @@ export const formatSubmissionStage = (stage?: string): RequirementSubmission['st
   return formatRequirementStatus(trimmed);
 };
 
+export function parseSubmissionNotes(
+  raw?: string | null,
+  fallbackAuthor?: string | null,
+  fallbackDate?: string | null
+): SubmissionNote[] {
+  const trimmed = String(raw || '').trim();
+  if (!trimmed) return [];
+
+  const defaultIso = fallbackDate || new Date().toISOString();
+
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .filter((item) => item && typeof item === 'object' && typeof item.text === 'string' && item.text.trim())
+          .map((item, idx) => ({
+            id: typeof item.id === 'string' && item.id.trim() ? item.id.trim() : `note_${idx}`,
+            text: item.text.trim(),
+            authorName:
+              typeof item.authorName === 'string' && item.authorName.trim()
+                ? item.authorName.trim()
+                : fallbackAuthor || 'Recruiter',
+            ...(typeof item.authorId === 'string' && item.authorId.trim()
+              ? { authorId: item.authorId.trim() }
+              : {}),
+            ...(typeof item.stage === 'string' && item.stage.trim()
+              ? { stage: formatSubmissionStage(item.stage) }
+              : {}),
+            createdAt:
+              typeof item.createdAt === 'string' && item.createdAt.trim()
+                ? item.createdAt
+                : defaultIso,
+            ...(typeof item.updatedAt === 'string' && item.updatedAt.trim()
+              ? { updatedAt: item.updatedAt }
+              : {}),
+          }));
+      }
+    } catch {
+      // Fall back to legacy plain-text note
+    }
+  }
+
+  return [
+    {
+      id: 'legacy_0',
+      text: trimmed,
+      authorName: fallbackAuthor || 'Recruiter',
+      createdAt: defaultIso,
+    },
+  ];
+}
+
 export const mapSubmissionFromApi = (s: any): RequirementSubmission => {
   const mappedCand = s?.candidate ? mapCandidateFromApi(s.candidate) : undefined;
+  const recruiterName = s.recruiter?.fullName || '';
+  const fallbackIso = safeIsoDateTime(s.lastClientFeedbackDate || s.submissionDate || s.createdAt);
+  const notes = parseSubmissionNotes(s.interviewNotes, recruiterName, fallbackIso);
+
   return {
     id: s.id,
     candidateId: s.candidateId || mappedCand?.id || '',
@@ -122,8 +180,9 @@ export const mapSubmissionFromApi = (s: any): RequirementSubmission => {
     lastClientFeedbackDate: safeIsoDate(s.lastClientFeedbackDate),
     interviewDate: safeIsoDate(s.interviewDate),
     interviewDateTime: safeIsoDateTime(s.interviewDate),
-    interviewNotes: s.interviewNotes || '',
-    recruiterName: s.recruiter?.fullName || '',
+    interviewNotes: notes.map((n) => n.text).join('\n'),
+    notes,
+    recruiterName,
     candidate: mappedCand,
   };
 };
