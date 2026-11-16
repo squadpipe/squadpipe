@@ -24,20 +24,14 @@ import {
   ShieldAlert,
   ShieldCheck,
   Trash2,
-  Upload,
   UserCheck,
-  X,
 } from 'lucide-react';
 import { BillablePlacement, Candidate, Requirement, RequirementSubmission } from '../../types';
 import { useCurrency } from '../../utils/currency';
 import { getStageDotClass } from '../../utils/stageStyles';
 import { generateCandidateResumePdf } from '../../utils/pdfGenerator';
 import { initWorkspaceBrand, useWorkspaceBrand } from '../../utils/workspaceBrand';
-import {
-  ALLOWED_CV_ACCEPT,
-  downloadOriginalCandidateCv,
-  validateCvFileSelection,
-} from '../../utils/cvFiles';
+import { downloadOriginalCandidateCv } from '../../utils/cvFiles';
 import {
   cleanExtractedResumeText,
   parseResumeSections,
@@ -47,15 +41,10 @@ import {
 import { formatDateTimeBadge } from '../../utils/entityMappers';
 import { useClientPagination } from '../../utils/usePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
-import { SkillTagInput } from '../../components/shared/SkillTagInput';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { MaskedValue } from '../../components/shared/MaskedValue';
-import { CustomSelect } from '../../components/shared/CustomSelect';
-import {
-  DynamicCustomFieldsSection,
-  useMasterTaxonomies,
-} from '../../components/shared/DynamicCustomFieldsSection';
+import { EditConsultantModal } from '../../components/modals/edit/EditConsultantModal';
 
 interface ConsultantDetailPageProps {
   candidate: Candidate | null;
@@ -79,17 +68,6 @@ const SUMMARY_SECTION_TITLES = new Set([
   'executive summary',
   'objective',
 ]);
-
-const PIPELINE_STAGE_OPTIONS = [
-  'Available / Bench',
-  'Submitted',
-  'Interview',
-  'Selected',
-  'Onboarding',
-  'Billable',
-  'Archived',
-  'Placed',
-];
 
 function getSectionIcon(title: string) {
   const lower = title.toLowerCase();
@@ -120,14 +98,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
   const { formatRate } = useCurrency();
   const brand = useWorkspaceBrand();
   const brandName = (brand.agencyName || brand.legalEntityName || 'SquadPipe Staffing').trim();
-  const taxonomies = useMasterTaxonomies(true);
-
   const [isEditing, setIsEditing] = useState(initialEditing);
-  const [editForm, setEditForm] = useState<Candidate | null>(candidate);
-  const [editCvFile, setEditCvFile] = useState<File | null>(null);
-  const [editCvError, setEditCvError] = useState('');
-  const [isSavingEdit, setIsSavingEdit] = useState(false);
-
   const [isDownloadingCv, setIsDownloadingCv] = useState(false);
   const [showQuickSubmitDropdown, setShowQuickSubmitDropdown] = useState(false);
   const [reqFilterQuery, setReqFilterQuery] = useState('');
@@ -137,10 +108,6 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    setEditForm(candidate ? { ...candidate } : null);
-    setEditCvFile(null);
-    setEditCvError('');
-    setIsSavingEdit(false);
     setIsDownloadingCv(false);
     setShowQuickSubmitDropdown(false);
     setReqFilterQuery('');
@@ -149,12 +116,6 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
     setIsDeleting(false);
     setIsEditing(Boolean(initialEditing));
   }, [candidate?.id, initialEditing]);
-
-  useEffect(() => {
-    if (candidate) {
-      setEditForm((prev) => (!isEditing ? { ...candidate } : prev));
-    }
-  }, [candidate, isEditing]);
 
   useEffect(() => {
     initWorkspaceBrand(true);
@@ -284,13 +245,6 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
   const isBillable =
     candidate.pipelineStage === 'Billable' || activeLinkedPlacements.length > 0;
 
-  const workAuthOptions = Array.from(
-    new Set([
-      ...(taxonomies.workAuth || ['US Citizen', 'Green Card', 'H-1B', 'TN Visa', 'OPT']),
-      ...(editForm?.workAuth ? [editForm.workAuth] : []),
-    ])
-  ).filter(Boolean);
-
   const handleDownloadOriginalCv = async () => {
     if (!hasStoredOriginalCv || isDownloadingCv) return;
     setIsDownloadingCv(true);
@@ -332,24 +286,6 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
       `Exported ${brandName} consultant brief for ${candidate.fullName} (CRM summary — not original CV).`,
       'fa-solid fa-file-arrow-down text-emerald-500'
     );
-  };
-
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editForm || !onUpdateCandidate || isSavingEdit) return;
-    setIsSavingEdit(true);
-    setEditCvError('');
-    try {
-      await onUpdateCandidate(editForm, editCvFile);
-      setEditCvFile(null);
-      setIsEditing(false);
-    } catch (err: any) {
-      setEditCvError(
-        err?.response?.data?.message || err?.message || 'Failed to save changes.'
-      );
-    } finally {
-      setIsSavingEdit(false);
-    }
   };
 
   return (
@@ -435,12 +371,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
           {onUpdateCandidate && (
             <button
               type="button"
-              onClick={() => {
-                setEditForm({ ...candidate });
-                setEditCvFile(null);
-                setEditCvError('');
-                setIsEditing(true);
-              }}
+              onClick={() => setIsEditing(true)}
               className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Pencil className="w-3.5 h-3.5" />
@@ -1054,299 +985,14 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
         </aside>
       </div>
 
-      {/* Edit Consultant Profile & CV Modal */}
-      {isEditing && editForm && (
-        <div
-          onClick={() => {
-            if (isSavingEdit) return;
-            setEditCvFile(null);
-            setEditCvError('');
-            setIsEditing(false);
-          }}
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col animate-fade-in max-h-[92vh]"
-          >
-            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white shrink-0">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shrink-0">
-                  <Pencil className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <h2 className="text-sm font-bold text-white truncate">
-                    Edit Consultant Profile &amp; CV
-                  </h2>
-                  <div className="text-[11px] text-slate-400 mt-0.5 truncate">
-                    {candidate.fullName}
-                  </div>
-                </div>
-              </div>
-              <button
-                type="button"
-                disabled={isSavingEdit}
-                onClick={() => {
-                  setEditCvFile(null);
-                  setEditCvError('');
-                  setIsEditing(false);
-                }}
-                aria-label="Close modal"
-                className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveEdit} className="flex flex-col flex-1 overflow-hidden">
-              <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Full Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={editForm.fullName}
-                      onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Current Title *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={editForm.currentTitle}
-                      onChange={(e) => setEditForm({ ...editForm, currentTitle: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Email *
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={editForm.email}
-                      onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Phone
-                    </label>
-                    <input
-                      type="text"
-                      value={editForm.phone}
-                      onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Work Auth
-                    </label>
-                    <CustomSelect
-                      value={editForm.workAuth}
-                      onChange={(val) => setEditForm({ ...editForm, workAuth: val })}
-                      ariaLabel="Work Auth"
-                      options={workAuthOptions}
-                    />
-                  </div>
-                  {!rateMasked && (
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                        Hourly Rate
-                      </label>
-                      <input
-                        type="text"
-                        value={editForm.hourlyRate}
-                        onChange={(e) => setEditForm({ ...editForm, hourlyRate: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                      />
-                    </div>
-                  )}
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Relocation
-                    </label>
-                    <CustomSelect
-                      value={editForm.relocation}
-                      onChange={(val) => setEditForm({ ...editForm, relocation: val })}
-                      ariaLabel="Relocation"
-                      options={[
-                        { value: 'Yes', label: 'Open (Yes)' },
-                        { value: 'No', label: 'Local Only (No)' },
-                      ]}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Pipeline Stage
-                    </label>
-                    <CustomSelect
-                      value={editForm.pipelineStage}
-                      onChange={(val) => setEditForm({ ...editForm, pipelineStage: val })}
-                      ariaLabel="Pipeline Stage"
-                      options={PIPELINE_STAGE_OPTIONS}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Education
-                    </label>
-                    <input
-                      type="text"
-                      value={editForm.education || ''}
-                      onChange={(e) => setEditForm({ ...editForm, education: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Key Skillset
-                  </label>
-                  <SkillTagInput
-                    value={editForm.skillset}
-                    onChange={(nextCsv) => setEditForm({ ...editForm, skillset: nextCsv })}
-                  />
-                </div>
-
-                {/* Original CV Upload / Replace Dropzone */}
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Original CV / Resume File
-                  </label>
-                  <div
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const file = e.dataTransfer.files?.[0];
-                      if (!file) return;
-                      const errMsg = validateCvFileSelection(file);
-                      if (errMsg) {
-                        setEditCvError(errMsg);
-                        return;
-                      }
-                      setEditCvError('');
-                      setEditCvFile(file);
-                    }}
-                    className="p-3 rounded-lg border border-dashed border-slate-300 bg-slate-50/70 space-y-2"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <FileText className="w-4 h-4 text-slate-500 shrink-0" />
-                        <div className="min-w-0">
-                          <div className="text-[11px] font-semibold text-slate-800 truncate">
-                            {editCvFile
-                              ? editCvFile.name
-                              : editForm.resumeFileUrl
-                                ? editForm.resumeName || 'Stored Original CV'
-                                : 'No original CV file uploaded yet'}
-                          </div>
-                          <div className="text-[10px] text-slate-500">
-                            {editCvFile
-                              ? `New upload ready (${(editCvFile.size / 1024).toFixed(1)} KB) — saves on update`
-                              : editForm.resumeFileUrl
-                                ? 'Upload a new file to replace the stored CV'
-                                : 'PDF, DOC, DOCX, TXT, or RTF (max 15 MB)'}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {editCvFile && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditCvFile(null);
-                              setEditCvError('');
-                            }}
-                            className="px-2 py-1 rounded border border-slate-200 bg-white text-rose-600 hover:bg-rose-50 text-[11px] font-medium cursor-pointer"
-                          >
-                            Clear
-                          </button>
-                        )}
-                        <label className="px-2.5 py-1.5 rounded-md bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors">
-                          <Upload className="w-3 h-3 text-brand-600" />
-                          <span>
-                            {editCvFile
-                              ? 'Change File'
-                              : editForm.resumeFileUrl
-                                ? 'Replace CV'
-                                : 'Upload CV'}
-                          </span>
-                          <input
-                            type="file"
-                            accept={ALLOWED_CV_ACCEPT}
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (!file) return;
-                              const errMsg = validateCvFileSelection(file);
-                              if (errMsg) {
-                                setEditCvError(errMsg);
-                                e.target.value = '';
-                                return;
-                              }
-                              setEditCvError('');
-                              setEditCvFile(file);
-                              e.target.value = '';
-                            }}
-                            className="hidden"
-                          />
-                        </label>
-                      </div>
-                    </div>
-                    {editCvError && (
-                      <div className="text-[11px] text-rose-600 font-medium">{editCvError}</div>
-                    )}
-                  </div>
-                </div>
-
-                <DynamicCustomFieldsSection
-                  entity="consultant"
-                  values={(editForm.customFields as Record<string, string>) || {}}
-                  onChange={(vals) => setEditForm({ ...editForm, customFields: vals })}
-                  isOpen={isEditing}
-                />
-              </div>
-
-              <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
-                <button
-                  type="button"
-                  disabled={isSavingEdit}
-                  onClick={() => {
-                    setEditCvFile(null);
-                    setEditCvError('');
-                    setIsEditing(false);
-                  }}
-                  className="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 font-medium cursor-pointer disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <ActionButton
-                  type="submit"
-                  loading={isSavingEdit}
-                  loadingText="Saving..."
-                  className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-xs cursor-pointer"
-                >
-                  Save Changes
-                </ActionButton>
-              </div>
-            </form>
-          </div>
-        </div>
+      {onUpdateCandidate && (
+        <EditConsultantModal
+          candidate={candidate}
+          isOpen={isEditing}
+          rateMasked={rateMasked}
+          onClose={() => setIsEditing(false)}
+          onUpdateCandidate={onUpdateCandidate}
+        />
       )}
     </section>
   );

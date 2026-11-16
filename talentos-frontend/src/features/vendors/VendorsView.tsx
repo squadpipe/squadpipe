@@ -237,10 +237,10 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                           <span>View</span>
                           <ChevronRight className="w-3 h-3" />
                         </button>
-                        {canEditVendor && (
+                        {canEditVendor && onUpdateVendor && (
                           <button
                             type="button"
-                            onClick={() => onSelectVendor(v, true)}
+                            onClick={() => setEditingVendor(v)}
                             title="Edit vendor"
                             className="p-1.5 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer"
                           >
@@ -279,6 +279,15 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
           isLoading={isLoadingRows}
         />
       </div>
+
+      {onUpdateVendor && (
+        <EditVendorModal
+          vendor={editingVendor}
+          isOpen={Boolean(editingVendor)}
+          onClose={() => setEditingVendor(null)}
+          onUpdateVendor={onUpdateVendor}
+        />
+      )}
     </section>
   );
 };

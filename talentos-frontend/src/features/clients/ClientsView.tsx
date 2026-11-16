@@ -263,7 +263,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                           </button>
                           <button
                             type="button"
-                            onClick={() => onSelectClient(client, true)}
+                            onClick={() => setEditingClient(client)}
                             title="Edit client"
                             className="p-1.5 rounded text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors cursor-pointer"
                           >
@@ -302,6 +302,17 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
           pageSizeOptions={[5, 10, 20, 50]}
         />
       </div>
+
+      <EditClientModal
+        client={editingClient}
+        isOpen={Boolean(editingClient)}
+        onClose={() => setEditingClient(null)}
+        onClientUpdated={(updated) => {
+          setServerClients((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+          if (onClientUpdated) onClientUpdated(updated);
+        }}
+        showToast={showToast}
+      />
     </section>
   );
 };

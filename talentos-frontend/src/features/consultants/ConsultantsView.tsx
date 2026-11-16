@@ -479,10 +479,10 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                         <span>View</span>
                         <ChevronRight className="w-3 h-3" />
                       </button>
-                      {canEditCandidate && (
+                      {canEditCandidate && onUpdateCandidate && (
                         <button
                           type="button"
-                          onClick={() => onPreviewResume(c, true)}
+                          onClick={() => setEditingCandidate(c)}
                           title="Edit consultant"
                           className="p-1.5 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer"
                         >
@@ -648,6 +648,16 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
             );
           })()}
         </ModalPortal>
+      )}
+
+      {onUpdateCandidate && (
+        <EditConsultantModal
+          candidate={editingCandidate}
+          isOpen={Boolean(editingCandidate)}
+          rateMasked={rateMasked}
+          onClose={() => setEditingCandidate(null)}
+          onUpdateCandidate={onUpdateCandidate}
+        />
       )}
     </section>
   );

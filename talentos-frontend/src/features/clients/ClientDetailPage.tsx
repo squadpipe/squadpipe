@@ -23,7 +23,7 @@ import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { MaskedValue } from '../../components/shared/MaskedValue';
-import { DynamicCustomFieldsSection } from '../../components/shared/DynamicCustomFieldsSection';
+import { EditClientModal } from '../../components/modals/edit/EditClientModal';
 import { getStageDotClass } from '../../utils/stageStyles';
 import { useClientPagination } from '../../utils/usePagination';
 
@@ -55,14 +55,6 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
   showToast,
 }) => {
   const [isEditingClient, setIsEditingClient] = useState(initialEditing);
-  const [isSavingClient, setIsSavingClient] = useState(false);
-  const [clientEditForm, setClientEditForm] = useState({
-    name: client?.name || '',
-    website: client?.website || '',
-    boardNumber: client?.boardNumber || '',
-    location: client?.location || '',
-    customFields: (client?.customFields || {}) as Record<string, string>,
-  });
 
   const [showAddContact, setShowAddContact] = useState(false);
   const [isSavingContact, setIsSavingContact] = useState(false);
@@ -78,32 +70,11 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
   const [isDeletingClient, setIsDeletingClient] = useState(false);
 
   useEffect(() => {
-    if (client) {
-      setClientEditForm({
-        name: client.name || '',
-        website: client.website || '',
-        boardNumber: client.boardNumber || '',
-        location: client.location || '',
-        customFields: (client.customFields || {}) as Record<string, string>,
-      });
-    }
     setIsEditingClient(Boolean(initialEditing));
     setShowAddContact(false);
     setShowDeleteConfirm(false);
     setIsDeletingClient(false);
   }, [client?.id, initialEditing]);
-
-  useEffect(() => {
-    if (client && !isEditingClient) {
-      setClientEditForm({
-        name: client.name || '',
-        website: client.website || '',
-        boardNumber: client.boardNumber || '',
-        location: client.location || '',
-        customFields: (client.customFields || {}) as Record<string, string>,
-      });
-    }
-  }, [client, isEditingClient]);
 
   const clientReqs = client
     ? requirements.filter((r) => r.companyName.toLowerCase() === client.name.toLowerCase())
@@ -147,30 +118,6 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
   const customFieldEntries = Object.entries(client.customFields || {}).filter(
     ([, v]) => v !== null && v !== undefined && String(v).trim() !== ''
   );
-
-  const handleSaveClientDetails = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isSavingClient) return;
-    setIsSavingClient(true);
-    try {
-      await apiClient.put(`/clients/${client.id}`, clientEditForm);
-      const updatedClient: Client = {
-        ...client,
-        name: clientEditForm.name,
-        website: clientEditForm.website,
-        boardNumber: clientEditForm.boardNumber,
-        location: clientEditForm.location,
-        customFields: clientEditForm.customFields,
-      };
-      if (onClientUpdated) onClientUpdated(updatedClient);
-      setIsEditingClient(false);
-      showToast('Client Updated', `${updatedClient.name} saved.`);
-    } catch (err: any) {
-      showToast('Update Failed', err?.response?.data?.message || 'Could not update client.');
-    } finally {
-      setIsSavingClient(false);
-    }
-  };
 
   const handleSaveContact = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -696,122 +643,13 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
         </aside>
       </div>
 
-      {/* Edit Client Account Modal */}
-      {isEditingClient && (
-        <div
-          onClick={() => !isSavingClient && setIsEditingClient(false)}
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden flex flex-col animate-fade-in max-h-[92vh]"
-          >
-            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white shrink-0">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shrink-0">
-                  <Building2 className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <h2 className="text-sm font-bold text-white truncate">Edit Client Account</h2>
-                  <div className="text-[11px] text-slate-400 mt-0.5 truncate">{client.name}</div>
-                </div>
-              </div>
-              <button
-                type="button"
-                disabled={isSavingClient}
-                onClick={() => setIsEditingClient(false)}
-                aria-label="Close modal"
-                className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveClientDetails} className="flex flex-col flex-1 overflow-hidden">
-              <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Company Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={clientEditForm.name}
-                      onChange={(e) => setClientEditForm({ ...clientEditForm, name: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Website
-                    </label>
-                    <input
-                      type="text"
-                      value={clientEditForm.website}
-                      onChange={(e) => setClientEditForm({ ...clientEditForm, website: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Main Switchboard
-                    </label>
-                    <input
-                      type="text"
-                      value={clientEditForm.boardNumber}
-                      onChange={(e) =>
-                        setClientEditForm({ ...clientEditForm, boardNumber: e.target.value })
-                      }
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      HQ Location *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={clientEditForm.location}
-                      onChange={(e) =>
-                        setClientEditForm({ ...clientEditForm, location: e.target.value })
-                      }
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <DynamicCustomFieldsSection
-                  entity="client"
-                  values={clientEditForm.customFields || {}}
-                  onChange={(vals) => setClientEditForm({ ...clientEditForm, customFields: vals })}
-                  isOpen={isEditingClient}
-                />
-              </div>
-
-              <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
-                <button
-                  type="button"
-                  disabled={isSavingClient}
-                  onClick={() => setIsEditingClient(false)}
-                  className="px-3.5 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <ActionButton
-                  type="submit"
-                  loading={isSavingClient}
-                  loadingText="Saving..."
-                  className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
-                >
-                  Save Changes
-                </ActionButton>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <EditClientModal
+        client={client}
+        isOpen={isEditingClient}
+        onClose={() => setIsEditingClient(false)}
+        onClientUpdated={onClientUpdated}
+        showToast={showToast}
+      />
 
       {/* Add Client Contact Modal */}
       {showAddContact && (
