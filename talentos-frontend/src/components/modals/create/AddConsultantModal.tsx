@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FileText, Loader2, Plus, Trash2, Upload, UserPlus, X } from 'lucide-react';
 import { Candidate, User } from '../../../types';
 import { DynamicCustomFieldsSection, useMasterTaxonomies } from '../../shared/DynamicCustomFieldsSection';
+import { CustomSelect } from '../../shared/CustomSelect';
 import { useCurrency } from '../../../utils/currency';
 import { ALLOWED_CV_ACCEPT, validateCvFileSelection } from '../../../utils/cvFiles';
 
@@ -176,17 +177,13 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Work Authorization *</label>
-                <select
+                <CustomSelect
                   value={form.workAuth}
-                  onChange={(e) => setForm({ ...form, workAuth: e.target.value })}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600"
-                >
-                  {taxonomies.workAuth.map((wa) => (
-                    <option key={wa} value={wa}>
-                      {wa}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setForm({ ...form, workAuth: val })}
+                  ariaLabel="Work Authorization"
+                  size="sm"
+                  options={taxonomies.workAuth}
+                />
               </div>
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Target Hourly Pay Rate</label>
@@ -225,29 +222,27 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Relocation Preference</label>
-                <select
+                <CustomSelect
                   value={form.relocation}
-                  onChange={(e) => setForm({ ...form, relocation: e.target.value })}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600"
-                >
-                  <option value="Yes">Yes (Open Anywhere in US)</option>
-                  <option value="No">No (Local Only)</option>
-                </select>
+                  onChange={(val) => setForm({ ...form, relocation: val })}
+                  ariaLabel="Relocation Preference"
+                  size="sm"
+                  options={[
+                    { value: 'Yes', label: 'Yes (Open Anywhere in US)' },
+                    { value: 'No', label: 'No (Local Only)' },
+                  ]}
+                />
               </div>
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Highest Education Degree</label>
-                <select
+                <CustomSelect
                   value={form.education}
-                  onChange={(e) => setForm({ ...form, education: e.target.value })}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600"
-                >
-                  <option value="">Select degree...</option>
-                  {taxonomies.education.map((edu) => (
-                    <option key={edu} value={edu}>
-                      {edu}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setForm({ ...form, education: val })}
+                  ariaLabel="Highest Education Degree"
+                  size="sm"
+                  placeholder="Select degree..."
+                  options={[{ value: '', label: 'Select degree...' }, ...taxonomies.education.map((edu) => ({ value: edu, label: edu }))]}
+                />
               </div>
             </div>
 
@@ -267,34 +262,34 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Assigned Desk Recruiter</label>
-                <select
+                <CustomSelect
                   value={form.recruiter}
-                  onChange={(e) => setForm({ ...form, recruiter: e.target.value })}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600"
-                >
-                  <option value="">Recruitment Desk</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.name}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setForm({ ...form, recruiter: val })}
+                  ariaLabel="Assigned Desk Recruiter"
+                  size="sm"
+                  options={[
+                    { value: '', label: 'Recruitment Desk' },
+                    ...users.map((u) => ({ value: u.name, label: u.name })),
+                  ]}
+                />
               </div>
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Initial Pipeline Status</label>
-                <select
+                <CustomSelect
                   value={form.pipelineStage}
-                  onChange={(e) => setForm({ ...form, pipelineStage: e.target.value })}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600"
-                >
-                  <option value="Available / Bench">Available / Bench</option>
-                  <option value="Submitted">Submitted</option>
-                  <option value="Interview">Interview</option>
-                  <option value="Selected">Selected</option>
-                  <option value="Onboarding">Onboarding</option>
-                  <option value="Billable">Billable</option>
-                  <option value="Archived">Archived</option>
-                </select>
+                  onChange={(val) => setForm({ ...form, pipelineStage: val })}
+                  ariaLabel="Initial Pipeline Status"
+                  size="sm"
+                  options={[
+                    'Available / Bench',
+                    'Submitted',
+                    'Interview',
+                    'Selected',
+                    'Onboarding',
+                    'Billable',
+                    'Archived',
+                  ]}
+                />
               </div>
             </div>
 

@@ -14,6 +14,7 @@ import { Requirement, Client, User } from '../../types';
 import { useCurrency } from '../../utils/currency';
 import { mapRequirementFromApi } from '../../utils/entityMappers';
 import { SearchableSelectInput } from '../../components/shared/SearchableSelectInput';
+import { CustomSelect } from '../../components/shared/CustomSelect';
 import { MULTI_INDUSTRY_SKILLS_TAXONOMY } from '../../utils/skillsTaxonomy';
 
 const cleanField = (val?: any) =>
@@ -581,15 +582,14 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase">Initial Stage</label>
-                  <select
+                  <CustomSelect
                     value={extractedReq.initialStage}
-                    onChange={(e) => setExtractedReq({ ...extractedReq, initialStage: e.target.value as any })}
-                    className="mt-0.5 w-full px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 focus:border-brand-600 focus:outline-none cursor-pointer"
-                  >
-                    <option value="Requirement">Requirement</option>
-                    <option value="Submitted">Submitted</option>
-                    <option value="Interview">Interview</option>
-                  </select>
+                    onChange={(val) => setExtractedReq({ ...extractedReq, initialStage: val as any })}
+                    ariaLabel="Initial Stage"
+                    size="sm"
+                    className="mt-0.5"
+                    options={['Requirement', 'Submitted', 'Interview']}
+                  />
                 </div>
               </div>
 

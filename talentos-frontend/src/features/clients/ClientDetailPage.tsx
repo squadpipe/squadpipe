@@ -21,8 +21,11 @@ import { apiClient } from '../../config/api.config';
 import { BillablePlacement, Client, Requirement } from '../../types';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
+import { TablePagination } from '../../components/shared/TablePagination';
+import { MaskedValue } from '../../components/shared/MaskedValue';
 import { DynamicCustomFieldsSection } from '../../components/shared/DynamicCustomFieldsSection';
 import { getStageDotClass } from '../../utils/stageStyles';
+import { useClientPagination } from '../../utils/usePagination';
 
 interface ClientDetailPageProps {
   client: Client | null;
@@ -102,6 +105,16 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
     }
   }, [client, isEditingClient]);
 
+  const clientReqs = client
+    ? requirements.filter((r) => r.companyName.toLowerCase() === client.name.toLowerCase())
+    : [];
+  const clientPlacements = client
+    ? placements.filter((p) => p.customer.toLowerCase() === client.name.toLowerCase())
+    : [];
+  const contactsPg = useClientPagination(client?.contacts || [], 5, client?.id);
+  const reqsPg = useClientPagination(clientReqs, 5, client?.id);
+  const placementsPg = useClientPagination(clientPlacements, 5, client?.id);
+
   if (!client) {
     return (
       <section className="max-w-7xl mx-auto py-16 text-center space-y-3 animate-fade-in">
@@ -118,12 +131,6 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
     );
   }
 
-  const clientReqs = requirements.filter(
-    (r) => r.companyName.toLowerCase() === client.name.toLowerCase()
-  );
-  const clientPlacements = placements.filter(
-    (p) => p.customer.toLowerCase() === client.name.toLowerCase()
-  );
   const activeClientPlacements = clientPlacements.filter(
     (p) => p.status !== 'Completed' && p.status !== 'Terminated'
   );
@@ -522,54 +529,79 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               </form>
             )}
 
-            <div className="divide-y divide-slate-100">
-              {client.contacts.length === 0 ? (
-                <div className="py-10 text-center text-slate-400">
-                  No contact persons added for this client yet.
+            {client.contacts.length === 0 ? (
+              <div className="py-10 text-center text-slate-400">
+                No contact persons added for this client yet.
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase">
+                      <tr>
+                        <th className="px-4 py-2.5">Contact</th>
+                        <th className="px-4 py-2.5">Designation</th>
+                        <th className="px-4 py-2.5">Email</th>
+                        <th className="px-4 py-2.5">Phone</th>
+                        <th className="px-4 py-2.5 text-right">Role</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {contactsPg.pagedItems.map((cnt, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">
+                            {cnt.name || (cnt as any).fullName}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                            {cnt.designation || '—'}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">
+                            {cnt.email ? (
+                              <a
+                                href={`mailto:${cnt.email}`}
+                                className="inline-flex items-center gap-1 hover:text-brand-600"
+                              >
+                                <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span>{cnt.email}</span>
+                              </a>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                            {cnt.phone ? (
+                              <a href={`tel:${cnt.phone}`} className="hover:text-brand-600 font-medium">
+                                {cnt.phone}
+                              </a>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            {cnt.isPrimary ? (
+                              <span className="text-[10px] font-semibold text-amber-800 bg-amber-500/[0.12] px-2 py-0.5 rounded">
+                                Primary Lead
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-slate-400">Contact</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              ) : (
-                client.contacts.map((cnt, idx) => (
-                  <div
-                    key={idx}
-                    className="px-5 py-3.5 hover:bg-slate-50/70 flex items-center justify-between gap-3 transition-colors"
-                  >
-                    <div className="min-w-0">
-                      <div className="font-bold text-slate-900 flex items-center gap-2 flex-wrap">
-                        <span>{cnt.name || (cnt as any).fullName}</span>
-                        {cnt.isPrimary && (
-                          <span className="text-[10px] font-semibold text-amber-800 bg-amber-500/[0.12] px-1.5 py-0.5 rounded">
-                            Primary Lead
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
-                        {cnt.designation && <span>{cnt.designation}</span>}
-                        {cnt.email && (
-                          <>
-                            {cnt.designation && <span className="text-slate-300">&bull;</span>}
-                            <a
-                              href={`mailto:${cnt.email}`}
-                              className="inline-flex items-center gap-1 text-slate-600 hover:text-brand-600"
-                            >
-                              <Mail className="w-3 h-3 text-slate-400" />
-                              <span>{cnt.email}</span>
-                            </a>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    {cnt.phone && (
-                      <a
-                        href={`tel:${cnt.phone}`}
-                        className="text-[11px] text-slate-600 font-semibold hover:text-brand-600 shrink-0"
-                      >
-                        {cnt.phone}
-                      </a>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
+                <TablePagination
+                  page={contactsPg.page}
+                  limit={contactsPg.limit}
+                  total={contactsPg.total}
+                  onPageChange={contactsPg.setPage}
+                  onLimitChange={contactsPg.setLimit}
+                  itemLabel="contacts"
+                  pageSizeOptions={[5, 10, 20]}
+                />
+              </>
+            )}
           </section>
 
           {/* Job Requisitions */}
@@ -587,36 +619,65 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                 No active job orders for this client.
               </div>
             ) : (
-              <div className="divide-y divide-slate-100">
-                {clientReqs.map((r) => (
-                  <div
-                    key={r.id}
-                    onClick={() => onOpenRequirement && onOpenRequirement(r)}
-                    className={`px-5 py-3.5 flex items-center justify-between gap-3 ${
-                      onOpenRequirement ? 'hover:bg-slate-50 cursor-pointer transition-colors' : ''
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
-                          {r.code}
-                        </span>
-                        <span className="font-bold text-slate-900 truncate">
-                          {r.opportunityTitle}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-slate-500 mt-1">
-                        Assigned: {r.assignedRecruiter || 'Unassigned'} &bull; {r.location}
-                      </div>
-                    </div>
-                    <StatusBadge
-                      stage={r.status}
-                      dotClass={getStageDotClass(r.status)}
-                      size="xs"
-                    />
-                  </div>
-                ))}
-              </div>
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase">
+                      <tr>
+                        <th className="px-4 py-2.5">Req ID</th>
+                        <th className="px-4 py-2.5">Opportunity</th>
+                        <th className="px-4 py-2.5">Recruiter</th>
+                        <th className="px-4 py-2.5">Location</th>
+                        <th className="px-4 py-2.5 text-right">Stage</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {reqsPg.pagedItems.map((r) => (
+                        <tr
+                          key={r.id}
+                          onClick={() => onOpenRequirement && onOpenRequirement(r)}
+                          className={
+                            onOpenRequirement
+                              ? 'hover:bg-slate-50/80 cursor-pointer transition-colors'
+                              : undefined
+                          }
+                        >
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                              {r.code}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-slate-900">
+                            {r.opportunityTitle}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                            {r.assignedRecruiter || 'Unassigned'}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                            {r.location || '—'}
+                          </td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            <StatusBadge
+                              stage={r.status}
+                              dotClass={getStageDotClass(r.status)}
+                              size="xs"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <TablePagination
+                  page={reqsPg.page}
+                  limit={reqsPg.limit}
+                  total={reqsPg.total}
+                  onPageChange={reqsPg.setPage}
+                  onLimitChange={reqsPg.setLimit}
+                  itemLabel="requisitions"
+                  pageSizeOptions={[5, 10, 20]}
+                />
+              </>
             )}
           </section>
 
@@ -632,29 +693,49 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                 No billable consultants placed for this account yet.
               </div>
             ) : (
-              <div className="divide-y divide-slate-100">
-                {clientPlacements.map((b) => (
-                  <div
-                    key={b.id}
-                    className="px-5 py-3.5 flex items-center justify-between gap-3"
-                  >
-                    <div className="min-w-0">
-                      <div className="font-bold text-slate-900 truncate">{b.resourceName}</div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">
-                        {b.skillRole} &bull; {b.startDate} &rarr; {b.endDate}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {!rateMasked && (
-                        <span className="text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded text-[11px]">
-                          {b.billing}
-                        </span>
-                      )}
-                      <StatusBadge stage={b.status} size="xs" />
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase">
+                      <tr>
+                        <th className="px-4 py-2.5">Consultant</th>
+                        <th className="px-4 py-2.5">Role / Skill</th>
+                        <th className="px-4 py-2.5">Contract Period</th>
+                        <th className="px-4 py-2.5">Bill Rate</th>
+                        <th className="px-4 py-2.5 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {placementsPg.pagedItems.map((b) => (
+                        <tr key={b.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">
+                            {b.resourceName}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">{b.skillRole}</td>
+                          <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                            {b.startDate} &rarr; {b.endDate}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <MaskedValue value={b.billing} isMasked={rateMasked} />
+                          </td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            <StatusBadge stage={b.status} size="xs" />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <TablePagination
+                  page={placementsPg.page}
+                  limit={placementsPg.limit}
+                  total={placementsPg.total}
+                  onPageChange={placementsPg.setPage}
+                  onLimitChange={placementsPg.setLimit}
+                  itemLabel="placements"
+                  pageSizeOptions={[5, 10, 20]}
+                />
+              </>
             )}
           </section>
         </div>

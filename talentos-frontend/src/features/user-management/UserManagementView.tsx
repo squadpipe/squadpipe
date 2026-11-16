@@ -17,6 +17,7 @@ import { ActionButton } from '../../components/shared/ActionButton';
 import { User } from '../../types';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { CustomSelect } from '../../components/shared/CustomSelect';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapUserFromApi } from '../../utils/entityMappers';
 import { getWorkspaceBrandSlug } from '../../utils/workspaceBrand';
@@ -226,19 +227,23 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
               />
             </div>
 
-            <select
+            <CustomSelect
               value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-              className="px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium text-slate-700 focus:border-brand-600 focus:outline-none cursor-pointer"
-            >
-              <option value="All">All Roles</option>
-              <option value="Administrator">Administrator</option>
-              <option value="Senior Recruiter">Senior Recruiter</option>
-              <option value="Technical Recruiter">Technical Recruiter</option>
-              <option value="Bench Sales Lead">Bench Sales Lead</option>
-              <option value="Account Executive">Account Executive</option>
-              <option value="Associate Recruiter">Associate Recruiter</option>
-            </select>
+              onChange={setRoleFilter}
+              ariaLabel="Filter team members by role"
+              size="sm"
+              fullWidth={false}
+              minMenuWidth={170}
+              options={[
+                { value: 'All', label: 'All Roles' },
+                'Administrator',
+                'Senior Recruiter',
+                'Technical Recruiter',
+                'Bench Sales Lead',
+                'Account Executive',
+                'Associate Recruiter',
+              ]}
+            />
 
             <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
               {(['All', 'Active', 'Invited', 'Suspended'] as const).map((st) => (
@@ -558,33 +563,35 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Role</label>
-                  <select
+                  <CustomSelect
                     value={newUser.role}
-                    onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
-                  >
-                    <option value="Administrator">Administrator</option>
-                    <option value="Senior Recruiter">Senior Recruiter</option>
-                    <option value="Technical Recruiter">Technical Recruiter</option>
-                    <option value="Bench Sales Lead">Bench Sales Lead</option>
-                    <option value="Account Executive">Account Executive</option>
-                    <option value="Associate Recruiter">Associate Recruiter</option>
-                  </select>
+                    onChange={(val) => setNewUser({ ...newUser, role: val })}
+                    ariaLabel="Role"
+                    options={[
+                      'Administrator',
+                      'Senior Recruiter',
+                      'Technical Recruiter',
+                      'Bench Sales Lead',
+                      'Account Executive',
+                      'Associate Recruiter',
+                    ]}
+                  />
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Desk</label>
-                  <select
+                  <CustomSelect
                     value={newUser.desk}
-                    onChange={(e) => setNewUser({ ...newUser, desk: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
-                  >
-                    <option value="Executive Operations & Billing">Executive Operations &amp; Billing</option>
-                    <option value="US IT Contract (C2C & W2)">US IT Contract (C2C &amp; W2)</option>
-                    <option value="Cloud & DevOps Practice">Cloud &amp; DevOps Practice</option>
-                    <option value="Data & AI Practice">Data &amp; AI Practice</option>
-                    <option value="Candidate Bench Marketing">Candidate Bench Marketing</option>
-                  </select>
+                    onChange={(val) => setNewUser({ ...newUser, desk: val })}
+                    ariaLabel="Desk"
+                    options={[
+                      'Executive Operations & Billing',
+                      'US IT Contract (C2C & W2)',
+                      'Cloud & DevOps Practice',
+                      'Data & AI Practice',
+                      'Candidate Bench Marketing',
+                    ]}
+                  />
                 </div>
               </div>
 
@@ -688,52 +695,51 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Role</label>
-                  <select
+                  <CustomSelect
                     value={editingUser.role}
-                    onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
-                  >
-                    <option value="Administrator">Administrator</option>
-                    <option value="Senior Recruiter">Senior Recruiter</option>
-                    <option value="Technical Recruiter">Technical Recruiter</option>
-                    <option value="Bench Sales Lead">Bench Sales Lead</option>
-                    <option value="Account Executive">Account Executive</option>
-                    <option value="Associate Recruiter">Associate Recruiter</option>
-                  </select>
+                    onChange={(val) => setEditingUser({ ...editingUser, role: val })}
+                    ariaLabel="Role"
+                    options={[
+                      'Administrator',
+                      'Senior Recruiter',
+                      'Technical Recruiter',
+                      'Bench Sales Lead',
+                      'Account Executive',
+                      'Associate Recruiter',
+                    ]}
+                  />
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Status</label>
-                  <select
+                  <CustomSelect
                     value={editingUser.status}
-                    onChange={(e) =>
+                    onChange={(val) =>
                       setEditingUser({
                         ...editingUser,
-                        status: e.target.value as User['status'],
+                        status: val as User['status'],
                       })
                     }
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Invited">Invited</option>
-                    <option value="Suspended">Suspended</option>
-                  </select>
+                    ariaLabel="Status"
+                    options={['Active', 'Invited', 'Suspended']}
+                  />
                 </div>
               </div>
 
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">Desk</label>
-                <select
+                <CustomSelect
                   value={editingUser.desk}
-                  onChange={(e) => setEditingUser({ ...editingUser, desk: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
-                >
-                  <option value="Executive Operations & Billing">Executive Operations &amp; Billing</option>
-                  <option value="US IT Contract (C2C & W2)">US IT Contract (C2C &amp; W2)</option>
-                  <option value="Cloud & DevOps Practice">Cloud &amp; DevOps Practice</option>
-                  <option value="Data & AI Practice">Data &amp; AI Practice</option>
-                  <option value="Candidate Bench Marketing">Candidate Bench Marketing</option>
-                </select>
+                  onChange={(val) => setEditingUser({ ...editingUser, desk: val })}
+                  ariaLabel="Desk"
+                  options={[
+                    'Executive Operations & Billing',
+                    'US IT Contract (C2C & W2)',
+                    'Cloud & DevOps Practice',
+                    'Data & AI Practice',
+                    'Candidate Bench Marketing',
+                  ]}
+                />
               </div>
 
               <label className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between cursor-pointer">

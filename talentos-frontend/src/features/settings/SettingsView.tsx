@@ -10,6 +10,7 @@ import { apiClient } from '../../config/api.config';
 import { CURRENCY_OPTIONS, setWorkspaceCurrency } from '../../utils/currency';
 import { setWorkspaceBrand } from '../../utils/workspaceBrand';
 import { ActionButton } from '../../components/shared/ActionButton';
+import { CustomSelect } from '../../components/shared/CustomSelect';
 
 interface GeneralSettings {
   agencyName: string;
@@ -208,44 +209,37 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="p-5 space-y-4 text-xs">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1.5">Default Timezone</label>
-                  <select
+                  <CustomSelect
                     value={general.timezone}
-                    onChange={(e) => setGeneral({ ...general, timezone: e.target.value })}
-                    className="w-full py-2 border border-slate-200 rounded-lg text-xs text-slate-800 bg-white"
-                  >
-                    <option value="America/New_York (EST/EDT)">America/New_York (EST/EDT)</option>
-                    <option value="America/Chicago (CST/CDT)">America/Chicago (CST/CDT)</option>
-                    <option value="America/Denver (MST/MDT)">America/Denver (MST/MDT)</option>
-                    <option value="America/Los_Angeles (PST/PDT)">America/Los_Angeles (PST/PDT)</option>
-                    <option value="UTC">UTC</option>
-                  </select>
+                    onChange={(val) => setGeneral({ ...general, timezone: val })}
+                    ariaLabel="Default Timezone"
+                    options={[
+                      'America/New_York (EST/EDT)',
+                      'America/Chicago (CST/CDT)',
+                      'America/Denver (MST/MDT)',
+                      'America/Los_Angeles (PST/PDT)',
+                      'UTC',
+                    ]}
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-3.5">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1.5">Date Format</label>
-                    <select
+                    <CustomSelect
                       value={general.dateFormat}
-                      onChange={(e) => setGeneral({ ...general, dateFormat: e.target.value })}
-                      className="w-full py-2 border border-slate-200 rounded-lg text-xs text-slate-800 bg-white"
-                    >
-                      <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                      <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                      <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                    </select>
+                      onChange={(val) => setGeneral({ ...general, dateFormat: val })}
+                      ariaLabel="Date Format"
+                      options={['MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD']}
+                    />
                   </div>
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1.5">Currency</label>
-                    <select
+                    <CustomSelect
                       value={general.currency}
-                      onChange={(e) => setGeneral({ ...general, currency: e.target.value })}
-                      className="w-full py-2 border border-slate-200 rounded-lg text-xs text-slate-800 bg-white"
-                    >
-                      {CURRENCY_OPTIONS.map((curr) => (
-                        <option key={curr} value={curr}>
-                          {curr}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => setGeneral({ ...general, currency: val })}
+                      ariaLabel="Currency"
+                      options={CURRENCY_OPTIONS}
+                    />
                   </div>
                 </div>
               </div>
@@ -263,28 +257,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <div className="grid grid-cols-2 gap-3.5">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1.5">Default Payment Terms</label>
-                    <select
+                    <CustomSelect
                       value={general.defaultPaymentTerms}
-                      onChange={(e) => setGeneral({ ...general, defaultPaymentTerms: e.target.value })}
-                      className="w-full py-2 border border-slate-200 rounded-lg text-xs text-slate-800 bg-white"
-                    >
-                      <option value="Net 15 Days">Net 15 Days</option>
-                      <option value="Net 30 Days">Net 30 Days</option>
-                      <option value="Net 45 Days">Net 45 Days</option>
-                      <option value="Net 60 Days">Net 60 Days</option>
-                    </select>
+                      onChange={(val) => setGeneral({ ...general, defaultPaymentTerms: val })}
+                      ariaLabel="Default Payment Terms"
+                      options={['Net 15 Days', 'Net 30 Days', 'Net 45 Days', 'Net 60 Days']}
+                    />
                   </div>
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1.5">Monthly Hours Basis</label>
-                    <select
-                      value={general.standardMonthlyHours}
-                      onChange={(e) => setGeneral({ ...general, standardMonthlyHours: Number(e.target.value) })}
-                      className="w-full py-2 border border-slate-200 rounded-lg text-xs text-slate-800 bg-white"
-                    >
-                      <option value={160}>160 hrs / month</option>
-                      <option value={168}>168 hrs / month</option>
-                      <option value={173}>173 hrs / month</option>
-                    </select>
+                    <CustomSelect
+                      value={String(general.standardMonthlyHours)}
+                      onChange={(val) =>
+                        setGeneral({ ...general, standardMonthlyHours: Number(val) })
+                      }
+                      ariaLabel="Monthly Hours Basis"
+                      options={[
+                        { value: '160', label: '160 hrs / month' },
+                        { value: '168', label: '168 hrs / month' },
+                        { value: '173', label: '173 hrs / month' },
+                      ]}
+                    />
                   </div>
                 </div>
 

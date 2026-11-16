@@ -17,6 +17,7 @@ import { apiClient } from '../../config/api.config';
 import { Candidate } from '../../types';
 import { formatRateDisplay, useCurrency } from '../../utils/currency';
 import { mapCandidateFromApi } from '../../utils/entityMappers';
+import { CustomSelect } from '../shared/CustomSelect';
 import {
   ALLOWED_CV_ACCEPT,
   buildCandidateFormData,
@@ -452,17 +453,19 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
                   <label className="block font-medium text-slate-700 text-[10px] mb-0.5">
                     Work Authorization *
                   </label>
-                  <select
+                  <CustomSelect
                     value={profile.workAuth}
-                    onChange={(e) => setProfile({ ...profile, workAuth: e.target.value })}
-                    className="w-full px-2.5 py-1 text-xs border border-slate-200 rounded bg-slate-50/50 font-medium focus:bg-white focus:border-brand-500 focus:outline-none cursor-pointer"
-                  >
-                    <option value="US Citizen">US Citizen</option>
-                    <option value="Green Card">Green Card (Permanent Resident)</option>
-                    <option value="H-1B">H-1B (Transfer Ready)</option>
-                    <option value="TN Visa">TN Visa (NAFTA)</option>
-                    <option value="OPT EAD">OPT / CPT EAD</option>
-                  </select>
+                    onChange={(val) => setProfile({ ...profile, workAuth: val })}
+                    ariaLabel="Work Authorization"
+                    size="xs"
+                    options={[
+                      'US Citizen',
+                      { value: 'Green Card', label: 'Green Card (Permanent Resident)' },
+                      { value: 'H-1B', label: 'H-1B (Transfer Ready)' },
+                      { value: 'TN Visa', label: 'TN Visa (NAFTA)' },
+                      { value: 'OPT EAD', label: 'OPT / CPT EAD' },
+                    ]}
+                  />
                 </div>
                 <div>
                   <label className="block font-medium text-slate-700 text-[10px] mb-0.5">Hourly Pay Rate</label>
@@ -501,14 +504,16 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
                   <label className="block font-medium text-slate-700 text-[10px] mb-0.5">
                     Relocation Preference
                   </label>
-                  <select
+                  <CustomSelect
                     value={profile.relocation}
-                    onChange={(e) => setProfile({ ...profile, relocation: e.target.value })}
-                    className="w-full px-2.5 py-1 text-xs border border-slate-200 rounded bg-slate-50/50 focus:bg-white focus:border-brand-500 focus:outline-none cursor-pointer"
-                  >
-                    <option value="Yes">Yes (Open Anywhere in US)</option>
-                    <option value="No">No (Local Only)</option>
-                  </select>
+                    onChange={(val) => setProfile({ ...profile, relocation: val })}
+                    ariaLabel="Relocation Preference"
+                    size="xs"
+                    options={[
+                      { value: 'Yes', label: 'Yes (Open Anywhere in US)' },
+                      { value: 'No', label: 'No (Local Only)' },
+                    ]}
+                  />
                 </div>
                 <div>
                   <label className="block font-medium text-slate-700 text-[10px] mb-0.5">Highest Education</label>

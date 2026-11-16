@@ -1,5 +1,6 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { CustomSelect } from './CustomSelect';
 
 export interface TablePaginationProps {
   page: number;
@@ -57,21 +58,21 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
         </span>
 
         {onLimitChange && (
-          <label className="inline-flex items-center gap-1.5 text-[11px] text-slate-500">
+          <div className="inline-flex items-center gap-1.5 text-[11px] text-slate-500">
             <span>Rows:</span>
-            <select
-              value={safeLimit}
-              onChange={(e) => onLimitChange(Number(e.target.value))}
-              aria-label="Rows per page"
-              className="px-2 py-1 border border-slate-200 rounded-md bg-white text-slate-700 text-[11px] font-medium focus:outline-none focus:border-brand-600 cursor-pointer"
-            >
-              {pageSizeOptions.map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
-          </label>
+            <CustomSelect
+              value={String(safeLimit)}
+              onChange={(val) => onLimitChange(Number(val))}
+              ariaLabel="Rows per page"
+              size="xs"
+              fullWidth={false}
+              minMenuWidth={72}
+              options={pageSizeOptions.map((size) => ({
+                value: String(size),
+                label: String(size),
+              }))}
+            />
+          </div>
         )}
 
         {isLoading && (

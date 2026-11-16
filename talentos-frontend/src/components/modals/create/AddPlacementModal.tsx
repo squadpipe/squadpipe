@@ -4,7 +4,7 @@ import { BillablePlacement, Candidate, Client, Requirement, User, Vendor } from 
 import { DynamicCustomFieldsSection } from '../../shared/DynamicCustomFieldsSection';
 import { useCurrency } from '../../../utils/currency';
 import { SearchableSelectInput } from '../../shared/SearchableSelectInput';
-
+import { CustomSelect } from '../../shared/CustomSelect';
 import { ActionButton } from '../../shared/ActionButton';
 
 interface AddPlacementModalProps {
@@ -251,36 +251,38 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
                   <UserCheck className="w-3.5 h-3.5 text-brand-600" />
                   <span>Select Consultant from Roster</span>
                 </label>
-                <select
+                <CustomSelect
                   value={form.candidateId}
-                  onChange={(e) => handleSelectCandidate(e.target.value)}
-                  className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white text-xs text-slate-700 focus:border-brand-600 focus:outline-none cursor-pointer"
-                >
-                  <option value="">-- Optional: auto-fill from roster --</option>
-                  {candidates.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.fullName} — {c.currentTitle} ({c.pipelineStage})
-                    </option>
-                  ))}
-                </select>
+                  onChange={handleSelectCandidate}
+                  ariaLabel="Select Consultant from Roster"
+                  size="sm"
+                  options={[
+                    { value: '', label: '-- Optional: auto-fill from roster --' },
+                    ...candidates.map((c) => ({
+                      value: c.id,
+                      label: `${c.fullName} — ${c.currentTitle} (${c.pipelineStage})`,
+                    })),
+                  ]}
+                />
               </div>
               <div>
                 <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 mb-1">
                   <Briefcase className="w-3.5 h-3.5 text-brand-600" />
                   <span>Link Requisition (Optional)</span>
                 </label>
-                <select
+                <CustomSelect
                   value={form.requirementId}
-                  onChange={(e) => handleSelectRequirement(e.target.value)}
-                  className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white text-xs text-slate-700 focus:border-brand-600 focus:outline-none cursor-pointer"
-                >
-                  <option value="">-- Optional: auto-fill from requisition --</option>
-                  {requirements.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.code} — {r.opportunityTitle} ({r.companyName})
-                    </option>
-                  ))}
-                </select>
+                  onChange={handleSelectRequirement}
+                  ariaLabel="Link Requisition"
+                  size="sm"
+                  options={[
+                    { value: '', label: '-- Optional: auto-fill from requisition --' },
+                    ...requirements.map((r) => ({
+                      value: r.id,
+                      label: `${r.code} — ${r.opportunityTitle} (${r.companyName})`,
+                    })),
+                  ]}
+                />
               </div>
             </div>
 
@@ -397,43 +399,40 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Placement Model</label>
-                <select
+                <CustomSelect
                   value={form.placementType}
-                  onChange={(e) => setForm({ ...form, placementType: e.target.value })}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600 cursor-pointer"
-                >
-                  <option value="C2C Subcontractor">C2C Subcontractor</option>
-                  <option value="W2 Hourly">W2 Hourly</option>
-                  <option value="1099">1099</option>
-                  <option value="Full-Time">Full-Time</option>
-                </select>
+                  onChange={(val) => setForm({ ...form, placementType: val })}
+                  ariaLabel="Placement Model"
+                  size="sm"
+                  options={['C2C Subcontractor', 'W2 Hourly', '1099', 'Full-Time']}
+                />
               </div>
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Deployment Location</label>
-                <select
+                <CustomSelect
                   value={form.deployment}
-                  onChange={(e) => setForm({ ...form, deployment: e.target.value })}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600 cursor-pointer"
-                >
-                  <option value="Onshore">Onshore (US)</option>
-                  <option value="Nearshore">Nearshore</option>
-                  <option value="Offshore">Offshore (Global)</option>
-                </select>
+                  onChange={(val) => setForm({ ...form, deployment: val })}
+                  ariaLabel="Deployment Location"
+                  size="sm"
+                  options={[
+                    { value: 'Onshore', label: 'Onshore (US)' },
+                    { value: 'Nearshore', label: 'Nearshore' },
+                    { value: 'Offshore', label: 'Offshore (Global)' },
+                  ]}
+                />
               </div>
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Placing Recruiter</label>
-                <select
+                <CustomSelect
                   value={form.recruiter}
-                  onChange={(e) => setForm({ ...form, recruiter: e.target.value })}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600 cursor-pointer"
-                >
-                  <option value="">Recruitment Desk</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.name}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setForm({ ...form, recruiter: val })}
+                  ariaLabel="Placing Recruiter"
+                  size="sm"
+                  options={[
+                    { value: '', label: 'Recruitment Desk' },
+                    ...users.map((u) => ({ value: u.name, label: u.name })),
+                  ]}
+                />
               </div>
             </div>
 

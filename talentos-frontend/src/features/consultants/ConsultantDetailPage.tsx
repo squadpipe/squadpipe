@@ -20,14 +20,13 @@ import {
   Pencil,
   Phone,
   Search,
+  Send,
   ShieldAlert,
   ShieldCheck,
-  Sparkles,
   Trash2,
   Upload,
   UserCheck,
   X,
-  Zap,
 } from 'lucide-react';
 import { BillablePlacement, Candidate, Requirement, RequirementSubmission } from '../../types';
 import { useCurrency } from '../../utils/currency';
@@ -46,9 +45,13 @@ import {
   ResumeSection,
 } from '../../utils/resumeFormatter';
 import { formatDateTimeBadge } from '../../utils/entityMappers';
+import { useClientPagination } from '../../utils/usePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { SkillTagInput } from '../../components/shared/SkillTagInput';
 import { ActionButton } from '../../components/shared/ActionButton';
+import { TablePagination } from '../../components/shared/TablePagination';
+import { MaskedValue } from '../../components/shared/MaskedValue';
+import { CustomSelect } from '../../components/shared/CustomSelect';
 import {
   DynamicCustomFieldsSection,
   useMasterTaxonomies,
@@ -196,6 +199,9 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
       ),
     [linkedPlacements]
   );
+
+  const submissionsPg = useClientPagination(linkedSubmissions, 5, candidate?.id);
+  const placementsPg = useClientPagination(linkedPlacements, 5, candidate?.id);
 
   if (!candidate) {
     return (
@@ -480,7 +486,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
               onClick={() => setShowQuickSubmitDropdown((prev) => !prev)}
               className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <Zap className="w-3.5 h-3.5 text-amber-300" />
+              <Send className="w-3.5 h-3.5" />
               <span>Submit to Req</span>
               <ChevronDown
                 className={`w-3.5 h-3.5 opacity-80 transition-transform ${
@@ -652,17 +658,12 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div>
               <label className="block text-[11px] font-semibold text-slate-700 mb-1">Work Auth</label>
-              <select
+              <CustomSelect
                 value={editForm.workAuth}
-                onChange={(e) => setEditForm({ ...editForm, workAuth: e.target.value })}
-                className="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
-              >
-                {workAuthOptions.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setEditForm({ ...editForm, workAuth: val })}
+                ariaLabel="Work Auth"
+                options={workAuthOptions}
+              />
             </div>
             {!rateMasked && (
               <div>
@@ -677,28 +678,24 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
             )}
             <div>
               <label className="block text-[11px] font-semibold text-slate-700 mb-1">Relocation</label>
-              <select
+              <CustomSelect
                 value={editForm.relocation}
-                onChange={(e) => setEditForm({ ...editForm, relocation: e.target.value })}
-                className="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
-              >
-                <option value="Yes">Open (Yes)</option>
-                <option value="No">Local Only (No)</option>
-              </select>
+                onChange={(val) => setEditForm({ ...editForm, relocation: val })}
+                ariaLabel="Relocation"
+                options={[
+                  { value: 'Yes', label: 'Open (Yes)' },
+                  { value: 'No', label: 'Local Only (No)' },
+                ]}
+              />
             </div>
             <div>
               <label className="block text-[11px] font-semibold text-slate-700 mb-1">Pipeline Stage</label>
-              <select
+              <CustomSelect
                 value={editForm.pipelineStage}
-                onChange={(e) => setEditForm({ ...editForm, pipelineStage: e.target.value })}
-                className="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
-              >
-                {PIPELINE_STAGE_OPTIONS.map((stage) => (
-                  <option key={stage} value={stage}>
-                    {stage}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setEditForm({ ...editForm, pipelineStage: val })}
+                ariaLabel="Pipeline Stage"
+                options={PIPELINE_STAGE_OPTIONS}
+              />
             </div>
             <div>
               <label className="block text-[11px] font-semibold text-slate-700 mb-1">Education</label>
@@ -861,19 +858,19 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
           {/* Executive Summary Card */}
           <section className="bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-2.5 text-xs">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-3.5 h-3.5 text-brand-600 shrink-0" />
+              <FileText className="w-3.5 h-3.5 text-brand-600 shrink-0" />
               <h2 className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
                 Executive Summary
               </h2>
             </div>
             {summarySection && summarySection.items.length > 0 ? (
-              <div className="space-y-1.5 pl-3 border-l-2 border-brand-500/70 text-slate-600 leading-relaxed">
+              <div className="space-y-1.5 text-slate-600 leading-relaxed">
                 {summarySection.items.map((line, idx) => (
                   <p key={idx}>{cleanExtractedResumeText(line.replace(/^[•\-\s]+/, ''))}</p>
                 ))}
               </div>
             ) : (
-              <p className="text-slate-600 leading-relaxed pl-3 border-l-2 border-brand-500/70">
+              <p className="text-slate-600 leading-relaxed">
                 {fallbackSummary}
               </p>
             )}
@@ -957,46 +954,68 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                 Not submitted to any requisitions yet. Use <strong>Submit to Req</strong> above to submit.
               </div>
             ) : (
-              <div className="divide-y divide-slate-100">
-                {linkedSubmissions.map(({ requirement: req, submission: sub }) => (
-                  <div
-                    key={sub.id}
-                    onClick={() => onOpenRequirement && onOpenRequirement(req)}
-                    className={`px-5 py-3.5 flex items-center justify-between gap-3 ${
-                      onOpenRequirement ? 'hover:bg-slate-50 cursor-pointer transition-colors' : ''
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
-                          {req.code}
-                        </span>
-                        <span className="font-semibold text-slate-900 truncate">
-                          {req.opportunityTitle}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
-                        <span>{req.companyName}</span>
-                        {sub.interviewDateTime || sub.interviewDate ? (
-                          <>
-                            <span className="text-slate-300">&bull;</span>
-                            <span className="text-brand-700 font-medium">
-                              Interview:{' '}
-                              {formatDateTimeBadge(sub.interviewDateTime || sub.interviewDate) ||
-                                sub.interviewDate}
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase">
+                      <tr>
+                        <th className="px-4 py-2.5">Req ID</th>
+                        <th className="px-4 py-2.5">Opportunity</th>
+                        <th className="px-4 py-2.5">Client</th>
+                        <th className="px-4 py-2.5">Interview</th>
+                        <th className="px-4 py-2.5 text-right">Stage</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {submissionsPg.pagedItems.map(({ requirement: req, submission: sub }) => (
+                        <tr
+                          key={sub.id}
+                          onClick={() => onOpenRequirement && onOpenRequirement(req)}
+                          className={
+                            onOpenRequirement
+                              ? 'hover:bg-slate-50/80 cursor-pointer transition-colors'
+                              : undefined
+                          }
+                        >
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                              {req.code}
                             </span>
-                          </>
-                        ) : null}
-                      </div>
-                    </div>
-                    <StatusBadge
-                      stage={sub.stage}
-                      dotClass={getStageDotClass(sub.stage)}
-                      size="xs"
-                    />
-                  </div>
-                ))}
-              </div>
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-slate-900">
+                            {req.opportunityTitle}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                            {req.companyName}
+                          </td>
+                          <td className="px-4 py-3 text-[11px] text-brand-700 font-medium whitespace-nowrap">
+                            {sub.interviewDateTime || sub.interviewDate
+                              ? formatDateTimeBadge(sub.interviewDateTime || sub.interviewDate) ||
+                                sub.interviewDate
+                              : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            <StatusBadge
+                              stage={sub.stage}
+                              dotClass={getStageDotClass(sub.stage)}
+                              size="xs"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <TablePagination
+                  page={submissionsPg.page}
+                  limit={submissionsPg.limit}
+                  total={submissionsPg.total}
+                  onPageChange={submissionsPg.setPage}
+                  onLimitChange={submissionsPg.setLimit}
+                  itemLabel="submissions"
+                  pageSizeOptions={[5, 10, 20]}
+                />
+              </>
             )}
           </section>
 
@@ -1018,28 +1037,50 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                   </button>
                 )}
               </div>
-              <div className="divide-y divide-slate-100">
-                {linkedPlacements.map((p) => (
-                  <div key={p.id} className="px-5 py-3.5 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="font-semibold text-slate-900 truncate">
-                        {p.customer} — {p.skillRole}
-                      </div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">
-                        {p.startDate} &rarr; {p.endDate} &bull; {p.placementType}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {!rateMasked && (
-                        <span className="text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[11px]">
-                          {p.billing}
-                        </span>
-                      )}
-                      <StatusBadge stage={p.status} size="xs" />
-                    </div>
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase">
+                    <tr>
+                      <th className="px-4 py-2.5">Client</th>
+                      <th className="px-4 py-2.5">Role / Skill</th>
+                      <th className="px-4 py-2.5">Contract Period</th>
+                      <th className="px-4 py-2.5">Bill Rate</th>
+                      <th className="px-4 py-2.5 text-right">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {placementsPg.pagedItems.map((p) => (
+                      <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">
+                          {p.customer}
+                        </td>
+                        <td className="px-4 py-3 text-slate-600">
+                          {p.skillRole}{' '}
+                          <span className="text-[10px] text-slate-400">&bull; {p.placementType}</span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                          {p.startDate} &rarr; {p.endDate}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <MaskedValue value={p.billing} isMasked={rateMasked} />
+                        </td>
+                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                          <StatusBadge stage={p.status} size="xs" />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
+              <TablePagination
+                page={placementsPg.page}
+                limit={placementsPg.limit}
+                total={placementsPg.total}
+                onPageChange={placementsPg.setPage}
+                onLimitChange={placementsPg.setLimit}
+                itemLabel="placements"
+                pageSizeOptions={[5, 10, 20]}
+              />
             </section>
           )}
         </div>

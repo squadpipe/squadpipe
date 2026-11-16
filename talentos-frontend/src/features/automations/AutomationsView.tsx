@@ -15,6 +15,7 @@ import { apiClient } from '../../config/api.config';
 import { AutomationRule, AutomationAuditLog } from '../../types';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { CustomSelect } from '../../components/shared/CustomSelect';
 import { useDebounce } from '../../utils/useDebounce';
 
 interface AutomationsViewProps {
@@ -354,18 +355,16 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                 <div className="flex items-center gap-2 text-[11px]">
                   <span className="text-slate-400 font-medium">Trigger after:</span>
                   {rule ? (
-                    <select
+                    <CustomSelect
                       disabled={!canManageRules}
                       value={thresholdValue}
-                      onChange={(e) => handleThresholdChange(rule, e.target.value)}
-                      className="px-2 py-1 rounded-md border border-slate-200 bg-slate-50 text-slate-700 font-semibold text-[11px] outline-none focus:border-brand-500 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {thresholdOptions.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => handleThresholdChange(rule, val)}
+                      ariaLabel="Trigger threshold"
+                      size="xs"
+                      fullWidth={false}
+                      minMenuWidth={120}
+                      options={thresholdOptions}
+                    />
                   ) : (
                     <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">
                       {preset.defaultThreshold}

@@ -4,6 +4,7 @@ import { BillablePlacement, Requirement, Candidate, Vendor } from '../../types';
 import { useCurrency } from '../../utils/currency';
 import { getStageBadgeClass } from '../../utils/stageStyles';
 import { SearchableSelectInput } from '../../components/shared/SearchableSelectInput';
+import { CustomSelect } from '../../components/shared/CustomSelect';
 
 interface PlacementWizardModalProps {
   isOpen: boolean;
@@ -508,28 +509,27 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
 
             <div>
               <label className="text-[10px] font-bold text-slate-500 uppercase">Placement Contract Type</label>
-              <select
+              <CustomSelect
                 value={formData.placementType}
-                onChange={(e) => setFormData({ ...formData, placementType: e.target.value })}
-                className="mt-1 w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 cursor-pointer"
-              >
-                <option value="W2 Hourly">W2 Hourly</option>
-                <option value="C2C Subcontractor">C2C Subcontractor</option>
-                <option value="1099">1099</option>
-                <option value="Full-Time">Full-Time</option>
-              </select>
+                onChange={(val) => setFormData({ ...formData, placementType: val })}
+                ariaLabel="Placement Contract Type"
+                className="mt-1"
+                options={['W2 Hourly', 'C2C Subcontractor', '1099', 'Full-Time']}
+              />
             </div>
             <div>
               <label className="text-[10px] font-bold text-slate-500 uppercase">Deployment Model</label>
-              <select
+              <CustomSelect
                 value={formData.deployment}
-                onChange={(e) => setFormData({ ...formData, deployment: e.target.value })}
-                className="mt-1 w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 cursor-pointer"
-              >
-                <option value="Onshore">Onshore (US Domestic)</option>
-                <option value="Nearshore">Nearshore</option>
-                <option value="Offshore">Offshore</option>
-              </select>
+                onChange={(val) => setFormData({ ...formData, deployment: val })}
+                ariaLabel="Deployment Model"
+                className="mt-1"
+                options={[
+                  { value: 'Onshore', label: 'Onshore (US Domestic)' },
+                  { value: 'Nearshore', label: 'Nearshore' },
+                  { value: 'Offshore', label: 'Offshore' },
+                ]}
+              />
             </div>
 
             {formData.placementType === 'C2C Subcontractor' && (

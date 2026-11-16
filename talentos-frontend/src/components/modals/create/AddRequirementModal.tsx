@@ -4,6 +4,7 @@ import { Requirement, Client, User } from '../../../types';
 import { DynamicCustomFieldsSection, useMasterTaxonomies } from '../../shared/DynamicCustomFieldsSection';
 import { formatRateDisplay, useCurrency } from '../../../utils/currency';
 import { SearchableSelectInput } from '../../shared/SearchableSelectInput';
+import { CustomSelect } from '../../shared/CustomSelect';
 import { ActionButton } from '../../shared/ActionButton';
 
 interface AddRequirementModalProps {
@@ -252,32 +253,26 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Assigned Recruiter</label>
-                <select
+                <CustomSelect
                   value={form.assignedRecruiter}
-                  onChange={(e) => setForm({ ...form, assignedRecruiter: e.target.value })}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600"
-                >
-                  <option value="">Unassigned / Desk Queue</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.name}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setForm({ ...form, assignedRecruiter: val })}
+                  ariaLabel="Assigned Recruiter"
+                  size="sm"
+                  options={[
+                    { value: '', label: 'Unassigned / Desk Queue' },
+                    ...users.map((u) => ({ value: u.name, label: u.name })),
+                  ]}
+                />
               </div>
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Initial Pipeline Stage</label>
-                <select
+                <CustomSelect
                   value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value as Requirement['status'] })}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600"
-                >
-                  {taxonomies.stages.map((stage) => (
-                    <option key={stage} value={stage}>
-                      {stage}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setForm({ ...form, status: val as Requirement['status'] })}
+                  ariaLabel="Initial Pipeline Stage"
+                  size="sm"
+                  options={taxonomies.stages}
+                />
               </div>
             </div>
 

@@ -25,6 +25,7 @@ import { invalidateSchemaCaches } from '../../components/shared/DynamicCustomFie
 import { useCurrency } from '../../utils/currency';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { ActionButton } from '../../components/shared/ActionButton';
+import { CustomSelect } from '../../components/shared/CustomSelect';
 import { useDebounce } from '../../utils/useDebounce';
 
 interface CustomFieldsViewProps {
@@ -817,31 +818,33 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">Target Entity</label>
-                  <select
+                  <CustomSelect
                     value={newField.entity}
-                    onChange={(e) => setNewField({ ...newField, entity: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
-                  >
-                    <option value="consultant">Consultant Profile</option>
-                    <option value="requirement">Job Requirement</option>
-                    <option value="client">Client Account</option>
-                    <option value="vendor">Staffing Vendor</option>
-                    <option value="placement">Billable Placement</option>
-                  </select>
+                    onChange={(val) => setNewField({ ...newField, entity: val })}
+                    ariaLabel="Target Entity"
+                    options={[
+                      { value: 'consultant', label: 'Consultant Profile' },
+                      { value: 'requirement', label: 'Job Requirement' },
+                      { value: 'client', label: 'Client Account' },
+                      { value: 'vendor', label: 'Staffing Vendor' },
+                      { value: 'placement', label: 'Billable Placement' },
+                    ]}
+                  />
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">Data Type</label>
-                  <select
+                  <CustomSelect
                     value={newField.type}
-                    onChange={(e) => setNewField({ ...newField, type: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
-                  >
-                    <option value="Dropdown">Dropdown (Select Option)</option>
-                    <option value="Text">Text (Single Line)</option>
-                    <option value="Currency ($)">Currency ({currencySymbol} Amount)</option>
-                    <option value="Date">Date (Calendar Picker)</option>
-                  </select>
+                    onChange={(val) => setNewField({ ...newField, type: val })}
+                    ariaLabel="Data Type"
+                    options={[
+                      { value: 'Dropdown', label: 'Dropdown (Select Option)' },
+                      { value: 'Text', label: 'Text (Single Line)' },
+                      { value: 'Currency ($)', label: `Currency (${currencySymbol} Amount)` },
+                      { value: 'Date', label: 'Date (Calendar Picker)' },
+                    ]}
+                  />
                 </div>
               </div>
 
@@ -973,31 +976,33 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Target Entity</label>
-                  <select
+                  <CustomSelect
                     value={editingField.entity}
-                    onChange={(e) => setEditingField({ ...editingField, entity: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
-                  >
-                    <option value="consultant">Consultant Profile</option>
-                    <option value="requirement">Job Requirement</option>
-                    <option value="client">Client Account</option>
-                    <option value="vendor">Staffing Vendor</option>
-                    <option value="placement">Billable Placement</option>
-                  </select>
+                    onChange={(val) => setEditingField({ ...editingField, entity: val })}
+                    ariaLabel="Target Entity"
+                    options={[
+                      { value: 'consultant', label: 'Consultant Profile' },
+                      { value: 'requirement', label: 'Job Requirement' },
+                      { value: 'client', label: 'Client Account' },
+                      { value: 'vendor', label: 'Staffing Vendor' },
+                      { value: 'placement', label: 'Billable Placement' },
+                    ]}
+                  />
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Data Type</label>
-                  <select
+                  <CustomSelect
                     value={editingField.type}
-                    onChange={(e) => setEditingField({ ...editingField, type: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
-                  >
-                    <option value="Dropdown">Dropdown (Select Option)</option>
-                    <option value="Text">Text (Single Line)</option>
-                    <option value="Currency ($)">Currency ({currencySymbol} Amount)</option>
-                    <option value="Date">Date (Calendar Picker)</option>
-                  </select>
+                    onChange={(val) => setEditingField({ ...editingField, type: val })}
+                    ariaLabel="Data Type"
+                    options={[
+                      { value: 'Dropdown', label: 'Dropdown (Select Option)' },
+                      { value: 'Text', label: 'Text (Single Line)' },
+                      { value: 'Currency ($)', label: `Currency (${currencySymbol} Amount)` },
+                      { value: 'Date', label: 'Date (Calendar Picker)' },
+                    ]}
+                  />
                 </div>
               </div>
 

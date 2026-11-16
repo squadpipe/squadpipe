@@ -17,6 +17,7 @@ import { BillablePlacement, Candidate } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { CustomSelect } from '../../components/shared/CustomSelect';
 import { ModalPortal } from '../../components/shared/ModalPortal';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapCandidateFromApi } from '../../utils/entityMappers';
@@ -254,33 +255,35 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap xl:flex-nowrap shrink-0">
-            <select
-              aria-label="Filter by work authorization"
+            <CustomSelect
+              ariaLabel="Filter by work authorization"
               value={workAuthFilter}
-              onChange={(e) => setWorkAuthFilter(e.target.value)}
-              className="h-8 px-2.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:border-slate-300 focus:border-brand-600 cursor-pointer outline-none transition-colors"
-            >
-              <option value="All">All Authorizations</option>
-              {taxonomies.workAuth.map((auth) => (
-                <option key={auth} value={auth}>
-                  {auth}
-                </option>
-              ))}
-            </select>
-            <select
-              aria-label="Filter by pipeline stage"
+              onChange={setWorkAuthFilter}
+              size="sm"
+              fullWidth={false}
+              minMenuWidth={165}
+              options={[
+                { value: 'All', label: 'All Authorizations' },
+                ...taxonomies.workAuth.map((auth) => ({ value: auth, label: auth })),
+              ]}
+            />
+            <CustomSelect
+              ariaLabel="Filter by pipeline stage"
               value={stageFilter}
-              onChange={(e) => setStageFilter(e.target.value)}
-              className="h-8 px-2.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:border-slate-300 focus:border-brand-600 cursor-pointer outline-none transition-colors"
-            >
-              <option value="All">All Stages</option>
-              <option value="Available / Bench">Available / Bench</option>
-              <option value="Submitted">Submitted</option>
-              <option value="Interview">Interview</option>
-              <option value="Selected">Selected</option>
-              <option value="Onboarding">Onboarding</option>
-              <option value="Billable">Billable</option>
-            </select>
+              onChange={setStageFilter}
+              size="sm"
+              fullWidth={false}
+              minMenuWidth={155}
+              options={[
+                { value: 'All', label: 'All Stages' },
+                'Available / Bench',
+                'Submitted',
+                'Interview',
+                'Selected',
+                'Onboarding',
+                'Billable',
+              ]}
+            />
             {!rateMasked && (
               <div className="inline-flex items-center h-8 bg-white border border-slate-200 rounded-lg px-2 gap-1 focus-within:border-brand-600 focus-within:ring-2 focus-within:ring-brand-500/10 transition-all">
                 <span className="text-[11px] font-semibold text-slate-400 pr-1.5 border-r border-slate-100 select-none whitespace-nowrap">

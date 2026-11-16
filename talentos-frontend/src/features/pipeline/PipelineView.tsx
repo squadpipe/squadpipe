@@ -20,6 +20,7 @@ import { Requirement, Candidate } from '../../types';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
+import { CustomSelect } from '../../components/shared/CustomSelect';
 import { ModalPortal } from '../../components/shared/ModalPortal';
 import { SkillTagInput } from '../../components/shared/SkillTagInput';
 import { useDebounce } from '../../utils/useDebounce';
@@ -1253,17 +1254,14 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                 </div>
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Stage</label>
-                  <select
+                  <CustomSelect
                     value={editingReq.status}
-                    onChange={(e) => setEditingReq({ ...editingReq, status: e.target.value as Requirement['status'] })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
-                  >
-                    {stageOrder.map((st) => (
-                      <option key={st} value={st}>
-                        {st}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) =>
+                      setEditingReq({ ...editingReq, status: val as Requirement['status'] })
+                    }
+                    ariaLabel="Stage"
+                    options={stageOrder}
+                  />
                 </div>
               </div>
 

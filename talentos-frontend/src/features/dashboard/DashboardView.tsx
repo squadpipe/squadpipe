@@ -28,6 +28,7 @@ import {
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { CustomSelect } from '../../components/shared/CustomSelect';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapRequirementFromApi } from '../../utils/entityMappers';
@@ -324,16 +325,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               placeholder="Filter rows..."
               className="px-2.5 py-1 text-xs border border-slate-200 rounded-md bg-white w-48 text-slate-700 focus:outline-none focus:border-brand-600"
             />
-            <select
+            <CustomSelect
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-2.5 py-1 text-xs border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:border-brand-600 cursor-pointer"
-            >
-              <option value="all">All Stages</option>
-              {reqStageOptions.map((st) => (
-                <option key={st} value={st}>{st}</option>
-              ))}
-            </select>
+              onChange={setStatusFilter}
+              ariaLabel="Filter requisitions by stage"
+              size="xs"
+              fullWidth={false}
+              minMenuWidth={145}
+              options={[
+                { value: 'all', label: 'All Stages' },
+                ...reqStageOptions.map((st) => ({
+                  value: st,
+                  label: st,
+                  dotClass: getStageDotClass(st, getStageIndex(st, taxonomies.stages)),
+                })),
+              ]}
+            />
             <button
               onClick={onOpenCreateReq}
               className="px-2.5 py-1 rounded border border-slate-200 hover:bg-white text-xs font-medium text-slate-700 shadow-2xs transition-colors cursor-pointer inline-flex items-center gap-1"
@@ -471,24 +478,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         )}
                       </td>
                       <td className="px-3.5 py-3 whitespace-nowrap">
-                        <div className="relative inline-flex items-center">
-                          <span
-                            className={`pointer-events-none absolute left-2.5 w-1.5 h-1.5 rounded-full ${getStageDotClass(
-                              req.status,
-                              getStageIndex(req.status, taxonomies.stages)
-                            )}`}
-                          />
-                          <select
-                            value={req.status}
-                            onChange={(e) => onStatusChange(req, e.target.value)}
-                            aria-label={`Status for ${req.opportunityTitle}`}
-                            className="!pl-6 py-1 rounded-md text-[11px] font-medium border border-slate-200 bg-white text-slate-700 font-sans cursor-pointer"
-                          >
-                            {buildRequirementStageOptions(taxonomies.stages, req.status).map((st) => (
-                              <option key={st} value={st}>{st}</option>
-                            ))}
-                          </select>
-                        </div>
+                        <CustomSelect
+                          value={req.status}
+                          onChange={(val) => onStatusChange(req, val)}
+                          ariaLabel={`Status for ${req.opportunityTitle}`}
+                          size="xs"
+                          fullWidth={false}
+                          minMenuWidth={145}
+                          options={buildRequirementStageOptions(taxonomies.stages, req.status).map(
+                            (st) => ({
+                              value: st,
+                              label: st,
+                              dotClass: getStageDotClass(
+                                st,
+                                getStageIndex(st, taxonomies.stages)
+                              ),
+                            })
+                          )}
+                        />
                       </td>
                       <td className="px-3.5 py-3 text-right whitespace-nowrap">
                         <div className="inline-flex items-center justify-end gap-1">
@@ -919,15 +926,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Stage</label>
-                  <select
+                  <CustomSelect
                     value={editingReq.status}
-                    onChange={(e) => setEditingReq({ ...editingReq, status: e.target.value as Requirement['status'] })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
-                  >
-                    {buildRequirementStageOptions(taxonomies.stages, editingReq.status).map((st) => (
-                      <option key={st} value={st}>{st}</option>
-                    ))}
-                  </select>
+                    onChange={(val) =>
+                      setEditingReq({ ...editingReq, status: val as Requirement['status'] })
+                    }
+                    ariaLabel="Stage"
+                    options={buildRequirementStageOptions(taxonomies.stages, editingReq.status).map(
+                      (st) => ({
+                        value: st,
+                        label: st,
+                        dotClass: getStageDotClass(st, getStageIndex(st, taxonomies.stages)),
+                      })
+                    )}
+                  />
                 </div>
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Required Skills</label>

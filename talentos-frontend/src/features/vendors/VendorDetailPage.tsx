@@ -18,7 +18,11 @@ import {
 import { BillablePlacement, Vendor, VendorContact } from '../../types';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
+import { TablePagination } from '../../components/shared/TablePagination';
+import { MaskedValue } from '../../components/shared/MaskedValue';
+import { CustomSelect } from '../../components/shared/CustomSelect';
 import { DynamicCustomFieldsSection } from '../../components/shared/DynamicCustomFieldsSection';
+import { useClientPagination } from '../../utils/usePagination';
 
 interface VendorDetailPageProps {
   vendor: Vendor | null;
@@ -80,6 +84,17 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
     }
   }, [vendor, isEditing]);
 
+  const vendorPlacements = vendor
+    ? placements.filter(
+        (p) =>
+          (p.vendorId && p.vendorId === vendor.id) ||
+          (p.vendorName && p.vendorName.trim().toLowerCase() === vendor.name.trim().toLowerCase())
+      )
+    : [];
+  const contactList = vendor ? buildInitialVendorContacts(vendor) : [];
+  const contactsPg = useClientPagination(contactList, 5, vendor?.id);
+  const placementsPg = useClientPagination(vendorPlacements, 5, vendor?.id);
+
   if (!vendor) {
     return (
       <section className="max-w-7xl mx-auto py-16 text-center space-y-3 animate-fade-in">
@@ -97,14 +112,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
   }
 
   const isMsaExecuted = vendor.msa === 'Yes' || vendor.msa === 'Active';
-  const contactList = buildInitialVendorContacts(vendor);
   const primaryContact = contactList.find((c) => c.isPrimary) || contactList[0];
-
-  const vendorPlacements = placements.filter(
-    (p) =>
-      (p.vendorId && p.vendorId === vendor.id) ||
-      (p.vendorName && p.vendorName.trim().toLowerCase() === vendor.name.trim().toLowerCase())
-  );
 
   const specializations = vendor.skillSpecialization
     ? vendor.skillSpecialization
@@ -295,16 +303,12 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
               <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                 Payment Terms
               </label>
-              <select
+              <CustomSelect
                 value={editForm.paymentTerms}
-                onChange={(e) => setEditForm({ ...editForm, paymentTerms: e.target.value })}
-                className="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
-              >
-                <option value="Net 15">Net 15</option>
-                <option value="Net 30">Net 30</option>
-                <option value="Net 45">Net 45</option>
-                <option value="Net 60">Net 60</option>
-              </select>
+                onChange={(val) => setEditForm({ ...editForm, paymentTerms: val })}
+                ariaLabel="Payment Terms"
+                options={['Net 15', 'Net 30', 'Net 45', 'Net 60']}
+              />
             </div>
             <div>
               <label className="block text-[11px] font-semibold text-slate-700 mb-1">Invoicing</label>
@@ -319,14 +323,15 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
               <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                 MSA Status
               </label>
-              <select
+              <CustomSelect
                 value={editForm.msa === 'Yes' || editForm.msa === 'Active' ? 'Yes' : 'Pending'}
-                onChange={(e) => setEditForm({ ...editForm, msa: e.target.value })}
-                className="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
-              >
-                <option value="Yes">MSA Executed</option>
-                <option value="Pending">Pending Review</option>
-              </select>
+                onChange={(val) => setEditForm({ ...editForm, msa: val })}
+                ariaLabel="MSA Status"
+                options={[
+                  { value: 'Yes', label: 'MSA Executed' },
+                  { value: 'Pending', label: 'Pending Review' },
+                ]}
+              />
             </div>
           </div>
 
@@ -532,50 +537,78 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
                 No contacts recorded for this vendor yet.
               </div>
             ) : (
-              <div className="divide-y divide-slate-100">
-                {contactList.map((cnt, idx) => (
-                  <div
-                    key={cnt.id || idx}
-                    className="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors"
-                  >
-                    <div className="min-w-0">
-                      <div className="font-bold text-slate-900 flex items-center gap-2 flex-wrap">
-                        <span>{cnt.fullName || 'Unnamed Contact'}</span>
-                        {cnt.isPrimary && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#141615] text-white">
-                            <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
-                            <span>Primary</span>
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
-                        {cnt.designation && <span>{cnt.designation}</span>}
-                        {cnt.email && (
-                          <>
-                            {cnt.designation && <span className="text-slate-300">&bull;</span>}
-                            <a
-                              href={`mailto:${cnt.email}`}
-                              className="inline-flex items-center gap-1 text-slate-600 hover:text-brand-600"
-                            >
-                              <Mail className="w-3 h-3 text-slate-400" />
-                              <span>{cnt.email}</span>
-                            </a>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    {cnt.phone && (
-                      <a
-                        href={`tel:${cnt.phone}`}
-                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-brand-600 shrink-0"
-                      >
-                        <Phone className="w-3 h-3 text-slate-400" />
-                        <span>{cnt.phone}</span>
-                      </a>
-                    )}
-                  </div>
-                ))}
-              </div>
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase">
+                      <tr>
+                        <th className="px-4 py-2.5">Contact</th>
+                        <th className="px-4 py-2.5">Designation</th>
+                        <th className="px-4 py-2.5">Email</th>
+                        <th className="px-4 py-2.5">Phone</th>
+                        <th className="px-4 py-2.5 text-right">Role</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {contactsPg.pagedItems.map((cnt, idx) => (
+                        <tr key={cnt.id || idx} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">
+                            {cnt.fullName || 'Unnamed Contact'}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                            {cnt.designation || '—'}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">
+                            {cnt.email ? (
+                              <a
+                                href={`mailto:${cnt.email}`}
+                                className="inline-flex items-center gap-1 hover:text-brand-600"
+                              >
+                                <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span>{cnt.email}</span>
+                              </a>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                            {cnt.phone ? (
+                              <a
+                                href={`tel:${cnt.phone}`}
+                                className="inline-flex items-center gap-1 font-medium hover:text-brand-600"
+                              >
+                                <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span>{cnt.phone}</span>
+                              </a>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            {cnt.isPrimary ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded bg-[#141615] text-white">
+                                <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                                <span>Primary</span>
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-slate-400">Contact</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <TablePagination
+                  page={contactsPg.page}
+                  limit={contactsPg.limit}
+                  total={contactsPg.total}
+                  onPageChange={contactsPg.setPage}
+                  onLimitChange={contactsPg.setLimit}
+                  itemLabel="contacts"
+                  pageSizeOptions={[5, 10, 20]}
+                />
+              </>
             )}
           </section>
 
@@ -591,31 +624,53 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
                 No active or historical placements linked to this vendor yet.
               </div>
             ) : (
-              <div className="divide-y divide-slate-100">
-                {vendorPlacements.map((p) => (
-                  <div
-                    key={p.id}
-                    className="px-5 py-3.5 flex items-center justify-between gap-3"
-                  >
-                    <div className="min-w-0">
-                      <div className="font-bold text-slate-900 truncate">
-                        {p.resourceName} — {p.customer}
-                      </div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">
-                        {p.skillRole} &bull; {p.startDate} &rarr; {p.endDate}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {!rateMasked && (
-                        <span className="text-slate-700 font-semibold bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded text-[11px]">
-                          Pay: {p.payRate}
-                        </span>
-                      )}
-                      <StatusBadge stage={p.status} size="xs" />
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase">
+                      <tr>
+                        <th className="px-4 py-2.5">Consultant</th>
+                        <th className="px-4 py-2.5">Client</th>
+                        <th className="px-4 py-2.5">Role / Skill</th>
+                        <th className="px-4 py-2.5">Contract Period</th>
+                        <th className="px-4 py-2.5">Pay Rate</th>
+                        <th className="px-4 py-2.5 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {placementsPg.pagedItems.map((p) => (
+                        <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">
+                            {p.resourceName}
+                          </td>
+                          <td className="px-4 py-3 text-slate-700 whitespace-nowrap">
+                            {p.customer}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">{p.skillRole}</td>
+                          <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                            {p.startDate} &rarr; {p.endDate}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <MaskedValue value={p.payRate || '—'} isMasked={rateMasked} />
+                          </td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            <StatusBadge stage={p.status} size="xs" />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <TablePagination
+                  page={placementsPg.page}
+                  limit={placementsPg.limit}
+                  total={placementsPg.total}
+                  onPageChange={placementsPg.setPage}
+                  onLimitChange={placementsPg.setLimit}
+                  itemLabel="placements"
+                  pageSizeOptions={[5, 10, 20]}
+                />
+              </>
             )}
           </section>
         </div>

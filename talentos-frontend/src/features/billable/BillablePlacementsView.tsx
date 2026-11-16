@@ -24,6 +24,7 @@ import { MaskedValue } from '../../components/shared/MaskedValue';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
+import { CustomSelect } from '../../components/shared/CustomSelect';
 import { DynamicCustomFieldsSection } from '../../components/shared/DynamicCustomFieldsSection';
 import { useCurrency } from '../../utils/currency';
 import { useDebounce } from '../../utils/useDebounce';
@@ -444,17 +445,21 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
             ))}
           </div>
           <div className="flex items-center gap-2">
-            <select
+            <CustomSelect
               value={modelFilter}
-              onChange={(e) => setModelFilter(e.target.value as any)}
-              className="px-2.5 py-1 text-xs border border-slate-200 rounded-md bg-white text-slate-700 outline-none focus:border-brand-500 cursor-pointer"
-            >
-              <option value="All">All Models</option>
-              <option value="W2 Hourly">W2 Hourly</option>
-              <option value="C2C Subcontractor">C2C Subcontractor</option>
-              <option value="1099">1099</option>
-              <option value="Full-Time">Full-Time</option>
-            </select>
+              onChange={(val) => setModelFilter(val as any)}
+              ariaLabel="Filter placements by contract model"
+              size="xs"
+              fullWidth={false}
+              minMenuWidth={165}
+              options={[
+                { value: 'All', label: 'All Models' },
+                'W2 Hourly',
+                'C2C Subcontractor',
+                '1099',
+                'Full-Time',
+              ]}
+            />
             <div className="relative">
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -924,41 +929,36 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Status</label>
-                  <select
+                  <CustomSelect
                     value={editingPlacement.status || 'Active'}
-                    onChange={(e) => setEditingPlacement({ ...editingPlacement, status: e.target.value as any })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Extended">Extended</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Terminated">Terminated</option>
-                  </select>
+                    onChange={(val) =>
+                      setEditingPlacement({ ...editingPlacement, status: val as any })
+                    }
+                    ariaLabel="Placement Status"
+                    options={['Active', 'Extended', 'Completed', 'Terminated']}
+                  />
                 </div>
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Deployment</label>
-                  <select
+                  <CustomSelect
                     value={editingPlacement.deployment}
-                    onChange={(e) => setEditingPlacement({ ...editingPlacement, deployment: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
-                  >
-                    <option value="Onshore">Onshore</option>
-                    <option value="Nearshore">Nearshore</option>
-                    <option value="Offshore">Offshore</option>
-                  </select>
+                    onChange={(val) =>
+                      setEditingPlacement({ ...editingPlacement, deployment: val })
+                    }
+                    ariaLabel="Deployment"
+                    options={['Onshore', 'Nearshore', 'Offshore']}
+                  />
                 </div>
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Placement Model</label>
-                  <select
+                  <CustomSelect
                     value={editingPlacement.placementType || 'C2C Subcontractor'}
-                    onChange={(e) => setEditingPlacement({ ...editingPlacement, placementType: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
-                  >
-                    <option value="C2C Subcontractor">C2C Subcontractor</option>
-                    <option value="W2 Hourly">W2 Hourly</option>
-                    <option value="1099">1099</option>
-                    <option value="Full-Time">Full-Time</option>
-                  </select>
+                    onChange={(val) =>
+                      setEditingPlacement({ ...editingPlacement, placementType: val })
+                    }
+                    ariaLabel="Placement Model"
+                    options={['C2C Subcontractor', 'W2 Hourly', '1099', 'Full-Time']}
+                  />
                 </div>
               </div>
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Check, Plus, X } from 'lucide-react';
 import { Candidate, Requirement, Client, Vendor, BillablePlacement } from '../../types';
 import { formatRateDisplay, useCurrency } from '../../utils/currency';
+import { CustomSelect } from './CustomSelect';
 
 interface QuickAddModalProps {
   isOpen: boolean;
@@ -289,17 +290,13 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Work Authorization</label>
-                <select
+                <CustomSelect
                   value={conForm.workAuth}
-                  onChange={(e) => setConForm({ ...conForm, workAuth: e.target.value })}
-                  className="mt-1 w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
-                >
-                  <option value="US Citizen">US Citizen</option>
-                  <option value="Green Card">Green Card</option>
-                  <option value="H-1B">H-1B</option>
-                  <option value="TN Visa">TN Visa</option>
-                  <option value="OPT / CPT EAD">OPT / CPT EAD</option>
-                </select>
+                  onChange={(val) => setConForm({ ...conForm, workAuth: val })}
+                  ariaLabel="Work Authorization"
+                  className="mt-1"
+                  options={['US Citizen', 'Green Card', 'H-1B', 'TN Visa', 'OPT / CPT EAD']}
+                />
               </div>
               <div className="col-span-2">
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Core Skills (Comma-separated)</label>
@@ -451,15 +448,17 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Payment Terms</label>
-                <select
+                <CustomSelect
                   value={venForm.paymentTerms}
-                  onChange={(e) => setVenForm({ ...venForm, paymentTerms: e.target.value })}
-                  className="mt-1 w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
-                >
-                  <option value="Net 30">Net 30 Days</option>
-                  <option value="Net 45">Net 45 Days</option>
-                  <option value="Net 60">Net 60 Days</option>
-                </select>
+                  onChange={(val) => setVenForm({ ...venForm, paymentTerms: val })}
+                  ariaLabel="Payment Terms"
+                  className="mt-1"
+                  options={[
+                    { value: 'Net 30', label: 'Net 30 Days' },
+                    { value: 'Net 45', label: 'Net 45 Days' },
+                    { value: 'Net 60', label: 'Net 60 Days' },
+                  ]}
+                />
               </div>
             </div>
           )}
@@ -498,15 +497,13 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Deployment</label>
-                <select
+                <CustomSelect
                   value={placeForm.deployment}
-                  onChange={(e) => setPlaceForm({ ...placeForm, deployment: e.target.value })}
-                  className="mt-1 w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
-                >
-                  <option value="Onshore">Onshore</option>
-                  <option value="Nearshore">Nearshore</option>
-                  <option value="Offshore">Offshore</option>
-                </select>
+                  onChange={(val) => setPlaceForm({ ...placeForm, deployment: val })}
+                  ariaLabel="Deployment"
+                  className="mt-1"
+                  options={['Onshore', 'Nearshore', 'Offshore']}
+                />
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Contact Phone</label>

@@ -17,6 +17,7 @@ import { getWorkspaceBrandSlug, useWorkspaceBrand } from '../../utils/workspaceB
 import { downloadSampleCandidatesCsv, parseCandidateCsvText } from '../../utils/csvCandidates';
 import { mapCandidateFromApi, mapRequirementFromApi } from '../../utils/entityMappers';
 import { ModalPortal } from '../shared/ModalPortal';
+import { CustomSelect } from '../shared/CustomSelect';
 
 export interface CsvImportResult {
   candidates: Candidate[];
@@ -365,18 +366,21 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
                         <Briefcase className="w-3.5 h-3.5 text-brand-600" />
                         <span>Auto-Attach Imported Candidates to Requirement (Optional)</span>
                       </label>
-                      <select
+                      <CustomSelect
                         value={selectedRequirementId}
-                        onChange={(e) => setSelectedRequirementId(e.target.value)}
-                        className="w-full px-2.5 py-2 border border-slate-300 rounded-md bg-white text-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600"
-                      >
-                        <option value="">Central Roster Only (Do not attach to a requirement)</option>
-                        {requirements.map((req) => (
-                          <option key={req.id} value={req.id}>
-                            {req.code} — {req.opportunityTitle} ({req.companyName})
-                          </option>
-                        ))}
-                      </select>
+                        onChange={setSelectedRequirementId}
+                        ariaLabel="Auto-Attach Imported Candidates to Requirement"
+                        options={[
+                          {
+                            value: '',
+                            label: 'Central Roster Only (Do not attach to a requirement)',
+                          },
+                          ...requirements.map((req) => ({
+                            value: req.id,
+                            label: `${req.code} — ${req.opportunityTitle} (${req.companyName})`,
+                          })),
+                        ]}
+                      />
                       <p className="text-[11px] text-slate-500">
                         Imported candidates are always saved to your central Consultants roster. Selecting a requirement also submits them automatically.
                       </p>

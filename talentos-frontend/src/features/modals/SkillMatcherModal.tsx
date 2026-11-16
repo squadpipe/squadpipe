@@ -5,6 +5,7 @@ import { Requirement, Candidate } from '../../types';
 import { useCurrency } from '../../utils/currency';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapCandidateFromApi } from '../../utils/entityMappers';
+import { CustomSelect } from '../../components/shared/CustomSelect';
 
 const MATCHER_PAGE_SIZE = 50;
 
@@ -292,20 +293,19 @@ export const SkillMatcherModal: React.FC<SkillMatcherModalProps> = ({
                 </div>
               )}
             </div>
-            <select
+            <CustomSelect
               value={selectedReqId}
-              onChange={(e) => {
-                setSelectedReqId(e.target.value);
+              onChange={(val) => {
+                setSelectedReqId(val);
                 setSelectedIds([]);
               }}
-              className="mt-1 w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 font-semibold"
-            >
-              {requirements.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.code} — {r.opportunityTitle} ({r.companyName}) • {r.openPositions || 1} Open
-                </option>
-              ))}
-            </select>
+              ariaLabel="Select target job requisition"
+              className="mt-1 font-semibold"
+              options={requirements.map((r) => ({
+                value: r.id,
+                label: `${r.code} — ${r.opportunityTitle} (${r.companyName}) • ${r.openPositions || 1} Open`,
+              }))}
+            />
 
             {currentReq && (
               <div className="mt-3 flex items-center gap-2 text-xs text-slate-600 flex-wrap">

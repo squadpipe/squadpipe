@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Handshake, Plus, X } from 'lucide-react';
 import { Vendor } from '../../../types';
 import { DynamicCustomFieldsSection, useMasterTaxonomies } from '../../shared/DynamicCustomFieldsSection';
-
+import { CustomSelect } from '../../shared/CustomSelect';
 import { ActionButton } from '../../shared/ActionButton';
 
 interface AddVendorModalProps {
@@ -186,28 +186,26 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Payment Terms</label>
-                <select
+                <CustomSelect
                   value={form.paymentTerms}
-                  onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600"
-                >
-                  {taxonomies.paymentTerms.map((term) => (
-                    <option key={term} value={term}>
-                      {term}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setForm({ ...form, paymentTerms: val })}
+                  ariaLabel="Payment Terms"
+                  size="sm"
+                  options={taxonomies.paymentTerms}
+                />
               </div>
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Subcontractor MSA Agreement</label>
-                <select
+                <CustomSelect
                   value={form.msa}
-                  onChange={(e) => setForm({ ...form, msa: e.target.value })}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600"
-                >
-                  <option value="Yes">Yes (Executed & Active)</option>
-                  <option value="No">No (Pending Legal Review)</option>
-                </select>
+                  onChange={(val) => setForm({ ...form, msa: val })}
+                  ariaLabel="Subcontractor MSA Agreement"
+                  size="sm"
+                  options={[
+                    { value: 'Yes', label: 'Yes (Executed & Active)' },
+                    { value: 'No', label: 'No (Pending Legal Review)' },
+                  ]}
+                />
               </div>
             </div>
 

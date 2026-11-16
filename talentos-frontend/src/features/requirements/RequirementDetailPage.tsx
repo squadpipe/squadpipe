@@ -25,6 +25,7 @@ import {
 } from '../../types';
 import { useCurrency } from '../../utils/currency';
 import { useDebounce } from '../../utils/useDebounce';
+import { useClientPagination } from '../../utils/usePagination';
 import {
   formatDateTimeBadge,
   mapCandidateFromApi,
@@ -46,6 +47,8 @@ import { StatusBadge } from '../../components/shared/StatusBadge';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { DateTimePicker } from '../../components/shared/DateTimePicker';
+import { TablePagination } from '../../components/shared/TablePagination';
+import { CustomSelect } from '../../components/shared/CustomSelect';
 
 interface RequirementDetailPageProps {
   requirement: Requirement | null;
@@ -463,6 +466,32 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     }
   };
 
+  const activeApplicantsCount = submissions.filter((s) => s.stage !== 'Closed').length;
+  const closedApplicantsCount = submissions.length - activeApplicantsCount;
+
+  const filteredSubmissions = useMemo(
+    () =>
+      submissions.filter((sub) => {
+        if (applicantTab === 'Active' && sub.stage === 'Closed') return false;
+        if (applicantTab === 'Closed' && sub.stage !== 'Closed') return false;
+        const q = applicantSearch.trim().toLowerCase();
+        if (!q) return true;
+        return (
+          sub.fullName.toLowerCase().includes(q) ||
+          (sub.currentTitle || '').toLowerCase().includes(q) ||
+          sub.stage.toLowerCase().includes(q) ||
+          (sub.interviewNotes || '').toLowerCase().includes(q)
+        );
+      }),
+    [submissions, applicantTab, applicantSearch]
+  );
+
+  const applicantsPg = useClientPagination(
+    filteredSubmissions,
+    10,
+    `${requirement?.id || ''}|${applicantTab}|${applicantSearch}`
+  );
+
   if (!requirement) {
     return (
       <section className="max-w-7xl mx-auto py-16 text-center space-y-3">
@@ -483,21 +512,6 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   const filledPositions =
     requirement.filledPositions ?? requirement.activePlacements?.length ?? 0;
   const isPositionsFull = filledPositions >= openPositions;
-  const activeApplicantsCount = submissions.filter((s) => s.stage !== 'Closed').length;
-  const closedApplicantsCount = submissions.length - activeApplicantsCount;
-
-  const filteredSubmissions = submissions.filter((sub) => {
-    if (applicantTab === 'Active' && sub.stage === 'Closed') return false;
-    if (applicantTab === 'Closed' && sub.stage !== 'Closed') return false;
-    const q = applicantSearch.trim().toLowerCase();
-    if (!q) return true;
-    return (
-      sub.fullName.toLowerCase().includes(q) ||
-      (sub.currentTitle || '').toLowerCase().includes(q) ||
-      sub.stage.toLowerCase().includes(q) ||
-      (sub.interviewNotes || '').toLowerCase().includes(q)
-    );
-  });
 
   const toggleCandidateSelection = (candId: string) => {
     if (attachedCandidateIdSet.has(candId)) return;
@@ -786,15 +800,16 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
             </div>
             <div>
               <label className="block text-[11px] font-semibold text-slate-700 mb-1">Stage</label>
-              <select
+              <CustomSelect
                 value={editForm.status}
-                onChange={(e) => setEditForm({ ...editForm, status: e.target.value as Requirement['status'] })}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none cursor-pointer"
-              >
-                {buildRequirementStageOptions(taxonomies.stages, editForm.status).map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
+                onChange={(val) => setEditForm({ ...editForm, status: val as Requirement['status'] })}
+                ariaLabel="Stage"
+                options={buildRequirementStageOptions(taxonomies.stages, editForm.status).map((s) => ({
+                  value: s,
+                  label: s,
+                  dotClass: getStageDotClass(s, getStageIndex(s, taxonomies.stages)),
+                }))}
+              />
             </div>
             <div>
               <label className="block text-[11px] font-semibold text-slate-700 mb-1">Assigned Recruiter</label>
@@ -880,8 +895,8 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
             )}
           </div>
 
-          <div className="p-4 space-y-2.5">
-            {submissions.length === 0 ? (
+          {submissions.length === 0 ? (
+            <div className="p-4">
               <div className="py-12 px-4 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200 space-y-3">
                 <p>No applicants attached yet. Open the candidate picker to attach bench consultants.</p>
                 <button
@@ -893,7 +908,9 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                   <span>Attach Bench Applicants</span>
                 </button>
               </div>
-            ) : filteredSubmissions.length === 0 ? (
+            </div>
+          ) : filteredSubmissions.length === 0 ? (
+            <div className="p-4">
               <div className="py-10 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                 No applicants match your current tab/search.{' '}
                 <button
@@ -907,269 +924,304 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                   Show all applicants
                 </button>
               </div>
-            ) : (
-              filteredSubmissions.map((sub) => {
-                const candObj = resolveCandidateForSubmission(sub);
-                const placed = isPlacedApplicant(sub);
-                const isLegacy = sub.id.startsWith('legacy_');
-                const applicantStageOptions = buildApplicantStageOptions(taxonomies.stages, sub.stage);
-                const stageIdx = getStageIndex(sub.stage, taxonomies.stages);
-                const initials = sub.fullName
-                  .split(' ')
-                  .map((n) => n[0])
-                  .join('')
-                  .slice(0, 2)
-                  .toUpperCase();
-                const formattedInterview = formatDateTimeBadge(sub.interviewDateTime || sub.interviewDate);
-                const subNotes = sub.notes || [];
-                const isClosedStage = sub.stage.trim().toLowerCase() === 'closed';
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase">
+                    <tr>
+                      <th className="px-4 py-2.5">Applicant</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap">Rate</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap">Stage</th>
+                      <th className="px-4 py-2.5 text-right whitespace-nowrap">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {applicantsPg.pagedItems.map((sub) => {
+                      const candObj = resolveCandidateForSubmission(sub);
+                      const placed = isPlacedApplicant(sub);
+                      const isLegacy = sub.id.startsWith('legacy_');
+                      const applicantStageOptions = buildApplicantStageOptions(taxonomies.stages, sub.stage);
+                      const stageIdx = getStageIndex(sub.stage, taxonomies.stages);
+                      const initials = sub.fullName
+                        .split(' ')
+                        .map((n) => n[0])
+                        .join('')
+                        .slice(0, 2)
+                        .toUpperCase();
+                      const formattedInterview = formatDateTimeBadge(sub.interviewDateTime || sub.interviewDate);
+                      const subNotes = sub.notes || [];
+                      const isClosedStage = sub.stage.trim().toLowerCase() === 'closed';
 
-                return (
-                  <div
-                    key={sub.id}
-                    className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2.5 shadow-2xs hover:border-slate-300 transition-colors"
-                  >
-                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-2.5">
-                      <div className="flex items-start gap-3 min-w-0 flex-1">
-                        <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs flex-shrink-0 mt-0.5">
-                          {initials}
-                        </div>
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-bold text-slate-900 text-[13px] truncate">
-                              {sub.fullName}
-                            </span>
-                            {sub.workAuth && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">
-                                {sub.workAuth}
-                              </span>
-                            )}
-                            {placed && (
-                              <StatusBadge label="Active Placement" tone="emerald" size="xs" />
-                            )}
-                            {formattedInterview && (
-                              <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-brand-50 text-brand-700 border border-brand-200/80 font-medium">
-                                <Calendar className="w-2.5 h-2.5" />
-                                <span>{formattedInterview}</span>
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                            <span className="font-medium text-slate-600">
-                              {sub.currentTitle || 'Consultant'}
-                            </span>
+                      return (
+                        <tr key={sub.id} className="hover:bg-slate-50/70 transition-colors align-top">
+                          <td className="px-4 py-3 min-w-[260px]">
+                            <div className="flex items-start gap-2.5">
+                              <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-[11px] flex-shrink-0 mt-0.5">
+                                {initials}
+                              </div>
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {candObj ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => onOpenResumePreview(candObj)}
+                                      className="font-bold text-slate-900 hover:text-brand-600 text-[12.5px] text-left cursor-pointer"
+                                    >
+                                      {sub.fullName}
+                                    </button>
+                                  ) : (
+                                    <span className="font-bold text-slate-900 text-[12.5px]">
+                                      {sub.fullName}
+                                    </span>
+                                  )}
+                                  {sub.workAuth && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">
+                                      {sub.workAuth}
+                                    </span>
+                                  )}
+                                  {placed && (
+                                    <StatusBadge label="Active Placement" tone="emerald" size="xs" />
+                                  )}
+                                  {formattedInterview && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-brand-50 text-brand-700 border border-brand-200/80 font-medium">
+                                      <Calendar className="w-2.5 h-2.5" />
+                                      <span>{formattedInterview}</span>
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] text-slate-500 leading-snug">
+                                  <span className="font-medium text-slate-600">
+                                    {sub.currentTitle || 'Consultant'}
+                                  </span>
+                                  {sub.submissionDate ? <span>{` · Attached ${sub.submissionDate}`}</span> : null}
+                                  {sub.recruiterName ? <span>{` · by ${sub.recruiterName}`}</span> : null}
+                                </div>
+
+                                {subNotes.length > 0 && (
+                                  <div className="mt-2 rounded-lg border border-slate-200/70 bg-slate-50/70 divide-y divide-slate-200/60">
+                                    {subNotes.map((note) => {
+                                      const noteTime = formatDateTimeBadge(note.updatedAt || note.createdAt);
+                                      const isNoteClosed =
+                                        (note.stage || '').trim().toLowerCase() === 'closed' || isClosedStage;
+                                      return (
+                                        <div
+                                          key={note.id}
+                                          className="px-2.5 py-1.5 flex items-start justify-between gap-2 text-[11px]"
+                                        >
+                                          <div className="min-w-0 flex-1 space-y-0.5">
+                                            <div className="flex items-center gap-1.5 text-[10px] text-slate-400 flex-wrap">
+                                              <span className="font-semibold text-slate-600">{note.authorName}</span>
+                                              {noteTime ? <span>· {noteTime}</span> : null}
+                                              {note.updatedAt ? <span>· (edited)</span> : null}
+                                              {isNoteClosed ? (
+                                                <span className="px-1.5 py-0.2 rounded bg-rose-50 text-rose-700 font-medium">
+                                                  Rejection Feedback
+                                                </span>
+                                              ) : null}
+                                            </div>
+                                            <p className="text-slate-700 whitespace-pre-line leading-relaxed">
+                                              {note.text}
+                                            </p>
+                                          </div>
+                                          {!isLegacy && onUpdateSubmissionNotes && (
+                                            <div className="flex items-center gap-0.5 flex-shrink-0">
+                                              <button
+                                                type="button"
+                                                disabled={busyNoteId === note.id}
+                                                onClick={() => openNotesEditor(sub, note)}
+                                                title="Edit note"
+                                                aria-label={`Edit note by ${note.authorName}`}
+                                                className="p-1 rounded text-slate-400 hover:text-brand-600 hover:bg-white transition-colors cursor-pointer"
+                                              >
+                                                <Pencil className="w-3 h-3" />
+                                              </button>
+                                              <button
+                                                type="button"
+                                                disabled={busyNoteId === note.id}
+                                                onClick={() => handleDeleteSubmissionNote(sub, note.id)}
+                                                title="Delete note"
+                                                aria-label={`Delete note by ${note.authorName}`}
+                                                className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                              >
+                                                {busyNoteId === note.id ? (
+                                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                                ) : (
+                                                  <Trash2 className="w-3 h-3" />
+                                                )}
+                                              </button>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="px-3 py-3 whitespace-nowrap text-slate-700">
                             {sub.hourlyRate ? (
-                              <span>
-                                {' · '}
-                                <MaskedValue value={formatRate(sub.hourlyRate)} isMasked={rateMasked} />
-                              </span>
-                            ) : null}
-                            {sub.submissionDate ? <span>{` · Attached ${sub.submissionDate}`}</span> : null}
-                            {sub.recruiterName ? <span>{` · by ${sub.recruiterName}`}</span> : null}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 flex-nowrap flex-shrink-0 self-start md:mt-0.5">
-                        {!isLegacy && onUpdateSubmissionStage ? (
-                          <div className="relative inline-flex items-center">
-                            {busySubId === sub.id ? (
-                              <Loader2 className="pointer-events-none absolute left-2 w-2.5 h-2.5 text-brand-600 animate-spin" />
+                              <MaskedValue value={formatRate(sub.hourlyRate)} isMasked={rateMasked} />
                             ) : (
-                              <span
-                                className={`pointer-events-none absolute left-2 w-1.5 h-1.5 rounded-full ${getStageDotClass(
-                                  sub.stage,
-                                  stageIdx
-                                )}`}
-                              />
+                              <span className="text-slate-400">—</span>
                             )}
-                            <select
-                              aria-label={`Stage for ${sub.fullName}`}
-                              disabled={busySubId === sub.id}
-                              value={sub.stage}
-                              onChange={async (e) => {
-                                const nextStage = e.target.value as RequirementSubmission['stage'];
-                                const nextLower = nextStage.trim().toLowerCase();
-                                if (nextLower === 'onboarding' && !placed) {
-                                  onOpenPlacementWizard(requirement, candObj);
-                                  return;
+                          </td>
+
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            {!isLegacy && onUpdateSubmissionStage ? (
+                              <CustomSelect
+                                ariaLabel={`Stage for ${sub.fullName}`}
+                                disabled={busySubId === sub.id}
+                                value={sub.stage}
+                                size="xs"
+                                fullWidth={false}
+                                minMenuWidth={145}
+                                prefixNode={
+                                  busySubId === sub.id ? (
+                                    <Loader2 className="w-2.5 h-2.5 text-brand-600 animate-spin shrink-0" />
+                                  ) : undefined
                                 }
-                                setBusySubId(sub.id);
-                                try {
-                                  await onUpdateSubmissionStage(requirement, sub.id, nextStage);
-                                  if (
-                                    onUpdateSubmissionNotes &&
-                                    (nextLower === 'interview' || nextLower === 'closed')
-                                  ) {
-                                    openNotesEditor({ ...sub, stage: nextStage });
+                                options={applicantStageOptions.map((st) => ({
+                                  value: st,
+                                  label: st,
+                                  dotClass: getStageDotClass(
+                                    st,
+                                    getStageIndex(st, taxonomies.stages)
+                                  ),
+                                }))}
+                                onChange={async (nextVal) => {
+                                  const nextStage = nextVal as RequirementSubmission['stage'];
+                                  const nextLower = nextStage.trim().toLowerCase();
+                                  if (nextLower === 'onboarding' && !placed) {
+                                    onOpenPlacementWizard(requirement, candObj);
+                                    return;
                                   }
-                                } catch {
-                                  // Error toast handled by caller; keep select synced to persisted stage
-                                } finally {
-                                  setBusySubId(null);
-                                }
-                              }}
-                              className="!pl-5 pr-2 py-1 rounded-md border border-slate-200 bg-white text-slate-700 text-[11px] font-medium cursor-pointer disabled:opacity-60 disabled:cursor-wait whitespace-nowrap"
-                            >
-                              {applicantStageOptions.map((st) => (
-                                <option key={st} value={st} className="bg-white text-slate-800">
-                                  {st}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        ) : (
-                          <StatusBadge
-                            stage={sub.stage}
-                            dotClass={getStageDotClass(sub.stage, stageIdx)}
-                            size="xs"
-                          />
-                        )}
-
-                        {!isLegacy && onUpdateSubmissionNotes && (
-                          <button
-                            type="button"
-                            onClick={() => openNotesEditor(sub)}
-                            className={`px-2 py-1 rounded-md border text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap ${
-                              editingNotesSub?.id === sub.id
-                                ? 'bg-brand-50 border-brand-300 text-brand-700'
-                                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                            }`}
-                          >
-                            <MessageSquare className="w-3 h-3" />
-                            <span>{subNotes.length > 0 ? `Notes (${subNotes.length})` : 'Add Note'}</span>
-                          </button>
-                        )}
-
-                        {candObj && (
-                          <button
-                            type="button"
-                            onClick={() => onOpenResumePreview(candObj)}
-                            className="px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50 text-[11px] font-semibold cursor-pointer whitespace-nowrap"
-                          >
-                            Profile
-                          </button>
-                        )}
-
-                        {!placed && !isPositionsFull && (
-                          <button
-                            type="button"
-                            onClick={() => onOpenPlacementWizard(requirement, candObj)}
-                            className="px-2 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-semibold cursor-pointer transition-colors whitespace-nowrap"
-                          >
-                            Place
-                          </button>
-                        )}
-
-                        {!isLegacy && onDetachSubmission && (
-                          confirmDetachId === sub.id ? (
-                            <div className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 rounded-md px-1.5 py-0.5 whitespace-nowrap">
-                              <ActionButton
-                                type="button"
-                                loading={busySubId === sub.id}
-                                loadingText="Removing..."
-                                spinnerClassName="w-2.5 h-2.5 animate-spin flex-shrink-0"
-                                onClick={async () => {
-                                  if (busySubId === sub.id) return;
                                   setBusySubId(sub.id);
                                   try {
-                                    await onDetachSubmission(requirement, sub.id);
-                                    setConfirmDetachId(null);
+                                    await onUpdateSubmissionStage(requirement, sub.id, nextStage);
+                                    if (
+                                      onUpdateSubmissionNotes &&
+                                      (nextLower === 'interview' || nextLower === 'closed')
+                                    ) {
+                                      openNotesEditor({ ...sub, stage: nextStage });
+                                    }
+                                  } catch {
+                                    // Error toast handled by caller; keep select synced to persisted stage
                                   } finally {
                                     setBusySubId(null);
                                   }
                                 }}
-                                className="text-[10px] font-bold text-rose-700 hover:underline cursor-pointer"
-                              >
-                                Remove
-                              </ActionButton>
-                              <span className="text-slate-300">|</span>
-                              <button
-                                type="button"
-                                onClick={() => setConfirmDetachId(null)}
-                                className="text-[10px] text-slate-500 hover:text-slate-700 cursor-pointer"
-                              >
-                                No
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => setConfirmDetachId(sub.id)}
-                              title={`Detach ${sub.fullName} from requirement`}
-                              className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer flex-shrink-0"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )
-                        )}
-                      </div>
-                    </div>
+                              />
+                            ) : (
+                              <StatusBadge
+                                stage={sub.stage}
+                                dotClass={getStageDotClass(sub.stage, stageIdx)}
+                                size="xs"
+                              />
+                            )}
+                          </td>
 
-                    {subNotes.length > 0 && (
-                      <div className="rounded-lg border border-slate-200/70 bg-slate-50/60 divide-y divide-slate-200/60">
-                        {subNotes.map((note) => {
-                          const noteTime = formatDateTimeBadge(note.updatedAt || note.createdAt);
-                          const isNoteClosed =
-                            (note.stage || '').trim().toLowerCase() === 'closed' || isClosedStage;
-                          return (
-                            <div
-                              key={note.id}
-                              className="px-3 py-2 flex items-start justify-between gap-2 text-[11px]"
-                            >
-                              <div className="min-w-0 flex-1 space-y-0.5">
-                                <div className="flex items-center gap-1.5 text-[10px] text-slate-400 flex-wrap">
-                                  <span className="font-semibold text-slate-600">{note.authorName}</span>
-                                  {noteTime ? <span>· {noteTime}</span> : null}
-                                  {note.updatedAt ? <span>· (edited)</span> : null}
-                                  {isNoteClosed ? (
-                                    <span className="px-1.5 py-0.2 rounded bg-rose-50 text-rose-700 font-medium">
-                                      Rejection Feedback
-                                    </span>
-                                  ) : null}
-                                </div>
-                                <p className="text-slate-700 whitespace-pre-line leading-relaxed">
-                                  {note.text}
-                                </p>
-                              </div>
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            <div className="inline-flex items-center gap-1.5">
                               {!isLegacy && onUpdateSubmissionNotes && (
-                                <div className="flex items-center gap-0.5 flex-shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => openNotesEditor(sub)}
+                                  className={`px-2 py-1 rounded-md border text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap ${
+                                    editingNotesSub?.id === sub.id
+                                      ? 'bg-brand-50 border-brand-300 text-brand-700'
+                                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <MessageSquare className="w-3 h-3" />
+                                  <span>{subNotes.length > 0 ? `Notes (${subNotes.length})` : 'Add Note'}</span>
+                                </button>
+                              )}
+
+                              {candObj && (
+                                <button
+                                  type="button"
+                                  onClick={() => onOpenResumePreview(candObj)}
+                                  className="px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50 text-[11px] font-semibold cursor-pointer whitespace-nowrap"
+                                >
+                                  Profile
+                                </button>
+                              )}
+
+                              {!placed && !isPositionsFull && (
+                                <button
+                                  type="button"
+                                  onClick={() => onOpenPlacementWizard(requirement, candObj)}
+                                  className="px-2 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-semibold cursor-pointer transition-colors whitespace-nowrap"
+                                >
+                                  Place
+                                </button>
+                              )}
+
+                              {!isLegacy && onDetachSubmission && (
+                                confirmDetachId === sub.id ? (
+                                  <div className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 rounded-md px-1.5 py-0.5 whitespace-nowrap">
+                                    <ActionButton
+                                      type="button"
+                                      loading={busySubId === sub.id}
+                                      loadingText="Removing..."
+                                      spinnerClassName="w-2.5 h-2.5 animate-spin flex-shrink-0"
+                                      onClick={async () => {
+                                        if (busySubId === sub.id) return;
+                                        setBusySubId(sub.id);
+                                        try {
+                                          await onDetachSubmission(requirement, sub.id);
+                                          setConfirmDetachId(null);
+                                        } finally {
+                                          setBusySubId(null);
+                                        }
+                                      }}
+                                      className="text-[10px] font-bold text-rose-700 hover:underline cursor-pointer"
+                                    >
+                                      Remove
+                                    </ActionButton>
+                                    <span className="text-slate-300">|</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setConfirmDetachId(null)}
+                                      className="text-[10px] text-slate-500 hover:text-slate-700 cursor-pointer"
+                                    >
+                                      No
+                                    </button>
+                                  </div>
+                                ) : (
                                   <button
                                     type="button"
-                                    disabled={busyNoteId === note.id}
-                                    onClick={() => openNotesEditor(sub, note)}
-                                    title="Edit note"
-                                    aria-label={`Edit note by ${note.authorName}`}
-                                    className="p-1 rounded text-slate-400 hover:text-brand-600 hover:bg-white transition-colors cursor-pointer"
+                                    onClick={() => setConfirmDetachId(sub.id)}
+                                    title={`Detach ${sub.fullName} from requirement`}
+                                    className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer flex-shrink-0"
                                   >
-                                    <Pencil className="w-3 h-3" />
+                                    <Trash2 className="w-3.5 h-3.5" />
                                   </button>
-                                  <button
-                                    type="button"
-                                    disabled={busyNoteId === note.id}
-                                    onClick={() => handleDeleteSubmissionNote(sub, note.id)}
-                                    title="Delete note"
-                                    aria-label={`Delete note by ${note.authorName}`}
-                                    className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                                  >
-                                    {busyNoteId === note.id ? (
-                                      <Loader2 className="w-3 h-3 animate-spin" />
-                                    ) : (
-                                      <Trash2 className="w-3 h-3" />
-                                    )}
-                                  </button>
-                                </div>
+                                )
                               )}
                             </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <TablePagination
+                page={applicantsPg.page}
+                limit={applicantsPg.limit}
+                total={applicantsPg.total}
+                onPageChange={applicantsPg.setPage}
+                onLimitChange={applicantsPg.setLimit}
+                itemLabel="applicants"
+                pageSizeOptions={[5, 10, 20, 50]}
+              />
+            </>
+          )}
         </div>
 
         {/* Right Sidebar: Requisition Brief & Details */}
@@ -1356,19 +1408,18 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                   : ''}
               </div>
               <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-end">
-                <select
-                  aria-label="Filter bench by work authorization"
+                <CustomSelect
+                  ariaLabel="Filter bench by work authorization"
                   value={benchWorkAuth}
-                  onChange={(e) => setBenchWorkAuth(e.target.value)}
-                  className="px-2 py-1.5 text-[11px] font-medium bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:bg-white focus:border-brand-600 cursor-pointer"
-                >
-                  <option value="All">All Work Auth</option>
-                  {taxonomies.workAuth.map((auth) => (
-                    <option key={auth} value={auth}>
-                      {auth}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setBenchWorkAuth}
+                  size="sm"
+                  fullWidth={false}
+                  minMenuWidth={155}
+                  options={[
+                    { value: 'All', label: 'All Work Auth' },
+                    ...taxonomies.workAuth.map((auth) => ({ value: auth, label: auth })),
+                  ]}
+                />
                 <div className="relative w-full sm:w-64">
                   <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input

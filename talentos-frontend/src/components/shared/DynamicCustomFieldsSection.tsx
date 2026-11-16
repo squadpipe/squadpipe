@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { apiClient } from '../../config/api.config';
 import { CustomField } from '../../types';
+import { CustomSelect } from './CustomSelect';
 
 export type TaxonomyKey = 'workAuth' | 'paymentTerms' | 'education' | 'stages';
 
@@ -167,23 +168,20 @@ export const DynamicCustomFieldsSection: React.FC<DynamicCustomFieldsSectionProp
                 {field.name} {field.required ? '*' : ''}
               </label>
               {fieldType === 'Dropdown' ? (
-                <select
-                  required={!!field.required}
+                <CustomSelect
                   value={val}
-                  onChange={(e) => handleFieldChange(field.name, e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-white text-slate-800"
-                >
-                  <option value="">Select {field.name}...</option>
-                  {(field.options || '')
-                    .split(',')
-                    .map((opt) => opt.trim())
-                    .filter(Boolean)
-                    .map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                </select>
+                  onChange={(nextVal) => handleFieldChange(field.name, nextVal)}
+                  placeholder={`Select ${field.name}...`}
+                  ariaLabel={field.name}
+                  options={[
+                    ...(field.required ? [] : [{ value: '', label: `Select ${field.name}...` }]),
+                    ...(field.options || '')
+                      .split(',')
+                      .map((opt) => opt.trim())
+                      .filter(Boolean)
+                      .map((opt) => ({ value: opt, label: opt })),
+                  ]}
+                />
               ) : fieldType === 'Date' ? (
                 <input
                   type="date"
