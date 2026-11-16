@@ -78,8 +78,8 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Expiring Soon' | 'Extended' | 'Ended'>('All');
   const [modelFilter, setModelFilter] = useState<'All' | 'W2 Hourly' | 'C2C Subcontractor' | '1099' | 'Full-Time'>('All');
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(5);
-  const [tableRows, setTableRows] = useState<BillablePlacement[]>(() => placements.slice(0, 5));
+  const [limit, setLimit] = useState(10);
+  const [tableRows, setTableRows] = useState<BillablePlacement[]>(() => placements.slice(0, 10));
   const [totalRows, setTotalRows] = useState(placements.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
 
@@ -474,9 +474,9 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
         </div>
 
         {/* Ledger Table */}
-        <div className="overflow-x-auto">
+        <div className="max-h-[440px] overflow-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+            <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
               <tr>
                 <th className="px-3.5 py-3">Customer &amp; PO</th>
                 <th className="px-3.5 py-3">Consultant &amp; Role</th>

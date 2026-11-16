@@ -45,8 +45,8 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   const [roleFilter, setRoleFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Invited' | 'Suspended'>('All');
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(5);
-  const [tableUsers, setTableUsers] = useState<User[]>(() => users.slice(0, 5));
+  const [limit, setLimit] = useState(10);
+  const [tableUsers, setTableUsers] = useState<User[]>(() => users.slice(0, 10));
   const [totalUsers, setTotalUsers] = useState(users.length);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -267,10 +267,10 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-slate-50/70 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
+        <div className="max-h-[440px] overflow-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)]">
+              <tr className="text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
                 <th className="py-3 px-5">Member</th>
                 <th className="py-3 px-4">Role</th>
                 <th className="py-3 px-4">Desk</th>

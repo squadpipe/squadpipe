@@ -81,8 +81,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [tableSearch, setTableSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(5);
-  const [tableRows, setTableRows] = useState<Requirement[]>(() => requirements.slice(0, 5));
+  const [limit, setLimit] = useState(10);
+  const [tableRows, setTableRows] = useState<Requirement[]>(() => requirements.slice(0, 10));
   const [totalRows, setTotalRows] = useState(requirements.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
   const [editingReq, setEditingReq] = useState<Requirement | null>(null);
@@ -350,9 +350,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="max-h-[420px] overflow-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50/80 border-b border-slate-200/80 text-[10.5px] font-semibold text-slate-500 uppercase tracking-wider">
+            <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[10.5px] font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
                 <th className="px-3.5 py-2.5 whitespace-nowrap">Req #</th>
                 <th className="px-3.5 py-2.5 whitespace-nowrap">Opportunity</th>
@@ -776,9 +776,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="max-h-[420px] overflow-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50/80 border-b border-slate-200/80 text-[10.5px] font-semibold text-slate-500 uppercase tracking-wider">
+            <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[10.5px] font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
                 <th className="px-4 py-2.5">Recruiter</th>
                 <th className="px-4 py-2.5">Desk</th>

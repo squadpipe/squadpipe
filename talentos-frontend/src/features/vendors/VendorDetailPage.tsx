@@ -63,8 +63,8 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
       )
     : [];
   const contactList = vendor ? buildInitialVendorContacts(vendor) : [];
-  const contactsPg = useClientPagination(contactList, 5, vendor?.id);
-  const placementsPg = useClientPagination(vendorPlacements, 5, vendor?.id);
+  const contactsPg = useClientPagination(contactList, 10, vendor?.id);
+  const placementsPg = useClientPagination(vendorPlacements, 10, vendor?.id);
 
   if (!vendor) {
     return (
@@ -198,9 +198,9 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto">
+                <div className="max-h-[340px] overflow-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase">
+                    <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase">
                       <tr>
                         <th className="px-4 py-2.5">Contact</th>
                         <th className="px-4 py-2.5">Designation</th>
@@ -285,9 +285,9 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto">
+                <div className="max-h-[340px] overflow-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase">
+                    <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase">
                       <tr>
                         <th className="px-4 py-2.5">Consultant</th>
                         <th className="px-4 py-2.5">Client</th>

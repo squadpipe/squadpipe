@@ -161,8 +161,8 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
     [linkedPlacements]
   );
 
-  const submissionsPg = useClientPagination(linkedSubmissions, 5, candidate?.id);
-  const placementsPg = useClientPagination(linkedPlacements, 5, candidate?.id);
+  const submissionsPg = useClientPagination(linkedSubmissions, 10, candidate?.id);
+  const placementsPg = useClientPagination(linkedPlacements, 10, candidate?.id);
 
   if (!candidate) {
     return (
@@ -632,9 +632,9 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto">
+                <div className="max-h-[340px] overflow-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase">
+                    <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase">
                       <tr>
                         <th className="px-4 py-2.5">Req ID</th>
                         <th className="px-4 py-2.5">Opportunity</th>

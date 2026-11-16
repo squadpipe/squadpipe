@@ -137,7 +137,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
   const [logSearch, setLogSearch] = useState('');
   const debouncedLogSearch = useDebounce(logSearch, 300);
   const [logsPage, setLogsPage] = useState(1);
-  const [logsLimit, setLogsLimit] = useState(5);
+  const [logsLimit, setLogsLimit] = useState(10);
   const [logRows, setLogRows] = useState<AutomationAuditLog[]>(auditLogs);
   const [totalLogs, setTotalLogs] = useState(auditLogs.length);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
@@ -449,9 +449,9 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="max-h-[340px] overflow-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200 text-[10.5px] font-semibold text-slate-500 uppercase tracking-wider">
+            <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[10.5px] font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
                 <th className="px-4 py-2.5">Time</th>
                 <th className="px-4 py-2.5">Reminder</th>

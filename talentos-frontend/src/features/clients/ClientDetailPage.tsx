@@ -82,9 +82,9 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
   const clientPlacements = client
     ? placements.filter((p) => p.customer.toLowerCase() === client.name.toLowerCase())
     : [];
-  const contactsPg = useClientPagination(client?.contacts || [], 5, client?.id);
-  const reqsPg = useClientPagination(clientReqs, 5, client?.id);
-  const placementsPg = useClientPagination(clientPlacements, 5, client?.id);
+  const contactsPg = useClientPagination(client?.contacts || [], 10, client?.id);
+  const reqsPg = useClientPagination(clientReqs, 10, client?.id);
+  const placementsPg = useClientPagination(clientPlacements, 10, client?.id);
 
   if (!client) {
     return (
@@ -298,9 +298,9 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto">
+                <div className="max-h-[340px] overflow-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase">
+                    <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase">
                       <tr>
                         <th className="px-4 py-2.5">Contact</th>
                         <th className="px-4 py-2.5">Designation</th>
@@ -383,9 +383,9 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto">
+                <div className="max-h-[340px] overflow-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase">
+                    <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase">
                       <tr>
                         <th className="px-4 py-2.5">Req ID</th>
                         <th className="px-4 py-2.5">Opportunity</th>
@@ -457,9 +457,9 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto">
+                <div className="max-h-[340px] overflow-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase">
+                    <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase">
                       <tr>
                         <th className="px-4 py-2.5">Consultant</th>
                         <th className="px-4 py-2.5">Role / Skill</th>

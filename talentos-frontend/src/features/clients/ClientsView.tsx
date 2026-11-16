@@ -41,7 +41,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
 }) => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(5);
+  const [limit, setLimit] = useState(10);
   const [serverClients, setServerClients] = useState<Client[]>([]);
   const [totalClients, setTotalClients] = useState(clients.length);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
@@ -124,10 +124,10 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
 
       {/* Clients Table List View */}
       <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/90 border-b border-slate-200 text-[10px] font-bold uppercase text-slate-500 tracking-wider">
+        <div className="max-h-[440px] overflow-auto">
+          <table className="w-full text-left">
+            <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)]">
+              <tr className="text-[10px] font-bold uppercase text-slate-500 tracking-wider">
                 <th className="px-4 py-3">Client Company</th>
                 <th className="px-4 py-3">Primary Contact</th>
                 <th className="px-4 py-3">Phone &amp; Email</th>

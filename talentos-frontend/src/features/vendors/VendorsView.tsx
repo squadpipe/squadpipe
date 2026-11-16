@@ -27,8 +27,8 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
 }) => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(5);
-  const [tableRows, setTableRows] = useState<Vendor[]>(() => vendors.slice(0, 5));
+  const [limit, setLimit] = useState(10);
+  const [tableRows, setTableRows] = useState<Vendor[]>(() => vendors.slice(0, 10));
   const [totalRows, setTotalRows] = useState(vendors.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
@@ -129,9 +129,9 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div className="max-h-[440px] overflow-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase">
+            <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase">
               <tr>
                 <th className="px-4 py-3">Vendor Company</th>
                 <th className="px-4 py-3">Contacts</th>

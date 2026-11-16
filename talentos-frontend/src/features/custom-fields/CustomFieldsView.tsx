@@ -90,7 +90,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
   const [scope, setScope] = useState<'all' | 'consultant' | 'requirement' | 'client' | 'vendor' | 'placement'>('all');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(5);
+  const [limit, setLimit] = useState(10);
   const [tableFields, setTableFields] = useState<any[]>([]);
   const [totalFields, setTotalFields] = useState(propCustomFields?.length || 0);
   const [isLoadingFields, setIsLoadingFields] = useState(false);
@@ -455,10 +455,10 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="max-h-[440px] overflow-auto">
             <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+              <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)]">
+                <tr className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   <th className="py-2.5 px-5">Field Name</th>
                   <th className="py-2.5 px-4">Form</th>
                   <th className="py-2.5 px-4">Input Type</th>

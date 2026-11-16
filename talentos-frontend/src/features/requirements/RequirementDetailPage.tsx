@@ -313,7 +313,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
 
   const applicantsPg = useClientPagination(
     filteredSubmissions,
-    5,
+    10,
     `${requirement?.id || ''}|${applicantTab}|${applicantSearch}`
   );
 
@@ -403,9 +403,6 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
         <span className="text-slate-300">/</span>
         <span className="text-[11px] font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
           {requirement.code}
-        </span>
-        <span className="text-slate-400 truncate max-w-xs hidden sm:inline">
-          {requirement.opportunityTitle}
         </span>
       </div>
 
@@ -577,9 +574,9 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <div className="max-h-[420px] overflow-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase">
+                  <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase">
                     <tr>
                       <th className="pl-5 pr-4 py-3">Applicant</th>
                       <th className="px-4 py-3 whitespace-nowrap">Rate</th>
