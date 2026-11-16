@@ -17,7 +17,6 @@ import { getWorkspaceBrandSlug, useWorkspaceBrand } from '../../utils/workspaceB
 import { downloadSampleCandidatesCsv, parseCandidateCsvText } from '../../utils/csvCandidates';
 import { mapCandidateFromApi, mapRequirementFromApi } from '../../utils/entityMappers';
 import { ModalPortal } from '../shared/ModalPortal';
-import { CustomSelect } from '../shared/CustomSelect';
 
 export interface CsvImportResult {
   candidates: Candidate[];
@@ -30,22 +29,18 @@ export interface CsvImportResult {
 interface CsvImportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  requirements?: Requirement[];
   lockedRequirement?: Requirement | null;
   onImportComplete?: (result: CsvImportResult) => Promise<void> | void;
   onNavigate?: (view: string) => void;
-  onOpenRequirement?: (req: Requirement) => void;
   showToast: (title: string, message: string, icon?: string) => void;
 }
 
 export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   isOpen,
   onClose,
-  requirements = [],
   lockedRequirement = null,
   onImportComplete,
   onNavigate,
-  onOpenRequirement,
   showToast,
 }) => {
   const { symbol: currencySymbol } = useCurrency();
@@ -55,7 +50,6 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [uploadedFileName, setUploadedFileName] = useState<string>('');
   const [parsedRows, setParsedRows] = useState<any[]>([]);
-  const [selectedRequirementId, setSelectedRequirementId] = useState<string>('');
   const [isImporting, setIsImporting] = useState<boolean>(false);
   const [importSummary, setImportSummary] = useState<{
     importedCount: number;
@@ -75,7 +69,6 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
     setStep(1);
     setUploadedFileName('');
     setParsedRows([]);
-    setSelectedRequirementId(lockedRequirement?.id || '');
     setIsImporting(false);
     setImportSummary({
       importedCount: 0,
@@ -87,7 +80,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
 
   if (!isOpen) return null;
 
-  const targetRequirementId = lockedRequirement?.id || selectedRequirementId;
+  const targetRequirementId = lockedRequirement?.id || '';
 
   const downloadSampleCsv = () => {
     const sampleCsvFilename = downloadSampleCandidatesCsv(getWorkspaceBrandSlug(), currencySymbol);
@@ -346,7 +339,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
                   </tbody>
                 </table>
 
-                {lockedRequirement ? (
+                {lockedRequirement && (
                   <div className="bg-emerald-50/70 border border-emerald-200 rounded-lg p-3 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 text-xs text-emerald-900">
                       <Briefcase className="w-4 h-4 text-emerald-700 shrink-0" />
@@ -359,33 +352,6 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
                       + Consultants Roster
                     </span>
                   </div>
-                ) : (
-                  requirements.length > 0 && (
-                    <div className="bg-slate-50/80 border border-slate-200 rounded-lg p-3 space-y-1.5">
-                      <label className="flex items-center gap-1.5 font-semibold text-slate-700 text-xs">
-                        <Briefcase className="w-3.5 h-3.5 text-brand-600" />
-                        <span>Auto-Attach Imported Candidates to Requirement (Optional)</span>
-                      </label>
-                      <CustomSelect
-                        value={selectedRequirementId}
-                        onChange={setSelectedRequirementId}
-                        ariaLabel="Auto-Attach Imported Candidates to Requirement"
-                        options={[
-                          {
-                            value: '',
-                            label: 'Central Roster Only (Do not attach to a requirement)',
-                          },
-                          ...requirements.map((req) => ({
-                            value: req.id,
-                            label: `${req.code} — ${req.opportunityTitle} (${req.companyName})`,
-                          })),
-                        ]}
-                      />
-                      <p className="text-[11px] text-slate-500">
-                        Imported candidates are always saved to your central Consultants roster. Selecting a requirement also submits them automatically.
-                      </p>
-                    </div>
-                  )
                 )}
 
                 <div className="flex justify-between items-center pt-2">
@@ -452,42 +418,25 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
                     >
                       Back to {lockedRequirement.code}
                     </button>
+                  ) : onNavigate ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onNavigate('consultants');
+                      }}
+                      className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-xs cursor-pointer shadow-xs"
+                    >
+                      Open Consultant Directory
+                    </button>
                   ) : (
-                    <>
-                      {importSummary.attachedRequirement && onOpenRequirement && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const targetReq = importSummary.attachedRequirement!;
-                            onClose();
-                            onOpenRequirement(targetReq);
-                          }}
-                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-xs cursor-pointer shadow-xs"
-                        >
-                          Open {importSummary.attachedRequirement.code}
-                        </button>
-                      )}
-                      {onNavigate ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onClose();
-                            onNavigate('consultants');
-                          }}
-                          className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-xs cursor-pointer shadow-xs"
-                        >
-                          Open Consultant Directory
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={onClose}
-                          className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-xs cursor-pointer shadow-xs"
-                        >
-                          Done
-                        </button>
-                      )}
-                    </>
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-xs cursor-pointer shadow-xs"
+                    >
+                      Done
+                    </button>
                   )}
                 </div>
               </div>

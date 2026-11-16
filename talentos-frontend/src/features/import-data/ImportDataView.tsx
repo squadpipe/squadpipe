@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CloudUpload, FileSpreadsheet, FileText } from 'lucide-react';
-import { Candidate, Requirement } from '../../types';
+import { Candidate } from '../../types';
 import { useCurrency } from '../../utils/currency';
 import { getWorkspaceBrandSlug, useWorkspaceBrand } from '../../utils/workspaceBrand';
 import { downloadSampleCandidatesCsv } from '../../utils/csvCandidates';
@@ -10,9 +10,6 @@ interface ImportDataViewProps {
   onImportCandidates?: (candidates: Candidate[]) => void;
   onOpenResumeParser?: () => void;
   onNavigate?: (view: string) => void;
-  requirements?: Requirement[];
-  onRequirementUpdated?: (req: Requirement) => void;
-  onOpenRequirement?: (req: Requirement) => void;
   showToast: (title: string, message: string, icon?: string) => void;
 }
 
@@ -20,9 +17,6 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
   onImportCandidates,
   onOpenResumeParser,
   onNavigate,
-  requirements = [],
-  onRequirementUpdated,
-  onOpenRequirement,
   showToast,
 }) => {
   const { symbol: currencySymbol } = useCurrency();
@@ -102,13 +96,10 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
       <CsvImportModal
         isOpen={showCsvModal}
         onClose={() => setShowCsvModal(false)}
-        requirements={requirements}
-        onImportComplete={({ candidates: importedCands, updatedRequirement }) => {
+        onImportComplete={({ candidates: importedCands }) => {
           if (onImportCandidates) onImportCandidates(importedCands);
-          if (updatedRequirement && onRequirementUpdated) onRequirementUpdated(updatedRequirement);
         }}
         onNavigate={onNavigate}
-        onOpenRequirement={onOpenRequirement}
         showToast={showToast}
       />
     </section>

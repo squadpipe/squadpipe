@@ -841,7 +841,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up max-h-[92vh] flex flex-col"
+            className="bg-white rounded-xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up max-h-[92vh] flex flex-col"
           >
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>

@@ -2106,15 +2106,6 @@ export const App: React.FC = () => {
               onImportCandidates={(newCands) => mergeImportedCandidates(newCands)}
               onOpenResumeParser={() => setIsResumeModalOpen(true)}
               onNavigate={setCurrentView}
-              requirements={requirements}
-              onRequirementUpdated={(updatedReq) => {
-                syncUpdatedRequirement(updatedReq);
-                fetchCandidates();
-                fetchSidebarCounts();
-                fetchSlaTasks();
-                fetchAutomations();
-              }}
-              onOpenRequirement={(req) => handleOpenRequirementDetail(req, 'pipeline')}
               showToast={showToast}
             />
           )}
@@ -2186,7 +2177,6 @@ export const App: React.FC = () => {
           setIsCsvImportModalOpen(false);
           setCsvImportTargetReq(null);
         }}
-        requirements={requirements}
         lockedRequirement={
           csvImportTargetReq
             ? requirements.find((r) => r.id === csvImportTargetReq.id) || csvImportTargetReq
@@ -2194,7 +2184,6 @@ export const App: React.FC = () => {
         }
         onImportComplete={handleCsvImportCompleted}
         onNavigate={setCurrentView}
-        onOpenRequirement={(req) => handleOpenRequirementDetail(req, 'pipeline')}
         showToast={showToast}
       />
 

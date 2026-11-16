@@ -145,6 +145,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   const [isLoadingMoreBench, setIsLoadingMoreBench] = useState<boolean>(false);
   const knownCandidatesRef = useRef<Map<string, Candidate>>(new Map());
   const activeSearchRef = useRef<string>('');
+  const notesTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     for (const c of candidates) {
@@ -439,7 +440,10 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
         ...(dateChanged ? { interviewDate: draftInterviewDate || null } : {}),
       });
       setEditingNoteId(null);
-      setEditingNotesSub(null);
+      setDraftNotesText('');
+      if (!cleanText) {
+        setEditingNotesSub(null);
+      }
     } catch {
       // Toast handled by parent caller
     } finally {
@@ -786,14 +790,14 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase">
                     <tr>
-                      <th className="px-4 py-2.5">Applicant</th>
-                      <th className="px-3 py-2.5 whitespace-nowrap">Rate</th>
-                      <th className="px-3 py-2.5 whitespace-nowrap">Stage</th>
-                      <th className="px-4 py-2.5 text-right whitespace-nowrap">Actions</th>
+                      <th className="pl-4 pr-2 py-2.5">Applicant</th>
+                      <th className="px-2.5 py-2.5 whitespace-nowrap">Rate</th>
+                      <th className="px-2.5 py-2.5 whitespace-nowrap">Stage</th>
+                      <th className="pl-2 pr-4 py-2.5 text-right whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {applicantsPg.pagedItems.map((sub, idx) => {
+                  <tbody className="divide-y divide-slate-100">
+                    {applicantsPg.pagedItems.map((sub) => {
                       const candObj = resolveCandidateForSubmission(sub);
                       const placed = isPlacedApplicant(sub);
                       const isLegacy = sub.id.startsWith('legacy_');
@@ -807,277 +811,212 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                         .toUpperCase();
                       const formattedInterview = formatDateTimeBadge(sub.interviewDateTime || sub.interviewDate);
                       const subNotes = sub.notes || [];
-                      const isClosedStage = sub.stage.trim().toLowerCase() === 'closed';
-                      const rowBorder = idx > 0 ? 'border-t border-slate-100' : '';
+                      const metaParts = [
+                        sub.submissionDate ? `Attached ${sub.submissionDate}` : '',
+                        sub.recruiterName ? `by ${sub.recruiterName}` : '',
+                      ].filter(Boolean);
+                      const metaLine = metaParts.join(' \u00B7 ');
 
                       return (
-                        <React.Fragment key={sub.id}>
-                          <tr className={`${rowBorder} hover:bg-slate-50/70 transition-colors align-top`}>
-                            <td className={`px-4 pt-3 ${subNotes.length > 0 ? 'pb-2' : 'pb-3'} min-w-[260px]`}>
-                              <div className="flex items-start gap-2.5">
-                                <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-[11px] flex-shrink-0 mt-0.5">
-                                  {initials}
-                                </div>
-                                <div className="min-w-0 flex-1 space-y-1">
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    {candObj ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => onOpenResumePreview(candObj)}
-                                        className="font-bold text-slate-900 hover:text-brand-600 text-[12.5px] text-left cursor-pointer"
-                                      >
-                                        {sub.fullName}
-                                      </button>
-                                    ) : (
-                                      <span className="font-bold text-slate-900 text-[12.5px]">
-                                        {sub.fullName}
-                                      </span>
-                                    )}
-                                    {sub.workAuth && (
-                                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium whitespace-nowrap">
-                                        {sub.workAuth}
-                                      </span>
-                                    )}
-                                    {placed && (
-                                      <StatusBadge label="Active Placement" tone="emerald" size="xs" />
-                                    )}
-                                    {formattedInterview && (
-                                      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-brand-50 text-brand-700 border border-brand-200/80 font-medium whitespace-nowrap">
-                                        <Calendar className="w-2.5 h-2.5 shrink-0" />
-                                        <span>{formattedInterview}</span>
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="text-[11px] text-slate-500 leading-snug flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                                    <span className="font-medium text-slate-600">
-                                      {sub.currentTitle || 'Consultant'}
-                                    </span>
-                                    {sub.submissionDate && (
-                                      <span className="whitespace-nowrap">&bull; Attached {sub.submissionDate}</span>
-                                    )}
-                                    {sub.recruiterName && (
-                                      <span className="whitespace-nowrap">&bull; by {sub.recruiterName}</span>
-                                    )}
-                                  </div>
-                                </div>
+                        <tr key={sub.id} className="hover:bg-slate-50/70 transition-colors align-middle">
+                          <td className="pl-4 pr-2 py-3 min-w-[240px]">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-[11px] flex-shrink-0">
+                                {initials}
                               </div>
-                            </td>
-
-                            <td className={`px-3 pt-3 ${subNotes.length > 0 ? 'pb-2' : 'pb-3'} whitespace-nowrap text-slate-700`}>
-                              {sub.hourlyRate ? (
-                                <MaskedValue value={formatRate(sub.hourlyRate)} isMasked={rateMasked} />
-                              ) : (
-                                <span className="text-slate-400">—</span>
-                              )}
-                            </td>
-
-                            <td className={`px-3 pt-3 ${subNotes.length > 0 ? 'pb-2' : 'pb-3'} whitespace-nowrap`}>
-                              {!isLegacy && onUpdateSubmissionStage ? (
-                                <CustomSelect
-                                  ariaLabel={`Stage for ${sub.fullName}`}
-                                  disabled={busySubId === sub.id}
-                                  value={sub.stage}
-                                  size="xs"
-                                  fullWidth={false}
-                                  minMenuWidth={145}
-                                  prefixNode={
-                                    busySubId === sub.id ? (
-                                      <Loader2 className="w-2.5 h-2.5 text-brand-600 animate-spin shrink-0" />
-                                    ) : undefined
-                                  }
-                                  options={applicantStageOptions.map((st) => ({
-                                    value: st,
-                                    label: st,
-                                    dotClass: getStageDotClass(
-                                      st,
-                                      getStageIndex(st, taxonomies.stages)
-                                    ),
-                                  }))}
-                                  onChange={async (nextVal) => {
-                                    const nextStage = nextVal as RequirementSubmission['stage'];
-                                    const nextLower = nextStage.trim().toLowerCase();
-                                    if (nextLower === 'onboarding' && !placed) {
-                                      onOpenPlacementWizard(requirement, candObj);
-                                      return;
-                                    }
-                                    setBusySubId(sub.id);
-                                    try {
-                                      await onUpdateSubmissionStage(requirement, sub.id, nextStage);
-                                      if (
-                                        onUpdateSubmissionNotes &&
-                                        (nextLower === 'interview' || nextLower === 'closed')
-                                      ) {
-                                        openNotesEditor({ ...sub, stage: nextStage });
-                                      }
-                                    } catch {
-                                      // Error toast handled by caller; keep select synced to persisted stage
-                                    } finally {
-                                      setBusySubId(null);
-                                    }
-                                  }}
-                                />
-                              ) : (
-                                <StatusBadge
-                                  stage={sub.stage}
-                                  dotClass={getStageDotClass(sub.stage, stageIdx)}
-                                  size="xs"
-                                />
-                              )}
-                            </td>
-
-                            <td className={`px-4 pt-3 ${subNotes.length > 0 ? 'pb-2' : 'pb-3'} text-right whitespace-nowrap`}>
-                              <div className="inline-flex items-center gap-1.5">
-                                {!isLegacy && onUpdateSubmissionNotes && (
-                                  <button
-                                    type="button"
-                                    onClick={() => openNotesEditor(sub)}
-                                    className={`px-2 py-1 rounded-md border text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap ${
-                                      editingNotesSub?.id === sub.id
-                                        ? 'bg-brand-50 border-brand-300 text-brand-700'
-                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                                    }`}
-                                  >
-                                    <MessageSquare className="w-3 h-3" />
-                                    <span>{subNotes.length > 0 ? `Notes (${subNotes.length})` : 'Add Note'}</span>
-                                  </button>
-                                )}
-
-                                {candObj && (
-                                  <button
-                                    type="button"
-                                    onClick={() => onOpenResumePreview(candObj)}
-                                    className="px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50 text-[11px] font-semibold cursor-pointer whitespace-nowrap"
-                                  >
-                                    Profile
-                                  </button>
-                                )}
-
-                                {!placed && !isPositionsFull && (
-                                  <button
-                                    type="button"
-                                    onClick={() => onOpenPlacementWizard(requirement, candObj)}
-                                    className="px-2 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-semibold cursor-pointer transition-colors whitespace-nowrap"
-                                  >
-                                    Place
-                                  </button>
-                                )}
-
-                                {!isLegacy && onDetachSubmission && (
-                                  confirmDetachId === sub.id ? (
-                                    <div className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 rounded-md px-1.5 py-0.5 whitespace-nowrap">
-                                      <ActionButton
-                                        type="button"
-                                        loading={busySubId === sub.id}
-                                        loadingText="Removing..."
-                                        spinnerClassName="w-2.5 h-2.5 animate-spin flex-shrink-0"
-                                        onClick={async () => {
-                                          if (busySubId === sub.id) return;
-                                          setBusySubId(sub.id);
-                                          try {
-                                            await onDetachSubmission(requirement, sub.id);
-                                            setConfirmDetachId(null);
-                                          } finally {
-                                            setBusySubId(null);
-                                          }
-                                        }}
-                                        className="text-[10px] font-bold text-rose-700 hover:underline cursor-pointer"
-                                      >
-                                        Remove
-                                      </ActionButton>
-                                      <span className="text-slate-300">|</span>
-                                      <button
-                                        type="button"
-                                        onClick={() => setConfirmDetachId(null)}
-                                        className="text-[10px] text-slate-500 hover:text-slate-700 cursor-pointer"
-                                      >
-                                        No
-                                      </button>
-                                    </div>
-                                  ) : (
+                              <div className="min-w-0 flex-1 space-y-0.5">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {candObj ? (
                                     <button
                                       type="button"
-                                      onClick={() => setConfirmDetachId(sub.id)}
-                                      title={`Detach ${sub.fullName} from requirement`}
-                                      className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer flex-shrink-0"
+                                      onClick={() => onOpenResumePreview(candObj)}
+                                      className="font-bold text-slate-900 hover:text-brand-600 text-[12.5px] text-left cursor-pointer"
                                     >
-                                      <Trash2 className="w-3.5 h-3.5" />
+                                      {sub.fullName}
                                     </button>
-                                  )
+                                  ) : (
+                                    <span className="font-bold text-slate-900 text-[12.5px]">
+                                      {sub.fullName}
+                                    </span>
+                                  )}
+                                  {sub.workAuth && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium whitespace-nowrap">
+                                      {sub.workAuth}
+                                    </span>
+                                  )}
+                                  {placed && (
+                                    <StatusBadge label="Active Placement" tone="emerald" size="xs" />
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-wrap text-[11px] leading-snug">
+                                  <span className="font-medium text-slate-600">
+                                    {sub.currentTitle || 'Consultant'}
+                                  </span>
+                                  {formattedInterview && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-brand-50 text-brand-700 border border-brand-200/80 font-medium whitespace-nowrap">
+                                      <Calendar className="w-2.5 h-2.5 shrink-0" />
+                                      <span>{formattedInterview}</span>
+                                    </span>
+                                  )}
+                                </div>
+                                {metaLine && (
+                                  <div
+                                    title={metaLine}
+                                    className="text-[10.5px] text-slate-400 leading-tight truncate"
+                                  >
+                                    {metaLine}
+                                  </div>
                                 )}
                               </div>
-                            </td>
-                          </tr>
+                            </div>
+                          </td>
 
-                          {subNotes.length > 0 && (
-                            <tr>
-                              <td colSpan={4} className="pl-[58px] pr-4 pb-3 pt-0.5">
-                                <div className="rounded-lg border border-slate-200/80 bg-slate-50/75 divide-y divide-slate-200/60">
-                                  {subNotes.map((note) => {
-                                    const noteTime = formatDateTimeBadge(note.updatedAt || note.createdAt);
-                                    const isNoteClosed =
-                                      (note.stage || '').trim().toLowerCase() === 'closed' || isClosedStage;
-                                    return (
-                                      <div
-                                        key={note.id}
-                                        className="px-3 py-2 flex items-start justify-between gap-3 text-[11px]"
-                                      >
-                                        <div className="min-w-0 flex-1 space-y-0.5">
-                                          <div className="flex items-center gap-1.5 text-[10.5px] text-slate-400 flex-wrap">
-                                            <span className="font-semibold text-slate-700 whitespace-nowrap">
-                                              {note.authorName}
-                                            </span>
-                                            {noteTime && (
-                                              <span className="whitespace-nowrap">&bull; {noteTime}</span>
-                                            )}
-                                            {note.updatedAt && (
-                                              <span className="whitespace-nowrap">(edited)</span>
-                                            )}
-                                            {isNoteClosed && (
-                                              <span className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 font-medium whitespace-nowrap">
-                                                Rejection Feedback
-                                              </span>
-                                            )}
-                                          </div>
-                                          <p className="text-slate-700 whitespace-pre-line break-words leading-relaxed">
-                                            {note.text}
-                                          </p>
-                                        </div>
-                                        {!isLegacy && onUpdateSubmissionNotes && (
-                                          <div className="flex items-center gap-0.5 flex-shrink-0">
-                                            <button
-                                              type="button"
-                                              disabled={busyNoteId === note.id}
-                                              onClick={() => openNotesEditor(sub, note)}
-                                              title="Edit note"
-                                              aria-label={`Edit note by ${note.authorName}`}
-                                              className="p-1 rounded text-slate-400 hover:text-brand-600 hover:bg-white transition-colors cursor-pointer"
-                                            >
-                                              <Pencil className="w-3 h-3" />
-                                            </button>
-                                            <button
-                                              type="button"
-                                              disabled={busyNoteId === note.id}
-                                              onClick={() => handleDeleteSubmissionNote(sub, note.id)}
-                                              title="Delete note"
-                                              aria-label={`Delete note by ${note.authorName}`}
-                                              className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                                            >
-                                              {busyNoteId === note.id ? (
-                                                <Loader2 className="w-3 h-3 animate-spin" />
-                                              ) : (
-                                                <Trash2 className="w-3 h-3" />
-                                              )}
-                                            </button>
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </React.Fragment>
+                          <td className="px-2.5 py-3 whitespace-nowrap text-slate-700">
+                            {sub.hourlyRate ? (
+                              <MaskedValue value={formatRate(sub.hourlyRate)} isMasked={rateMasked} />
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+
+                          <td className="px-2.5 py-3 whitespace-nowrap">
+                            {!isLegacy && onUpdateSubmissionStage ? (
+                              <CustomSelect
+                                ariaLabel={`Stage for ${sub.fullName}`}
+                                disabled={busySubId === sub.id}
+                                value={sub.stage}
+                                size="xs"
+                                fullWidth={false}
+                                minMenuWidth={145}
+                                prefixNode={
+                                  busySubId === sub.id ? (
+                                    <Loader2 className="w-2.5 h-2.5 text-brand-600 animate-spin shrink-0" />
+                                  ) : undefined
+                                }
+                                options={applicantStageOptions.map((st) => ({
+                                  value: st,
+                                  label: st,
+                                  dotClass: getStageDotClass(
+                                    st,
+                                    getStageIndex(st, taxonomies.stages)
+                                  ),
+                                }))}
+                                onChange={async (nextVal) => {
+                                  const nextStage = nextVal as RequirementSubmission['stage'];
+                                  const nextLower = nextStage.trim().toLowerCase();
+                                  if (nextLower === 'onboarding' && !placed) {
+                                    onOpenPlacementWizard(requirement, candObj);
+                                    return;
+                                  }
+                                  setBusySubId(sub.id);
+                                  try {
+                                    await onUpdateSubmissionStage(requirement, sub.id, nextStage);
+                                    if (
+                                      onUpdateSubmissionNotes &&
+                                      (nextLower === 'interview' || nextLower === 'closed')
+                                    ) {
+                                      openNotesEditor({ ...sub, stage: nextStage });
+                                    }
+                                  } catch {
+                                    // Error toast handled by caller; keep select synced to persisted stage
+                                  } finally {
+                                    setBusySubId(null);
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <StatusBadge
+                                stage={sub.stage}
+                                dotClass={getStageDotClass(sub.stage, stageIdx)}
+                                size="xs"
+                              />
+                            )}
+                          </td>
+
+                          <td className="pl-2 pr-4 py-3 text-right whitespace-nowrap">
+                            <div className="inline-flex items-center gap-1.5">
+                              {!isLegacy && onUpdateSubmissionNotes && (
+                                <button
+                                  type="button"
+                                  onClick={() => openNotesEditor(sub)}
+                                  className={`px-2 py-1 rounded-md border text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap ${
+                                    editingNotesSub?.id === sub.id
+                                      ? 'bg-brand-50 border-brand-300 text-brand-700'
+                                      : subNotes.length > 0
+                                      ? 'bg-brand-50/70 border-brand-200 text-brand-700 hover:bg-brand-50'
+                                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <MessageSquare className="w-3 h-3" />
+                                  <span>{subNotes.length > 0 ? `Notes (${subNotes.length})` : 'Add Note'}</span>
+                                </button>
+                              )}
+
+                              {candObj && (
+                                <button
+                                  type="button"
+                                  onClick={() => onOpenResumePreview(candObj)}
+                                  className="px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50 text-[11px] font-semibold cursor-pointer whitespace-nowrap"
+                                >
+                                  Profile
+                                </button>
+                              )}
+
+                              {!placed && !isPositionsFull && (
+                                <button
+                                  type="button"
+                                  onClick={() => onOpenPlacementWizard(requirement, candObj)}
+                                  className="px-2 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-semibold cursor-pointer transition-colors whitespace-nowrap"
+                                >
+                                  Place
+                                </button>
+                              )}
+
+                              {!isLegacy && onDetachSubmission && (
+                                confirmDetachId === sub.id ? (
+                                  <div className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 rounded-md px-1.5 py-0.5 whitespace-nowrap">
+                                    <ActionButton
+                                      type="button"
+                                      loading={busySubId === sub.id}
+                                      loadingText="Removing..."
+                                      spinnerClassName="w-2.5 h-2.5 animate-spin flex-shrink-0"
+                                      onClick={async () => {
+                                        if (busySubId === sub.id) return;
+                                        setBusySubId(sub.id);
+                                        try {
+                                          await onDetachSubmission(requirement, sub.id);
+                                          setConfirmDetachId(null);
+                                        } finally {
+                                          setBusySubId(null);
+                                        }
+                                      }}
+                                      className="text-[10px] font-bold text-rose-700 hover:underline cursor-pointer"
+                                    >
+                                      Remove
+                                    </ActionButton>
+                                    <span className="text-slate-300">|</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setConfirmDetachId(null)}
+                                      className="text-[10px] text-slate-500 hover:text-slate-700 cursor-pointer"
+                                    >
+                                      No
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setConfirmDetachId(sub.id)}
+                                    title={`Detach ${sub.fullName} from requirement`}
+                                    className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer flex-shrink-0"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )
+                              )}
+                            </div>
+                          </td>
+                        </tr>
                       );
                     })}
                   </tbody>
@@ -1497,6 +1436,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
       {editingNotesSub && (() => {
         const liveEditingSub =
           submissions.find((s) => s.id === editingNotesSub.id) || editingNotesSub;
+        const liveNotes = liveEditingSub.notes || [];
         const isClosedModalStage = liveEditingSub.stage.trim().toLowerCase() === 'closed';
         const modalStageIdx = getStageIndex(liveEditingSub.stage, taxonomies.stages);
         const modalInitials = liveEditingSub.fullName
@@ -1519,7 +1459,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
 
         return (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-[1px] animate-fade-in"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
             onClick={() => !isSavingNotes && setEditingNotesSub(null)}
           >
             <form
@@ -1528,7 +1468,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                 handleSaveSubmissionNotes();
               }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-lg bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-visible flex flex-col animate-fade-in"
+              className="w-full max-w-xl bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-visible flex flex-col animate-fade-in"
             >
               {/* Modal Header */}
               <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 rounded-t-2xl flex items-center justify-between gap-3">
@@ -1590,9 +1530,22 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                           ? 'Edit Note'
                           : isClosedModalStage
                           ? 'Add Rejection Feedback'
-                          : 'Add Call / Interview Note'}
+                          : 'Add Note'}
                       </span>
                     </label>
+                    {editingNoteId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingNoteId(null);
+                          setDraftNotesText('');
+                          notesTextareaRef.current?.focus();
+                        }}
+                        className="text-[11px] font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                      >
+                        + New Note Instead
+                      </button>
+                    )}
                   </div>
 
                   {isClosedModalStage && (
@@ -1618,7 +1571,8 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                   )}
 
                   <textarea
-                    rows={4}
+                    ref={notesTextareaRef}
+                    rows={3}
                     autoFocus
                     aria-label={`Call notes and feedback for ${liveEditingSub.fullName}`}
                     value={draftNotesText}
@@ -1631,6 +1585,94 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                     className="w-full px-3 py-2.5 text-xs border border-slate-200 rounded-lg bg-slate-50/40 focus:bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/10 transition-colors"
                   />
                 </div>
+
+                {/* All Notes List inside Modal */}
+                <div className="space-y-2 pt-1 border-t border-slate-100">
+                  <div className="flex items-center justify-between text-[10.5px] font-bold uppercase tracking-wider text-slate-500">
+                    <span>All Notes ({liveNotes.length})</span>
+                  </div>
+                  {liveNotes.length === 0 ? (
+                    <div className="py-4 text-center text-[11px] text-slate-400 bg-slate-50/60 rounded-lg border border-dashed border-slate-200">
+                      No notes added for {liveEditingSub.fullName} yet.
+                    </div>
+                  ) : (
+                    <div className="max-h-52 overflow-y-auto space-y-2 pr-0.5">
+                      {liveNotes.map((note) => {
+                        const noteTime = formatDateTimeBadge(note.updatedAt || note.createdAt);
+                        const isBeingEdited = editingNoteId === note.id;
+                        const isNoteClosed =
+                          (note.stage || '').trim().toLowerCase() === 'closed' ||
+                          isClosedModalStage;
+                        return (
+                          <div
+                            key={note.id}
+                            className={`rounded-xl border px-3.5 py-2.5 text-xs transition-colors ${
+                              isBeingEdited
+                                ? 'border-brand-400 bg-brand-50/40'
+                                : 'border-slate-200 bg-slate-50/70'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5 text-[10.5px] text-slate-400 flex-wrap min-w-0">
+                                <span className="font-semibold text-slate-700 whitespace-nowrap">
+                                  {note.authorName}
+                                </span>
+                                {noteTime && (
+                                  <span className="whitespace-nowrap">&middot; {noteTime}</span>
+                                )}
+                                {note.updatedAt && (
+                                  <span className="whitespace-nowrap">(edited)</span>
+                                )}
+                                {isNoteClosed && (
+                                  <span className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 font-medium whitespace-nowrap">
+                                    Rejection Feedback
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-0.5 flex-shrink-0">
+                                <button
+                                  type="button"
+                                  disabled={busyNoteId === note.id || isSavingNotes}
+                                  onClick={() => {
+                                    setEditingNoteId(note.id);
+                                    setDraftNotesText(note.text);
+                                    notesTextareaRef.current?.focus();
+                                  }}
+                                  title="Edit note"
+                                  aria-label={`Edit note by ${note.authorName}`}
+                                  className={`p-1 rounded transition-colors cursor-pointer ${
+                                    isBeingEdited
+                                      ? 'text-brand-600 bg-white'
+                                      : 'text-slate-400 hover:text-brand-600 hover:bg-white'
+                                  }`}
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={busyNoteId === note.id || isSavingNotes}
+                                  onClick={() => handleDeleteSubmissionNote(liveEditingSub, note.id)}
+                                  title="Delete note"
+                                  aria-label={`Delete note by ${note.authorName}`}
+                                  className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                >
+                                  {busyNoteId === note.id ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                            <p className="text-slate-700 whitespace-pre-line break-words leading-relaxed mt-1">
+                              {note.text}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Modal Footer */}
@@ -1641,7 +1683,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                   onClick={() => setEditingNotesSub(null)}
                   className="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
                 >
-                  Cancel
+                  Close
                 </button>
                 <ActionButton
                   type="submit"
