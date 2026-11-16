@@ -6,6 +6,7 @@ import {
   FileUp,
   Handshake,
   Kanban,
+  Lock,
   LogOut,
   MoreVertical,
   PieChart,
@@ -265,28 +266,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           )}
 
-          {canImportData && (
           <div
             onClick={() => onNavigate('import_data')}
+            title={
+              !canImportData
+                ? 'Restricted to Administrators, Senior Recruiters, Account Executives, and Bench Sales Leads'
+                : 'Import Candidates & Resumes'
+            }
             className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
               currentView === 'import_data'
                 ? 'bg-[#1F2422] text-white shadow-xs font-semibold'
-                : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
+                : canImportData
+                  ? 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
+                  : 'text-slate-500 hover:bg-white/[0.03] hover:text-slate-300'
             }`}
           >
             <div className="flex items-center gap-2.5">
               <FileUp
                 className={`w-4 h-4 flex-shrink-0 transition-colors ${
-                  currentView === 'import_data' ? 'text-brand-400' : 'text-slate-400 group-hover:text-slate-200'
+                  currentView === 'import_data'
+                    ? 'text-brand-400'
+                    : canImportData
+                      ? 'text-slate-400 group-hover:text-slate-200'
+                      : 'text-slate-500 group-hover:text-slate-300'
                 }`}
               />
               <span>Import Data</span>
             </div>
-            <span className="text-[9px] text-slate-400 font-medium bg-white/[0.04] px-1.5 py-0.5 rounded">
-              CSV/Excel
-            </span>
+            {canImportData ? (
+              <span className="text-[9px] text-slate-400 font-medium bg-white/[0.04] px-1.5 py-0.5 rounded">
+                CSV/Excel
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[9px] text-amber-300/80 font-medium bg-amber-500/10 border border-amber-400/15 px-1.5 py-0.5 rounded">
+                <Lock className="w-2.5 h-2.5" />
+                <span>Restricted</span>
+              </span>
+            )}
           </div>
-          )}
         </div>
 
         {/* Section 4: Settings & Administration */}

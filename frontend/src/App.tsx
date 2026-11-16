@@ -22,6 +22,7 @@ import { normalizeSlaBadgeClass } from './utils/stageStyles';
 import { Sidebar } from './components/layout/Sidebar';
 import { Topbar } from './components/layout/Topbar';
 import { SlaDrawer } from './components/layout/SlaDrawer';
+import { AccessRestrictedView } from './components/shared/AccessRestrictedView';
 
 // Feature Views
 import { DashboardView } from './features/dashboard/DashboardView';
@@ -819,15 +820,6 @@ export const App: React.FC = () => {
     'Bench Sales Lead',
   ].includes(normalizedUserRole);
 
-  useEffect(() => {
-    if (!currentUser) return;
-    if (!isAdmin && ['custom_fields', 'settings_general', 'user_management'].includes(currentView)) {
-      setCurrentView('dashboard');
-    } else if (!canManageDataOperations && currentView === 'import_data') {
-      setCurrentView('dashboard');
-    }
-  }, [currentUser, isAdmin, canManageDataOperations, currentView]);
-
   // 2. ON-DEMAND / VIEW-SCOPED FETCHING: Only call APIs for the active view when opened!
   useEffect(() => {
     if (!authToken && !currentUser) return;
@@ -847,8 +839,10 @@ export const App: React.FC = () => {
         break;
 
       case 'consultants':
+      case 'consultant_detail':
         if (!loadedEntities.current.has('candidates')) fetchCandidates();
         if (!loadedEntities.current.has('placements')) fetchPlacements();
+        if (!loadedEntities.current.has('vendors')) fetchVendors();
         break;
 
       case 'clients':
@@ -862,6 +856,7 @@ export const App: React.FC = () => {
         break;
 
       case 'billable':
+      case 'placement_detail':
         if (!loadedEntities.current.has('placements')) fetchPlacements();
         if (!loadedEntities.current.has('candidates')) fetchCandidates();
         if (!loadedEntities.current.has('clients')) fetchClients();
@@ -871,7 +866,7 @@ export const App: React.FC = () => {
         break;
 
       case 'user_management':
-        if (!loadedEntities.current.has('users')) fetchUsers();
+        if (isAdmin && !loadedEntities.current.has('users')) fetchUsers();
         break;
 
       case 'automation':
@@ -879,7 +874,7 @@ export const App: React.FC = () => {
         break;
 
       case 'custom_fields':
-        if (!loadedEntities.current.has('custom_fields')) fetchCustomFields();
+        if (isAdmin && !loadedEntities.current.has('custom_fields')) fetchCustomFields();
         break;
 
       default:
@@ -899,6 +894,9 @@ export const App: React.FC = () => {
     ) {
       if (!loadedEntities.current.has('clients')) fetchClients();
       if (!loadedEntities.current.has('users')) fetchUsers();
+      if (activeCreateModal === 'consultant') {
+        if (!loadedEntities.current.has('vendors')) fetchVendors();
+      }
       if (activeCreateModal === 'placement' || isPlacementWizardOpen) {
         if (!loadedEntities.current.has('candidates')) fetchCandidates();
         if (!loadedEntities.current.has('vendors')) fetchVendors();
@@ -1267,6 +1265,8 @@ export const App: React.FC = () => {
         relocation: updated.relocation,
         pipelineStage: updated.pipelineStage,
         assignedRecruiter: updated.assignedRecruiter,
+        vendorId: updated.vendorId ?? '',
+        vendorName: updated.vendorName ?? '',
         customFields: updated.customFields,
       };
       const requestBody = cvFile
@@ -2103,101 +2103,119 @@ export const App: React.FC = () => {
             />
           )}
 
-          {currentView === 'user_management' && isAdmin && (
-            <UserManagementView
-              users={users}
-              onToggleRateMask={async (user) => {
-                try {
-                  await apiClient.patch(`/users/${user.id}/rate-mask`);
-                  setUsers((prev) =>
-                    prev.map((u) => (u.id === user.id ? { ...u, rateMasked: !u.rateMasked } : u))
-                  );
-                  showToast(
-                    'Clearance Updated',
-                    `${user.name}'s billing rate visibility is now ${
-                      !user.rateMasked ? 'Masked (••••)' : 'Visible'
-                    }.`
-                  );
-                } catch (e: any) {
-                  console.warn('API toggle rate-mask:', e);
-                  showApiErrorToast(e, 'Action Not Allowed', `Could not update rate visibility for ${user.name}.`);
-                }
-              }}
-              onInviteUser={async (newUser) => {
-                if (!newUser.name || !newUser.email) return;
-                const name: string = newUser.name;
-                const email: string = newUser.email;
-                let invitedUser: User = {
-                  id: 'usr_' + Date.now(),
-                  name,
-                  email,
-                  role: newUser.role || 'Technical Recruiter',
-                  desk: newUser.desk || 'US IT Contract (C2C & W2)',
-                  rateMasked: newUser.rateMasked ?? true,
-                  workload: '0 Requisitions • 0 Submissions',
-                  status: 'Invited',
-                  lastActive: 'Active Now',
-                };
-                try {
-                  const res = await apiClient.post('/users/invite', newUser);
-                  if (res.data?.data) {
-                    const u = res.data.data;
-                    invitedUser = {
-                      id: u.id,
-                      name: u.fullName || name,
-                      email: u.email || email,
-                      role: formatUserRole(u.role),
-                      desk: u.desk || invitedUser.desk,
-                      rateMasked: u.rateMasked ?? invitedUser.rateMasked,
-                      workload: u.workload || invitedUser.workload,
-                      status: formatUserStatus(u.status),
-                      lastActive: 'Invited',
-                    };
+          {currentView === 'user_management' &&
+            (isAdmin ? (
+              <UserManagementView
+                users={users}
+                onToggleRateMask={async (user) => {
+                  try {
+                    await apiClient.patch(`/users/${user.id}/rate-mask`);
+                    setUsers((prev) =>
+                      prev.map((u) => (u.id === user.id ? { ...u, rateMasked: !u.rateMasked } : u))
+                    );
+                    showToast(
+                      'Clearance Updated',
+                      `${user.name}'s billing rate visibility is now ${
+                        !user.rateMasked ? 'Masked (••••)' : 'Visible'
+                      }.`
+                    );
+                  } catch (e: any) {
+                    console.warn('API toggle rate-mask:', e);
+                    showApiErrorToast(e, 'Action Not Allowed', `Could not update rate visibility for ${user.name}.`);
                   }
-                  setUsers((prev) => [...prev, invitedUser]);
-                  fetchSidebarCounts();
-                } catch (e: any) {
-                  console.warn('API invite user failed:', e);
-                  showApiErrorToast(e, 'Invitation Failed', `Could not invite ${email}.`);
-                  throw e;
-                }
-              }}
-              onToggleUserStatus={async (user) => {
-                try {
-                  const res = await apiClient.patch(`/users/${user.id}/status`);
-                  const newStatus = res.data?.data?.status === 'SUSPENDED' ? 'Suspended' : 'Active';
-                  setUsers((prev) =>
-                    prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u))
-                  );
-                  showToast('Status Updated', `${user.name} is now ${newStatus}.`, 'fa-solid fa-user-shield text-brand-600');
-                } catch (e: any) {
-                  console.warn('API toggle status failed:', e);
-                  showApiErrorToast(e, 'Status Update Failed', `Could not update status for ${user.name}.`);
-                }
-              }}
-              onUpdateUser={handleUpdateUser}
-              onDeleteUser={async (user) => {
-                try {
-                  await apiClient.delete(`/users/${user.id}`);
-                  setUsers((prev) => prev.filter((u) => u.id !== user.id));
-                  showToast('Member Removed', `${user.name} has been removed from agency roster.`, 'fa-solid fa-trash-can text-slate-500');
-                } catch (e: any) {
-                  console.warn('API delete user failed:', e);
-                  showApiErrorToast(e, 'Remove Failed', `Could not remove ${user.name}.`);
-                  throw e;
-                }
-              }}
-              showToast={showToast}
-            />
-          )}
+                }}
+                onInviteUser={async (newUser) => {
+                  if (!newUser.name || !newUser.email) return;
+                  const name: string = newUser.name;
+                  const email: string = newUser.email;
+                  let invitedUser: User = {
+                    id: 'usr_' + Date.now(),
+                    name,
+                    email,
+                    role: newUser.role || 'Technical Recruiter',
+                    desk: newUser.desk || 'US IT Contract (C2C & W2)',
+                    rateMasked: newUser.rateMasked ?? true,
+                    workload: '0 Requisitions • 0 Submissions',
+                    status: 'Invited',
+                    lastActive: 'Active Now',
+                  };
+                  try {
+                    const res = await apiClient.post('/users/invite', newUser);
+                    if (res.data?.data) {
+                      const u = res.data.data;
+                      invitedUser = {
+                        id: u.id,
+                        name: u.fullName || name,
+                        email: u.email || email,
+                        role: formatUserRole(u.role),
+                        desk: u.desk || invitedUser.desk,
+                        rateMasked: u.rateMasked ?? invitedUser.rateMasked,
+                        workload: u.workload || invitedUser.workload,
+                        status: formatUserStatus(u.status),
+                        lastActive: 'Invited',
+                      };
+                    }
+                    setUsers((prev) => [...prev, invitedUser]);
+                    fetchSidebarCounts();
+                  } catch (e: any) {
+                    console.warn('API invite user failed:', e);
+                    showApiErrorToast(e, 'Invitation Failed', `Could not invite ${email}.`);
+                    throw e;
+                  }
+                }}
+                onToggleUserStatus={async (user) => {
+                  try {
+                    const res = await apiClient.patch(`/users/${user.id}/status`);
+                    const newStatus = res.data?.data?.status === 'SUSPENDED' ? 'Suspended' : 'Active';
+                    setUsers((prev) =>
+                      prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u))
+                    );
+                    showToast('Status Updated', `${user.name} is now ${newStatus}.`, 'fa-solid fa-user-shield text-brand-600');
+                  } catch (e: any) {
+                    console.warn('API toggle status failed:', e);
+                    showApiErrorToast(e, 'Status Update Failed', `Could not update status for ${user.name}.`);
+                  }
+                }}
+                onUpdateUser={handleUpdateUser}
+                onDeleteUser={async (user) => {
+                  try {
+                    await apiClient.delete(`/users/${user.id}`);
+                    setUsers((prev) => prev.filter((u) => u.id !== user.id));
+                    showToast('Member Removed', `${user.name} has been removed from agency roster.`, 'fa-solid fa-trash-can text-slate-500');
+                  } catch (e: any) {
+                    console.warn('API delete user failed:', e);
+                    showApiErrorToast(e, 'Remove Failed', `Could not remove ${user.name}.`);
+                    throw e;
+                  }
+                }}
+                showToast={showToast}
+              />
+            ) : (
+              <AccessRestrictedView
+                moduleName="User Management & Team Permissions"
+                description="Inviting team members, changing workspace roles, and controlling billing rate visibility are restricted to workspace Administrators."
+                currentRole={normalizedUserRole}
+                requiredRoles={['Administrator']}
+                onBackToDashboard={() => handleNavigateView('dashboard')}
+              />
+            ))}
 
-          {currentView === 'custom_fields' && isAdmin && (
-            <CustomFieldsView
-              customFields={customFields}
-              onAddCustomField={(f) => setCustomFields((prev) => [...prev, f])}
-              showToast={showToast}
-            />
-          )}
+          {currentView === 'custom_fields' &&
+            (isAdmin ? (
+              <CustomFieldsView
+                customFields={customFields}
+                onAddCustomField={(f) => setCustomFields((prev) => [...prev, f])}
+                showToast={showToast}
+              />
+            ) : (
+              <AccessRestrictedView
+                moduleName="Custom Fields & Dropdown Options"
+                description="Creating or editing custom fields and master dropdown taxonomies is restricted to workspace Administrators."
+                currentRole={normalizedUserRole}
+                requiredRoles={['Administrator']}
+                onBackToDashboard={() => handleNavigateView('dashboard')}
+              />
+            ))}
 
           {currentView === 'automation' && (
             <AutomationsView
@@ -2219,22 +2237,49 @@ export const App: React.FC = () => {
             />
           )}
 
-          {currentView === 'import_data' && canManageDataOperations && (
-            <ImportDataView
-              onImportCandidates={(newCands) => mergeImportedCandidates(newCands)}
-              onOpenResumeParser={() => setIsResumeModalOpen(true)}
-              onNavigate={setCurrentView}
-              showToast={showToast}
-            />
-          )}
-
-            {currentView === 'settings_general' && isAdmin && (
-              <SettingsView
-                activeTab="general"
-                onTabChange={() => setCurrentView('settings_general')}
+          {currentView === 'import_data' &&
+            (canManageDataOperations ? (
+              <ImportDataView
+                onImportCandidates={(newCands) => mergeImportedCandidates(newCands)}
+                onOpenResumeParser={() => setIsResumeModalOpen(true)}
+                onNavigate={setCurrentView}
                 showToast={showToast}
               />
-            )}
+            ) : (
+              <AccessRestrictedView
+                moduleName="Bulk CSV / Excel Import"
+                description="Bulk candidate spreadsheet imports are restricted to leadership and senior recruiting roles to maintain clean workspace data. You can still add candidates or parse individual resumes in Consultants."
+                currentRole={normalizedUserRole}
+                requiredRoles={[
+                  'Administrator',
+                  'Senior Recruiter',
+                  'Account Executive',
+                  'Bench Sales Lead',
+                ]}
+                onBackToDashboard={() => handleNavigateView('dashboard')}
+                secondaryAction={{
+                  label: 'Go to Consultants',
+                  onClick: () => handleNavigateView('consultants'),
+                }}
+              />
+            ))}
+
+            {currentView === 'settings_general' &&
+              (isAdmin ? (
+                <SettingsView
+                  activeTab="general"
+                  onTabChange={() => setCurrentView('settings_general')}
+                  showToast={showToast}
+                />
+              ) : (
+                <AccessRestrictedView
+                  moduleName="General Settings"
+                  description="Workspace branding, billing policies, and organization-wide defaults are restricted to workspace Administrators."
+                  currentRole={normalizedUserRole}
+                  requiredRoles={['Administrator']}
+                  onBackToDashboard={() => handleNavigateView('dashboard')}
+                />
+              ))}
           </React.Suspense>
         </main>
       </div>

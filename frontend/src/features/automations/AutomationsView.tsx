@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Clock,
   FileText,
+  Lock,
   Play,
   RefreshCw,
   Search,
@@ -321,6 +322,9 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
               tone="emerald"
               size="xs"
             />
+            {!canManageRules && (
+              <StatusBadge label="View Only" tone="amber" size="xs" />
+            )}
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
             Turn automatic reminders on or off. Alerts appear inside your Action Center — no email setup needed.
@@ -337,6 +341,15 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
           <span>{isEvaluating ? 'Checking...' : 'Check Now'}</span>
         </button>
       </div>
+
+      {!canManageRules && (
+        <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl px-4 py-2.5 flex items-center gap-2.5 text-xs text-amber-900">
+          <Lock className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+          <span>
+            <strong>View-only mode for your role:</strong> you can inspect active reminder rules and run checks, while workspace <strong>Administrators</strong> manage rule switches and timing.
+          </span>
+        </div>
+      )}
 
       {/* 4 Simple On/Off Smart Reminder Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

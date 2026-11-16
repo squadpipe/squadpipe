@@ -376,7 +376,7 @@ export const EditConsultantModal: React.FC<EditConsultantModalProps> = ({
               type="button"
               disabled={isSaving}
               onClick={handleClose}
-              className="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 font-medium cursor-pointer disabled:opacity-50"
+              className="px-3.5 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
             >
               Cancel
             </button>
@@ -384,7 +384,7 @@ export const EditConsultantModal: React.FC<EditConsultantModalProps> = ({
               type="submit"
               loading={isSaving}
               loadingText="Saving..."
-              className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-xs cursor-pointer"
+              className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
             >
               Save Changes
             </ActionButton>
