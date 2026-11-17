@@ -1555,7 +1555,7 @@ export const App: React.FC = () => {
       }
     } catch (e: any) {
       console.warn('API update placement failed:', e);
-      showToast('Update Failed', e?.response?.data?.error || `Could not update ${updated.resourceName}.`, 'fa-solid fa-circle-exclamation text-rose-500');
+      showApiErrorToast(e, 'Update Failed', `Could not update ${updated.resourceName}.`);
       throw e;
     }
   };

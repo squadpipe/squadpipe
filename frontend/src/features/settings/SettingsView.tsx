@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { CURRENCY_OPTIONS, setWorkspaceCurrency } from '../../utils/currency';
-import { setWorkspaceBrand } from '../../utils/workspaceBrand';
+import { setWorkspaceBrand, setWorkspacePolicies } from '../../utils/workspaceBrand';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 
@@ -67,6 +67,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         if (data?.general) {
           setGeneral({ ...DEFAULT_GENERAL, ...data.general });
           setWorkspaceBrand(data.general);
+          setWorkspacePolicies(data.general);
           if (data.general.currency) setWorkspaceCurrency(data.general.currency);
         }
       })
@@ -89,9 +90,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       if (res.data?.data) {
         setGeneral(res.data.data);
         setWorkspaceBrand(res.data.data);
+        setWorkspacePolicies(res.data.data);
         setWorkspaceCurrency(res.data.data.currency || general.currency);
       } else {
         setWorkspaceBrand(general);
+        setWorkspacePolicies(general);
         setWorkspaceCurrency(general.currency);
       }
       showToast('Settings Saved', 'General organization settings updated.', 'fa-solid fa-circle-check text-emerald-500');

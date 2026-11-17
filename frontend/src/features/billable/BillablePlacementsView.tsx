@@ -539,10 +539,10 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
                           )}
-                          {onDeletePlacement && (
+                          {ended && onDeletePlacement && (
                             <button
                               onClick={() => setDeletingPlacement(p)}
-                              title="Delete placement"
+                              title="Delete ended placement"
                               className="p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer inline-flex items-center"
                             >
                               <Trash2 className="w-3.5 h-3.5" />

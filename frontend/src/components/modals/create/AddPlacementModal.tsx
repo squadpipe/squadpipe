@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AlertTriangle, DollarSign, X, Check, UserCheck, Briefcase, TrendingUp } from 'lucide-react';
 import { BillablePlacement, Candidate, Client, Requirement, User, Vendor } from '../../../types';
 import { DynamicCustomFieldsSection } from '../../shared/DynamicCustomFieldsSection';
 import { inferPlacementTypeFromRate, parseRateNumber, useCurrency } from '../../../utils/currency';
+import { initWorkspaceBrand, useWorkspacePolicies } from '../../../utils/workspaceBrand';
 import { SearchableSelectInput } from '../../shared/SearchableSelectInput';
 import { CustomSelect } from '../../shared/CustomSelect';
 import { ActionButton } from '../../shared/ActionButton';
@@ -37,8 +38,11 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
   showToast,
 }) => {
   const { symbol: currencySymbol } = useCurrency();
+  const { requirePoForPlacement } = useWorkspacePolicies();
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [poError, setPoError] = useState('');
+  const poInputRef = useRef<HTMLInputElement | null>(null);
   const [form, setForm] = useState({
     candidateId: '',
     requirementId: '',
@@ -79,6 +83,10 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
         email: '',
       });
       setCustomValues({});
+      setPoError('');
+      void initWorkspaceBrand(true);
+    } else {
+      setPoError('');
     }
   }, [isOpen, currencySymbol]);
 
@@ -156,6 +164,16 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
       showToast(
         'Validation Error',
         'Placed Consultant Resource and Client Company are required.',
+        'fa-solid fa-triangle-exclamation text-amber-500'
+      );
+      return;
+    }
+    if (requirePoForPlacement && !form.purchaseOrderNumber.trim()) {
+      setPoError('PO / SOW Number is required by workspace General Settings.');
+      poInputRef.current?.focus();
+      showToast(
+        'PO Number Required',
+        'Please enter a PO / SOW Number before activating this placement.',
         'fa-solid fa-triangle-exclamation text-amber-500'
       );
       return;
@@ -472,13 +490,28 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
                 </div>
               )}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">PO / SOW Number</label>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  PO / SOW Number{requirePoForPlacement ? ' *' : ''}
+                </label>
                 <input
+                  ref={poInputRef}
                   value={form.purchaseOrderNumber}
-                  onChange={(e) => setForm({ ...form, purchaseOrderNumber: e.target.value })}
-                  placeholder="e.g. PO-2026-8841"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs focus:border-brand-600 focus:outline-none"
+                  onChange={(e) => {
+                    setForm({ ...form, purchaseOrderNumber: e.target.value });
+                    if (poError && e.target.value.trim()) setPoError('');
+                  }}
+                  placeholder={requirePoForPlacement ? 'e.g. PO-2026-8841 (Required)' : 'e.g. PO-2026-8841'}
+                  className={`w-full px-3 py-1.5 border rounded-lg bg-white text-xs focus:outline-none ${
+                    poError
+                      ? 'border-rose-400 focus:border-rose-500 ring-1 ring-rose-200'
+                      : 'border-slate-200 focus:border-brand-600'
+                  }`}
                 />
+                {poError ? (
+                  <p className="mt-1 text-[11px] font-medium text-rose-600">{poError}</p>
+                ) : requirePoForPlacement ? (
+                  <p className="mt-1 text-[10px] text-amber-700">Required by General Settings before activation.</p>
+                ) : null}
               </div>
             </div>
 

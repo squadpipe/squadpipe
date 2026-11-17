@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CalendarPlus, CalendarX, X } from 'lucide-react';
 import { BillablePlacement, Vendor } from '../../types';
 import { ActionButton } from '../../components/shared/ActionButton';
@@ -6,6 +6,7 @@ import { CustomSelect } from '../../components/shared/CustomSelect';
 import { SearchableSelectInput } from '../../components/shared/SearchableSelectInput';
 import { DynamicCustomFieldsSection } from '../../components/shared/DynamicCustomFieldsSection';
 import { useCurrency } from '../../utils/currency';
+import { initWorkspaceBrand, useWorkspacePolicies } from '../../utils/workspaceBrand';
 import {
   addMonthsToDate,
   ExtensionData,
@@ -48,6 +49,7 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
   onAfterDelete,
 }) => {
   const { symbol: currencySymbol } = useCurrency();
+  const { requirePoForPlacement } = useWorkspacePolicies();
 
   const [extendForm, setExtendForm] = useState<ExtensionData>({
     newEndDate: '',
@@ -65,9 +67,15 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
   const [isSavingPlacement, setIsSavingPlacement] = useState(false);
   const [isEndingPlacement, setIsEndingPlacement] = useState(false);
   const [isDeletingPlacement, setIsDeletingPlacement] = useState(false);
+  const [extendPoError, setExtendPoError] = useState('');
+  const [editPoError, setEditPoError] = useState('');
+  const extendPoInputRef = useRef<HTMLInputElement | null>(null);
+  const editPoInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
+    setExtendPoError('');
     if (extendingPlacement) {
+      void initWorkspaceBrand(true);
       setExtendForm({
         newEndDate: addMonthsToDate(extendingPlacement.endDate, 12),
         billing: extendingPlacement.billing || '',
@@ -78,6 +86,10 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
   }, [extendingPlacement]);
 
   useEffect(() => {
+    setEditPoError('');
+    if (editingPlacement) {
+      void initWorkspaceBrand(true);
+    }
     setEditDraft(editingPlacement ? { ...editingPlacement } : null);
   }, [editingPlacement]);
 
@@ -161,6 +173,11 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
               onSubmit={async (e) => {
                 e.preventDefault();
                 if (isExtending || !onExtendContract) return;
+                if (requirePoForPlacement && !(extendForm.purchaseOrderNumber || '').trim()) {
+                  setExtendPoError('PO / SOW Reference is required by workspace General Settings.');
+                  extendPoInputRef.current?.focus();
+                  return;
+                }
                 setIsExtending(true);
                 try {
                   await onExtendContract(extendingPlacement, extendForm);
@@ -249,14 +266,27 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">PO / SOW Reference</label>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                  PO / SOW Reference{requirePoForPlacement ? ' *' : ''}
+                </label>
                 <input
+                  ref={extendPoInputRef}
                   type="text"
                   value={extendForm.purchaseOrderNumber || ''}
-                  onChange={(e) => setExtendForm({ ...extendForm, purchaseOrderNumber: e.target.value })}
-                  placeholder="e.g. PO-2026-9901"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  onChange={(e) => {
+                    setExtendForm({ ...extendForm, purchaseOrderNumber: e.target.value });
+                    if (extendPoError && e.target.value.trim()) setExtendPoError('');
+                  }}
+                  placeholder={requirePoForPlacement ? 'e.g. PO-2026-9901 (Required)' : 'e.g. PO-2026-9901'}
+                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
+                    extendPoError
+                      ? 'border-rose-400 focus:border-rose-500 ring-1 ring-rose-200'
+                      : 'border-slate-200 focus:border-brand-600'
+                  }`}
                 />
+                {extendPoError ? (
+                  <p className="mt-1 text-[11px] font-medium text-rose-600">{extendPoError}</p>
+                ) : null}
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-2">
@@ -310,7 +340,18 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
-                if (isSavingPlacement) return;
+                if (isSavingPlacement || !editDraft) return;
+                const nextIsEnded =
+                  editDraft.status === 'Completed' || editDraft.status === 'Terminated';
+                if (
+                  requirePoForPlacement &&
+                  !nextIsEnded &&
+                  !(editDraft.purchaseOrderNumber || '').trim()
+                ) {
+                  setEditPoError('PO / SOW # is required on active placements.');
+                  editPoInputRef.current?.focus();
+                  return;
+                }
                 setIsSavingPlacement(true);
                 try {
                   if (onUpdatePlacement) {
@@ -494,14 +535,27 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">PO / SOW #</label>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    PO / SOW #{requirePoForPlacement && editDraft.status !== 'Completed' && editDraft.status !== 'Terminated' ? ' *' : ''}
+                  </label>
                   <input
+                    ref={editPoInputRef}
                     type="text"
                     value={editDraft.purchaseOrderNumber || ''}
-                    onChange={(e) => setEditDraft({ ...editDraft, purchaseOrderNumber: e.target.value })}
+                    onChange={(e) => {
+                      setEditDraft({ ...editDraft, purchaseOrderNumber: e.target.value });
+                      if (editPoError && e.target.value.trim()) setEditPoError('');
+                    }}
                     placeholder="PO-2026-01"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                    className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
+                      editPoError
+                        ? 'border-rose-400 focus:border-rose-500 ring-1 ring-rose-200'
+                        : 'border-slate-200 focus:border-brand-600'
+                    }`}
                   />
+                  {editPoError ? (
+                    <p className="mt-1 text-[11px] font-medium text-rose-600">{editPoError}</p>
+                  ) : null}
                 </div>
               </div>
 

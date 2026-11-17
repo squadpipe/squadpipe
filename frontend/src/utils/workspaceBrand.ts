@@ -11,8 +11,17 @@ export interface WorkspaceBrand {
   headquarters: string;
 }
 
+export interface WorkspacePolicies {
+  requirePoForPlacement: boolean;
+}
+
 const STORAGE_KEY = 'squadpipe_workspace_brand';
 const LEGACY_STORAGE_KEY = 'talentos_workspace_brand';
+const POLICIES_STORAGE_KEY = 'squadpipe_workspace_policies';
+
+export const DEFAULT_WORKSPACE_POLICIES: WorkspacePolicies = {
+  requirePoForPlacement: false,
+};
 
 export const DEFAULT_WORKSPACE_BRAND: WorkspaceBrand = {
   agencyName: 'SquadPipe Staffing',
@@ -48,6 +57,27 @@ let currentBrand: WorkspaceBrand = (() => {
 
 let brandSyncedFromApi = false;
 const listeners = new Set<(brand: WorkspaceBrand) => void>();
+
+let currentPolicies: WorkspacePolicies = (() => {
+  try {
+    if (typeof window !== 'undefined') {
+      const raw = window.localStorage.getItem(POLICIES_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          return {
+            requirePoForPlacement: Boolean(parsed.requirePoForPlacement),
+          };
+        }
+      }
+    }
+  } catch {
+    // Ignore storage read errors
+  }
+  return { ...DEFAULT_WORKSPACE_POLICIES };
+})();
+
+const policyListeners = new Set<(policies: WorkspacePolicies) => void>();
 
 export const DEMO_PLACEHOLDER_VALUES = new Set([
   'talentos-agency.com',
@@ -143,6 +173,36 @@ export function setWorkspaceBrand(partial?: Partial<WorkspaceBrand> | null): Wor
   return next;
 }
 
+export function getWorkspacePolicies(): WorkspacePolicies {
+  return currentPolicies;
+}
+
+export function setWorkspacePolicies(
+  partial?: Partial<WorkspacePolicies> | null
+): WorkspacePolicies {
+  const next: WorkspacePolicies = {
+    requirePoForPlacement:
+      partial?.requirePoForPlacement !== undefined
+        ? Boolean(partial.requirePoForPlacement)
+        : currentPolicies.requirePoForPlacement,
+  };
+  const unchanged = next.requirePoForPlacement === currentPolicies.requirePoForPlacement;
+  currentPolicies = next;
+
+  try {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(POLICIES_STORAGE_KEY, JSON.stringify(next));
+    }
+  } catch {
+    // Ignore storage write errors
+  }
+
+  if (!unchanged) {
+    policyListeners.forEach((listener) => listener(next));
+  }
+  return next;
+}
+
 export async function initWorkspaceBrand(forceRefresh = false): Promise<WorkspaceBrand> {
   if (brandSyncedFromApi && !forceRefresh) {
     return currentBrand;
@@ -151,6 +211,7 @@ export async function initWorkspaceBrand(forceRefresh = false): Promise<Workspac
     const res = await apiClient.get('/settings');
     const general = res.data?.data?.general;
     if (general) {
+      setWorkspacePolicies(general);
       return setWorkspaceBrand(general);
     }
   } catch {
@@ -177,5 +238,28 @@ export function useWorkspaceBrand() {
   }, []);
 
   return brand;
+}
+
+/**
+ * React hook subscribed to active placement/staffing policy flags from General Settings.
+ */
+export function useWorkspacePolicies(): WorkspacePolicies {
+  const [policies, setPoliciesState] = useState<WorkspacePolicies>(currentPolicies);
+
+  useEffect(() => {
+    const listener = (next: WorkspacePolicies) => setPoliciesState(next);
+    policyListeners.add(listener);
+    if (currentPolicies.requirePoForPlacement !== policies.requirePoForPlacement) {
+      setPoliciesState(currentPolicies);
+    }
+    if (!brandSyncedFromApi) {
+      void initWorkspaceBrand();
+    }
+    return () => {
+      policyListeners.delete(listener);
+    };
+  }, []);
+
+  return policies;
 }
 

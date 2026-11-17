@@ -1,5 +1,14 @@
 import assert from 'assert';
+import { PlacementStatus } from '@prisma/client';
 import { parseRateNumber } from '../../src/utils/rateParser';
+import {
+  validatePlacementCanDelete,
+  validateRequiredPoNumber,
+} from '../../src/services/placement.service';
+import {
+  validatePlacementCanDelete,
+  validateRequiredPoNumber,
+} from '../../src/services/placement.service';
 
 export const runPlacementCalculationTests = () => {
   console.log('--- Running Commercial Placement Margin Tests ---');
@@ -34,6 +43,74 @@ export const runPlacementCalculationTests = () => {
   assert.strictEqual(parseRateNumber('$1,250.50/hr'), 1250.5);
   assert.strictEqual(parseRateNumber('', 65), 65);
   assert.strictEqual(parseRateNumber(undefined, 90), 90);
+
+  // Required PO / SOW placement policy validation
+  assert.doesNotThrow(() => validateRequiredPoNumber(false, undefined));
+  assert.doesNotThrow(() => validateRequiredPoNumber(false, ''));
+  assert.doesNotThrow(() => validateRequiredPoNumber(true, 'PO-2026-8841'));
+  assert.doesNotThrow(() => validateRequiredPoNumber(true, '  SOW-99  '));
+  assert.throws(
+    () => validateRequiredPoNumber(true, undefined),
+    (err: any) => err?.statusCode === 400
+  );
+  assert.throws(
+    () => validateRequiredPoNumber(true, ''),
+    (err: any) => err?.statusCode === 400
+  );
+  assert.throws(
+    () => validateRequiredPoNumber(true, '   '),
+    (err: any) => err?.statusCode === 400
+  );
+
+  // Active placements cannot be deleted until contract is ended
+  assert.doesNotThrow(() => validatePlacementCanDelete(PlacementStatus.COMPLETED));
+  assert.doesNotThrow(() => validatePlacementCanDelete(PlacementStatus.TERMINATED));
+  assert.throws(
+    () => validatePlacementCanDelete(PlacementStatus.ACTIVE),
+    (err: any) => err?.statusCode === 400
+  );
+  assert.throws(
+    () => validatePlacementCanDelete(PlacementStatus.EXTENDED),
+    (err: any) => err?.statusCode === 400
+  );
+  assert.throws(
+    () => validatePlacementCanDelete(PlacementStatus.EXPIRING_SOON),
+    (err: any) => err?.statusCode === 400
+  );
+
+  // Required PO / SOW placement policy validation
+  assert.doesNotThrow(() => validateRequiredPoNumber(false, undefined));
+  assert.doesNotThrow(() => validateRequiredPoNumber(false, ''));
+  assert.doesNotThrow(() => validateRequiredPoNumber(true, 'PO-2026-8841'));
+  assert.doesNotThrow(() => validateRequiredPoNumber(true, '  SOW-99  '));
+  assert.throws(
+    () => validateRequiredPoNumber(true, undefined),
+    (err: any) => err?.statusCode === 400
+  );
+  assert.throws(
+    () => validateRequiredPoNumber(true, ''),
+    (err: any) => err?.statusCode === 400
+  );
+  assert.throws(
+    () => validateRequiredPoNumber(true, '   '),
+    (err: any) => err?.statusCode === 400
+  );
+
+  // Active placements cannot be deleted until contract is ended
+  assert.doesNotThrow(() => validatePlacementCanDelete(PlacementStatus.COMPLETED));
+  assert.doesNotThrow(() => validatePlacementCanDelete(PlacementStatus.TERMINATED));
+  assert.throws(
+    () => validatePlacementCanDelete(PlacementStatus.ACTIVE),
+    (err: any) => err?.statusCode === 400
+  );
+  assert.throws(
+    () => validatePlacementCanDelete(PlacementStatus.EXTENDED),
+    (err: any) => err?.statusCode === 400
+  );
+  assert.throws(
+    () => validatePlacementCanDelete(PlacementStatus.EXPIRING_SOON),
+    (err: any) => err?.statusCode === 400
+  );
 
   console.log('✅ Placement Margin & Rate Parser Calculations: PASSED (Exact prototype arithmetic match)');
 };

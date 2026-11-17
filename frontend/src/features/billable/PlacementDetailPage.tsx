@@ -742,7 +742,7 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
             </div>
           )}
 
-          {onDeletePlacement && (
+          {ended && onDeletePlacement && (
             <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-4 space-y-2.5 text-xs">
               <button
                 type="button"

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { AlertTriangle, Check, ChevronDown, DollarSign, Lock, Search, X, UserCheck } from 'lucide-react';
 import { BillablePlacement, Requirement, Candidate, Vendor } from '../../types';
 import { inferPlacementTypeFromRate, parseRateNumber, useCurrency } from '../../utils/currency';
+import { initWorkspaceBrand, useWorkspacePolicies } from '../../utils/workspaceBrand';
 import { getStageBadgeClass } from '../../utils/stageStyles';
 import { SearchableSelectInput } from '../../components/shared/SearchableSelectInput';
 import { CustomSelect } from '../../components/shared/CustomSelect';
@@ -29,10 +30,13 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
   showToast,
 }) => {
   const { symbol: currencySymbol } = useCurrency();
+  const { requirePoForPlacement } = useWorkspacePolicies();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [poError, setPoError] = useState('');
   const [consultantMenuOpen, setConsultantMenuOpen] = useState(false);
   const [consultantSearch, setConsultantSearch] = useState('');
   const consultantMenuRef = useRef<HTMLDivElement | null>(null);
+  const poInputRef = useRef<HTMLInputElement | null>(null);
   const openPositions = requirement?.openPositions || 1;
   const filledPositions = requirement
     ? (requirement.filledPositions ?? requirement.activePlacements?.length ?? 0)
@@ -124,6 +128,10 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
     if (!isOpen) {
       setConsultantMenuOpen(false);
       setConsultantSearch('');
+      setPoError('');
+    } else {
+      setPoError('');
+      void initWorkspaceBrand(true);
     }
   }, [isOpen]);
 
@@ -184,6 +192,16 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
     }
     if (!formData.resourceName.trim()) {
       showToast('Validation Error', 'Please enter or select a candidate resource name.', 'fa-solid fa-triangle-exclamation text-amber-500');
+      return;
+    }
+    if (requirePoForPlacement && !formData.purchaseOrderNumber.trim()) {
+      setPoError('PO / SOW Number is required by workspace General Settings.');
+      poInputRef.current?.focus();
+      showToast(
+        'PO Number Required',
+        'Please enter a PO / SOW Number before activating this placement.',
+        'fa-solid fa-triangle-exclamation text-amber-500'
+      );
       return;
     }
 
@@ -577,14 +595,30 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
               </div>
             )}
             <div className={formData.placementType === 'C2C Subcontractor' ? '' : 'md:col-span-2'}>
-              <label className="text-[10px] font-bold text-slate-500 uppercase">PO / SOW Number</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">
+                PO / SOW Number{requirePoForPlacement ? ' *' : ''}
+              </label>
               <input
+                ref={poInputRef}
                 type="text"
+                required={requirePoForPlacement}
                 value={formData.purchaseOrderNumber}
-                onChange={(e) => setFormData({ ...formData, purchaseOrderNumber: e.target.value })}
-                placeholder="e.g. PO-2026-8841"
-                className="mt-1 w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800"
+                onChange={(e) => {
+                  setFormData({ ...formData, purchaseOrderNumber: e.target.value });
+                  if (poError && e.target.value.trim()) setPoError('');
+                }}
+                placeholder={requirePoForPlacement ? 'e.g. PO-2026-8841 (Required)' : 'e.g. PO-2026-8841'}
+                className={`mt-1 w-full px-3 py-2 text-xs bg-white border rounded-lg text-slate-800 focus:outline-none ${
+                  poError
+                    ? 'border-rose-400 focus:border-rose-500 ring-1 ring-rose-200'
+                    : 'border-slate-200 focus:border-brand-600'
+                }`}
               />
+              {poError ? (
+                <p className="mt-1 text-[11px] font-medium text-rose-600">{poError}</p>
+              ) : requirePoForPlacement ? (
+                <p className="mt-1 text-[10px] text-amber-700">Required by General Settings before activation.</p>
+              ) : null}
             </div>
 
             <div>

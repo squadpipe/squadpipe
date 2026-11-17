@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../config/api.config';
-import { setWorkspaceBrand } from './workspaceBrand';
+import { setWorkspaceBrand, setWorkspacePolicies } from './workspaceBrand';
 
 export const CURRENCY_OPTIONS = [
   'USD ($)',
@@ -78,6 +78,7 @@ export async function initWorkspaceCurrency(): Promise<string> {
     const general = res.data?.data?.general;
     if (general) {
       setWorkspaceBrand(general);
+      setWorkspacePolicies(general);
     }
     const currency = general?.currency;
     if (currency) {

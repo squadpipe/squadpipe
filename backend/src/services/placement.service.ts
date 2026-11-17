@@ -6,6 +6,30 @@ import { parseCustomFields } from '../utils/customFields';
 import { parseRateNumber } from '../utils/rateParser';
 import { RequirementStatus, normalizeStageValue } from './requirement.service';
 import { computeHighestActiveStage, getTenantPipelineStages } from './submission.service';
+import { getTenantSettings } from '../config/smtp.config';
+
+export function validateRequiredPoNumber(
+  requirePoForPlacement: boolean,
+  purchaseOrderNumber?: string | null
+): void {
+  if (requirePoForPlacement && !String(purchaseOrderNumber ?? '').trim()) {
+    const err: any = new Error(
+      'PO / SOW Number is required on placements by your workspace General Settings.'
+    );
+    err.statusCode = 400;
+    throw err;
+  }
+}
+
+export function validatePlacementCanDelete(status: PlacementStatus): void {
+  if (status !== PlacementStatus.COMPLETED && status !== PlacementStatus.TERMINATED) {
+    const err: any = new Error(
+      'Active billable placements cannot be deleted. Please end the contract first.'
+    );
+    err.statusCode = 400;
+    throw err;
+  }
+}
 
 export interface PlacementFilterParams {
   search?: string;
@@ -141,6 +165,9 @@ export class PlacementService {
   }
 
   async createPlacement(payload: any, tenantId: string = 'squadpipe-agency', recruiterId?: string) {
+    const { general } = await getTenantSettings(tenantId);
+    validateRequiredPoNumber(Boolean(general?.requirePoForPlacement), payload.purchaseOrderNumber);
+
     const billNum = this.parseRate(payload.billing ?? payload.billRate, 115);
     const payNum = this.parseRate(payload.payRate, 85);
 
@@ -382,6 +409,21 @@ export class PlacementService {
       throw err;
     }
     const effectiveTenantId = tenantId || existing.tenantId;
+    const nextStatus =
+      payload.status !== undefined ? this.mapPlacementStatus(payload.status) : existing.status;
+    const nextPo =
+      payload.purchaseOrderNumber !== undefined
+        ? payload.purchaseOrderNumber
+        : existing.purchaseOrderNumber;
+
+    if (
+      nextStatus !== PlacementStatus.COMPLETED &&
+      nextStatus !== PlacementStatus.TERMINATED &&
+      (payload.purchaseOrderNumber !== undefined || existing.status !== nextStatus)
+    ) {
+      const { general } = await getTenantSettings(effectiveTenantId);
+      validateRequiredPoNumber(Boolean(general?.requirePoForPlacement), nextPo);
+    }
 
     const billNum =
       payload.billRate !== undefined || payload.billing !== undefined
@@ -574,6 +616,14 @@ export class PlacementService {
       throw new Error('Placement not found or unauthorized');
     }
 
+    const effectiveTenantId = tenantId || existing.tenantId;
+    const { general } = await getTenantSettings(effectiveTenantId);
+    const nextPo =
+      payload.purchaseOrderNumber !== undefined
+        ? payload.purchaseOrderNumber
+        : existing.purchaseOrderNumber;
+    validateRequiredPoNumber(Boolean(general?.requirePoForPlacement), nextPo);
+
     const defaultExtension = new Date(existing.endDate || new Date());
     defaultExtension.setFullYear(defaultExtension.getFullYear() + 1);
 
@@ -638,6 +688,8 @@ export class PlacementService {
     if (!existing || (tenantId && existing.tenantId !== tenantId)) {
       throw new Error('Placement not found or unauthorized');
     }
+
+    validatePlacementCanDelete(existing.status);
     const deleted = await prisma.placement.delete({ where: { id } });
 
     try {
