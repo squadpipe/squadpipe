@@ -251,11 +251,11 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
               <span>{ended ? 'Renew SOW' : 'Extend SOW'}</span>
             </button>
           )}
-          {onUpdatePlacement && (
+          {!ended && onUpdatePlacement && (
             <button
               type="button"
               onClick={() => setEndingPlacement(placement)}
-              title={ended ? 'Update end date or completion outcome' : 'End consultant placement'}
+              title="End consultant placement"
               className="px-3 py-2 rounded-lg border border-rose-200 bg-white hover:bg-rose-50 text-rose-700 font-semibold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <CalendarX className="w-3.5 h-3.5" />
@@ -742,16 +742,31 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
             </div>
           )}
 
-          {ended && onDeletePlacement && (
-            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-4 space-y-2.5 text-xs">
+          {onDeletePlacement && (
+            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-4 space-y-2 text-xs">
               <button
                 type="button"
-                onClick={() => setDeletingPlacement(placement)}
-                className="w-full px-3 py-2 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 font-semibold text-xs inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                disabled={!ended}
+                onClick={() => ended && setDeletingPlacement(placement)}
+                title={
+                  ended
+                    ? 'Remove this ended placement'
+                    : 'To delete this placement, end the contract first'
+                }
+                className={`w-full px-3 py-2 rounded-lg border font-semibold text-xs inline-flex items-center justify-center gap-1.5 transition-colors ${
+                  ended
+                    ? 'border-rose-200 text-rose-600 hover:bg-rose-50 cursor-pointer'
+                    : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-75'
+                }`}
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Remove Placement</span>
               </button>
+              {!ended && (
+                <p className="text-[11px] text-slate-500 text-center leading-snug">
+                  To delete this placement, you need to end the contract first.
+                </p>
+              )}
             </div>
           )}
         </aside>
