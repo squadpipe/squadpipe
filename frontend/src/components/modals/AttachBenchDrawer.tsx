@@ -159,6 +159,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   const [isLoadingMoreBench, setIsLoadingMoreBench] = useState<boolean>(false);
   const knownCandidatesRef = useRef<Map<string, Candidate>>(new Map());
   const activeSearchRef = useRef<string>('');
+  const benchListRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     for (const c of candidates) {
@@ -183,7 +184,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
     setPagedCandidates(candidates.slice(0, BENCH_PAGE_SIZE));
     setTotalBenchCount(candidates.length);
     setHasMoreBench(candidates.length > BENCH_PAGE_SIZE);
-  }, [isOpen, requirement?.id]);
+  }, [isOpen, requirement?.id, selectedReqId]);
 
   const baseReq = useMemo(() => {
     if (allowRequirementSwitch && requirements.length > 0) {
@@ -412,6 +413,9 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
     [currentReq?.skillsRequired]
   );
 
+  const aiModeEnabled = aiCapabilities.enabled;
+  const hasAiRankResults = Object.keys(aiRankMap).length > 0;
+
   const rankedCandidates = useMemo(() => {
     const items = pagedCandidates.map((con, idx) => {
       const localMatch = computeCandidateSkillMatch(
@@ -420,10 +424,14 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
         con.currentTitle
       );
       const aiEntry = aiRankMap[con.id];
+      const isAiRanked = Boolean(aiEntry);
+      const showMatch = aiModeEnabled ? isAiRanked : reqSkillList.length > 0;
+
       return {
         con,
         idx,
-        isAiRanked: Boolean(aiEntry),
+        isAiRanked,
+        showMatch,
         oneLineSummary: aiEntry?.oneLineSummary || '',
         match: aiEntry
           ? {
@@ -437,29 +445,66 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
           : localMatch,
       };
     });
-    if (reqSkillList.length > 0 || Object.keys(aiRankMap).length > 0) {
+
+    if (aiModeEnabled) {
+      if (hasAiRankResults) {
+        items.sort((a, b) => {
+          if (a.isAiRanked !== b.isAiRanked) return a.isAiRanked ? -1 : 1;
+          if (a.isAiRanked && b.isAiRanked) {
+            return b.match.score - a.match.score || a.idx - b.idx;
+          }
+          return a.idx - b.idx;
+        });
+      }
+      return items;
+    }
+
+    if (reqSkillList.length > 0 || hasAiRankResults) {
       items.sort((a, b) => {
         if (a.isAiRanked !== b.isAiRanked) return a.isAiRanked ? -1 : 1;
         return b.match.score - a.match.score || a.idx - b.idx;
       });
     }
     return items;
-  }, [pagedCandidates, currentReq?.skillsRequired, reqSkillList.length, aiRankMap]);
+  }, [
+    pagedCandidates,
+    currentReq?.skillsRequired,
+    reqSkillList.length,
+    aiRankMap,
+    aiModeEnabled,
+    hasAiRankResults,
+  ]);
 
   if (!isOpen || !currentReq) return null;
 
   const handleAiRankTopMatches = async () => {
-    if (!currentReq?.id || isAiRanking || pagedCandidates.length === 0) return;
+    if (!currentReq?.id || isAiRanking || totalBenchCount === 0) return;
     setIsAiRanking(true);
     setAiRankError('');
     try {
       const res = await apiClient.post('/match-skills', {
         requirementId: currentReq.id,
         skillsRequired: currentReq.skillsRequired,
-        candidateIds: pagedCandidates.map((c) => c.id),
+        search: benchSearch.trim() || undefined,
+        workAuth: benchWorkAuth !== 'All' ? benchWorkAuth : undefined,
       });
       const rankings = res.data?.data?.rankings;
+      const rawMatchedCandidates = res.data?.data?.candidates;
       const used = Boolean(res.data?.data?.aiUsed);
+
+      if (Array.isArray(rawMatchedCandidates) && rawMatchedCandidates.length > 0) {
+        const hydratedTop: Candidate[] = rawMatchedCandidates.map(mapCandidateFromApi);
+        for (const c of hydratedTop) {
+          if (c?.id) knownCandidatesRef.current.set(c.id, c);
+        }
+        onCandidatesSeen?.(hydratedTop);
+        setPagedCandidates((prev) => {
+          const topIds = new Set(hydratedTop.map((c) => c.id));
+          const remaining = prev.filter((p) => !topIds.has(p.id));
+          return [...hydratedTop, ...remaining];
+        });
+      }
+
       if (Array.isArray(rankings)) {
         const nextMap: Record<
           string,
@@ -477,6 +522,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
         }
         setAiRankMap(nextMap);
         setAiRankUsed(used);
+        benchListRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       }
     } catch (err: any) {
       setAiRankError(
@@ -704,6 +750,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
 
         {/* Scrollable Ranked Candidate List */}
         <div
+          ref={benchListRef}
           onScroll={handleBenchScroll}
           className="p-4 overflow-y-auto space-y-2 flex-1 min-h-0"
         >
@@ -724,7 +771,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
             </div>
           ) : (
             <>
-              {rankedCandidates.map(({ con, match, isAiRanked, oneLineSummary }) => {
+              {rankedCandidates.map(({ con, match, isAiRanked, showMatch, oneLineSummary }) => {
                 const attachedStage = attachedStageByCandId.get(con.id);
                 const alreadyAttached = Boolean(attachedStage);
                 const isChecked = alreadyAttached || selectedCandidateIds.includes(con.id);
@@ -776,7 +823,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                       </div>
 
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        {(reqSkillList.length > 0 || isAiRanked) && (
+                        {showMatch && (
                           <span
                             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold tabular-nums ${getMatchScoreBadgeClass(
                               match.score
@@ -811,7 +858,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                       </div>
                     </div>
 
-                    {(reqSkillList.length > 0 || isAiRanked) && (
+                    {showMatch && (
                       <div className="pl-6 space-y-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
                         {match.matched.length > 0 && (

@@ -123,5 +123,56 @@ export const runCapabilityTests = async () => {
   assert.equal(shortlisted.length, 25);
   assert.equal(shortlisted[0].id, 'c_33');
 
+  // 5. rankCandidatesForRequirement always returns rankings strictly descending by fitScore
+  const partialBatchAi = new AiService({
+    getConfig: () =>
+      resolveAiConfig({
+        AI_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test',
+        AI_FALLBACK_TO_OFFLINE: 'true',
+      }),
+    fetchImpl: async () =>
+      makeJsonResponse({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                rankings: [
+                  {
+                    candidateId: 'c1',
+                    fitScore: 45,
+                    matchedHighlights: ['Kubernetes'],
+                    gaps: ['Terraform'],
+                    oneLineSummary: 'Partial match.',
+                  },
+                  {
+                    candidateId: 'c2',
+                    fitScore: 94,
+                    matchedHighlights: ['Kubernetes', 'Terraform', 'Istio'],
+                    gaps: [],
+                    oneLineSummary: 'Best overall fit.',
+                  },
+                ],
+              }),
+            },
+          },
+        ],
+      }),
+  });
+
+  const sortedBatch = await partialBatchAi.rankCandidatesForRequirement(
+    [
+      { id: 'c1', skillset: 'Kubernetes' },
+      { id: 'c2', skillset: 'Kubernetes, Terraform, Istio' },
+      { id: 'c3', skillset: 'Kubernetes, Terraform' },
+    ],
+    { opportunityTitle: 'Cloud Architect', skillsRequired: 'Kubernetes, Terraform, Istio' }
+  );
+  assert.equal(sortedBatch.aiUsed, true);
+  assert.equal(sortedBatch.rankings[0].candidateId, 'c2');
+  assert.equal(sortedBatch.rankings[0].fitScore, 94);
+  assert.ok(sortedBatch.rankings[0].fitScore >= sortedBatch.rankings[1].fitScore);
+  assert.ok(sortedBatch.rankings[1].fitScore >= sortedBatch.rankings[2].fitScore);
+
   console.log('✅ Submitted Resume Capability Check Tests: PASSED');
 };

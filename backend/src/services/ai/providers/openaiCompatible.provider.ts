@@ -98,6 +98,10 @@ export class OpenAiCompatibleProvider implements AiProviderAdapter {
       };
       if (params.maxTokens) {
         body.max_tokens = params.maxTokens;
+      } else if (params.expectJson || this.name === 'cloudflare') {
+        // Cloudflare Workers AI defaults to 256 tokens when max_tokens is omitted,
+        // which truncates multi-candidate JSON rankings unless an explicit limit is sent.
+        body.max_tokens = 2048;
       }
       if (includeResponseFormat) {
         body.response_format = { type: 'json_object' };

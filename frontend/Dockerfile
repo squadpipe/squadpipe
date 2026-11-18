@@ -42,7 +42,10 @@ server {
     }
 
     location /api/ {
-        proxy_pass http://backend:5000;
+        # Re-resolve Docker service DNS dynamically so restarting backend never causes 502s
+        resolver 127.0.0.11 valid=5s ipv6=off;
+        set $backend_upstream http://backend:5000;
+        proxy_pass $backend_upstream;
         proxy_http_version 1.1;
         proxy_read_timeout 120s;
         proxy_send_timeout 120s;

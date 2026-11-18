@@ -685,16 +685,23 @@ export class AiService {
       });
 
       const validIds = new Set(clippedCandidates.map((c) => c.id));
+      const seenRanked = new Set<string>();
       const ranked = result.data.rankings
-        .filter((r) => validIds.has(r.candidateId))
+        .filter((r) => {
+          if (!validIds.has(r.candidateId) || seenRanked.has(r.candidateId)) return false;
+          seenRanked.add(r.candidateId);
+          return true;
+        })
         .sort((a, b) => b.fitScore - a.fitScore);
 
       if (ranked.length === 0) {
         return { rankings: offlineRankings, aiUsed: false };
       }
 
-      const seen = new Set(ranked.map((r) => r.candidateId));
-      const missingFallback = offlineRankings.filter((r) => !seen.has(r.candidateId));
+      const missingFallback = offlineRankings.filter((r) => !seenRanked.has(r.candidateId));
+      const combinedRankings = [...ranked, ...missingFallback].sort(
+        (a, b) => b.fitScore - a.fitScore
+      );
       await this.recordFeatureUsage(
         options.usageFeature || 'match_rank',
         result.completion,
@@ -702,7 +709,7 @@ export class AiService {
       );
 
       return {
-        rankings: [...ranked, ...missingFallback],
+        rankings: combinedRankings,
         aiUsed: true,
         meta: {
           provider: result.completion.provider,
@@ -732,8 +739,13 @@ export class AiService {
     const purpose = options.purpose || 'client_pitch';
     const tone = String(options.tone || 'PROFESSIONAL').toUpperCase();
     const agencyName = (options.agencyName || 'Our Staffing Team').trim();
+    const recipientName = String(options.recipientName || '').trim();
+    const recipientFirstName = recipientName.split(/\s+/)[0] || '';
+    const greeting = recipientFirstName ? `Hi ${recipientFirstName},` : 'Hi,';
     const roleTitle = (requirement.opportunityTitle || 'Open Requirement').trim();
-    const candidateName = (candidate.fullName || 'Consultant').trim();
+    const candidateName =
+      (candidate.fullName || 'Consultant').replace(/_+/g, ' ').replace(/\s+/g, ' ').trim() ||
+      'Consultant';
     const candidateTitle = (candidate.currentTitle || 'Technology Consultant').trim();
     const skillsList = splitSkillList(candidate.skillset).slice(0, 6).join(', ');
 
@@ -750,18 +762,18 @@ export class AiService {
     const offlineBody =
       purpose === 'interview_followup'
         ? [
-            'Hi,',
+            greeting,
             '',
-            `Checking in regarding ${candidateName} (${candidateTitle}) for the ${roleTitle} position.`,
+            `Checking in from ${agencyName} regarding ${candidateName} (${candidateTitle}) for the ${roleTitle} position.`,
             skillsList ? `Key strengths: ${skillsList}.` : '',
-            'Please let us know your feedback or next steps for scheduling.',
+            'Please let us know your team’s feedback or next interview scheduling steps.',
             '',
             `Best regards,\n${agencyName}`,
           ]
             .filter((line, idx, arr) => !(line === '' && arr[idx - 1] === ''))
             .join('\n')
         : [
-            'Hi,',
+            greeting,
             '',
             `Please find ${candidateName}'s profile attached for your ${roleTitle} requirement${requirement.location ? ` (${requirement.location})` : ''}.`,
             `- Title: ${candidateTitle}`,
@@ -801,6 +813,11 @@ export class AiService {
         includeHourlyRate: !rateMasked,
       });
 
+      const emailGoal =
+        purpose === 'interview_followup'
+          ? `You are a recruiter at ${agencyName} emailing ${recipientName || 'the client hiring manager'} to follow up on feedback or next interview steps for our submitted candidate ${candidateName}.`
+          : `You are a recruiter at ${agencyName} emailing ${recipientName || 'the client hiring manager'} to submit and pitch our candidate ${candidateName} for the ${roleTitle} role.`;
+
       const result = await completeValidatedJson({
         adapter,
         tier: 'smart',
@@ -809,14 +826,17 @@ export class AiService {
           {
             role: 'system',
             content:
-              'You draft crisp, natural IT staffing client emails ready to paste into Gmail/Outlook. Tone options: PROFESSIONAL, HIGH_IMPACT, TECHNICAL_FOCUS. NEVER mention bill rates, margins, or hourly rates if none are provided in input. Return ONLY JSON: { "subject": string, "bodyText": string }.',
+              'You draft crisp, natural B2B IT staffing emails written BY a staffing recruiter TO a client hiring manager or vendor contact ABOUT a submitted consultant in THIRD PERSON. CRITICAL: NEVER write in first person as the job candidate (never say "my skills", "my background", or "thank you for interviewing me"); write from the agency/recruiter perspective ("we", "our submitted consultant", "<candidateName> brings..."). Tone options: PROFESSIONAL, HIGH_IMPACT, TECHNICAL_FOCUS. NEVER mention bill rates, margins, or hourly rates unless explicitly present in input. Return ONLY JSON: { "subject": string, "bodyText": string }.',
           },
           {
             role: 'user',
             content: JSON.stringify({
+              senderRole: `Staffing Recruiter at ${agencyName}`,
+              emailGoal,
               purpose,
               tone,
               agencyName,
+              recipientName: recipientName || undefined,
               candidateName,
               requirement: safeReq,
               candidate: safeCand,

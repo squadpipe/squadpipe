@@ -26,6 +26,7 @@ import { rateMaskMiddleware } from '../middlewares/rateMask.middleware';
 import {
   authRateLimiter,
   emailRateLimiter,
+  publicUploadRateLimiter,
   sensitiveAuthRateLimiter,
   uploadRateLimiter,
 } from '../middlewares/security.middleware';
@@ -101,7 +102,7 @@ router.get('/public/apply/:token', authRateLimiter, async (req: Request, res: Re
 
 router.post(
   '/public/apply/:token',
-  uploadRateLimiter,
+  publicUploadRateLimiter,
   optionalSingleCvUpload,
   async (req: Request, res: Response) => {
     try {
@@ -421,7 +422,7 @@ router.post('/parse-email', async (req: Request, res: Response) => {
 router.post('/match-skills', async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
-    const { requirementId, skillsRequired, candidateIds, candidates } = req.body || {};
+    const { requirementId, skillsRequired, search, workAuth, candidateIds, candidates } = req.body || {};
 
     if (!requirementId) {
       return res.status(400).json({ success: false, message: 'requirementId is required' });
@@ -432,6 +433,8 @@ router.post('/match-skills', async (req: Request, res: Response) => {
       userId: req.user?.id,
       requirementId: String(requirementId).trim(),
       skillsRequiredOverride: skillsRequired ? String(skillsRequired) : undefined,
+      search: search ? String(search) : undefined,
+      workAuth: workAuth ? String(workAuth) : undefined,
       candidateIds: Array.isArray(candidateIds) ? candidateIds : undefined,
       candidates: Array.isArray(candidates) ? candidates : undefined,
       rateMasked: Boolean(req.user?.rateMasked),

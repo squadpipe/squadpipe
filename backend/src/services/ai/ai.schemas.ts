@@ -2,9 +2,20 @@ import { z } from 'zod';
 
 const cleanStringList = (maxItems: number, maxLen: number) =>
   z
-    .array(z.string().trim().min(1).max(maxLen))
-    .max(maxItems)
-    .default([]);
+    .array(z.string())
+    .default([])
+    .transform((items) =>
+      items
+        .map((s) => String(s || '').trim().slice(0, maxLen))
+        .filter(Boolean)
+        .slice(0, maxItems)
+    );
+
+const boundedString = (maxLen: number) =>
+  z
+    .string()
+    .trim()
+    .transform((s) => s.slice(0, maxLen));
 
 export const ResumeParseAiSchema = z.object({
   fullName: z.string().trim().max(120).default(''),
@@ -50,7 +61,7 @@ export const SubmissionCapabilityAiSchema = z.object({
   recommendation: z.enum(['STRONG_FIT', 'GOOD_FIT', 'PARTIAL_FIT', 'LOW_FIT']),
   strengths: cleanStringList(6, 180),
   gaps: cleanStringList(6, 180),
-  verdict: z.string().trim().min(1).max(320),
+  verdict: boundedString(320).refine((s) => s.length >= 1, 'verdict must not be empty'),
 });
 
 export const BatchRankAiSchema = z.object({
@@ -65,7 +76,7 @@ export const BatchRankAiSchema = z.object({
           .transform((n) => Math.round(n)),
         matchedHighlights: cleanStringList(5, 140),
         gaps: cleanStringList(5, 140),
-        oneLineSummary: z.string().trim().min(1).max(240),
+        oneLineSummary: boundedString(240).refine((s) => s.length >= 1, 'oneLineSummary must not be empty'),
       })
     )
     .max(50),

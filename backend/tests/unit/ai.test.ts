@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import zlib from 'node:zlib';
 import { resolveAiConfig } from '../../src/config/ai.config';
 import {
   completeValidatedJson,
@@ -476,6 +477,57 @@ export const runAiServiceTests = async () => {
   assert.equal(fallbackOnErrorEmail.aiUsed, false);
   assert.equal(fallbackOnErrorEmail.companyName, 'Apex Health Systems');
   assert.equal(fallbackOnErrorEmail.targetBillRate, 135);
+
+  // 12. Node resume fallback extracts clean text from compressed DOCX ZIP archives & never emits raw binary PDF bytes
+  const xmlName = Buffer.from('word/document.xml', 'utf8');
+  const xmlBody = Buffer.from(
+    '<w:document><w:body><w:p><w:r><w:t>Pooja Sharma</w:t></w:r></w:p><w:p><w:r><w:t>pooja.sharma@azuredev.io</w:t></w:r></w:p><w:p><w:r><w:t>Skills: C#, Azure, Kubernetes, Terraform</w:t></w:r></w:p></w:body></w:document>',
+    'utf8'
+  );
+  const deflated = zlib.deflateRawSync(xmlBody);
+  const localHeader = Buffer.alloc(30);
+  localHeader.writeUInt32LE(0x04034b50, 0);
+  localHeader.writeUInt16LE(8, 8);
+  localHeader.writeUInt32LE(deflated.length, 18);
+  localHeader.writeUInt16LE(xmlName.length, 26);
+  const syntheticDocxZip = Buffer.concat([localHeader, xmlName, deflated]);
+
+  const parsedDocxFallback = buildNodeResumeFallback(
+    syntheticDocxZip,
+    '14_Pooja_Sharma_NET_Core_Azure_Developer.docx'
+  );
+  assert.equal(parsedDocxFallback.email, 'pooja.sharma@azuredev.io');
+  assert.ok(parsedDocxFallback.skills.includes('Kubernetes'));
+  assert.ok(parsedDocxFallback.raw_text_snippet.includes('Pooja Sharma'));
+  assert.equal(parsedDocxFallback.raw_text_snippet.includes('PK'), false);
+
+  const parsedPdfBinaryFallback = buildNodeResumeFallback(
+    Buffer.from('%PDF-1.4\n1 0 obj\n<< /Length 25 >>\nstream\nraw compressed bytes go here\nendstream'),
+    'sample_resume.pdf'
+  );
+  assert.equal(parsedPdfBinaryFallback.raw_text_snippet.includes('%PDF-'), false);
+
+  // 13. Cloudflare JSON requests include safe default max_tokens >= 2048 when maxTokens is omitted
+  let seenCfBody: Record<string, any> = {};
+  const cfJsonAdapter = createAiAdapter(
+    resolveAiConfig({
+      AI_PROVIDER: 'cloudflare',
+      CLOUDFLARE_AI_ACCOUNT_ID: 'acct-1',
+      CLOUDFLARE_AI_API_TOKEN: 'tok-1',
+    }),
+    async (_url, init) => {
+      seenCfBody = JSON.parse(String(init?.body || '{}'));
+      return makeJsonResponse({
+        choices: [{ message: { content: '{"ok":true}' } }],
+      });
+    }
+  );
+  await cfJsonAdapter.complete({
+    tier: 'smart',
+    expectJson: true,
+    messages: [{ role: 'user', content: 'Return JSON' }],
+  });
+  assert.ok((seenCfBody.max_tokens || 0) >= 2048);
 
   console.log('✅ Provider-Agnostic AI Adapter & Guardrail Tests: PASSED');
 };

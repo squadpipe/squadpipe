@@ -38,7 +38,7 @@ interface ResumeParserModalProps {
   showToast: (title: string, message: string, icon?: string) => void;
 }
 
-const MAX_BULK_CV_FILES = 20;
+const MAX_BULK_CV_FILES = 50;
 
 type BulkQueueStatus = 'queued' | 'processing' | 'added' | 'duplicate' | 'failed';
 

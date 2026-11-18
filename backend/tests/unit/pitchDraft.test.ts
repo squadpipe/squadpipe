@@ -132,6 +132,7 @@ export const runPitchDraftTests = async () => {
     requirement,
     agencyName: 'Softiox Partners',
     recipientEmail: 'maya@apexhealth.com',
+    recipientName: 'Maya Lin',
     pitchTone: 'TECHNICAL_FOCUS',
     rateMasked: true,
     aiSvc: activeAi,
@@ -139,6 +140,8 @@ export const runPitchDraftTests = async () => {
 
   assert.equal(maskedAiPitch.aiUsed, true);
   assert.equal(maskedAiPitch.pitchTone, 'TECHNICAL_FOCUS');
+  assert.ok(seenPromptBody.includes('Maya Lin'));
+  assert.ok(seenPromptBody.includes('THIRD PERSON'));
   assert.equal(seenPromptBody.includes('145'), false);
   assert.equal(seenPromptBody.includes('160'), false);
   assert.equal(seenPromptBody.includes('105'), false);

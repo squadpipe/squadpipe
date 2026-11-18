@@ -90,6 +90,7 @@ export async function generatePitchDraftPure(params: {
     purpose,
     rateMasked,
     agencyName,
+    recipientName: params.recipientName ? String(params.recipientName).trim() : undefined,
     tenantId: params.tenantId,
     userId: params.userId,
   });

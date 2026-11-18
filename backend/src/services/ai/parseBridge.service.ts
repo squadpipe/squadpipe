@@ -1,3 +1,4 @@
+import zlib from 'zlib';
 import { aiService, redactRatesFromText } from './ai.service';
 import type { EmailIntakeBaseline, ResumeParseBaseline } from './ai.types';
 
@@ -75,6 +76,106 @@ function splitSkillValues(value: unknown): string[] {
     .filter(Boolean);
 }
 
+function extractDocxXmlTextFromZipBuffer(fileBuffer: Buffer): string {
+  // Walk ZIP Local File Headers (PK\x03\x04) using Node built-in zlib so .docx uploads
+  // never degrade into raw ZIP XML/binary noise if the Python parser is temporarily unavailable.
+  const chunks: string[] = [];
+  let offset = 0;
+  const maxEntries = 200;
+  let seen = 0;
+
+  while (offset + 30 <= fileBuffer.length && seen < maxEntries) {
+    if (fileBuffer.readUInt32LE(offset) !== 0x04034b50) break;
+    seen += 1;
+    const compressionMethod = fileBuffer.readUInt16LE(offset + 8);
+    const compressedSize = fileBuffer.readUInt32LE(offset + 18);
+    const fileNameLen = fileBuffer.readUInt16LE(offset + 26);
+    const extraLen = fileBuffer.readUInt16LE(offset + 28);
+    const nameStart = offset + 30;
+    const dataStart = nameStart + fileNameLen + extraLen;
+    if (dataStart > fileBuffer.length) break;
+
+    const entryName = fileBuffer.toString('utf8', nameStart, nameStart + fileNameLen);
+    let dataEnd = dataStart + compressedSize;
+    if (compressedSize === 0 && (fileBuffer.readUInt16LE(offset + 6) & 0x08) !== 0) {
+      const nextSig = fileBuffer.indexOf(Buffer.from([0x50, 0x4b, 0x03, 0x04]), dataStart);
+      const centralSig = fileBuffer.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]), dataStart);
+      const candidates = [nextSig, centralSig].filter((idx) => idx > dataStart);
+      if (candidates.length === 0) break;
+      dataEnd = Math.min(...candidates);
+    }
+    if (dataEnd > fileBuffer.length) break;
+
+    if (
+      /^word\/(document|header\d*|footer\d*)\.xml$/i.test(entryName)
+    ) {
+      try {
+        const rawPayload = fileBuffer.subarray(dataStart, dataEnd);
+        const xmlBuf =
+          compressionMethod === 8
+            ? zlib.inflateRawSync(rawPayload)
+            : compressionMethod === 0
+              ? rawPayload
+              : null;
+        if (xmlBuf) {
+          const text = xmlBuf
+            .toString('utf8')
+            .replace(/<\/w:p>|<w:br[^>]*\/?>|<\/w:tr>/gi, '\n')
+            .replace(/<w:tab[^>]*\/?>/gi, ' ')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&apos;|&#39;/g, "'")
+            .replace(/[ \t]+/g, ' ')
+            .replace(/\n\s+/g, '\n')
+            .trim();
+          if (text) chunks.push(text);
+        }
+      } catch {
+        // Ignore malformed optional XML part
+      }
+    }
+
+    offset = dataEnd;
+  }
+
+  return chunks.join('\n').trim();
+}
+
+export function extractReadableTextFromResumeBuffer(
+  fileBuffer: Buffer,
+  originalName: string
+): string {
+  const isZipDocx =
+    fileBuffer.length >= 4 &&
+    fileBuffer[0] === 0x50 &&
+    fileBuffer[1] === 0x4b &&
+    (fileBuffer[2] === 0x03 || fileBuffer[2] === 0x05);
+
+  if (isZipDocx || originalName.toLowerCase().endsWith('.docx')) {
+    const extracted = extractDocxXmlTextFromZipBuffer(fileBuffer);
+    if (extracted) {
+      return extracted.replace(/\s+/g, ' ').trim();
+    }
+    return '';
+  }
+
+  const isPdfBinary =
+    fileBuffer.length >= 5 && fileBuffer.subarray(0, 5).toString('ascii') === '%PDF-';
+  if (isPdfBinary) {
+    // Raw PDF streams are compressed binary; never store PDF bytes as readable text.
+    return '';
+  }
+
+  return fileBuffer
+    .toString('utf8')
+    .replace(/[^\x20-\x7E\r\n]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /**
  * Node-side fallback extraction when the Python resume-parser microservice is unreachable.
  */
@@ -82,11 +183,7 @@ export function buildNodeResumeFallback(
   fileBuffer: Buffer,
   originalName: string
 ): Record<string, any> {
-  const rawText = fileBuffer
-    .toString('utf8')
-    .replace(/[^\x20-\x7E\r\n]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  const rawText = extractReadableTextFromResumeBuffer(fileBuffer, originalName);
   const emailMatch = rawText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
   const phoneMatch = rawText.match(/(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
   const baseName =

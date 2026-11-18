@@ -149,8 +149,15 @@ export const emailRateLimiter = createRateLimiter({
 
 export const uploadRateLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
-  max: Number(process.env.UPLOAD_RATE_LIMIT_MAX || 80),
+  max: Number(process.env.UPLOAD_RATE_LIMIT_MAX || 250),
   keyPrefix: 'upload',
   message: 'Too many file uploads/parses in a short period. Please wait a moment.',
+});
+
+export const publicUploadRateLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.PUBLIC_UPLOAD_RATE_LIMIT_MAX || 60),
+  keyPrefix: 'public-upload',
+  message: 'Too many application submissions from this IP. Please wait a moment and try again.',
 });
 

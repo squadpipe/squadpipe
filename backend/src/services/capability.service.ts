@@ -273,6 +273,8 @@ export class CapabilityService {
     userId?: string;
     requirementId: string;
     skillsRequiredOverride?: string;
+    search?: string;
+    workAuth?: string;
     candidateIds?: string[];
     candidates?: CapabilityCandidateInput[];
     rateMasked?: boolean;
@@ -280,6 +282,7 @@ export class CapabilityService {
     aiSvc?: Pick<typeof aiService, 'rankCandidatesForRequirement'>;
   }): Promise<{
     rankings: RankedCandidateResult[];
+    candidates: any[];
     aiUsed: boolean;
     totalEvaluated: number;
     quotaNotice?: string;
@@ -289,6 +292,8 @@ export class CapabilityService {
       userId,
       requirementId,
       skillsRequiredOverride,
+      search,
+      workAuth,
       candidateIds,
       candidates: suppliedCandidates,
       rateMasked = false,
@@ -310,7 +315,33 @@ export class CapabilityService {
         : {}),
     });
 
+    const candidateSelect = {
+      id: true,
+      fullName: true,
+      phone: true,
+      email: true,
+      workAuth: true,
+      education: true,
+      currentTitle: true,
+      skillset: true,
+      hourlyRateW2: true,
+      hourlyRateC2c: true,
+      hourlyRateDisplay: true,
+      relocation: true,
+      resumeFileName: true,
+      resumeFormat: true,
+      pipelineStage: true,
+      rawSnippet: true,
+      assignedRecruiterId: true,
+      assignedRecruiter: {
+        select: { fullName: true },
+      },
+      createdAt: true,
+      updatedAt: true,
+    } as const;
+
     let candidatePool: CapabilityCandidateInput[] = [];
+    const fullRowById = new Map<string, any>();
 
     if (Array.isArray(candidateIds) && candidateIds.length > 0) {
       const cleanIds = Array.from(
@@ -323,29 +354,38 @@ export class CapabilityService {
           id: { in: cleanIds },
           pipelineStage: { not: CandidatePipelineStage.ARCHIVED },
         },
-        select: {
-          id: true,
-          fullName: true,
-          currentTitle: true,
-          skillset: true,
-          workAuth: true,
-          relocation: true,
-          hourlyRateDisplay: true,
-          rawSnippet: true,
-        },
+        select: candidateSelect,
       });
+      for (const r of dbRows) fullRowById.set(r.id, r);
       candidatePool = dbRows.map(toCapabilityCandidateInput);
     } else {
+      const cleanSearch = String(search || '').trim();
+      const cleanWorkAuth = String(workAuth || '').trim();
       const skillTokens = String(effectiveReq.skillsRequired || '')
         .split(',')
         .map((s) => s.trim())
         .filter((s) => s.length >= 2)
-        .slice(0, 8);
+        .slice(0, 12);
 
-      const baseWhere: Prisma.CandidateWhereInput = {
-        tenantId,
-        pipelineStage: { not: CandidatePipelineStage.ARCHIVED },
-      };
+      const andConditions: Prisma.CandidateWhereInput[] = [
+        { tenantId },
+        { pipelineStage: { not: CandidatePipelineStage.ARCHIVED } },
+      ];
+      if (cleanWorkAuth && cleanWorkAuth !== 'All') {
+        andConditions.push({ workAuth: { contains: cleanWorkAuth, mode: 'insensitive' } });
+      }
+      if (cleanSearch) {
+        andConditions.push({
+          OR: [
+            { fullName: { contains: cleanSearch, mode: 'insensitive' } },
+            { skillset: { contains: cleanSearch, mode: 'insensitive' } },
+            { currentTitle: { contains: cleanSearch, mode: 'insensitive' } },
+            { rawSnippet: { contains: cleanSearch, mode: 'insensitive' } },
+          ],
+        });
+      }
+
+      const baseWhere: Prisma.CandidateWhereInput = { AND: andConditions };
 
       const tokenOrFilters: Prisma.CandidateWhereInput[] = skillTokens.flatMap((token) => [
         { skillset: { contains: token, mode: 'insensitive' } },
@@ -356,18 +396,10 @@ export class CapabilityService {
       const filteredRows =
         tokenOrFilters.length > 0
           ? await prisma.candidate.findMany({
-              where: { ...baseWhere, OR: tokenOrFilters },
-              select: {
-                id: true,
-                fullName: true,
-                currentTitle: true,
-                skillset: true,
-                workAuth: true,
-                relocation: true,
-                hourlyRateDisplay: true,
-                rawSnippet: true,
-              },
-              take: 150,
+              where: { AND: [...andConditions, { OR: tokenOrFilters }] },
+              select: candidateSelect,
+              take: 300,
+              orderBy: { updatedAt: 'desc' },
             })
           : [];
 
@@ -376,25 +408,19 @@ export class CapabilityService {
         const existingIds = mergedRows.map((r) => r.id);
         const topUpRows = await prisma.candidate.findMany({
           where: {
-            ...baseWhere,
-            ...(existingIds.length > 0 ? { id: { notIn: existingIds } } : {}),
+            AND: [
+              ...andConditions,
+              ...(existingIds.length > 0 ? [{ id: { notIn: existingIds } }] : []),
+            ],
           },
-          select: {
-            id: true,
-            fullName: true,
-            currentTitle: true,
-            skillset: true,
-            workAuth: true,
-            relocation: true,
-            hourlyRateDisplay: true,
-            rawSnippet: true,
-          },
-          take: 150 - mergedRows.length,
+          select: candidateSelect,
+          take: Math.max(0, 300 - mergedRows.length),
           orderBy: { updatedAt: 'desc' },
         });
         mergedRows = [...mergedRows, ...topUpRows];
       }
 
+      for (const r of mergedRows) fullRowById.set(r.id, r);
       candidatePool = mergedRows.map(toCapabilityCandidateInput);
     }
 
@@ -409,8 +435,14 @@ export class CapabilityService {
       userId,
     });
 
+    const sortedRankings = [...rankedResult.rankings].sort((a, b) => b.fitScore - a.fitScore);
+    const rankedCandidates = sortedRankings
+      .map((r) => fullRowById.get(r.candidateId))
+      .filter(Boolean);
+
     return {
-      rankings: rankedResult.rankings,
+      rankings: sortedRankings,
+      candidates: rankedCandidates,
       aiUsed: rankedResult.aiUsed,
       totalEvaluated: shortlisted.length,
       ...(rankedResult.quotaNotice ? { quotaNotice: rankedResult.quotaNotice } : {}),
