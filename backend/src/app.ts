@@ -15,7 +15,7 @@ app.use(
     origin: createCorsOriginChecker(),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Platform-Admin-Key'],
     exposedHeaders: ['X-User-Role', 'X-Rate-Masked'],
   })
 );

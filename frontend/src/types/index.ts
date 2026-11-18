@@ -95,6 +95,17 @@ export interface SubmissionNote {
   updatedAt?: string;
 }
 
+export interface CapabilitySummary {
+  fitScore?: number;
+  recommendation: string;
+  recommendationLabel?: string;
+  verdict: string;
+  strengths: string[];
+  gaps: string[];
+  evaluatedWithAi: boolean;
+  evaluatedAt?: string;
+}
+
 export interface RequirementSubmission {
   id: string;
   candidateId: string;
@@ -109,6 +120,11 @@ export interface RequirementSubmission {
   resumeFormat?: string;
   resumeFileUrl?: string;
   stage: string;
+  intakeSource?: 'MANUAL' | 'BENCH_MATCH' | 'PUBLIC_FORM' | string;
+  submittedRate?: string;
+  submittedVendorName?: string;
+  capabilityScore?: number | null;
+  capabilitySummary?: CapabilitySummary | null;
   submissionDate?: string;
   lastClientFeedbackDate?: string;
   interviewDate?: string;
@@ -168,6 +184,9 @@ export interface Requirement {
   assignedRecruiter: string;
   targetBillRate?: number;
   targetPayRate?: number;
+  publicFormEnabled?: boolean;
+  publicFormToken?: string | null;
+  publicDescription?: string | null;
   customFields?: Record<string, any>;
   createdAt?: string;
   updatedAt?: string;
@@ -200,6 +219,29 @@ export interface BillablePlacement {
   customFields?: Record<string, any>;
 }
 
+export interface SlaAgentSuggestion {
+  candidateId: string;
+  fullName: string;
+  currentTitle: string;
+  workAuth: string;
+  fitScore: number;
+  matchedHighlights: string[];
+  gaps: string[];
+  oneLineSummary: string;
+}
+
+export interface SlaAgentPayload {
+  kind: 'candidate_shortlist' | 'followup_draft' | 'renewal_draft';
+  generatedAt: string;
+  evaluatedWithAi: boolean;
+  requirementId?: string;
+  placementId?: string;
+  suggestions?: SlaAgentSuggestion[];
+  draftSubject?: string;
+  draftBody?: string;
+  recipientEmail?: string;
+}
+
 export interface SlaTask {
   id: string;
   category: string;
@@ -212,6 +254,7 @@ export interface SlaTask {
   actionLabel: string;
   relatedEntityType?: string;
   relatedEntityId?: string;
+  agentPayload?: SlaAgentPayload | null;
   done: boolean;
 }
 

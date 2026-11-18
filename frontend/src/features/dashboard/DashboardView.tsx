@@ -3,17 +3,20 @@ import {
   AlertTriangle,
   ArrowRight,
   Award,
+  BarChart3,
   Briefcase,
   CalendarCheck,
   DollarSign,
   FileSpreadsheet,
   ListChecks,
+  Loader2,
   Pencil,
   Plus,
   RefreshCw,
   Send,
   Trash2,
   UserCheck,
+  Users,
   X,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
@@ -21,6 +24,7 @@ import {
   Requirement,
   Candidate,
   BillablePlacement,
+  RecruiterPerformanceRow,
   SlaTask,
 } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
@@ -29,7 +33,7 @@ import { StatusBadge } from '../../components/shared/StatusBadge';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { useDebounce } from '../../utils/useDebounce';
-import { mapRequirementFromApi } from '../../utils/entityMappers';
+import { formatUserRole, mapRequirementFromApi } from '../../utils/entityMappers';
 import {
   buildRequirementStageOptions,
   getStageDotClass,
@@ -87,6 +91,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [reqToDelete, setReqToDelete] = useState<Requirement | null>(null);
   const [isUpdatingReq, setIsUpdatingReq] = useState(false);
   const [isDeletingReq, setIsDeletingReq] = useState(false);
+  const [perfPeriod, setPerfPeriod] = useState<'week' | 'month' | 'all'>('week');
+  const [perfTeam, setPerfTeam] = useState<RecruiterPerformanceRow[]>([]);
+  const [perfTotals, setPerfTotals] = useState<{
+    openReqs: number;
+    submissions: number;
+    interviews: number;
+    placements: number;
+  }>({ openReqs: 0, submissions: 0, interviews: 0, placements: 0 });
+  const [isLoadingPerf, setIsLoadingPerf] = useState(false);
 
   const taxonomies = useMasterTaxonomies(true);
   const reqStageOptions = buildRequirementStageOptions(taxonomies.stages);
@@ -148,6 +161,50 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       active = false;
     };
   }, [debouncedSearch, statusFilter, page, limit, requirements]);
+
+  const fetchRecruiterPerformance = async (targetPeriod: 'week' | 'month' | 'all' = perfPeriod) => {
+    setIsLoadingPerf(true);
+    try {
+      const res = await apiClient.get('/dashboard/recruiter-performance', {
+        params: { period: targetPeriod },
+      });
+      const report = res.data?.data;
+      if (report && Array.isArray(report.team)) {
+        setPerfTeam(report.team);
+        setPerfTotals(
+          report.totals || { openReqs: 0, submissions: 0, interviews: 0, placements: 0 }
+        );
+      }
+    } catch {
+      // Non-blocking analytics card
+    } finally {
+      setIsLoadingPerf(false);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    setIsLoadingPerf(true);
+    apiClient
+      .get('/dashboard/recruiter-performance', { params: { period: perfPeriod } })
+      .then((res) => {
+        if (!active) return;
+        const report = res.data?.data;
+        if (report && Array.isArray(report.team)) {
+          setPerfTeam(report.team);
+          setPerfTotals(
+            report.totals || { openReqs: 0, submissions: 0, interviews: 0, placements: 0 }
+          );
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setIsLoadingPerf(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [perfPeriod, requirements.length, placements.length]);
 
   // 6 KPI Counts
   const activeReqsCount = requirements.length;
@@ -706,6 +763,166 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               ))
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Team Performance Scorecard (Weekly / Monthly / All-Time) */}
+      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center">
+              <BarChart3 className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-xs text-slate-900">Team Performance</h3>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                  {perfTeam.length} {perfTeam.length === 1 ? 'Recruiter' : 'Recruiters'}
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400">
+                Open requirements, submittals, interviews, placements, and conversion rates
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="inline-flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px]">
+              {(
+                [
+                  { id: 'week', label: 'This Week' },
+                  { id: 'month', label: 'This Month' },
+                  { id: 'all', label: 'All Time' },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setPerfPeriod(opt.id)}
+                  className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+                    perfPeriod === opt.id
+                      ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              disabled={isLoadingPerf}
+              onClick={() => fetchRecruiterPerformance(perfPeriod)}
+              title="Refresh recruiter metrics"
+              className="w-7 h-7 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-brand-600 hover:bg-slate-50 disabled:opacity-60 flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingPerf ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          {isLoadingPerf && perfTeam.length === 0 ? (
+            <div className="py-10 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
+              <span>Loading recruiter scorecard...</span>
+            </div>
+          ) : perfTeam.length === 0 ? (
+            <div className="py-8 text-center text-xs text-slate-400">
+              No recruiter activity recorded for this period yet.
+            </div>
+          ) : (
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50/70 border-b border-slate-200/80 text-[10.5px] font-semibold text-slate-500 uppercase tracking-wider">
+                <tr>
+                  <th className="pl-5 pr-4 py-2.5">Recruiter</th>
+                  <th className="px-4 py-2.5 text-right">Open Reqs</th>
+                  <th className="px-4 py-2.5 text-right">Submissions</th>
+                  <th className="px-4 py-2.5 text-right">Interviews</th>
+                  <th className="px-4 py-2.5 text-right">Placements</th>
+                  <th className="pl-4 pr-5 py-2.5 text-right">Conversion %</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {perfTeam.map((row) => {
+                  const interviewRate =
+                    row.submissions > 0
+                      ? Math.round((row.interviews / row.submissions) * 100)
+                      : 0;
+                  const placementRate =
+                    row.submissions > 0
+                      ? Math.round((row.placements / row.submissions) * 100)
+                      : 0;
+                  return (
+                    <tr key={row.userId} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="pl-5 pr-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-700 font-bold text-[10.5px] flex items-center justify-center flex-shrink-0">
+                            <Users className="w-3.5 h-3.5 text-slate-500" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-semibold text-slate-900 truncate">
+                              {row.fullName}
+                            </div>
+                            <div className="text-[10px] text-slate-400 truncate">
+                              {formatUserRole(row.role)}
+                              {row.desk ? ` • ${row.desk}` : ''}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-slate-700 tabular-nums">
+                        {row.openReqs}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-slate-900 tabular-nums">
+                        {row.submissions}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        <span className="font-semibold text-slate-800">{row.interviews}</span>
+                        {row.submissions > 0 && (
+                          <span className="ml-1.5 text-[10px] text-slate-400">
+                            ({interviewRate}%)
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-emerald-700 tabular-nums">
+                        {row.placements}
+                      </td>
+                      <td className="pl-4 pr-5 py-3 text-right whitespace-nowrap tabular-nums">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-bold border ${
+                            placementRate >= 15
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : placementRate > 0
+                                ? 'bg-brand-50 text-brand-700 border-brand-200'
+                                : 'bg-slate-100 text-slate-500 border-slate-200'
+                          }`}
+                        >
+                          {placementRate}%
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="bg-slate-50 border-t border-slate-200 text-[11px] font-bold text-slate-800">
+                <tr>
+                  <td className="pl-5 pr-4 py-2.5">Team Totals</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums">{perfTotals.openReqs}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums">{perfTotals.submissions}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums">{perfTotals.interviews}</td>
+                  <td className="px-4 py-2.5 text-right text-emerald-700 tabular-nums">
+                    {perfTotals.placements}
+                  </td>
+                  <td className="pl-4 pr-5 py-2.5 text-right tabular-nums">
+                    {perfTotals.submissions > 0
+                      ? `${Math.round((perfTotals.placements / perfTotals.submissions) * 100)}%`
+                      : '0%'}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          )}
         </div>
       </div>
 

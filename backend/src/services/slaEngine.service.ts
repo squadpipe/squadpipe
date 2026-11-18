@@ -1,5 +1,6 @@
 import { prisma } from '../config/prisma.config';
 import {
+  Prisma,
   SlaCategory,
   SlaActionType,
   AutomationCategory,
@@ -7,6 +8,8 @@ import {
   AuditStatus,
   AutomationRule,
 } from '@prisma/client';
+import { aiUsageService } from './ai/aiUsage.service';
+import { slaAgentService } from './ai/slaAgent.service';
 
 export class SlaEngineService {
   /**
@@ -359,7 +362,11 @@ export class SlaEngineService {
 
     const generatedTasks = [];
     const now = new Date();
-    const tenantRules = await prisma.automationRule.findMany({ where: { tenantId } });
+    const [tenantRules, aiCaps] = await Promise.all([
+      prisma.automationRule.findMany({ where: { tenantId } }),
+      aiUsageService.getEffectivePublicAiCapabilities(tenantId).catch(() => null),
+    ]);
+    const agentActive = Boolean(aiCaps?.enabled && aiCaps?.features?.actionCenterAgent);
 
     // 1. Scan for Unsourced Open Requirements (0 candidate submissions)
     const staleActiveRules = this.filterMatchingRules(
@@ -401,6 +408,9 @@ export class SlaEngineService {
           },
         });
         if (!existing) {
+          const agentPayload = agentActive
+            ? await slaAgentService.prepareStaleReqPayload(r, tenantId).catch(() => null)
+            : null;
           const task = await prisma.slaTask.create({
             data: {
               tenantId,
@@ -414,6 +424,9 @@ export class SlaEngineService {
               actionLabel: 'Find Candidates',
               relatedEntityType: 'requirement',
               relatedEntityId: r.id,
+              ...(agentPayload
+                ? { agentPayload: agentPayload as unknown as Prisma.InputJsonValue }
+                : {}),
             },
           });
           generatedTasks.push(task);
@@ -466,6 +479,11 @@ export class SlaEngineService {
           },
         });
         if (!existing) {
+          const agentPayload = agentActive
+            ? await slaAgentService
+                .prepareAwaitingFeedbackPayload(r, tenantId)
+                .catch(() => null)
+            : null;
           const task = await prisma.slaTask.create({
             data: {
               tenantId,
@@ -479,6 +497,9 @@ export class SlaEngineService {
               actionLabel: 'Open Requirement',
               relatedEntityType: 'requirement',
               relatedEntityId: r.id,
+              ...(agentPayload
+                ? { agentPayload: agentPayload as unknown as Prisma.InputJsonValue }
+                : {}),
             },
           });
           generatedTasks.push(task);
@@ -602,6 +623,11 @@ export class SlaEngineService {
           const minWindowDays = Math.min(
             ...triggeredRules.map((r) => this.parseThresholdDays(r.threshold, 30))
           );
+          const agentPayload = agentActive
+            ? await slaAgentService
+                .prepareContractExpiringPayload(b, tenantId)
+                .catch(() => null)
+            : null;
           const task = await prisma.slaTask.create({
             data: {
               tenantId,
@@ -618,6 +644,9 @@ export class SlaEngineService {
               actionLabel: 'View Placement',
               relatedEntityType: 'placement',
               relatedEntityId: b.id,
+              ...(agentPayload
+                ? { agentPayload: agentPayload as unknown as Prisma.InputJsonValue }
+                : {}),
             },
           });
           generatedTasks.push(task);

@@ -22,6 +22,7 @@ export const maskFinancialRecord = (record: any): any => {
   if ('hourlyRateC2c' in masked) masked.hourlyRateC2c = null;
   if ('hourlyRateDisplay' in masked) masked.hourlyRateDisplay = '••••••';
   if ('hourlyRate' in masked) masked.hourlyRate = '••••••';
+  if ('submittedRate' in masked && masked.submittedRate) masked.submittedRate = '••••••';
   if ('billRate' in masked) masked.billRate = 0;
   if ('payRate' in masked) masked.payRate = 0;
   if ('targetBillRate' in masked) masked.targetBillRate = 0;

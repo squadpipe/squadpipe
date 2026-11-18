@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Check, FileSpreadsheet, Search, X } from 'lucide-react';
+import { AlertTriangle, Check, FileSpreadsheet, Loader2, Search, Sparkles, X } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Candidate, ClientDuplicateWarning, Requirement } from '../../types';
 import { useCurrency } from '../../utils/currency';
+import { useAiCapabilities } from '../../utils/workspaceBrand';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapCandidateFromApi, mapRequirementFromApi } from '../../utils/entityMappers';
 import { extractResumeMatchExcerpt, matchesCandidateQuery } from '../../utils/candidateSearch';
@@ -119,6 +120,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   onCandidatesSeen,
 }) => {
   const { formatRate } = useCurrency();
+  const aiCapabilities = useAiCapabilities();
   const taxonomies = useMasterTaxonomies(isOpen);
 
   const [selectedReqId, setSelectedReqId] = useState<string>(
@@ -130,6 +132,20 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   const debouncedBenchSearch = useDebounce(benchSearch, 250);
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
   const [isAttaching, setIsAttaching] = useState(false);
+  const [isAiRanking, setIsAiRanking] = useState(false);
+  const [aiRankUsed, setAiRankUsed] = useState(false);
+  const [aiRankError, setAiRankError] = useState('');
+  const [aiRankMap, setAiRankMap] = useState<
+    Record<
+      string,
+      {
+        fitScore: number;
+        matchedHighlights: string[];
+        gaps: string[];
+        oneLineSummary: string;
+      }
+    >
+  >({});
   const [clientDuplicateMap, setClientDuplicateMap] = useState<
     Record<string, ClientDuplicateWarning[]>
   >({});
@@ -159,6 +175,10 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
     setBenchSearch('');
     setBenchWorkAuth('All');
     setClientDuplicateMap({});
+    setAiRankMap({});
+    setAiRankUsed(false);
+    setAiRankError('');
+    setIsAiRanking(false);
     setBenchPage(1);
     setPagedCandidates(candidates.slice(0, BENCH_PAGE_SIZE));
     setTotalBenchCount(candidates.length);
@@ -393,22 +413,79 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   );
 
   const rankedCandidates = useMemo(() => {
-    const items = pagedCandidates.map((con, idx) => ({
-      con,
-      idx,
-      match: computeCandidateSkillMatch(
+    const items = pagedCandidates.map((con, idx) => {
+      const localMatch = computeCandidateSkillMatch(
         currentReq?.skillsRequired,
         con.skillset,
         con.currentTitle
-      ),
-    }));
-    if (reqSkillList.length > 0) {
-      items.sort((a, b) => b.match.score - a.match.score || a.idx - b.idx);
+      );
+      const aiEntry = aiRankMap[con.id];
+      return {
+        con,
+        idx,
+        isAiRanked: Boolean(aiEntry),
+        oneLineSummary: aiEntry?.oneLineSummary || '',
+        match: aiEntry
+          ? {
+              score: aiEntry.fitScore,
+              matched:
+                aiEntry.matchedHighlights.length > 0
+                  ? aiEntry.matchedHighlights
+                  : localMatch.matched,
+              missing: aiEntry.gaps.length > 0 ? aiEntry.gaps : localMatch.missing,
+            }
+          : localMatch,
+      };
+    });
+    if (reqSkillList.length > 0 || Object.keys(aiRankMap).length > 0) {
+      items.sort((a, b) => {
+        if (a.isAiRanked !== b.isAiRanked) return a.isAiRanked ? -1 : 1;
+        return b.match.score - a.match.score || a.idx - b.idx;
+      });
     }
     return items;
-  }, [pagedCandidates, currentReq?.skillsRequired, reqSkillList.length]);
+  }, [pagedCandidates, currentReq?.skillsRequired, reqSkillList.length, aiRankMap]);
 
   if (!isOpen || !currentReq) return null;
+
+  const handleAiRankTopMatches = async () => {
+    if (!currentReq?.id || isAiRanking || pagedCandidates.length === 0) return;
+    setIsAiRanking(true);
+    setAiRankError('');
+    try {
+      const res = await apiClient.post('/match-skills', {
+        requirementId: currentReq.id,
+        skillsRequired: currentReq.skillsRequired,
+        candidateIds: pagedCandidates.map((c) => c.id),
+      });
+      const rankings = res.data?.data?.rankings;
+      const used = Boolean(res.data?.data?.aiUsed);
+      if (Array.isArray(rankings)) {
+        const nextMap: Record<
+          string,
+          { fitScore: number; matchedHighlights: string[]; gaps: string[]; oneLineSummary: string }
+        > = {};
+        for (const row of rankings) {
+          if (row?.candidateId) {
+            nextMap[row.candidateId] = {
+              fitScore: Number(row.fitScore ?? 0),
+              matchedHighlights: Array.isArray(row.matchedHighlights) ? row.matchedHighlights : [],
+              gaps: Array.isArray(row.gaps) ? row.gaps : [],
+              oneLineSummary: String(row.oneLineSummary || ''),
+            };
+          }
+        }
+        setAiRankMap(nextMap);
+        setAiRankUsed(used);
+      }
+    } catch (err: any) {
+      setAiRankError(
+        err?.response?.data?.message || err?.message || 'Could not rank candidates right now.'
+      );
+    } finally {
+      setIsAiRanking(false);
+    }
+  };
 
   const openPositions = currentReq.openPositions || 1;
   const toggleCandidateSelection = (candId: string) => {
@@ -515,6 +592,9 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                       setSelectedReqId(val);
                       setSelectedCandidateIds([]);
                       setClientDuplicateMap({});
+                      setAiRankMap({});
+                      setAiRankUsed(false);
+                      setAiRankError('');
                     }}
                     ariaLabel="Select target requirement"
                     size="xs"
@@ -572,11 +652,28 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
 
         {/* Filter Bar */}
         <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between gap-2 flex-wrap bg-white">
-          <div className="text-[11px] font-semibold text-slate-500">
-            {totalBenchCount} consultant{totalBenchCount === 1 ? '' : 's'}
-            {pagedCandidates.length < totalBenchCount
-              ? ` • showing ${pagedCandidates.length}`
-              : ''}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="text-[11px] font-semibold text-slate-500">
+              {totalBenchCount} consultant{totalBenchCount === 1 ? '' : 's'}
+              {pagedCandidates.length < totalBenchCount
+                ? ` • showing ${pagedCandidates.length}`
+                : ''}
+            </div>
+            {aiCapabilities.enabled && pagedCandidates.length > 0 && (
+              <button
+                type="button"
+                disabled={isAiRanking || isLoadingBench}
+                onClick={handleAiRankTopMatches}
+                className="px-2.5 py-1 rounded-lg border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-60"
+              >
+                {isAiRanking ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3 h-3" />
+                )}
+                <span>{isAiRanking ? 'Ranking...' : 'AI Rank Top Matches'}</span>
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-end">
             <CustomSelect
@@ -610,6 +707,11 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
           onScroll={handleBenchScroll}
           className="p-4 overflow-y-auto space-y-2 flex-1 min-h-0"
         >
+          {aiRankError && (
+            <div className="px-3 py-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-medium">
+              {aiRankError}
+            </div>
+          )}
           {isLoadingBench && pagedCandidates.length === 0 ? (
             <div className="py-10 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
               Loading consultants...
@@ -622,7 +724,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
             </div>
           ) : (
             <>
-              {rankedCandidates.map(({ con, match }) => {
+              {rankedCandidates.map(({ con, match, isAiRanked, oneLineSummary }) => {
                 const attachedStage = attachedStageByCandId.get(con.id);
                 const alreadyAttached = Boolean(attachedStage);
                 const isChecked = alreadyAttached || selectedCandidateIds.includes(con.id);
@@ -674,14 +776,19 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                       </div>
 
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        {reqSkillList.length > 0 && (
+                        {(reqSkillList.length > 0 || isAiRanked) && (
                           <span
-                            className={`px-2 py-0.5 rounded-md border text-[10px] font-bold tabular-nums ${getMatchScoreBadgeClass(
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold tabular-nums ${getMatchScoreBadgeClass(
                               match.score
                             )}`}
-                            title={`${match.matched.length} of ${reqSkillList.length} required skills matched`}
+                            title={
+                              isAiRanked && aiRankUsed
+                                ? 'AI capability ranking'
+                                : `${match.matched.length} of ${reqSkillList.length} required skills matched`
+                            }
                           >
-                            {match.score}% Match
+                            {isAiRanked && aiRankUsed && <Sparkles className="w-2.5 h-2.5" />}
+                            <span>{match.score}% Match</span>
                           </span>
                         )}
                         {alreadyAttached ? (
@@ -704,8 +811,9 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                       </div>
                     </div>
 
-                    {reqSkillList.length > 0 && (
-                      <div className="pl-6 flex items-center gap-1.5 flex-wrap">
+                    {(reqSkillList.length > 0 || isAiRanked) && (
+                      <div className="pl-6 space-y-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                         {match.matched.length > 0 && (
                           <>
                             <span className="text-[10px] font-semibold text-emerald-700">
@@ -749,6 +857,12 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                               </span>
                             )}
                           </>
+                        )}
+                        </div>
+                        {isAiRanked && oneLineSummary && (
+                          <div className="text-[10.5px] text-indigo-700 font-medium">
+                            {oneLineSummary}
+                          </div>
                         )}
                       </div>
                     )}

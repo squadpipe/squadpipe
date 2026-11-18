@@ -5,6 +5,7 @@ export const AUTH_EXPIRED_EVENT = 'squadpipe:auth-expired';
 export const USER_SESSION_SYNC_EVENT = 'squadpipe:user-session-sync';
 
 const isPublicAuthUrl = (url: string) =>
+  url.includes('/public/') ||
   url.includes('/auth/login') ||
   url.includes('/auth/signup') ||
   url.includes('/auth/forgot-password') ||
@@ -21,7 +22,8 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
-  const token = getStoredAuthToken();
+  const url = String(config.url || '');
+  const token = url.includes('/public/') ? null : getStoredAuthToken();
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
   }

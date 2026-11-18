@@ -4,6 +4,13 @@ import { runSecurityHardeningTests } from './unit/securityHardening.test';
 import { runRequirementSubmissionTests } from './unit/requirementSubmission.test';
 import { runEmailTemplateTests } from './unit/emailTemplate.test';
 import { runRecruiterWorkflowTests } from './unit/recruiterWorkflows.test';
+import { runAiConfigTests } from './unit/aiConfig.test';
+import { runAiServiceTests } from './unit/ai.test';
+import { runPublicIntakeTests } from './unit/publicIntake.test';
+import { runCapabilityTests } from './unit/capability.test';
+import { runPitchDraftTests } from './unit/pitchDraft.test';
+import { runAiUsageTests } from './unit/aiUsage.test';
+import { runSlaAgentTests } from './unit/slaAgent.test';
 
 async function runAllBackendTests() {
   console.log('========================================================');
@@ -17,6 +24,13 @@ async function runAllBackendTests() {
     runRequirementSubmissionTests();
     runEmailTemplateTests();
     runRecruiterWorkflowTests();
+    runAiConfigTests();
+    await runAiServiceTests();
+    runPublicIntakeTests();
+    await runCapabilityTests();
+    await runPitchDraftTests();
+    await runAiUsageTests();
+    await runSlaAgentTests();
 
     console.log('\n========================================================');
     console.log('🎉 ALL BACKEND TESTS PASSED (100% Success)');

@@ -176,6 +176,33 @@ export const mapSubmissionFromApi = (s: any): RequirementSubmission => {
     resumeFormat: mappedCand?.resumeFormat || s.candidate?.resumeFormat || '',
     resumeFileUrl: mappedCand?.resumeFileUrl || s.candidate?.resumeFileUrl || undefined,
     stage: formatSubmissionStage(s.stage),
+    intakeSource: s.intakeSource || 'MANUAL',
+    submittedRate: s.submittedRate ? formatRateDisplay(s.submittedRate, getCurrencySymbol()) : undefined,
+    submittedVendorName: s.submittedVendorName || undefined,
+    capabilityScore:
+      typeof s.capabilityScore === 'number' ? s.capabilityScore : null,
+    capabilitySummary:
+      s.capabilitySummary && typeof s.capabilitySummary === 'object'
+        ? {
+            fitScore:
+              typeof s.capabilitySummary.fitScore === 'number'
+                ? s.capabilitySummary.fitScore
+                : typeof s.capabilityScore === 'number'
+                  ? s.capabilityScore
+                  : undefined,
+            recommendation: String(s.capabilitySummary.recommendation || 'EVALUATED'),
+            recommendationLabel: s.capabilitySummary.recommendationLabel || undefined,
+            verdict: String(s.capabilitySummary.verdict || ''),
+            strengths: Array.isArray(s.capabilitySummary.strengths)
+              ? s.capabilitySummary.strengths.map(String)
+              : [],
+            gaps: Array.isArray(s.capabilitySummary.gaps)
+              ? s.capabilitySummary.gaps.map(String)
+              : [],
+            evaluatedWithAi: Boolean(s.capabilitySummary.evaluatedWithAi),
+            evaluatedAt: s.capabilitySummary.evaluatedAt || undefined,
+          }
+        : null,
     submissionDate: safeIsoDate(s.submissionDate || s.createdAt),
     lastClientFeedbackDate: safeIsoDate(s.lastClientFeedbackDate),
     interviewDate: safeIsoDate(s.interviewDate),
@@ -231,6 +258,9 @@ export const mapRequirementFromApi = (r: any): Requirement & { createdAt?: strin
       (typeof r.assignedRecruiter === 'string' ? r.assignedRecruiter : ''),
     targetBillRate: r.targetBillRate,
     targetPayRate: r.targetPayRate,
+    publicFormEnabled: Boolean(r.publicFormEnabled),
+    publicFormToken: r.publicFormToken || null,
+    publicDescription: r.publicDescription || null,
     customFields: r.customFields,
     createdAt: r.createdAt || new Date().toISOString(),
     updatedAt: r.updatedAt || r.createdAt || new Date().toISOString(),

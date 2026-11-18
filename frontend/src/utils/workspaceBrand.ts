@@ -15,12 +15,41 @@ export interface WorkspacePolicies {
   requirePoForPlacement: boolean;
 }
 
+export interface AiFeatureFlags {
+  resumeParser: boolean;
+  emailIntake: boolean;
+  capabilityCheck: boolean;
+  pitchDraft: boolean;
+  actionCenterAgent: boolean;
+}
+
+export interface AiCapabilities {
+  enabled: boolean;
+  provider: string;
+  allowByoKey?: boolean;
+  quotaExceeded?: boolean;
+  features: AiFeatureFlags;
+}
+
 const STORAGE_KEY = 'squadpipe_workspace_brand';
 const LEGACY_STORAGE_KEY = 'talentos_workspace_brand';
 const POLICIES_STORAGE_KEY = 'squadpipe_workspace_policies';
+const AI_CAPABILITIES_STORAGE_KEY = 'squadpipe_ai_capabilities';
 
 export const DEFAULT_WORKSPACE_POLICIES: WorkspacePolicies = {
   requirePoForPlacement: false,
+};
+
+export const DEFAULT_AI_CAPABILITIES: AiCapabilities = {
+  enabled: false,
+  provider: 'none',
+  features: {
+    resumeParser: false,
+    emailIntake: false,
+    capabilityCheck: false,
+    pitchDraft: false,
+    actionCenterAgent: false,
+  },
 };
 
 export const DEFAULT_WORKSPACE_BRAND: WorkspaceBrand = {
@@ -78,6 +107,51 @@ let currentPolicies: WorkspacePolicies = (() => {
 })();
 
 const policyListeners = new Set<(policies: WorkspacePolicies) => void>();
+
+function normalizeAiCapabilities(partial?: Partial<AiCapabilities> | null): AiCapabilities {
+  const enabled = Boolean(partial?.enabled);
+  if (!enabled) {
+    return {
+      enabled: false,
+      provider: 'none',
+      features: { ...DEFAULT_AI_CAPABILITIES.features },
+    };
+  }
+  const f = partial?.features;
+  return {
+    enabled: true,
+    provider: String(partial?.provider || 'none').trim().toLowerCase() || 'none',
+    features: {
+      resumeParser: Boolean(f?.resumeParser),
+      emailIntake: Boolean(f?.emailIntake),
+      capabilityCheck: Boolean(f?.capabilityCheck),
+      pitchDraft: Boolean(f?.pitchDraft),
+      actionCenterAgent: Boolean(f?.actionCenterAgent),
+    },
+  };
+}
+
+let currentAiCapabilities: AiCapabilities = (() => {
+  try {
+    if (typeof window !== 'undefined') {
+      const raw = window.localStorage.getItem(AI_CAPABILITIES_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          return normalizeAiCapabilities(parsed);
+        }
+      }
+    }
+  } catch {
+    // Ignore storage read errors
+  }
+  return {
+    ...DEFAULT_AI_CAPABILITIES,
+    features: { ...DEFAULT_AI_CAPABILITIES.features },
+  };
+})();
+
+const aiListeners = new Set<(ai: AiCapabilities) => void>();
 
 export const DEMO_PLACEHOLDER_VALUES = new Set([
   'talentos-agency.com',
@@ -203,13 +277,50 @@ export function setWorkspacePolicies(
   return next;
 }
 
+export function getAiCapabilities(): AiCapabilities {
+  return currentAiCapabilities;
+}
+
+export function setAiCapabilities(partial?: Partial<AiCapabilities> | null): AiCapabilities {
+  const next = normalizeAiCapabilities(partial);
+  const unchanged =
+    next.enabled === currentAiCapabilities.enabled &&
+    next.provider === currentAiCapabilities.provider &&
+    next.features.resumeParser === currentAiCapabilities.features.resumeParser &&
+    next.features.emailIntake === currentAiCapabilities.features.emailIntake &&
+    next.features.capabilityCheck === currentAiCapabilities.features.capabilityCheck &&
+    next.features.pitchDraft === currentAiCapabilities.features.pitchDraft &&
+    next.features.actionCenterAgent === currentAiCapabilities.features.actionCenterAgent;
+
+  currentAiCapabilities = next;
+
+  try {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(AI_CAPABILITIES_STORAGE_KEY, JSON.stringify(next));
+    }
+  } catch {
+    // Ignore storage write errors
+  }
+
+  if (!unchanged) {
+    aiListeners.forEach((listener) => listener(next));
+  }
+  return next;
+}
+
 export async function initWorkspaceBrand(forceRefresh = false): Promise<WorkspaceBrand> {
   if (brandSyncedFromApi && !forceRefresh) {
     return currentBrand;
   }
   try {
     const res = await apiClient.get('/settings');
-    const general = res.data?.data?.general;
+    const data = res.data?.data;
+    if (data?.ai !== undefined) {
+      setAiCapabilities(data.ai);
+    } else if (data?.general) {
+      setAiCapabilities(null);
+    }
+    const general = data?.general;
     if (general) {
       setWorkspacePolicies(general);
       return setWorkspaceBrand(general);
@@ -261,5 +372,31 @@ export function useWorkspacePolicies(): WorkspacePolicies {
   }, []);
 
   return policies;
+}
+
+/**
+ * React hook subscribed to server-driven AI capability flags returned by GET /settings.
+ */
+export function useAiCapabilities(): AiCapabilities {
+  const [ai, setAiState] = useState<AiCapabilities>(currentAiCapabilities);
+
+  useEffect(() => {
+    const listener = (next: AiCapabilities) => setAiState(next);
+    aiListeners.add(listener);
+    if (
+      currentAiCapabilities.enabled !== ai.enabled ||
+      currentAiCapabilities.provider !== ai.provider
+    ) {
+      setAiState(currentAiCapabilities);
+    }
+    if (!brandSyncedFromApi) {
+      void initWorkspaceBrand();
+    }
+    return () => {
+      aiListeners.delete(listener);
+    };
+  }, []);
+
+  return ai;
 }
 

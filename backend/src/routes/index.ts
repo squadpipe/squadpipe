@@ -13,9 +13,15 @@ import {
   getTenantSettings,
   saveGeneralSettings,
 } from '../config/smtp.config';
+import { aiUsageService } from '../services/ai/aiUsage.service';
+import {
+  buildEnhancedEmailParseResponse,
+  buildEnhancedResumeParseResponse,
+  buildNodeResumeFallback,
+} from '../services/ai/parseBridge.service';
 import { DEFAULT_TAXONOMIES } from '../config/taxonomies.config';
 import { prisma } from '../config/prisma.config';
-import { authenticateJwt, requireRole, requireUnmaskedRates } from '../middlewares/auth.middleware';
+import { authenticateJwt, requirePlatformAdmin, requireRole, requireUnmaskedRates } from '../middlewares/auth.middleware';
 import { rateMaskMiddleware } from '../middlewares/rateMask.middleware';
 import {
   authRateLimiter,
@@ -24,6 +30,9 @@ import {
   uploadRateLimiter,
 } from '../middlewares/security.middleware';
 import { escapeHtml, sanitizeEmailHtml } from '../utils/cryptoSecret';
+import { capabilityService } from '../services/capability.service';
+import { pitchDraftService } from '../services/pitchDraft.service';
+import { publicIntakeService } from '../services/publicIntake.service';
 import { slaEngineService } from '../services/slaEngine.service';
 import { automationEngineService } from '../services/automationEngine.service';
 import { AutomationCategory, PlacementStatus, SlaCategory, UserRole } from '@prisma/client';
@@ -75,6 +84,100 @@ router.post('/auth/verify-reset-otp', sensitiveAuthRateLimiter, authController.v
 router.post('/auth/reset-password', sensitiveAuthRateLimiter, authController.resetPassword);
 router.get('/auth/invite/:token', authRateLimiter, authController.getInviteDetails);
 router.post('/auth/accept-invite', sensitiveAuthRateLimiter, authController.acceptInvite);
+
+// Public Requirement CV Intake Form routes (unauthenticated, token-gated)
+router.get('/public/apply/:token', authRateLimiter, async (req: Request, res: Response) => {
+  try {
+    const publicReq = await publicIntakeService.getPublicRequirementByToken(req.params.token);
+    res.json({ success: true, data: publicReq });
+  } catch (error: any) {
+    const status = error?.statusCode || 404;
+    res.status(status).json({
+      success: false,
+      message: error?.message || 'This position is no longer accepting applications.',
+    });
+  }
+});
+
+router.post(
+  '/public/apply/:token',
+  uploadRateLimiter,
+  optionalSingleCvUpload,
+  async (req: Request, res: Response) => {
+    try {
+      const result = await publicIntakeService.submitPublicApplication({
+        token: req.params.token,
+        body: req.body,
+        file: req.file,
+      });
+      res.status(201).json({ success: true, data: result });
+    } catch (error: any) {
+      const msg = String(error?.message || '');
+      const status =
+        error?.statusCode ||
+        (msg.includes('Unsupported CV') || msg.includes('CV file') ? 400 : 500);
+      res.status(status).json({
+        success: false,
+        message: msg || 'Failed to submit application.',
+      });
+    }
+  }
+);
+
+// Platform / White-Label Partner tenant AI entitlement provisioning (PLATFORM_ADMIN_SECRET gated)
+const normalizePlatformTenantId = (raw: string): string | null => {
+  const clean = String(raw || '').trim();
+  if (!clean || clean.length > 100 || !/^[a-zA-Z0-9._-]+$/.test(clean)) return null;
+  return clean;
+};
+
+router.get(
+  '/platform/tenants/:tenantId/ai-entitlement',
+  sensitiveAuthRateLimiter,
+  requirePlatformAdmin,
+  async (req: Request, res: Response) => {
+    const tenantId = normalizePlatformTenantId(req.params.tenantId);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Invalid tenantId parameter.' });
+    }
+    try {
+      const [entitlement, summary, capabilities] = await Promise.all([
+        aiUsageService.getPlatformAiEntitlement(tenantId),
+        aiUsageService.getMonthlyUsageSummary(tenantId),
+        aiUsageService.getEffectivePublicAiCapabilities(tenantId),
+      ]);
+      res.json({ success: true, data: { tenantId, entitlement, summary, ai: capabilities } });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error?.message || 'Failed to read tenant entitlement' });
+    }
+  }
+);
+
+router.put(
+  '/platform/tenants/:tenantId/ai-entitlement',
+  sensitiveAuthRateLimiter,
+  requirePlatformAdmin,
+  async (req: Request, res: Response) => {
+    const tenantId = normalizePlatformTenantId(req.params.tenantId);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Invalid tenantId parameter.' });
+    }
+    try {
+      const entitlement = await aiUsageService.savePlatformAiEntitlement(tenantId, req.body || {});
+      const [summary, capabilities] = await Promise.all([
+        aiUsageService.getMonthlyUsageSummary(tenantId),
+        aiUsageService.getEffectivePublicAiCapabilities(tenantId),
+      ]);
+      res.json({
+        success: true,
+        data: { tenantId, entitlement, summary, ai: capabilities },
+        message: 'Tenant AI entitlement updated',
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error?.message || 'Failed to update tenant entitlement' });
+    }
+  }
+);
 
 // Protected routes (JWT authentication & Rate Masking)
 router.use(authenticateJwt);
@@ -248,7 +351,7 @@ router.post('/candidates/csv-import', requireRole(LEADERSHIP_ROLES), async (req:
   }
 });
 
-// NLP & AI Endpoints (FastAPI Bridge)
+// NLP & AI Endpoints (FastAPI Bridge + Optional LLM Enhancement)
 router.post('/parse-resume', uploadRateLimiter, upload.single('file'), async (req: Request, res: Response) => {
   try {
     const file = req.file;
@@ -256,35 +359,34 @@ router.post('/parse-resume', uploadRateLimiter, upload.single('file'), async (re
       return res.status(400).json({ success: false, message: 'No resume file uploaded.' });
     }
 
+    let upstreamPayload: Record<string, any>;
     try {
       const formData = new FormData();
-      const blob = new Blob([new Uint8Array(file.buffer)], { type: file.mimetype || 'application/octet-stream' });
-      formData.append('file', blob, file.originalname);
-      const parsed = await resumeParserClientService.parseResume(formData);
-      return res.json(parsed);
-    } catch (upstreamError) {
-      // Fallback text/regex extraction when microservice is unavailable
-      const rawText = file.buffer.toString('utf8').replace(/[^\x20-\x7E\r\n]/g, ' ').replace(/\s+/g, ' ').trim();
-      const emailMatch = rawText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-      const phoneMatch = rawText.match(/(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
-      const baseName = file.originalname.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').replace(/\bresume\b/i, '').trim() || 'Uploaded Candidate';
-      const commonSkills = ['React', 'TypeScript', 'JavaScript', 'Node.js', 'Python', 'Java', 'Spring Boot', 'AWS', 'Kubernetes', 'Docker', 'Terraform', 'SQL', 'PostgreSQL', 'MongoDB', 'Go', 'C#', '.NET', 'Kafka', 'PySpark', 'Snowflake'];
-      const extractedSkills = commonSkills.filter((skill) => new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(rawText));
-
-      return res.json({
-        full_name: baseName,
-        email: emailMatch ? emailMatch[0] : `${baseName.toLowerCase().replace(/\s+/g, '.')}@candidate.io`,
-        phone: phoneMatch ? phoneMatch[0] : '+1 (555) 000-0000',
-        work_auth: /\bUS\s*Citizen\b/i.test(rawText) ? 'US Citizen' : /\bGreen\s*Card\b/i.test(rawText) ? 'Green Card' : /\bH-?1B\b/i.test(rawText) ? 'H-1B' : 'Authorized to Work',
-        current_title: 'Senior Software Consultant',
-        skills: extractedSkills.length > 0 ? extractedSkills : ['Full Stack Engineering', 'Cloud Architecture'],
-        hourly_rate: '$95/hr (C2C)',
-        relocation: /\brelocate|open\b/i.test(rawText) ? 'Open' : 'Remote / Negotiable',
-        page_count: 2,
-        confidence_score: 0.78,
-        raw_text_snippet: rawText.slice(0, 8000) || `Extracted from uploaded file: ${file.originalname}`
+      const blob = new Blob([new Uint8Array(file.buffer)], {
+        type: file.mimetype || 'application/octet-stream',
       });
+      formData.append('file', blob, file.originalname);
+      upstreamPayload = await resumeParserClientService.parseResume(formData);
+    } catch {
+      upstreamPayload = buildNodeResumeFallback(file.buffer, file.originalname);
     }
+
+    const rawTextForAi = String(
+      upstreamPayload?.data?.rawSnippet ||
+        upstreamPayload?.raw_text_snippet ||
+        upstreamPayload?.rawSnippet ||
+        ''
+    );
+
+    const responsePayload = await buildEnhancedResumeParseResponse({
+      upstreamPayload,
+      rawTextForAi,
+      tenantId: req.user?.tenantId,
+      userId: req.user?.id,
+      rateMasked: Boolean(req.user?.rateMasked),
+    });
+
+    return res.json(responsePayload);
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'Resume parsing failed' });
   }
@@ -292,125 +394,6 @@ router.post('/parse-resume', uploadRateLimiter, upload.single('file'), async (re
 
 router.post('/parse-email', async (req: Request, res: Response) => {
   const rawEmailText = String(req.body.rawEmailText || req.body.text || '');
-
-  const cleanField = (val?: any) =>
-    String(val || '')
-      .replace(/\*+/g, '')
-      .replace(/[_`~]+/g, '')
-      .replace(/^[\s:•\-–—]+|[\s*]+$/g, '')
-      .trim();
-
-  const extractEmailHeuristics = (rawText: string) => {
-    const text = rawText.replace(/\*\*/g, '').replace(/__/g, '');
-    const lines = text.split(/\r?\n/).map((l) => cleanField(l));
-    const cleanCompany = (val?: string) =>
-      cleanField(val)
-        .replace(/\s+(?:Location|Position|Job\s*Title|Role|Work\s*Model)\s*:[\s\S]*$/i, '')
-        .replace(/[.,;]+$/, '')
-        .trim();
-
-    const companyLine = text.match(/(?:Target\s*Company|Company(?:\s*Name)?|Client(?:\s*Company)?|Organization)\s*:\s*([^\n\r]+)/i);
-    const managerFromCompany = text.match(/(?:hiring\s*manager|contact|coming\s+from|from)\s+(?:is\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s*,\s*([A-Za-z][A-Za-z\s/&,-]{2,45}?)\s+(?:from|at|with)\s+([A-Z][A-Za-z0-9& .-]{1,50}?)(?:\.|,|\n|$)/i)
-      || text.match(/(?:hiring\s*manager|contact)\s+is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+(?:from|at|with)\s+([A-Z][A-Za-z0-9& .-]{1,50}?)(?:\.|,|\n|$)/i);
-    const atCompany = text.match(/\bat\s+([A-Z][A-Za-z0-9& .-]{1,40}?)(?:\s*\(|,|\s+for\b|\s+in\b|\s+is\b|\s+He\b|\s+She\b|\.|\n|$)/);
-    const contactLine = text.match(/(?:From|Hiring\s*Manager|Contact(?:\s*Name)?)\s*:\s*([^<\n\r]+?)(?:<|$)/i);
-    const emailMatch = text.match(/<([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})>/) || text.match(/\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/);
-    const subjectLine = text.match(/Subject:\s*(?:Urgent:|Contract:|Open Req:|Requisition:)?\s*([^\n\r]+)/i);
-    const jobTitleLine = text.match(/(?:Job\s*Title|Position(?:\s*Title)?|Opportunity(?:\s*Title)?|Role(?:\s*Title)?|Opening)\s*:\s*([^\n\r]+)/i);
-    const conversationalRole = text.match(/(?:join\s+(?:their|our|the)\s+team\s+as\s+(?:a|an)\s+|looking\s+for\s+(?:a|an)\s+|seeking\s+(?:a|an)\s+|hiring\s+(?:a|an)\s+)([A-Za-z][A-Za-z0-9\s/&+-]{2,50}?)(?:\.|,|\n|\s+(?:in|at|with|who)\b|$)/i);
-    const forRole = text.match(/(?:for|seeking|hiring)\s+(?:a|an)\s+([A-Z][A-Za-z0-9\s/&+-]{3,60}?)(?:\s+at\b|\s+for\b|\s+in\b|\.|\n|$)/i);
-    const locationLine = text.match(/(?:Work\s*Location|Location)\s*:\s*([^\n\r]+)/i);
-    const basedInLocation = text.match(/(?:based\s+in|located\s+in)\s+([A-Z][A-Za-z. ,]{2,40}?)(?:\s+but\b|\s+and\b|\.|,|\n|$)/i);
-    const cityState = text.match(/\b([A-Z][a-zA-Z ]{2,25},\s*[A-Z]{2}(?:\s*\([^)\n]+\))?)/);
-    const contactTitleLine = text.match(/(?:Contact\s*Title|Designation|Hiring\s*Manager\s*Title|(?:^|\n)\s*Title)\s*:\s*([^\n\r]+)/i);
-    const sentenceContactTitle = text.match(/(?:He|She|They)\s+(?:is|are)\s+(?:the|a|an)\s+([A-Za-z][A-Za-z\s/&,-]{2,50}?)(?:\.|,|\n|$)/i);
-
-    const toTitleCase = (s: string) =>
-      s.replace(/\b([a-z])([a-z]*)/g, (_, a, b) => a.toUpperCase() + b);
-
-    // Signature extraction (Best regards / Thanks / Sincerely)
-    let sigName = '';
-    let sigTitle = '';
-    let sigCompany = '';
-    const sigIdx = lines.findIndex((l) => /^(?:best\s+regards|regards|warm\s+regards|thanks|thank\s+you|sincerely)[,!]?$/i.test(l));
-    if (sigIdx !== -1) {
-      const afterSig = lines.slice(sigIdx + 1).filter(Boolean);
-      if (afterSig[0] && !/@/.test(afterSig[0])) sigName = afterSig[0];
-      if (afterSig[1] && !/@|\d{3}[-.\s]\d{3}/.test(afterSig[1])) sigTitle = afterSig[1];
-      if (afterSig[2] && !/@|\d{3}[-.\s]\d{3}/.test(afterSig[2])) sigCompany = afterSig[2];
-    }
-
-    const billRangeMatch = text.match(/(?:budget|bill(?:ing)?(?:\s*rate)?)[^.\n\r]{0,35}\$\d{2,3}\s*(?:to|-|–)\s*\$?(\d{2,3})/i);
-    const billRateMatch = billRangeMatch
-      || text.match(/(?:max(?:imum)?\s*bill\s*rate|bill\s*rate|target\s*rate|budget)[^$\d\n\r]{0,30}\$?(\d{2,3})\s*(?:\/hr|per\s*hour|hr\b|hourly)?/i)
-      || text.match(/\$(\d{2,3})\s*(?:\/hr|per\s*hour|hr\b|hourly)/i);
-    const payRangeMatch = text.match(/(?:pay(?:\s+(?:the\s+\w+\s+)*candidate)?|pay\s*rate|w2\s*rate|c2c\s*rate)[^.\n\r]{0,40}\$\d{2,3}\s*(?:to|-|–)\s*\$?(\d{2,3})/i);
-    const payRateMatch = payRangeMatch
-      || text.match(/(?:candidate\s*pay\s*rate|pay\s*rate|w2\s*rate|c2c\s*rate|pay[^.\n\r]{0,20})[^$\d\n\r]{0,20}\$(\d{2,3})/i);
-
-    const parsedBillRate = billRateMatch ? parseInt(billRateMatch[1], 10) : 0;
-    const parsedPayRate = payRateMatch
-      ? parseInt(payRateMatch[1], 10)
-      : parsedBillRate > 0
-        ? Math.round(parsedBillRate * 0.75)
-        : 0;
-
-    let workModel: 'Remote' | 'Hybrid' | 'Onsite' = 'Remote';
-    if (/\bhybrid\b/i.test(text)) workModel = 'Hybrid';
-    else if (/\bonsite\b|\bon-site\b|\bin[- ]office\b/i.test(text)) workModel = 'Onsite';
-    else if (/\bbased in\b/i.test(text) && !/\bremote\b/i.test(text)) workModel = 'Onsite';
-
-    const commonSkills = [
-      'Java', 'Spring Boot', 'Kafka', 'AWS', 'Kubernetes', 'Docker', 'Python', 'React', 'TypeScript',
-      'Node.js', 'Express', 'MongoDB', 'Snowflake', 'PySpark', 'Databricks', 'Terraform', 'Splunk', 'EDR', 'SIEM', 'SQL', 'Angular',
-      'Go', 'Azure', 'GCP', 'dbt', 'Airflow', 'Microservices', 'PostgreSQL', 'GraphQL', 'REST API'
-    ];
-    const matchedSkills = commonSkills.filter((skill) =>
-      new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(text)
-    );
-
-    const missingParts: string[] = [];
-    if (!/\+?\d[\d\s().-]{7,}\d/.test(text)) missingParts.push('direct telephone');
-    if (!parsedBillRate) missingParts.push('target bill rate');
-    if (!payRateMatch) missingParts.push('explicit pay rate');
-
-    const rawOppTitle = cleanField(
-      jobTitleLine?.[1]
-      || subjectLine?.[1]
-      || (conversationalRole?.[1] ? toTitleCase(conversationalRole[1].trim()) : '')
-      || forRole?.[1]
-    );
-
-    const rawLocation = cleanField(
-      locationLine?.[1]
-      || (basedInLocation?.[1] ? (/\bremote\b/i.test(text) ? `${basedInLocation[1].trim()} / Remote` : basedInLocation[1].trim()) : '')
-      || cityState?.[1]
-      || (workModel === 'Remote' ? 'Remote' : workModel)
-    );
-
-    const positionsMatch = text.match(/(?:open\s*positions?|openings?|headcount|positions?\s*open|roles?\s*open|no\.?\s*of\s*positions?)\s*[:\-]?\s*(\d{1,3})\b/i)
-      || text.match(/\b(\d{1,3})\s*(?:open\s*positions?|openings?|headcount)\b/i);
-    const parsedOpenPositions = positionsMatch
-      ? Math.max(1, Math.min(1000, parseInt(positionsMatch[1], 10)))
-      : undefined;
-
-    return {
-      companyName: cleanCompany(companyLine?.[1] || managerFromCompany?.[3] || managerFromCompany?.[2] || sigCompany || atCompany?.[1]),
-      opportunityTitle: rawOppTitle,
-      openPositions: parsedOpenPositions,
-      clientContact: cleanField(contactLine?.[1] || managerFromCompany?.[1] || sigName),
-      clientContactEmail: cleanField(emailMatch?.[1]),
-      clientContactTitle: cleanField(contactTitleLine?.[1] || (managerFromCompany?.[3] ? managerFromCompany[2] : '') || sentenceContactTitle?.[1] || sigTitle),
-      location: rawLocation,
-      workModel,
-      targetBillRate: parsedBillRate,
-      targetPayRate: parsedPayRate,
-      skillsRequired: matchedSkills.join(', '),
-      missingNotes: missingParts.length > 0
-        ? `Not specified in email: ${missingParts.join(', ')}.`
-        : 'All primary intake fields detected from email body.',
-    };
-  };
 
   try {
     let parsed: Record<string, any> = {};
@@ -421,35 +404,15 @@ router.post('/parse-email', async (req: Request, res: Response) => {
       parsed = {};
     }
 
-    const fallback = extractEmailHeuristics(rawEmailText);
-    const billRate = Number(parsed.billRate || parsed.targetBillRate || fallback.targetBillRate || 0);
-    const payRate = Number(
-      parsed.payRate || parsed.targetPayRate || fallback.targetPayRate || (billRate > 0 ? Math.round(billRate * 0.75) : 0)
-    );
+    const enhanced = await buildEnhancedEmailParseResponse({
+      rawEmailText,
+      upstreamParsed: parsed,
+      tenantId: req.user?.tenantId,
+      userId: req.user?.id,
+      rateMasked: Boolean(req.user?.rateMasked),
+    });
 
-    const parsedCompany = cleanField(parsed.companyName || parsed.clientName)
-      .replace(/\s+(?:Location|Position|Job\s*Title|Role|Work\s*Model)\s*:[\s\S]*$/i, '')
-      .trim();
-    const parsedLocation = cleanField(parsed.location);
-    const enriched = {
-      ...parsed,
-      companyName: (parsedCompany && parsedCompany !== 'Not Specified' ? parsedCompany : '') || fallback.companyName,
-      opportunityTitle: (cleanField(parsed.opportunityTitle || parsed.jobTitle) || fallback.opportunityTitle),
-      openPositions: parsed.openPositions || fallback.openPositions,
-      clientContact: cleanField(parsed.clientContact || parsed.contactName) || fallback.clientContact,
-      clientContactEmail: cleanField(parsed.clientContactEmail) || fallback.clientContactEmail,
-      clientContactTitle: cleanField(parsed.clientContactTitle || parsed.contactTitle) || fallback.clientContactTitle,
-      location: parsedLocation && parsedLocation !== 'Remote / Hybrid'
-        ? parsedLocation
-        : fallback.location || parsedLocation || 'Remote',
-      workModel: parsed.workModel || fallback.workModel,
-      targetBillRate: billRate,
-      targetPayRate: payRate,
-      skillsRequired: cleanField(parsed.skillsRequired || (Array.isArray(parsed.skills) ? parsed.skills.join(', ') : '')) || fallback.skillsRequired,
-      missingNotes: fallback.missingNotes || cleanField(parsed.missingNotes) || '',
-    };
-
-    res.json({ success: true, data: enriched });
+    res.json({ success: true, aiUsed: enhanced.aiUsed, data: enhanced });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'Email parse failed' });
   }
@@ -457,11 +420,26 @@ router.post('/parse-email', async (req: Request, res: Response) => {
 
 router.post('/match-skills', async (req: Request, res: Response) => {
   try {
-    const { requirementId, skillsRequired, candidates } = req.body;
-    const result = await resumeParserClientService.matchSkills(requirementId, skillsRequired, candidates || []);
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const { requirementId, skillsRequired, candidateIds, candidates } = req.body || {};
+
+    if (!requirementId) {
+      return res.status(400).json({ success: false, message: 'requirementId is required' });
+    }
+
+    const result = await capabilityService.rankMatchingCandidates({
+      tenantId,
+      userId: req.user?.id,
+      requirementId: String(requirementId).trim(),
+      skillsRequiredOverride: skillsRequired ? String(skillsRequired) : undefined,
+      candidateIds: Array.isArray(candidateIds) ? candidateIds : undefined,
+      candidates: Array.isArray(candidates) ? candidates : undefined,
+      rateMasked: Boolean(req.user?.rateMasked),
+    });
     res.json({ success: true, data: result });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Skill match failed' });
+    const status = error?.statusCode || 500;
+    res.status(status).json({ success: false, message: error.message || 'Skill match failed' });
   }
 });
 
@@ -472,6 +450,26 @@ router.get('/requirements/:id', requirementController.getRequirementById);
 router.post('/requirements', requirementController.createRequirement);
 router.put('/requirements/:id', requirementController.updateRequirement);
 router.patch('/requirements/:id/stage', requirementController.updateRequirementStage);
+router.post('/requirements/:id/public-form', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const { enabled, regenerateToken, publicDescription } = req.body || {};
+    const updated = await publicIntakeService.toggleRequirementPublicForm({
+      requirementId: req.params.id,
+      tenantId,
+      ...(enabled !== undefined ? { enabled: Boolean(enabled) } : {}),
+      ...(regenerateToken !== undefined ? { regenerateToken: Boolean(regenerateToken) } : {}),
+      ...(publicDescription !== undefined ? { publicDescription } : {}),
+    });
+    res.json({ success: true, data: updated });
+  } catch (error: any) {
+    const status = error?.statusCode || 500;
+    res.status(status).json({
+      success: false,
+      message: error?.message || 'Failed to update public form settings',
+    });
+  }
+});
 router.delete('/requirements/:id', requireRole(LEADERSHIP_ROLES), requirementController.deleteRequirement);
 
 // Submissions (Candidates / Applicants to Requirement — One-to-Many)
@@ -596,6 +594,49 @@ router.patch('/submissions/:id/notes', async (req: Request, res: Response) => {
   } catch (error: any) {
     const status = error?.statusCode || 500;
     res.status(status).json({ success: false, message: error.message || 'Failed to save applicant notes' });
+  }
+});
+
+router.post('/submissions/:id/evaluate', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const updatedSubmission = await capabilityService.evaluateSubmission(
+      req.params.id,
+      tenantId,
+      {
+        rateMasked: Boolean(req.user?.rateMasked),
+        userId: req.user?.id,
+      }
+    );
+    res.json({ success: true, data: updatedSubmission });
+  } catch (error: any) {
+    const status = error?.statusCode || 500;
+    res.status(status).json({
+      success: false,
+      message: error?.message || 'Failed to evaluate submission capability',
+    });
+  }
+});
+
+router.post('/submissions/:id/pitch-draft', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const { pitchTone, tone, purpose } = req.body || {};
+    const draft = await pitchDraftService.draftForSubmission({
+      submissionId: req.params.id,
+      tenantId,
+      userId: req.user?.id,
+      pitchTone: pitchTone || tone,
+      purpose,
+      rateMasked: Boolean(req.user?.rateMasked),
+    });
+    res.json({ success: true, data: draft });
+  } catch (error: any) {
+    const status = error?.statusCode || 500;
+    res.status(status).json({
+      success: false,
+      message: error?.message || 'Failed to generate client pitch draft',
+    });
   }
 });
 
@@ -1212,20 +1253,60 @@ router.get('/sla-tasks', slaController.getSlaTasks);
 router.post('/sla-tasks/evaluate', slaController.evaluateSlaRadar);
 router.patch('/sla-tasks/:id/complete', slaController.completeSlaTask);
 
-// Workspace General & User-Configured SMTP Settings (zero .env dependency)
+// Workspace General & AI Usage Settings
 router.get('/settings', async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
-    const settings = await getTenantSettings(tenantId);
+    const [settings, aiCapabilities] = await Promise.all([
+      getTenantSettings(tenantId),
+      aiUsageService.getEffectivePublicAiCapabilities(tenantId),
+    ]);
 
     res.json({
       success: true,
       data: {
         general: settings.general,
+        ai: aiCapabilities,
       },
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'Failed to load settings' });
+  }
+});
+
+router.get('/settings/ai-usage', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const summary = await aiUsageService.getMonthlyUsageSummary(tenantId);
+    res.json({ success: true, data: summary });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'Failed to load AI usage metrics' });
+  }
+});
+
+router.put('/settings/ai-config', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const byo = await aiUsageService.saveTenantAiConfig(tenantId, req.body || {});
+    const [summary, aiCapabilities] = await Promise.all([
+      aiUsageService.getMonthlyUsageSummary(tenantId),
+      aiUsageService.getEffectivePublicAiCapabilities(tenantId),
+    ]);
+    res.json({
+      success: true,
+      data: {
+        byo,
+        summary,
+        ai: aiCapabilities,
+      },
+      message: 'AI usage & provider settings updated',
+    });
+  } catch (error: any) {
+    const status = error?.statusCode || 500;
+    res.status(status).json({
+      success: false,
+      message: error?.message || 'Failed to save AI configuration',
+    });
   }
 });
 

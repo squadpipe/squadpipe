@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { UserRole } from '@prisma/client';
@@ -111,6 +112,60 @@ export const requireUnmaskedRates = (req: Request, res: Response, next: NextFunc
       success: false,
       message: 'Commercial rate clearance is required to create, modify, or remove billable placements.',
     });
+  }
+  next();
+};
+
+/**
+ * Pure constant-time check for server/partner platform provisioning calls.
+ * Fails closed unless a secret of at least 24 characters is configured.
+ */
+export function verifyPlatformAdminSecretPure(
+  configuredSecret: string | undefined,
+  providedSecret: string | undefined
+): { authorized: boolean; statusCode: number; message?: string } {
+  const expected = String(configuredSecret || '').trim();
+  if (!expected || expected.length < 24) {
+    return {
+      authorized: false,
+      statusCode: 503,
+      message: 'Platform admin provisioning API is disabled (PLATFORM_ADMIN_SECRET not configured).',
+    };
+  }
+  const provided = String(providedSecret || '').trim();
+  if (!provided) {
+    return {
+      authorized: false,
+      statusCode: 401,
+      message: 'Missing platform admin key.',
+    };
+  }
+
+  const expectedDigest = crypto.createHash('sha256').update(expected, 'utf8').digest();
+  const providedDigest = crypto.createHash('sha256').update(provided, 'utf8').digest();
+  if (!crypto.timingSafeEqual(expectedDigest, providedDigest)) {
+    return {
+      authorized: false,
+      statusCode: 403,
+      message: 'Invalid platform admin key.',
+    };
+  }
+
+  return { authorized: true, statusCode: 200 };
+}
+
+export const requirePlatformAdmin = (req: Request, res: Response, next: NextFunction) => {
+  const headerKey = req.header('X-Platform-Admin-Key');
+  const authHeader = req.header('Authorization');
+  const bearerKey =
+    authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+
+  const check = verifyPlatformAdminSecretPure(
+    process.env.PLATFORM_ADMIN_SECRET,
+    headerKey || bearerKey
+  );
+  if (!check.authorized) {
+    return res.status(check.statusCode).json({ success: false, message: check.message });
   }
   next();
 };

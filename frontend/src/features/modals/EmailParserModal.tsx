@@ -7,11 +7,13 @@ import {
   Loader2,
   MailOpen,
   Plus,
+  Sparkles,
   X,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Requirement, Client, User } from '../../types';
 import { useCurrency } from '../../utils/currency';
+import { useAiCapabilities } from '../../utils/workspaceBrand';
 import { mapRequirementFromApi } from '../../utils/entityMappers';
 import { SearchableSelectInput } from '../../components/shared/SearchableSelectInput';
 import { CustomSelect } from '../../components/shared/CustomSelect';
@@ -116,8 +118,10 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
   showToast,
 }) => {
   const { symbol: currencySymbol } = useCurrency();
+  const aiCapabilities = useAiCapabilities();
   const [isParsing, setIsParsing] = useState(false);
   const [hasParsed, setHasParsed] = useState(false);
+  const [aiUsed, setAiUsed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [rawEmailText, setRawEmailText] = useState<string>('');
   const [skillInput, setSkillInput] = useState<string>('');
@@ -136,10 +140,12 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
     if (cleanInput === lastParsedTextRef.current) return;
     lastParsedTextRef.current = cleanInput;
     setIsParsing(true);
+    setAiUsed(false);
     try {
       const res = await apiClient.post('/parse-email', { rawEmailText: cleanInput });
       const d = res.data?.data?.data || res.data?.data;
       if (d) {
+        const usedAi = Boolean(res.data?.aiUsed ?? d?.aiUsed);
         const parsedSkills = cleanField(d.skillsRequired || (Array.isArray(d.skills) ? d.skills.join(', ') : d.skills));
         const parsedBillRate = Number(d.billRate || d.targetBillRate || 0);
         const parsedPayRate = Number(
@@ -193,9 +199,11 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
               : cleanField(d.missingNotes) || 'Extraction complete.',
           };
         });
+        setAiUsed(usedAi);
         setHasParsed(true);
       }
     } catch (err: any) {
+      setAiUsed(false);
       showToast('Parse Failed', err.response?.data?.message || err.message || 'Could not parse email right now.', 'fa-solid fa-triangle-exclamation text-rose-500');
     } finally {
       setIsParsing(false);
@@ -206,6 +214,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
     setRawEmailText('');
     setSkillInput('');
     setHasParsed(false);
+    setAiUsed(false);
     setIsParsing(false);
     lastParsedTextRef.current = '';
     setExtractedReq(EMPTY_FORM);
@@ -247,6 +256,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
     const trimmed = rawEmailText.trim();
     if (trimmed.length <= 20) {
       setHasParsed(false);
+      setAiUsed(false);
       return;
     }
     const timer = setTimeout(() => {
@@ -259,6 +269,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
     setRawEmailText('');
     setSkillInput('');
     setHasParsed(false);
+    setAiUsed(false);
     setIsParsing(false);
     lastParsedTextRef.current = '';
     setExtractedReq(EMPTY_FORM);
@@ -508,10 +519,16 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
 
             {/* Right: Complete Extracted Requirement Form */}
             <div className="lg:col-span-7 bg-slate-50/70 p-4 rounded-xl border border-slate-200 space-y-3 text-xs">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                   <span>2. Review &amp; Complete Extracted Fields</span>
+                  {hasParsed && aiUsed && aiCapabilities.enabled && (
+                    <span className="inline-flex items-center gap-1 bg-indigo-50 border border-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full text-[10px] font-semibold">
+                      <Sparkles className="w-3 h-3" />
+                      <span>AI Enhanced</span>
+                    </span>
+                  )}
                 </div>
                 {marginSpread > 0 && (
                   <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold">

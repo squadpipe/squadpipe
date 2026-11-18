@@ -21,6 +21,7 @@ import {
   Phone,
   Search,
   Send,
+  Shield,
   ShieldAlert,
   ShieldCheck,
   Trash2,
@@ -29,7 +30,7 @@ import {
 import { BillablePlacement, Candidate, Requirement, RequirementSubmission, Vendor } from '../../types';
 import { useCurrency } from '../../utils/currency';
 import { getStageDotClass } from '../../utils/stageStyles';
-import { generateCandidateResumePdf } from '../../utils/pdfGenerator';
+import { downloadCandidateResumePdf } from '../../utils/pdfGenerator';
 import { initWorkspaceBrand, useWorkspaceBrand } from '../../utils/workspaceBrand';
 import { downloadOriginalCandidateCv } from '../../utils/cvFiles';
 import {
@@ -43,6 +44,7 @@ import { useClientPagination } from '../../utils/usePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { TablePagination } from '../../components/shared/TablePagination';
+import { PreparePitchModal } from '../../components/modals/PreparePitchModal';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { EditConsultantModal } from '../../components/modals/edit/EditConsultantModal';
 
@@ -112,6 +114,11 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isBlindPdf, setIsBlindPdf] = useState(false);
+  const [pitchTarget, setPitchTarget] = useState<{
+    requirement: Requirement;
+    submission: RequirementSubmission;
+  } | null>(null);
 
   useEffect(() => {
     setIsDownloadingCv(false);
@@ -120,6 +127,8 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
     setSubmittingReqId(null);
     setShowDeleteConfirm(false);
     setIsDeleting(false);
+    setIsBlindPdf(false);
+    setPitchTarget(null);
     setIsEditing(Boolean(initialEditing));
   }, [candidate?.id, initialEditing]);
 
@@ -276,20 +285,13 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
   };
 
   const downloadProfileBriefPdf = () => {
-    const blob = generateCandidateResumePdf(candidate, formattedRate, brand);
-    const url = URL.createObjectURL(blob);
-    const safeName = (candidate.fullName || 'Consultant').replace(/\s+/g, '_');
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${safeName}_Profile_Brief.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    const fileName = downloadCandidateResumePdf(candidate, formattedRate, brand, {
+      blind: isBlindPdf,
+    });
 
     showToast(
-      'Profile Brief Downloaded',
-      `Exported ${brandName} consultant brief for ${candidate.fullName} (CRM summary — not original CV).`,
+      isBlindPdf ? 'Blind Profile PDF Downloaded' : 'Profile Brief Downloaded',
+      `Exported ${brandName} ${isBlindPdf ? 'blind (contact-redacted) brief' : 'consultant brief'} (${fileName}) for ${candidate.fullName}.`,
       'fa-solid fa-file-arrow-down text-emerald-500'
     );
   };
@@ -402,15 +404,30 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={downloadProfileBriefPdf}
-            title={`Export branded ${brandName} consultant brief PDF (summary only — not the original CV)`}
-            className="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5 text-slate-300" />
-            <span>Profile PDF</span>
-          </button>
+          <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white overflow-hidden">
+            <label
+              title="Hide candidate email & phone on exported Profile PDF"
+              className="px-2.5 py-2 text-[11px] font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer select-none hover:bg-slate-50 border-r border-slate-200"
+            >
+              <input
+                type="checkbox"
+                checked={isBlindPdf}
+                onChange={(e) => setIsBlindPdf(e.target.checked)}
+                className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+              />
+              <Shield className="w-3 h-3 text-slate-500" />
+              <span>Blind PDF</span>
+            </label>
+            <button
+              type="button"
+              onClick={downloadProfileBriefPdf}
+              title={`Export branded ${brandName} consultant brief PDF (summary only — not the original CV)`}
+              className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5 text-slate-300" />
+              <span>{isBlindPdf ? 'Blind Profile PDF' : 'Profile PDF'}</span>
+            </button>
+          </div>
 
           {/* 1-Click Submit to Open Requisition */}
           <div className="relative">
@@ -646,7 +663,8 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                         <th className="px-4 py-2.5">Opportunity</th>
                         <th className="px-4 py-2.5">Client</th>
                         <th className="px-4 py-2.5">Interview</th>
-                        <th className="px-4 py-2.5 text-right">Stage</th>
+                        <th className="px-4 py-2.5">Stage</th>
+                        <th className="px-4 py-2.5 text-right">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -677,12 +695,29 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                                 sub.interviewDate
                               : '—'}
                           </td>
-                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                          <td className="px-4 py-3 whitespace-nowrap">
                             <StatusBadge
                               stage={sub.stage}
                               dotClass={getStageDotClass(sub.stage)}
                               size="xs"
                             />
+                          </td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            {!sub.id.startsWith('legacy_') ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPitchTarget({ requirement: req, submission: sub });
+                                }}
+                                className="px-2.5 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                              >
+                                <Mail className="w-3 h-3 text-brand-600" />
+                                <span>Prepare Pitch</span>
+                              </button>
+                            ) : (
+                              <span className="text-slate-300">—</span>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -1035,6 +1070,22 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
           rateMasked={rateMasked}
           onClose={() => setIsEditing(false)}
           onUpdateCandidate={onUpdateCandidate}
+        />
+      )}
+
+      {pitchTarget && (
+        <PreparePitchModal
+          isOpen={Boolean(pitchTarget)}
+          onClose={() => setPitchTarget(null)}
+          submissionId={pitchTarget.submission.id}
+          requirementCode={pitchTarget.requirement.code}
+          requirementTitle={pitchTarget.requirement.opportunityTitle}
+          companyName={pitchTarget.requirement.companyName}
+          candidate={candidate}
+          fallbackCandidateName={candidate.fullName}
+          rateMasked={rateMasked}
+          initialStage={pitchTarget.submission.stage}
+          showToast={showToast}
         />
       )}
     </section>

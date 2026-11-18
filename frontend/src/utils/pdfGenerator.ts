@@ -308,6 +308,39 @@ function getStageColors(stage?: string): { bg: RgbColor; border: RgbColor; text:
   return { bg: PALETTE.pillBg, border: PALETTE.borderMedium, text: PALETTE.slateText };
 }
 
+function redactCandidateContacts(text: string): string {
+  return String(text || '')
+    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[Email Redacted]')
+    .replace(/(?:\+?\d{1,3}[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}/g, '[Phone Redacted]');
+}
+
+export interface ResumePdfOptions {
+  blind?: boolean;
+}
+
+/**
+ * Downloads the generated Consultant Profile Brief PDF cleanly in the browser.
+ */
+export function downloadCandidateResumePdf(
+  candidate: Candidate,
+  formattedRate: string,
+  brandOverride?: Partial<WorkspaceBrand>,
+  options?: ResumePdfOptions
+): string {
+  const blob = generateCandidateResumePdf(candidate, formattedRate, brandOverride, options);
+  const url = URL.createObjectURL(blob);
+  const safeName = (candidate.fullName || 'Consultant').replace(/\s+/g, '_');
+  const fileName = `${safeName}${options?.blind ? '_Blind_Brief' : '_Profile_Brief'}.pdf`;
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  return fileName;
+}
+
 /**
  * Generates an executive, clean, non-CV Consultant Profile Brief PDF using the active
  * organization brand configured in General Settings.
@@ -315,8 +348,10 @@ function getStageColors(stage?: string): { bg: RgbColor; border: RgbColor; text:
 export function generateCandidateResumePdf(
   candidate: Candidate,
   formattedRate: string,
-  brandOverride?: Partial<WorkspaceBrand>
+  brandOverride?: Partial<WorkspaceBrand>,
+  options?: ResumePdfOptions
 ): Blob {
+  const isBlind = Boolean(options?.blind);
   const brand: WorkspaceBrand = {
     ...getWorkspaceBrand(),
     ...(brandOverride || {}),
@@ -418,7 +453,16 @@ export function generateCandidateResumePdf(
     PALETTE.navy
   );
 
-  drawText(cmds, 'CONSULTANT BRIEF', RIGHT_X, 761, 7.6, true, PALETTE.brandIndigo, 'right');
+  drawText(
+    cmds,
+    isBlind ? 'BLIND CONSULTANT BRIEF' : 'CONSULTANT BRIEF',
+    RIGHT_X,
+    761,
+    7.6,
+    true,
+    PALETTE.brandIndigo,
+    'right'
+  );
   drawText(cmds, `Prepared ${preparedDate}`, RIGHT_X, 748, 8.0, false, PALETTE.mutedText, 'right');
 
   // =========================================================================
@@ -505,13 +549,15 @@ export function generateCandidateResumePdf(
       x: MARGIN_X + c1W + contactGap,
       w: c2W,
       label: 'EMAIL ADDRESS',
-      value: candidate.email || 'Available upon request',
+      value: isBlind
+        ? 'Redacted (Represented by Agency)'
+        : candidate.email || 'Available upon request',
     },
     {
       x: MARGIN_X + c1W + contactGap + c2W + contactGap,
       w: c3W,
       label: 'DIRECT PHONE',
-      value: candidate.phone || 'Available upon request',
+      value: isBlind ? 'Redacted' : candidate.phone || 'Available upon request',
     },
   ];
 
@@ -551,7 +597,10 @@ export function generateCandidateResumePdf(
   drawSectionHeader('Profile Summary');
   const overviewLines =
     summarySection && summarySection.items.length > 0
-      ? summarySection.items.map((l) => cleanExtractedResumeText(l.replace(/^[•\-\s]+/, '')))
+      ? summarySection.items.map((l) => {
+          const cleaned = cleanExtractedResumeText(l.replace(/^[•\-\s]+/, ''));
+          return isBlind ? redactCandidateContacts(cleaned) : cleaned;
+        })
       : [
           `${candidate.currentTitle || 'Technology Consultant'}${
             skills.length > 0 ? ` specializing in ${skills.slice(0, 6).join(', ')}` : ''
@@ -682,9 +731,10 @@ export function generateCandidateResumePdf(
 
       for (const rawLine of section.items) {
         const isBullet = rawLine.startsWith('•');
-        const cleanedLine = cleanExtractedResumeText(
+        const extractedLine = cleanExtractedResumeText(
           isBullet ? rawLine.slice(1).trim() : rawLine
         );
+        const cleanedLine = isBlind ? redactCandidateContacts(extractedLine) : extractedLine;
         const textMaxW = isBullet ? CONTENT_WIDTH - 16 : CONTENT_WIDTH - 4;
         const wrapped = wrapText(cleanedLine, textMaxW, 9.0, false);
 

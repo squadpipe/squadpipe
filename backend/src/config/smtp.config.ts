@@ -69,8 +69,12 @@ async function ensureTenantSettingsTable() {
     CREATE TABLE IF NOT EXISTS tenant_settings (
       tenant_id TEXT PRIMARY KEY,
       general_config JSONB NOT NULL DEFAULT '{}'::jsonb,
+      ai_config JSONB NOT NULL DEFAULT '{}'::jsonb,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE tenant_settings ADD COLUMN IF NOT EXISTS ai_config JSONB NOT NULL DEFAULT '{}'::jsonb
   `);
   await prisma.$executeRawUnsafe(`
     ALTER TABLE tenant_settings DROP COLUMN IF EXISTS smtp_config

@@ -10,9 +10,11 @@ import {
 } from './utils/authStorage';
 import { formatRateDisplay, getCurrencySymbol, initWorkspaceCurrency, parseRateNumber } from './utils/currency';
 import {
+  DEFAULT_AI_CAPABILITIES,
   DEFAULT_WORKSPACE_BRAND,
   getWorkspaceBrand,
   initWorkspaceBrand,
+  setAiCapabilities,
   setWorkspaceBrand,
 } from './utils/workspaceBrand';
 import { mapCandidateFromApi, mapClientFromApi, mapRequirementFromApi, mapVendorFromApi } from './utils/entityMappers';
@@ -88,6 +90,11 @@ const PlacementDetailPage = React.lazy(() =>
 const SettingsView = React.lazy(() =>
   import('./features/settings/SettingsView').then((m) => ({
     default: m.SettingsView,
+  }))
+);
+const PublicRequirementApplyView = React.lazy(() =>
+  import('./features/public/PublicRequirementApplyView').then((m) => ({
+    default: m.PublicRequirementApplyView,
   }))
 );
 
@@ -292,6 +299,10 @@ export const App: React.FC = () => {
   });
 
   const [authToken, setAuthToken] = useState<string | null>(() => getStoredAuthToken());
+  const publicApplyToken = React.useMemo(() => {
+    const match = window.location.pathname.match(/^\/apply\/([a-zA-Z0-9_-]+)/);
+    return match ? match[1] : null;
+  }, []);
 
   const [currentView, setCurrentView] = useState<string>('dashboard');
   const [globalSearch, setGlobalSearch] = useState<string>('');
@@ -488,6 +499,7 @@ export const App: React.FC = () => {
 
   const resetWorkspaceState = () => {
     loadedEntities.current.clear();
+    setAiCapabilities(DEFAULT_AI_CAPABILITIES);
     setCandidates([]);
     setRequirements([]);
     setClients([]);
@@ -676,6 +688,7 @@ export const App: React.FC = () => {
             actionLabel: s.actionLabel || 'Review',
             relatedEntityType: s.relatedEntityType || undefined,
             relatedEntityId: s.relatedEntityId || undefined,
+            agentPayload: s.agentPayload || null,
             done: s.isDone ?? s.done ?? false,
           };
         });
@@ -1817,6 +1830,21 @@ export const App: React.FC = () => {
     }
   };
 
+  // Public Requirement CV Intake Route (no authentication required)
+  if (publicApplyToken) {
+    return (
+      <React.Suspense
+        fallback={
+          <div className="min-h-screen bg-slate-50 flex items-center justify-center text-xs text-slate-500">
+            Loading application form...
+          </div>
+        }
+      >
+        <PublicRequirementApplyView token={publicApplyToken} />
+      </React.Suspense>
+    );
+  }
+
   // If unauthenticated, render the full-screen Mineral Carbon Login View
   if (!currentUser) {
     return (
@@ -2055,6 +2083,7 @@ export const App: React.FC = () => {
                 setIsPlacementWizardOpen(true);
               }}
               onUpdateReq={handleUpdateRequirement}
+              onRequirementUpdated={syncUpdatedRequirement}
               onOpenCsvImport={
                 canManageDataOperations
                   ? (req) => {

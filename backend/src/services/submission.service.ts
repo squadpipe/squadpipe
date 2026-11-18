@@ -15,6 +15,7 @@ import {
 } from './requirement.service';
 import { slaEngineService } from './slaEngine.service';
 import { automationEngineService } from './automationEngine.service';
+import { capabilityService } from './capability.service';
 
 const CANONICAL_STAGE_RANK: Record<string, number> = {
   [RequirementStatus.REQUIREMENT]: 0,
@@ -589,6 +590,14 @@ export class SubmissionService {
       await slaEngineService.evaluateSlaRadar(tenantId);
     } catch {
       // Non-critical automation hook
+    }
+
+    try {
+      await capabilityService.evaluateNewlyAttachedSubmissions(createdSubmissions, requirement, {
+        tenantId,
+      });
+    } catch {
+      // Non-critical capability hook
     }
 
     const refreshedRequirement = await prisma.requirement.findUnique({
