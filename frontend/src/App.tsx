@@ -2068,6 +2068,7 @@ export const App: React.FC = () => {
               }
               onBack={() => handleNavigateView(reqDetailReturnView)}
               candidates={candidates}
+              placements={placements}
               rateMasked={rateMasked}
               onAssignCandidate={handleAssignCandidate}
               onAttachCandidates={handleAttachCandidates}
@@ -2077,6 +2078,7 @@ export const App: React.FC = () => {
               onOpenResumePreview={(cand) =>
                 handleOpenConsultantDetail(cand, false, 'requirement_detail')
               }
+              onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'requirement_detail')}
               onOpenPlacementWizard={(req, cand) => {
                 setActiveCandidate(cand || null);
                 setActiveReq(req);

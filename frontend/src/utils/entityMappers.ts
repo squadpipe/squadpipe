@@ -239,6 +239,7 @@ export const mapRequirementFromApi = (r: any): Requirement & { createdAt?: strin
     openPositions,
     filledPositions: activePlacements.length,
     location: r.location || '',
+    workModel: r.workModel || undefined,
     clientContact:
       r.clientContact?.fullName ||
       r.clientContact?.name ||
@@ -257,6 +258,7 @@ export const mapRequirementFromApi = (r: any): Requirement & { createdAt?: strin
       r.assignedRecruiter?.name ||
       (typeof r.assignedRecruiter === 'string' ? r.assignedRecruiter : ''),
     targetBillRate: r.targetBillRate,
+    maxBillRate: r.maxBillRate,
     targetPayRate: r.targetPayRate,
     publicFormEnabled: Boolean(r.publicFormEnabled),
     publicFormToken: r.publicFormToken || null,

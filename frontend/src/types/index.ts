@@ -168,6 +168,7 @@ export interface Requirement {
   openPositions: number;
   filledPositions?: number;
   location: string;
+  workModel?: string;
   clientContact: string;
   clientContactTitle?: string;
   skillsRequired: string;
@@ -183,6 +184,7 @@ export interface Requirement {
   }>;
   assignedRecruiter: string;
   targetBillRate?: number;
+  maxBillRate?: number;
   targetPayRate?: number;
   publicFormEnabled?: boolean;
   publicFormToken?: string | null;

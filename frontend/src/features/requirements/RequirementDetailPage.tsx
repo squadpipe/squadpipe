@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   ArrowLeft,
+  ArrowRight,
   ArrowUpDown,
   Briefcase,
   Building2,
   Calendar,
   Check,
-  ChevronDown,
-  ChevronUp,
+  CheckCircle2,
   Copy,
+  DollarSign,
   ExternalLink,
   FileSpreadsheet,
+  FileText,
   Globe,
   Link2,
   Loader2,
@@ -20,15 +22,15 @@ import {
   Pencil,
   RefreshCw,
   Search,
+  ShieldCheck,
   Sparkles,
   Trash2,
   UserPlus,
   UsersRound,
-  X,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import {
-  CapabilitySummary,
+  BillablePlacement,
   Requirement,
   Candidate,
   RequirementSubmission,
@@ -44,26 +46,31 @@ import {
 } from '../../utils/entityMappers';
 import {
   buildApplicantStageOptions,
-  buildRequirementStageOptions,
   getStageDotClass,
   getStageIndex,
 } from '../../utils/stageStyles';
 import { useMasterTaxonomies } from '../../components/shared/DynamicCustomFieldsSection';
-import { SkillTagInput } from '../../components/shared/SkillTagInput';
+import { SkillTag } from '../../components/shared/SkillTag';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { ActionButton } from '../../components/shared/ActionButton';
-import { DateTimePicker } from '../../components/shared/DateTimePicker';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { AttachBenchDrawer } from '../../components/modals/AttachBenchDrawer';
 import { PreparePitchModal } from '../../components/modals/PreparePitchModal';
+import {
+  CapabilityFitModal,
+  EditRequirementModal,
+  RequirementNotesModal,
+  getCapabilityBadgeStyle,
+} from './RequirementDetailModals';
 
 interface RequirementDetailPageProps {
   requirement: Requirement | null;
   backLabel?: string;
   onBack: () => void;
   candidates: Candidate[];
+  placements?: BillablePlacement[];
   rateMasked?: boolean;
   onAssignCandidate: (req: Requirement, candidate: Candidate) => void;
   onAttachCandidates?: (req: Requirement, candidateIds: string[]) => Promise<void> | void;
@@ -86,50 +93,99 @@ interface RequirementDetailPageProps {
   ) => Promise<void> | void;
   onDetachSubmission?: (req: Requirement, submissionId: string) => Promise<void> | void;
   onOpenResumePreview: (candidate: Candidate) => void;
+  onSelectPlacement?: (placement: BillablePlacement) => void;
   onOpenPlacementWizard: (req: Requirement, candidate?: Candidate | null) => void;
   onUpdateReq?: (req: Requirement) => Promise<void> | void;
   onRequirementUpdated?: (req: Requirement) => void;
   onOpenCsvImport?: (req: Requirement) => void;
 }
 
-const QUICK_REJECTION_REASONS = [
-  'Rate Mismatch',
-  'Skills Gap',
-  'Role Filled',
-  'Client Selected Other',
-  'Candidate Withdrew',
-];
+type ApplicantFilterTab = 'All' | 'Active' | 'Interview' | 'Selected' | 'Placed' | 'Closed';
+type WorkspaceTab = 'applicants' | 'placed' | 'details';
 
-type ApplicantFilterTab = 'All' | 'Active' | 'Closed';
+function formatDisplayName(rawName?: string | null, fallback = 'Applicant'): string {
+  return (
+    String(rawName || '')
+      .replace(/_+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim() || fallback
+  );
+}
 
-function getCapabilityBadgeStyle(
-  score: number,
-  summary?: CapabilitySummary | null
-): { label: string; badgeClass: string } {
-  const rec = String(summary?.recommendation || '').toUpperCase();
-  const explicitLabel = summary?.recommendationLabel;
-  if (rec === 'STRONG_FIT' || (!rec && score >= 80)) {
+function formatWorkModelLabel(raw?: string | null): string {
+  const upper = String(raw || '').trim().toUpperCase();
+  if (upper === 'REMOTE') return 'Remote';
+  if (upper === 'HYBRID') return 'Hybrid';
+  if (upper === 'ONSITE') return 'Onsite';
+  return upper ? upper.charAt(0) + upper.slice(1).toLowerCase() : '';
+}
+
+function formatLocationDisplay(rawLocation?: string | null, workModelLabel?: string): string {
+  const loc = String(rawLocation || '').trim();
+  if (!loc) return 'Location TBD';
+  if (!workModelLabel) return loc;
+  const escaped = workModelLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const cleaned = loc
+    .replace(new RegExp(`\\s*\\(${escaped}\\)\\s*$`, 'i'), '')
+    .replace(/\s*\((?:onsite|on-site|hybrid|remote)\)\s*$/i, '')
+    .trim();
+  return cleaned || loc;
+}
+
+function formatClientContactDisplay(
+  rawContact: Requirement['clientContact'],
+  rawTitle?: Requirement['clientContactTitle']
+): { name: string; title: string } {
+  const rawNameStr =
+    typeof rawContact === 'object' && rawContact !== null
+      ? (rawContact as any).fullName || (rawContact as any).name || ''
+      : String(rawContact || '');
+  const explicitTitle =
+    typeof rawTitle === 'object' && rawTitle !== null
+      ? String((rawTitle as any).designation || '').trim()
+      : String(rawTitle || '').trim();
+
+  const trimmedName = rawNameStr.trim();
+  if (!trimmedName) {
+    return { name: 'Primary Hiring Lead', title: explicitTitle };
+  }
+
+  // Strip duplicated trailing designation if it matches explicitTitle (e.g. "Name, Senior Director")
+  if (explicitTitle) {
+    const escaped = explicitTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const stripped = trimmedName
+      .replace(new RegExp(`\\s*(?:,|\\||-)\\s*${escaped}\\s*$`, 'i'), '')
+      .trim();
     return {
-      label: explicitLabel || 'Strong Fit',
-      badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100/80',
+      name: stripped || trimmedName,
+      title: explicitTitle,
     };
   }
-  if (rec === 'GOOD_FIT' || (!rec && score >= 65)) {
+
+  const sepMatch = trimmedName.match(/^([^,|]+?)\s*(?:,|\|)\s*(.{6,})$/);
+  if (sepMatch && !/^(?:jr\.?|sr\.?|ii|iii|iv|phd|mba|pmp|cpa)$/i.test(sepMatch[2].trim())) {
     return {
-      label: explicitLabel || 'Good Fit',
-      badgeClass: 'bg-brand-50 text-brand-700 border-brand-200 hover:bg-brand-100/80',
+      name: sepMatch[1].trim(),
+      title: sepMatch[2].trim(),
     };
   }
-  if (rec === 'PARTIAL_FIT' || (!rec && score >= 45)) {
-    return {
-      label: explicitLabel || 'Partial Fit',
-      badgeClass: 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100/80',
-    };
-  }
+
   return {
-    label: explicitLabel || 'Low Fit',
-    badgeClass: 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200/70',
+    name: trimmedName,
+    title: explicitTitle,
   };
+}
+
+function splitRateAndTerm(formatted: string): { amount: string; term: string } {
+  const clean = formatted.trim();
+  const parenMatch = clean.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  if (parenMatch) {
+    return {
+      amount: parenMatch[1].trim(),
+      term: parenMatch[2].trim(),
+    };
+  }
+  return { amount: clean, term: '' };
 }
 
 export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
@@ -137,6 +193,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   backLabel = 'Back to Pipeline',
   onBack,
   candidates,
+  placements = [],
   rateMasked = false,
   onAssignCandidate,
   onAttachCandidates,
@@ -144,6 +201,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   onUpdateSubmissionNotes,
   onDetachSubmission,
   onOpenResumePreview,
+  onSelectPlacement,
   onOpenPlacementWizard,
   onUpdateReq,
   onRequirementUpdated,
@@ -152,10 +210,12 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   const { formatRate, symbol: currencySymbol } = useCurrency();
   const aiCapabilities = useAiCapabilities();
   const taxonomies = useMasterTaxonomies(true);
+
+  const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>('applicants');
   const [applicantTab, setApplicantTab] = useState<ApplicantFilterTab>('All');
   const [applicantSearch, setApplicantSearch] = useState('');
   const [sortByFit, setSortByFit] = useState(true);
-  const [expandedCapSubId, setExpandedCapSubId] = useState<string | null>(null);
+  const [fitModalSubId, setFitModalSubId] = useState<string | null>(null);
   const [evaluatingSubId, setEvaluatingSubId] = useState<string | null>(null);
   const [pitchTargetSub, setPitchTargetSub] = useState<RequirementSubmission | null>(null);
   const [showBenchPicker, setShowBenchPicker] = useState(false);
@@ -180,8 +240,9 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   const [draftPublicDesc, setDraftPublicDesc] = useState('');
   const [copiedPublicLink, setCopiedPublicLink] = useState(false);
   const [publicFormError, setPublicFormError] = useState('');
+  const [showAllSkills, setShowAllSkills] = useState(false);
   const knownCandidatesRef = useRef<Map<string, Candidate>>(new Map());
-  const notesTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     for (const c of candidates) {
@@ -194,9 +255,10 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     setEditOpenPositions(requirement ? String(requirement.openPositions || 1) : '1');
     setEditOpenPosError('');
     setIsEditing(false);
+    setWorkspaceTab('applicants');
     setApplicantTab('All');
     setApplicantSearch('');
-    setExpandedCapSubId(null);
+    setFitModalSubId(null);
     setEvaluatingSubId(null);
     setPitchTargetSub(null);
     setShowBenchPicker(false);
@@ -211,6 +273,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     setDraftPublicDesc(requirement?.publicDescription || '');
     setCopiedPublicLink(false);
     setPublicFormError('');
+    setShowAllSkills(false);
   }, [requirement?.id]);
 
   useEffect(() => {
@@ -315,10 +378,10 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
         };
         setHydratedReq(updatedReq);
         onRequirementUpdated?.(updatedReq);
-        setExpandedCapSubId(sub.id);
+        setFitModalSubId(sub.id);
       }
     } catch {
-      // Errors stay non-blocking for existing rows
+      // Non-blocking for existing rows
     } finally {
       setEvaluatingSubId(null);
     }
@@ -341,7 +404,10 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
           currentTitle: legacyCand?.currentTitle,
           workAuth: legacyCand?.workAuth,
           hourlyRate: legacyCand?.hourlyRate,
-          stage: effectiveRequirement.status === 'Requirement' ? 'Submitted' : effectiveRequirement.status,
+          stage:
+            effectiveRequirement.status === 'Requirement'
+              ? 'Submitted'
+              : effectiveRequirement.status,
           candidate: legacyCand,
         },
       ];
@@ -374,13 +440,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     const prevDate = liveSub.interviewDateTime || liveSub.interviewDate || '';
     const dateChanged = notesModalMode === 'interview' && draftInterviewDate !== prevDate;
 
-    if (notesModalMode === 'notes' && !cleanText) {
-      return;
-    }
-    if (notesModalMode === 'closed' && !cleanText) {
-      return;
-    }
-    if (editingNoteId && !cleanText) {
+    if ((notesModalMode === 'notes' || notesModalMode === 'closed' || editingNoteId) && !cleanText) {
       return;
     }
     if (!editingNoteId && !cleanText && !dateChanged) {
@@ -432,18 +492,87 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     }
   };
 
-  const activeApplicantsCount = submissions.filter((s) => s.stage !== 'Closed').length;
+  const reqPlacementsSummary =
+    effectiveRequirement?.activePlacements || requirement?.activePlacements || [];
+
+  const linkedPlacements = useMemo<Array<BillablePlacement & { isSummaryOnly: boolean }>>(() => {
+    const reqId = effectiveRequirement?.id || requirement?.id;
+    const summaryIds = new Set(reqPlacementsSummary.map((p) => p.id));
+    const matchedFull = placements.filter(
+      (p) => (reqId && p.requirementId === reqId) || summaryIds.has(p.id)
+    );
+    const fullById = new Map(matchedFull.map((p) => [p.id, p]));
+    const fallbackEntries = reqPlacementsSummary
+      .filter((ap) => !fullById.has(ap.id))
+      .map((ap) => ({
+        id: ap.id,
+        recruiter: '',
+        deployment: 'Onshore',
+        customer: effectiveRequirement?.companyName || requirement?.companyName || '',
+        resourceName: ap.resourceName,
+        phone: '',
+        email: '',
+        skillRole: effectiveRequirement?.opportunityTitle || requirement?.opportunityTitle || '',
+        startDate: '',
+        endDate: '',
+        billing: '',
+        status: (ap.status === 'ACTIVE' ? 'Active' : ap.status) as BillablePlacement['status'],
+        candidateId: ap.candidateId || undefined,
+        requirementId: reqId,
+        isSummaryOnly: true,
+      }));
+    return [
+      ...matchedFull.map((p) => ({ ...p, isSummaryOnly: false })),
+      ...fallbackEntries,
+    ];
+  }, [
+    placements,
+    reqPlacementsSummary,
+    effectiveRequirement?.id,
+    requirement?.id,
+    effectiveRequirement?.companyName,
+    requirement?.companyName,
+    effectiveRequirement?.opportunityTitle,
+    requirement?.opportunityTitle,
+  ]);
+
+  const isPlacedApplicant = (sub: RequirementSubmission): boolean => {
+    const nameLower = sub.fullName.trim().toLowerCase();
+    return linkedPlacements.some(
+      (p) =>
+        p.status !== 'Terminated' &&
+        p.status !== 'Completed' &&
+        ((sub.candidateId && p.candidateId === sub.candidateId) ||
+          p.resourceName.trim().toLowerCase() === nameLower)
+    );
+  };
+
+  const activeApplicantsCount = submissions.filter(
+    (s) => s.stage.trim().toLowerCase() !== 'closed'
+  ).length;
+  const interviewApplicantsCount = submissions.filter(
+    (s) => s.stage.trim().toLowerCase() === 'interview'
+  ).length;
+  const selectedApplicantsCount = submissions.filter(
+    (s) => s.stage.trim().toLowerCase() === 'selected'
+  ).length;
+  const placedApplicantsCount = submissions.filter(isPlacedApplicant).length;
   const closedApplicantsCount = submissions.length - activeApplicantsCount;
+  const publicIntakeCount = submissions.filter((s) => s.intakeSource === 'PUBLIC_FORM').length;
   const hasAnyCapabilityScore = submissions.some((s) => typeof s.capabilityScore === 'number');
 
   const filteredSubmissions = useMemo(() => {
     const filtered = submissions.filter((sub) => {
-      if (applicantTab === 'Active' && sub.stage === 'Closed') return false;
-      if (applicantTab === 'Closed' && sub.stage !== 'Closed') return false;
+      const stageLower = sub.stage.trim().toLowerCase();
+      if (applicantTab === 'Active' && stageLower === 'closed') return false;
+      if (applicantTab === 'Interview' && stageLower !== 'interview') return false;
+      if (applicantTab === 'Selected' && stageLower !== 'selected') return false;
+      if (applicantTab === 'Placed' && !isPlacedApplicant(sub)) return false;
+      if (applicantTab === 'Closed' && stageLower !== 'closed') return false;
       const q = applicantSearch.trim().toLowerCase();
       if (!q) return true;
       return (
-        sub.fullName.toLowerCase().includes(q) ||
+        formatDisplayName(sub.fullName).toLowerCase().includes(q) ||
         (sub.currentTitle || '').toLowerCase().includes(q) ||
         sub.stage.toLowerCase().includes(q) ||
         (sub.interviewNotes || '').toLowerCase().includes(q)
@@ -458,12 +587,25 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
       });
     }
     return filtered;
-  }, [submissions, applicantTab, applicantSearch, sortByFit, hasAnyCapabilityScore]);
+  }, [
+    submissions,
+    applicantTab,
+    applicantSearch,
+    sortByFit,
+    hasAnyCapabilityScore,
+    linkedPlacements,
+  ]);
 
   const applicantsPg = useClientPagination(
     filteredSubmissions,
     10,
     `${requirement?.id || ''}|${applicantTab}|${applicantSearch}|${sortByFit ? 'fit' : 'recent'}`
+  );
+
+  const placedPg = useClientPagination(
+    linkedPlacements,
+    10,
+    `${requirement?.id || ''}|placed`
   );
 
   if (!requirement) {
@@ -482,10 +624,14 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     );
   }
 
-  const openPositions = requirement.openPositions || 1;
+  const reqView = effectiveRequirement || requirement;
+  const openPositions = reqView.openPositions || 1;
   const filledPositions =
-    requirement.filledPositions ?? requirement.activePlacements?.length ?? 0;
+    reqView.filledPositions ?? reqView.activePlacements?.length ?? 0;
+  const fillPercent = Math.min(100, Math.round((filledPositions / openPositions) * 100));
   const isPositionsFull = filledPositions >= openPositions;
+  const workModelLabel = formatWorkModelLabel(reqView.workModel);
+  const locationLabel = formatLocationDisplay(reqView.location, workModelLabel);
 
   const resolveCandidateForSubmission = (sub: RequirementSubmission): Candidate | null => {
     return (
@@ -500,606 +646,1203 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     );
   };
 
-  const isPlacedApplicant = (sub: RequirementSubmission): boolean => {
-    const placements = requirement.activePlacements || [];
-    return placements.some(
-      (p) =>
-        (sub.candidateId && p.candidateId === sub.candidateId) ||
-        p.resourceName.trim().toLowerCase() === sub.fullName.trim().toLowerCase()
-    );
-  };
-
-  const skills = requirement.skillsRequired
-    ? requirement.skillsRequired.split(',').map((s) => s.trim()).filter(Boolean)
+  const skills = reqView.skillsRequired
+    ? reqView.skillsRequired.split(',').map((s) => s.trim()).filter(Boolean)
     : [];
 
-  const clientContactLabel =
-    typeof requirement.clientContact === 'object' && requirement.clientContact !== null
-      ? (requirement.clientContact as any).fullName ||
-        (requirement.clientContact as any).name ||
-        'Primary Hiring Lead'
-      : requirement.clientContact || 'Primary Hiring Lead';
-
-  const clientContactTitle = requirement.clientContactTitle
-    ? typeof requirement.clientContactTitle === 'object' && requirement.clientContactTitle !== null
-      ? (requirement.clientContactTitle as any).designation || ''
-      : requirement.clientContactTitle
-    : '';
+  const { name: clientContactLabel, title: clientContactTitle } = formatClientContactDisplay(
+    reqView.clientContact,
+    reqView.clientContactTitle
+  );
 
   const assignedRecruiterLabel =
-    typeof requirement.assignedRecruiter === 'object' && requirement.assignedRecruiter !== null
-      ? (requirement.assignedRecruiter as any).fullName ||
-        (requirement.assignedRecruiter as any).name ||
+    typeof reqView.assignedRecruiter === 'object' && reqView.assignedRecruiter !== null
+      ? (reqView.assignedRecruiter as any).fullName ||
+        (reqView.assignedRecruiter as any).name ||
         'Desk Sourcing Specialist'
-      : requirement.assignedRecruiter || 'Desk Sourcing Specialist';
+      : reqView.assignedRecruiter || 'Desk Sourcing Specialist';
 
-  const customFieldEntries = Object.entries(requirement.customFields || {}).filter(
+  const customFieldEntries = Object.entries(reqView.customFields || {}).filter(
     ([, v]) => v !== null && v !== undefined && String(v).trim() !== ''
   );
 
-  return (
-    <section className="max-w-7xl mx-auto space-y-5 animate-fade-in">
-      {/* Slim Breadcrumb */}
-      <div className="flex items-center gap-2 text-xs">
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold shadow-2xs transition-colors cursor-pointer"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>{backLabel}</span>
-        </button>
-        <span className="text-slate-300">/</span>
-        <span className="text-[11px] font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
-          {requirement.code}
-        </span>
-      </div>
+  const liveEditingSub = editingNotesSub
+    ? submissions.find((s) => s.id === editingNotesSub.id) || editingNotesSub
+    : null;
+  const liveFitSub = fitModalSubId
+    ? submissions.find((s) => s.id === fitModalSubId) || null
+    : null;
 
-      {/* Main Header Card */}
-      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow px-6 py-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex items-start gap-4 min-w-0">
-          <div className="w-12 h-12 rounded-xl bg-brand-50 border border-brand-200/70 text-brand-600 flex items-center justify-center flex-shrink-0">
-            <Briefcase className="w-6 h-6" />
-          </div>
-          <div className="space-y-1.5 min-w-0">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-lg font-bold text-slate-900 tracking-tight truncate">
-                {requirement.opportunityTitle}
-              </h1>
-              <StatusBadge
-                stage={requirement.status}
-                dotClass={getStageDotClass(
-                  requirement.status,
-                  getStageIndex(requirement.status, taxonomies.stages)
-                )}
-                size="xs"
-              />
-            </div>
-            <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 font-semibold text-slate-700">
-                <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                <span>{requirement.companyName}</span>
-              </span>
-              <span className="text-slate-300">&bull;</span>
-              <span className="inline-flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                <span>{requirement.location}</span>
-              </span>
-              <span className="text-slate-300">&bull;</span>
-              <span className="inline-flex items-center gap-1.5 text-slate-600 font-medium">
-                <UsersRound className="w-3.5 h-3.5 text-slate-400" />
-                <span>
-                  {filledPositions} / {openPositions}{' '}
-                  {openPositions === 1 ? 'position' : 'positions'} filled
-                </span>
-              </span>
-            </div>
-          </div>
+  const prepareApplicantRow = (sub: RequirementSubmission) => {
+    const candObj = resolveCandidateForSubmission(sub);
+    const placed = isPlacedApplicant(sub);
+    const isLegacy = sub.id.startsWith('legacy_');
+    const displayName = formatDisplayName(sub.fullName);
+    const initials = displayName
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase();
+    const formattedInterview = formatDateTimeBadge(sub.interviewDateTime || sub.interviewDate);
+    const subNotes = sub.notes || [];
+    const latestNote = subNotes[0] || null;
+    const metaLine = [
+      sub.submissionDate ? `Attached ${sub.submissionDate}` : '',
+      sub.recruiterName ? `by ${sub.recruiterName}` : '',
+    ]
+      .filter(Boolean)
+      .join(' \u00B7 ');
+
+    return {
+      sub,
+      candObj,
+      placed,
+      isLegacy,
+      displayName,
+      initials,
+      formattedInterview,
+      subNotes,
+      latestNote,
+      metaLine,
+      stageIdx: getStageIndex(sub.stage, taxonomies.stages),
+      applicantStageOptions: buildApplicantStageOptions(taxonomies.stages, sub.stage),
+    };
+  };
+
+  type PreparedApplicantRow = ReturnType<typeof prepareApplicantRow>;
+
+  const renderApplicantIdentity = ({
+    sub,
+    candObj,
+    placed,
+    isLegacy,
+    displayName,
+    initials,
+    formattedInterview,
+    latestNote,
+    metaLine,
+  }: PreparedApplicantRow) => (
+    <div className="flex items-start gap-3.5 min-w-0">
+      <div
+        className={`w-9 h-9 rounded-full border flex items-center justify-center font-bold text-[11px] flex-shrink-0 ${
+          placed
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+            : 'bg-slate-100 border-slate-200/80 text-slate-700'
+        }`}
+      >
+        {initials}
+      </div>
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {candObj ? (
+            <button
+              type="button"
+              onClick={() => onOpenResumePreview(candObj)}
+              className="font-bold text-slate-900 hover:text-brand-600 text-[13px] text-left cursor-pointer truncate"
+            >
+              {displayName}
+            </button>
+          ) : (
+            <span className="font-bold text-slate-900 text-[13px] truncate">{displayName}</span>
+          )}
+          {sub.workAuth && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium whitespace-nowrap">
+              {sub.workAuth}
+            </span>
+          )}
+          {sub.intakeSource === 'PUBLIC_FORM' && (
+            <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold whitespace-nowrap">
+              <Globe className="w-2.5 h-2.5" />
+              <span>Form Intake</span>
+            </span>
+          )}
+          {sub.submittedVendorName && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 font-medium whitespace-nowrap">
+              via {sub.submittedVendorName}
+            </span>
+          )}
+          {placed && <StatusBadge label="Active Placement" tone="emerald" size="xs" />}
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap flex-shrink-0">
-          {onUpdateReq && (
-            <button
-              type="button"
-              onClick={() => {
-                setEditForm(effectiveRequirement || requirement);
-                setEditOpenPositions(
-                  String((effectiveRequirement || requirement).openPositions || 1)
-                );
-                setEditOpenPosError('');
-                setIsEditing(true);
-              }}
-              className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Pencil className="w-3.5 h-3.5" />
-              <span>Edit Requirement</span>
-            </button>
-          )}
+        <p className="text-[11.5px] font-medium text-slate-600 truncate max-w-md">
+          {sub.currentTitle || 'Consultant'}
+        </p>
 
-          {submissions.length > 0 && !isPositionsFull && (
-            <button
-              type="button"
-              onClick={() => {
-                const firstCandidate = resolveCandidateForSubmission(
-                  submissions.find((s) => s.stage === 'Selected') ||
-                    submissions.find((s) => s.stage !== 'Closed') ||
-                    submissions[0]
-                );
-                onOpenPlacementWizard(requirement, firstCandidate);
-              }}
-              className="px-3.5 py-2 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Activate Placement</span>
-            </button>
-          )}
+        {metaLine && <p className="text-[11px] text-slate-400">{metaLine}</p>}
 
+        {(formattedInterview || (latestNote && !isLegacy && onUpdateSubmissionNotes)) && (
+          <div className="flex items-center gap-2 flex-wrap pt-1">
+            {formattedInterview &&
+              (!isLegacy && onUpdateSubmissionNotes ? (
+                <button
+                  type="button"
+                  onClick={() => openNotesEditor(sub, 'interview')}
+                  title="Click to update interview schedule"
+                  className="inline-flex items-center gap-1 text-[10.5px] px-2 py-0.5 rounded-md bg-brand-50 hover:bg-brand-100/80 text-brand-700 border border-brand-200/80 font-medium whitespace-nowrap cursor-pointer transition-colors"
+                >
+                  <Calendar className="w-3 h-3 shrink-0" />
+                  <span>Interview: {formattedInterview}</span>
+                </button>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10.5px] px-2 py-0.5 rounded-md bg-brand-50 text-brand-700 border border-brand-200/80 font-medium whitespace-nowrap">
+                  <Calendar className="w-3 h-3 shrink-0" />
+                  <span>Interview: {formattedInterview}</span>
+                </span>
+              ))}
+
+            {latestNote && !isLegacy && onUpdateSubmissionNotes && (
+              <button
+                type="button"
+                onClick={() => openNotesEditor(sub, 'notes')}
+                className="inline-flex items-center gap-1.5 max-w-md text-[11px] px-2 py-0.5 rounded-md bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-slate-600 transition-colors cursor-pointer min-w-0"
+              >
+                <MessageSquare className="w-3 h-3 text-slate-400 shrink-0" />
+                <span className="truncate">
+                  <strong className="font-semibold text-slate-700">
+                    {latestNote.authorName}:
+                  </strong>{' '}
+                  {latestNote.text}
+                </span>
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderFitScoreButton = (sub: RequirementSubmission) => {
+    if (typeof sub.capabilityScore !== 'number') {
+      return <span className="text-[11px] text-slate-400">&mdash;</span>;
+    }
+    const badgeMeta = getCapabilityBadgeStyle(sub.capabilityScore, sub.capabilitySummary);
+    const usedAi = Boolean(sub.capabilitySummary?.evaluatedWithAi && aiCapabilities.enabled);
+    return (
+      <button
+        type="button"
+        onClick={() => setFitModalSubId(sub.id)}
+        title="Click to inspect strengths, gaps & verdict"
+        className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border font-semibold whitespace-nowrap cursor-pointer transition-all hover:shadow-2xs ${badgeMeta.badgeClass}`}
+      >
+        {usedAi && <Sparkles className="w-2.5 h-2.5 shrink-0" />}
+        <span>
+          {sub.capabilityScore}% &bull; {badgeMeta.label}
+        </span>
+      </button>
+    );
+  };
+
+  const renderRateCell = (sub: RequirementSubmission) => {
+    const rawRate = sub.submittedRate || sub.hourlyRate || '';
+    if (!rawRate) {
+      return <span className="text-slate-400 font-medium text-[11px]">Rate TBD</span>;
+    }
+    const formatted = formatRate(rawRate);
+    if (rateMasked) {
+      return (
+        <MaskedValue
+          value={formatted}
+          isMasked={true}
+          className="font-mono font-semibold text-slate-800 text-[12px]"
+        />
+      );
+    }
+    const { amount, term } = splitRateAndTerm(formatted);
+    if (!/\d/.test(amount)) {
+      return (
+        <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
+          <span className="text-slate-400 text-[11px] font-medium">Rate TBD</span>
+          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 uppercase">
+            {formatted}
+          </span>
+        </div>
+      );
+    }
+    return (
+      <div className="inline-flex items-baseline gap-1.5 whitespace-nowrap">
+        <span className="font-mono font-bold text-slate-900 text-[12px] tabular-nums">
+          {amount}
+        </span>
+        {term && (
+          <span className="text-[10.5px] font-semibold text-slate-500 uppercase tracking-wide">
+            {term}
+          </span>
+        )}
+      </div>
+    );
+  };
+
+  const renderStageControl = ({
+    sub,
+    candObj,
+    placed,
+    isLegacy,
+    displayName,
+    stageIdx,
+    applicantStageOptions,
+  }: PreparedApplicantRow) =>
+    !isLegacy && onUpdateSubmissionStage ? (
+      <CustomSelect
+        ariaLabel={`Stage for ${displayName}`}
+        disabled={busySubId === sub.id}
+        value={sub.stage}
+        size="xs"
+        fullWidth={false}
+        minMenuWidth={136}
+        prefixNode={
+          busySubId === sub.id ? (
+            <Loader2 className="w-2.5 h-2.5 text-brand-600 animate-spin shrink-0" />
+          ) : undefined
+        }
+        options={applicantStageOptions.map((st) => ({
+          value: st,
+          label: st,
+          dotClass: getStageDotClass(st, getStageIndex(st, taxonomies.stages)),
+        }))}
+        onChange={async (nextVal) => {
+          const nextStage = nextVal as RequirementSubmission['stage'];
+          const nextLower = nextStage.trim().toLowerCase();
+          if (nextLower === 'onboarding' && !placed) {
+            onOpenPlacementWizard(reqView, candObj);
+            return;
+          }
+          setBusySubId(sub.id);
+          try {
+            await onUpdateSubmissionStage(reqView, sub.id, nextStage);
+            if (
+              onUpdateSubmissionNotes &&
+              (nextLower === 'interview' || nextLower === 'closed')
+            ) {
+              openNotesEditor(
+                { ...sub, stage: nextStage },
+                nextLower === 'interview' ? 'interview' : 'closed'
+              );
+            }
+          } catch {
+            // Parent handles toast
+          } finally {
+            setBusySubId(null);
+          }
+        }}
+      />
+    ) : (
+      <StatusBadge stage={sub.stage} dotClass={getStageDotClass(sub.stage, stageIdx)} size="xs" />
+    );
+
+  const renderApplicantActions = ({
+    sub,
+    candObj,
+    placed,
+    isLegacy,
+    displayName,
+    subNotes,
+  }: PreparedApplicantRow) => {
+    if (confirmDetachId === sub.id && !isLegacy && onDetachSubmission) {
+      return (
+        <div className="inline-flex items-center gap-2 h-7 bg-rose-50 border border-rose-200 rounded-lg px-2.5 whitespace-nowrap">
+          <span className="text-[11px] font-medium text-rose-700">Detach?</span>
+          <ActionButton
+            type="button"
+            loading={busySubId === sub.id}
+            loadingText="Removing..."
+            spinnerClassName="w-2.5 h-2.5 animate-spin flex-shrink-0"
+            onClick={async () => {
+              if (busySubId === sub.id) return;
+              setBusySubId(sub.id);
+              try {
+                await onDetachSubmission(reqView, sub.id);
+                setConfirmDetachId(null);
+              } finally {
+                setBusySubId(null);
+              }
+            }}
+            className="text-[11px] font-bold text-rose-700 hover:underline cursor-pointer"
+          >
+            Remove
+          </ActionButton>
+          <span className="text-rose-200">|</span>
           <button
             type="button"
-            onClick={() => setShowBenchPicker(true)}
-            className="px-3.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+            onClick={() => setConfirmDetachId(null)}
+            className="text-[11px] font-semibold text-slate-600 hover:text-slate-800 cursor-pointer"
           >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>
-              {submissions.length > 0 ? 'Attach Applicants' : 'Attach Bench Applicants'}
-            </span>
+            Cancel
           </button>
         </div>
+      );
+    }
+
+    const showAiBtn = !isLegacy && aiCapabilities.enabled;
+    const showNotesBtn = !isLegacy && Boolean(onUpdateSubmissionNotes);
+    const showDetachBtn = !isLegacy && Boolean(onDetachSubmission);
+    const hasUtilityGroup = showAiBtn || showNotesBtn || showDetachBtn;
+    const hasAiEval = Boolean(sub.capabilitySummary?.evaluatedWithAi);
+
+    return (
+      <div className="inline-flex items-center gap-2 flex-wrap">
+        {!placed && !isPositionsFull && (
+          <button
+            type="button"
+            onClick={() => onOpenPlacementWizard(reqView, candObj)}
+            className="h-7 px-2.5 rounded-lg border border-emerald-200 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap"
+          >
+            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+            <span>Place</span>
+          </button>
+        )}
+
+        {!isLegacy && (
+          <button
+            type="button"
+            onClick={() => setPitchTargetSub(sub)}
+            className="h-7 px-2.5 rounded-lg border border-brand-200 bg-brand-50/70 hover:bg-brand-100/80 text-brand-700 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap"
+          >
+            <Mail className="w-3.5 h-3.5 shrink-0" />
+            <span>Prepare Pitch</span>
+          </button>
+        )}
+
+        {hasUtilityGroup && (
+          <div className="inline-flex items-center h-7 rounded-lg border border-slate-200 bg-white divide-x divide-slate-200 shadow-2xs overflow-hidden">
+            {showAiBtn && (
+              <button
+                type="button"
+                disabled={evaluatingSubId === sub.id}
+                onClick={() => handleEvaluateSubmission(sub)}
+                title={
+                  evaluatingSubId === sub.id
+                    ? 'Running AI Capability Check...'
+                    : hasAiEval
+                      ? 'Re-run AI Capability Check'
+                      : 'Run AI Capability Check'
+                }
+                aria-label={
+                  hasAiEval
+                    ? `Re-run AI check for ${displayName}`
+                    : `Run AI check for ${displayName}`
+                }
+                className={`px-2 h-full inline-flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 ${
+                  hasAiEval
+                    ? 'text-indigo-600 bg-indigo-50/60 hover:bg-indigo-100/70'
+                    : 'text-slate-500 hover:text-indigo-600 hover:bg-indigo-50/60'
+                }`}
+              >
+                {evaluatingSubId === sub.id ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                ) : (
+                  <Sparkles className="w-3.5 h-3.5" />
+                )}
+              </button>
+            )}
+
+            {showNotesBtn && (
+              <button
+                type="button"
+                onClick={() => openNotesEditor(sub, 'notes')}
+                title={
+                  subNotes.length > 0
+                    ? `View or add notes (${subNotes.length})`
+                    : `Add note for ${displayName}`
+                }
+                aria-label={`Notes for ${displayName}`}
+                className={`px-2 h-full inline-flex items-center justify-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer ${
+                  editingNotesSub?.id === sub.id || subNotes.length > 0
+                    ? 'text-brand-700 bg-brand-50/70 hover:bg-brand-100/70'
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                }`}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                {subNotes.length > 0 && <span className="tabular-nums">{subNotes.length}</span>}
+              </button>
+            )}
+
+            {showDetachBtn && (
+              <button
+                type="button"
+                onClick={() => setConfirmDetachId(sub.id)}
+                title={`Detach ${displayName} from requirement`}
+                aria-label={`Detach ${displayName}`}
+                className="px-2 h-full inline-flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <section className="max-w-7xl mx-auto space-y-5 pb-6 animate-fade-in">
+      {/* Slim Breadcrumb */}
+      <div className="flex items-center justify-between gap-3 flex-wrap text-xs">
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold shadow-2xs transition-colors cursor-pointer shrink-0"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>{backLabel}</span>
+          </button>
+          <span className="text-slate-300">/</span>
+          <span className="text-[11px] font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded shrink-0">
+            {reqView.code}
+          </span>
+        </div>
+
+        {publicFormEnabled && (
+          <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-emerald-700 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span>Public CV Form Live</span>
+          </div>
+        )}
       </div>
 
-      {/* Main 2-Column Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        {/* Left Main Workspace: Submitted Applicants */}
-        <div className="lg:col-span-8 bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              <UsersRound className="w-4 h-4 text-brand-600" />
-              <h2 className="font-bold text-slate-900 text-xs">
-                Submitted Applicants ({submissions.length})
-              </h2>
-              <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 ml-1">
-                {([
-                  { id: 'All', count: submissions.length },
-                  { id: 'Active', count: activeApplicantsCount },
-                  { id: 'Closed', count: closedApplicantsCount },
-                ] as const).map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setApplicantTab(t.id)}
-                    className={`px-2 py-0.5 rounded-md text-[10.5px] font-medium transition-colors cursor-pointer ${
-                      applicantTab === t.id
-                        ? 'bg-white text-slate-900 shadow-2xs font-semibold'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    {t.id} ({t.count})
-                  </button>
-                ))}
-              </div>
+      {/* Unified Requisition Hero + 4-Col Metadata Grid + Tabs */}
+      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
+        {/* Title & Action Bar */}
+        <div className="px-6 py-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-xl bg-brand-50 border border-brand-200/70 text-brand-600 flex items-center justify-center flex-shrink-0">
+              <Briefcase className="w-5 h-5" />
             </div>
-
-            {submissions.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                {hasAnyCapabilityScore && (
-                  <button
-                    type="button"
-                    onClick={() => setSortByFit((prev) => !prev)}
-                    className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors ${
-                      sortByFit
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <ArrowUpDown className="w-3 h-3" />
-                    <span>{sortByFit ? 'Highest Fit First' : 'Recent Order'}</span>
-                  </button>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-[17px] sm:text-[18px] font-bold text-slate-900 tracking-tight leading-snug inline align-middle mr-2.5">
+                {reqView.opportunityTitle}
+              </h1>
+              <StatusBadge
+                stage={reqView.status}
+                dotClass={getStageDotClass(
+                  reqView.status,
+                  getStageIndex(reqView.status, taxonomies.stages)
                 )}
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={applicantSearch}
-                    onChange={(e) => setApplicantSearch(e.target.value)}
-                    placeholder="Filter applicants or notes..."
-                    className="pl-8 pr-3 py-1 text-xs border border-slate-200 rounded-lg bg-white w-full sm:w-52 text-slate-700 focus:outline-none focus:border-brand-600"
-                  />
+                size="xs"
+                className="align-middle"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+            {onUpdateReq && (
+              <button
+                type="button"
+                title="Edit Requirement Details"
+                onClick={() => {
+                  setEditForm(reqView);
+                  setEditOpenPositions(String(reqView.openPositions || 1));
+                  setEditOpenPosError('');
+                  setIsEditing(true);
+                }}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>Edit</span>
+              </button>
+            )}
+
+            {submissions.length > 0 && !isPositionsFull && (
+              <button
+                type="button"
+                onClick={() => {
+                  const firstCandidate = resolveCandidateForSubmission(
+                    submissions.find((s) => s.stage === 'Selected') ||
+                      submissions.find((s) => s.stage !== 'Closed') ||
+                      submissions[0]
+                  );
+                  onOpenPlacementWizard(reqView, firstCandidate);
+                }}
+                className="px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Activate Placement</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowBenchPicker(true)}
+              className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>
+                {submissions.length > 0 ? 'Attach Applicants' : 'Attach Bench Applicants'}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Structured 4-Column Metadata Bar (Single Source of Truth) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 border-t border-slate-100 bg-slate-50/45 text-xs">
+          {/* 1. Client & Work Setup */}
+          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Client &amp; Location
+            </div>
+            <div
+              title={reqView.companyName}
+              className="font-semibold text-slate-900 truncate flex items-center gap-1.5"
+            >
+              <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="truncate">{reqView.companyName}</span>
+            </div>
+            <div className="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap">
+              <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+              <span>{locationLabel}</span>
+              {workModelLabel && (
+                <span className="px-1.5 py-0.5 rounded bg-white border border-slate-200/80 text-[10px] font-semibold text-slate-600">
+                  {workModelLabel}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* 2. Hiring Lead & Owner */}
+          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Hiring Lead &amp; Owner
+            </div>
+            <div
+              title={clientContactTitle ? `${clientContactLabel} — ${clientContactTitle}` : clientContactLabel}
+              className="font-semibold text-slate-900 truncate"
+            >
+              {clientContactLabel}
+            </div>
+            <div className="text-[11px] text-slate-500 truncate">
+              {clientContactTitle ? (
+                <span>
+                  {clientContactTitle} &middot; <strong className="text-slate-700 font-medium">Owner: {assignedRecruiterLabel}</strong>
+                </span>
+              ) : (
+                <span>
+                  Owner: <strong className="text-slate-700 font-medium">{assignedRecruiterLabel}</strong>
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* 3. Commercial Rates */}
+          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+              <DollarSign className="w-3 h-3 text-emerald-600" />
+              <span>Commercial Rates</span>
+            </div>
+            {rateMasked ? (
+              <>
+                <MaskedValue value="" isMasked={true} className="text-sm font-bold block" />
+                <div className="text-[11px] text-slate-400">Rate protected for your role</div>
+              </>
+            ) : reqView.targetBillRate || reqView.maxBillRate || reqView.targetPayRate ? (
+              <>
+                <div className="font-mono font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
+                  <span>
+                    {reqView.targetBillRate
+                      ? `Bill ${currencySymbol}${reqView.targetBillRate}/hr`
+                      : 'Bill TBD'}
+                  </span>
+                  {reqView.maxBillRate && reqView.maxBillRate !== reqView.targetBillRate ? (
+                    <span className="text-[11px] font-medium text-slate-500">
+                      (Max {currencySymbol}
+                      {reqView.maxBillRate}/hr)
+                    </span>
+                  ) : null}
                 </div>
-              </div>
+                <div className="text-[11px] font-mono text-slate-500">
+                  {reqView.targetPayRate
+                    ? `Target Pay ${currencySymbol}${reqView.targetPayRate}/hr`
+                    : 'Target Pay TBD'}
+                </div>
+              </>
+            ) : (
+              <div className="text-[11px] text-slate-400 pt-0.5">Rates not specified</div>
             )}
           </div>
 
-          {submissions.length === 0 ? (
-            <div className="p-4">
-              <div className="py-12 px-4 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200 space-y-3">
-                <p>No applicants attached yet. Open the candidate picker to attach bench consultants.</p>
-                <button
-                  type="button"
-                  onClick={() => setShowBenchPicker(true)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold transition-colors cursor-pointer"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Attach Bench Applicants</span>
-                </button>
-              </div>
+          {/* 4. Fulfillment & Public CV Intake */}
+          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Fulfillment
+              </span>
+              <span className="text-[11px] font-mono font-bold text-slate-800">
+                {filledPositions}/{openPositions} filled
+              </span>
             </div>
-          ) : filteredSubmissions.length === 0 ? (
-            <div className="p-4">
-              <div className="py-10 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                No applicants match your current tab/search.{' '}
+            <div className="w-full h-1.5 rounded-full bg-slate-200/80 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  isPositionsFull ? 'bg-emerald-500' : 'bg-brand-600'
+                }`}
+                style={{ width: `${fillPercent}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-2 text-[11px] pt-0.5">
+              {publicFormEnabled && publicShareUrl ? (
+                <>
+                  <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <span>Public Form Live</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopyPublicLink}
+                    className="font-semibold text-brand-700 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    {copiedPublicLink ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-600" />
+                        <span>Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>Copy Link</span>
+                      </>
+                    )}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="text-slate-400">Public Form Off</span>
+                  <button
+                    type="button"
+                    disabled={isUpdatingPublicForm}
+                    onClick={() => updatePublicFormConfig({ enabled: true })}
+                    className="font-semibold text-brand-600 hover:underline cursor-pointer disabled:opacity-50"
+                  >
+                    {isUpdatingPublicForm ? 'Enabling...' : 'Enable Link'}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Workspace Navigation Tabs */}
+        <div
+          role="tablist"
+          aria-label="Requisition workspace sections"
+          className="px-6 border-t border-slate-100 bg-white flex items-center gap-7 overflow-x-auto no-scrollbar"
+        >
+          {(
+            [
+              {
+                id: 'applicants' as const,
+                label: 'Applicants Pipeline',
+                icon: UsersRound,
+                badge: submissions.length,
+              },
+              {
+                id: 'placed' as const,
+                label: 'Placed Candidates',
+                icon: CheckCircle2,
+                badge: linkedPlacements.length,
+              },
+              {
+                id: 'details' as const,
+                label: 'Scope & Public Intake',
+                icon: Globe,
+                badge: publicFormEnabled ? 'Live' : undefined,
+              },
+            ]
+          ).map((tab) => {
+            const Icon = tab.icon;
+            const active = workspaceTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setWorkspaceTab(tab.id)}
+                className={`py-3 text-xs font-semibold inline-flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
+                  active
+                    ? 'border-brand-600 text-brand-700'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Icon className={`w-3.5 h-3.5 ${active ? 'text-brand-600' : 'text-slate-400'}`} />
+                <span>{tab.label}</span>
+                {tab.badge !== undefined && (
+                  <span
+                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold leading-none ${
+                      tab.badge === 'Live'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : active
+                          ? 'bg-brand-50 text-brand-700'
+                          : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* TAB 1: Applicants Pipeline (Full Width) */}
+      {workspaceTab === 'applicants' && (
+        <div className="space-y-5">
+          {skills.length > 0 && (
+            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow px-6 py-3.5 flex items-center justify-between gap-4 flex-wrap text-xs">
+              <div className="flex items-center gap-2.5 flex-wrap min-w-0">
+                <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 shrink-0">
+                  Required Skills:
+                </span>
+                <div className="flex items-center flex-wrap gap-1.5">
+                  {(showAllSkills ? skills : skills.slice(0, 10)).map((s, idx) => (
+                    <SkillTag key={idx} skill={s} className="!mr-0 !mb-0" />
+                  ))}
+                  {skills.length > 10 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllSkills((prev) => !prev)}
+                      className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-semibold cursor-pointer"
+                    >
+                      {showAllSkills ? 'Show less' : `+${skills.length - 10} more`}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {onUpdateReq && (
                 <button
                   type="button"
                   onClick={() => {
-                    setApplicantTab('All');
-                    setApplicantSearch('');
+                    setEditForm(reqView);
+                    setEditOpenPositions(String(reqView.openPositions || 1));
+                    setEditOpenPosError('');
+                    setIsEditing(true);
                   }}
-                  className="font-semibold text-brand-600 hover:underline cursor-pointer"
+                  className="text-[11px] font-semibold text-brand-600 hover:underline cursor-pointer shrink-0"
                 >
-                  Show all applicants
+                  Edit skills
                 </button>
+              )}
+            </div>
+          )}
+
+          {/* Full-Width Submitted Applicants Card */}
+          <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h2 className="font-bold text-slate-900 text-xs">
+                  Submitted Applicants ({submissions.length})
+                </h2>
+                <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 flex-wrap">
+                  {(
+                    [
+                      { id: 'All' as const, count: submissions.length },
+                      { id: 'Active' as const, count: activeApplicantsCount },
+                      ...(interviewApplicantsCount > 0
+                        ? [{ id: 'Interview' as const, count: interviewApplicantsCount }]
+                        : []),
+                      ...(selectedApplicantsCount > 0
+                        ? [{ id: 'Selected' as const, count: selectedApplicantsCount }]
+                        : []),
+                      { id: 'Placed' as const, count: placedApplicantsCount },
+                      { id: 'Closed' as const, count: closedApplicantsCount },
+                    ]
+                  ).map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setApplicantTab(t.id)}
+                      className={`px-2 py-0.5 rounded-md text-[10.5px] font-medium transition-colors cursor-pointer ${
+                        applicantTab === t.id
+                          ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      {t.id} ({t.count})
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {submissions.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {hasAnyCapabilityScore && (
+                    <button
+                      type="button"
+                      onClick={() => setSortByFit((prev) => !prev)}
+                      className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors ${
+                        sortByFit
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      <ArrowUpDown className="w-3 h-3" />
+                      <span>{sortByFit ? 'Highest Fit First' : 'Recent Order'}</span>
+                    </button>
+                  )}
+                  <div className="relative flex-1 sm:flex-initial">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={applicantSearch}
+                      onChange={(e) => setApplicantSearch(e.target.value)}
+                      placeholder="Filter applicants or notes..."
+                      className="pl-8 pr-3 py-1 text-xs border border-slate-200 rounded-lg bg-white w-full sm:w-52 text-slate-700 focus:outline-none focus:border-brand-600"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {submissions.length === 0 ? (
+              <div className="p-5">
+                <div className="py-12 px-4 text-center text-xs text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-200 space-y-3">
+                  <p>No applicants attached yet. Open the candidate picker to attach bench consultants or enable the Public CV Link.</p>
+                  <div className="flex items-center justify-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setShowBenchPicker(true)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Attach Bench Applicants</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWorkspaceTab('details')}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      <Link2 className="w-3.5 h-3.5" />
+                      <span>Configure Public Form</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : filteredSubmissions.length === 0 ? (
+              <div className="p-5">
+                <div className="py-10 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                  No applicants match your current tab/search.{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setApplicantTab('All');
+                      setApplicantSearch('');
+                    }}
+                    className="font-semibold text-brand-600 hover:underline cursor-pointer"
+                  >
+                    Show all applicants
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {(() => {
+                  const preparedRows = applicantsPg.pagedItems.map(prepareApplicantRow);
+                  return (
+                    <>
+                      {/* Desktop Table Layout (auto-sized columns prevent badge collision) */}
+                      <div className="hidden lg:block overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-slate-50/80 border-b border-slate-100 text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
+                            <tr>
+                              <th className="pl-6 pr-4 py-3 min-w-[260px]">Applicant</th>
+                              <th className="px-4 py-3 whitespace-nowrap">Fit Score</th>
+                              <th className="px-4 py-3 whitespace-nowrap">Rate</th>
+                              <th className="px-4 py-3 whitespace-nowrap">Stage</th>
+                              <th className="pl-4 pr-6 py-3 text-right whitespace-nowrap">
+                                Actions
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {preparedRows.map((row) => (
+                              <tr
+                                key={row.sub.id}
+                                className="hover:bg-slate-50/60 transition-colors"
+                              >
+                                <td className="pl-6 pr-4 py-4 align-middle">
+                                  {renderApplicantIdentity(row)}
+                                </td>
+                                <td className="px-4 py-4 align-middle whitespace-nowrap">
+                                  {renderFitScoreButton(row.sub)}
+                                </td>
+                                <td className="px-4 py-4 align-middle whitespace-nowrap">
+                                  {renderRateCell(row.sub)}
+                                </td>
+                                <td className="px-4 py-4 align-middle whitespace-nowrap">
+                                  {renderStageControl(row)}
+                                </td>
+                                <td className="pl-4 pr-6 py-4 align-middle text-right whitespace-nowrap">
+                                  {renderApplicantActions(row)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Compact / Mobile Stacked Cards */}
+                      <div className="lg:hidden divide-y divide-slate-100">
+                        {preparedRows.map((row) => (
+                          <div key={row.sub.id} className="px-5 py-4 space-y-3">
+                            {renderApplicantIdentity(row)}
+                            <div className="flex items-center gap-3 flex-wrap pl-12">
+                              {renderFitScoreButton(row.sub)}
+                              <span className="text-slate-300" aria-hidden="true">
+                                &bull;
+                              </span>
+                              {renderRateCell(row.sub)}
+                              {renderStageControl(row)}
+                            </div>
+                            <div className="pl-12">{renderApplicantActions(row)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
+
+                <TablePagination
+                  page={applicantsPg.page}
+                  limit={applicantsPg.limit}
+                  total={applicantsPg.total}
+                  onPageChange={applicantsPg.setPage}
+                  onLimitChange={applicantsPg.setLimit}
+                  itemLabel="applicants"
+                  pageSizeOptions={[10, 20, 50]}
+                />
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: Placed Candidates (Full Width) */}
+      {workspaceTab === 'placed' && (
+        <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h2 className="font-bold text-slate-900 text-xs">
+                Placed Candidates ({linkedPlacements.length})
+              </h2>
+              <span className="px-2 py-0.5 rounded-full bg-white border border-slate-200 text-[11px] font-mono font-semibold text-slate-600">
+                {filledPositions} / {openPositions} filled
+              </span>
+            </div>
+
+            {submissions.length > 0 && !isPositionsFull && (
+              <button
+                type="button"
+                onClick={() => {
+                  const preferred =
+                    submissions.find((s) => s.stage === 'Selected' && !isPlacedApplicant(s)) ||
+                    submissions.find((s) => s.stage !== 'Closed' && !isPlacedApplicant(s)) ||
+                    submissions[0];
+                  onOpenPlacementWizard(reqView, resolveCandidateForSubmission(preferred));
+                }}
+                className="px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>+ Activate Placement</span>
+              </button>
+            )}
+          </div>
+
+          {linkedPlacements.length === 0 ? (
+            <div className="p-6">
+              <div className="py-12 px-4 text-center text-xs text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-200 space-y-3">
+                <p>
+                  No candidates placed on this requisition yet. Click{' '}
+                  <strong className="font-semibold text-slate-700">Place</strong> on a shortlisted candidate or move them to Onboarding.
+                </p>
+                <div className="flex items-center justify-center gap-2.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setWorkspaceTab('applicants')}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    <span>View Applicants Pipeline</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                  {submissions.length > 0 && !isPositionsFull && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onOpenPlacementWizard(reqView, resolveCandidateForSubmission(submissions[0]))
+                      }
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Activate Placement</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ) : (
             <>
-              <div className="max-h-[420px] overflow-auto">
+              <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase">
+                  <thead className="bg-slate-50/80 border-b border-slate-100 text-[10.5px] font-bold text-slate-400 uppercase tracking-wider">
                     <tr>
-                      <th className="pl-5 pr-4 py-3">Applicant</th>
-                      <th className="px-4 py-3 whitespace-nowrap">Rate</th>
-                      <th className="px-4 py-3 whitespace-nowrap">Stage</th>
-                      <th className="pl-4 pr-5 py-3 text-right whitespace-nowrap">Actions</th>
+                      <th className="px-6 py-3">Consultant &amp; Role</th>
+                      <th className="px-5 py-3 whitespace-nowrap">Client / Vendor</th>
+                      <th className="px-5 py-3 whitespace-nowrap">SOW Period</th>
+                      <th className="px-5 py-3 whitespace-nowrap">Commercials</th>
+                      <th className="px-5 py-3 whitespace-nowrap">Status</th>
+                      <th className="px-6 py-3 text-right whitespace-nowrap">Record</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {applicantsPg.pagedItems.map((sub) => {
-                      const candObj = resolveCandidateForSubmission(sub);
-                      const placed = isPlacedApplicant(sub);
-                      const isLegacy = sub.id.startsWith('legacy_');
-                      const applicantStageOptions = buildApplicantStageOptions(taxonomies.stages, sub.stage);
-                      const stageIdx = getStageIndex(sub.stage, taxonomies.stages);
-                      const initials = sub.fullName
+                    {placedPg.pagedItems.map((p) => {
+                      const pDisplayName = formatDisplayName(p.resourceName, 'Consultant');
+                      const pInitials = pDisplayName
                         .split(' ')
                         .map((n) => n[0])
                         .join('')
                         .slice(0, 2)
                         .toUpperCase();
-                      const formattedInterview = formatDateTimeBadge(sub.interviewDateTime || sub.interviewDate);
-                      const subNotes = sub.notes || [];
-                      const metaParts = [
-                        sub.submissionDate ? `Attached ${sub.submissionDate}` : '',
-                        sub.recruiterName ? `by ${sub.recruiterName}` : '',
-                      ].filter(Boolean);
-                      const metaLine = metaParts.join(' \u00B7 ');
+                      const matchedCand = candidates.find(
+                        (c) =>
+                          (p.candidateId && c.id === p.candidateId) ||
+                          c.fullName.trim().toLowerCase() === p.resourceName.trim().toLowerCase()
+                      );
+                      const statusStr = p.status || 'Active';
+                      const statusTone =
+                        statusStr === 'Completed' || statusStr === 'Terminated'
+                          ? 'slate'
+                          : statusStr === 'Expiring Soon'
+                            ? 'amber'
+                            : 'emerald';
 
                       return (
-                        <tr key={sub.id} className="hover:bg-slate-50/70 transition-colors align-middle">
-                          <td className="pl-5 pr-4 py-4 min-w-[250px]">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-[11px] flex-shrink-0">
-                                {initials}
+                        <tr
+                          key={p.id}
+                          onClick={
+                            !p.isSummaryOnly && onSelectPlacement
+                              ? () => onSelectPlacement(p)
+                              : undefined
+                          }
+                          className={`transition-colors ${
+                            !p.isSummaryOnly && onSelectPlacement
+                              ? 'hover:bg-slate-50/80 cursor-pointer group'
+                              : 'hover:bg-slate-50/50'
+                          }`}
+                        >
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3.5 min-w-0">
+                              <div className="w-9 h-9 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold text-[11px] flex-shrink-0">
+                                {pInitials}
                               </div>
-                              <div className="min-w-0 flex-1 space-y-1.5">
+                              <div className="min-w-0 space-y-0.5">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  {candObj ? (
+                                  {matchedCand ? (
                                     <button
                                       type="button"
-                                      onClick={() => onOpenResumePreview(candObj)}
-                                      className="font-bold text-slate-900 hover:text-brand-600 text-[12.5px] text-left cursor-pointer"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onOpenResumePreview(matchedCand);
+                                      }}
+                                      className="font-bold text-slate-900 hover:text-brand-600 text-[13px] cursor-pointer text-left"
                                     >
-                                      {sub.fullName}
+                                      {pDisplayName}
                                     </button>
                                   ) : (
-                                    <span className="font-bold text-slate-900 text-[12.5px]">
-                                      {sub.fullName}
+                                    <span className="font-bold text-slate-900 text-[13px]">
+                                      {pDisplayName}
                                     </span>
                                   )}
-                                  {sub.workAuth && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium whitespace-nowrap">
-                                      {sub.workAuth}
+                                  {p.purchaseOrderNumber && (
+                                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">
+                                      PO {p.purchaseOrderNumber}
                                     </span>
-                                  )}
-                                  {sub.intakeSource === 'PUBLIC_FORM' && (
-                                    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold whitespace-nowrap">
-                                      <Globe className="w-2.5 h-2.5" />
-                                      <span>Form Intake</span>
-                                    </span>
-                                  )}
-                                  {sub.submittedVendorName && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 font-medium whitespace-nowrap">
-                                      via {sub.submittedVendorName}
-                                    </span>
-                                  )}
-                                  {typeof sub.capabilityScore === 'number' && (() => {
-                                    const badgeMeta = getCapabilityBadgeStyle(
-                                      sub.capabilityScore,
-                                      sub.capabilitySummary
-                                    );
-                                    const isExpanded = expandedCapSubId === sub.id;
-                                    const usedAi = Boolean(
-                                      sub.capabilitySummary?.evaluatedWithAi &&
-                                        aiCapabilities.enabled
-                                    );
-                                    return (
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          setExpandedCapSubId((prev) =>
-                                            prev === sub.id ? null : sub.id
-                                          )
-                                        }
-                                        title="Click to inspect strengths, gaps & verdict"
-                                        className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border font-semibold whitespace-nowrap cursor-pointer transition-colors ${badgeMeta.badgeClass}`}
-                                      >
-                                        {usedAi && <Sparkles className="w-2.5 h-2.5 shrink-0" />}
-                                        <span>
-                                          {sub.capabilityScore}% &bull; {badgeMeta.label}
-                                        </span>
-                                        {isExpanded ? (
-                                          <ChevronUp className="w-2.5 h-2.5 shrink-0" />
-                                        ) : (
-                                          <ChevronDown className="w-2.5 h-2.5 shrink-0" />
-                                        )}
-                                      </button>
-                                    );
-                                  })()}
-                                  {placed && (
-                                    <StatusBadge label="Active Placement" tone="emerald" size="xs" />
                                   )}
                                 </div>
-                                <div className="flex items-center gap-x-2 gap-y-1 flex-wrap text-[11px] leading-snug">
+                                <div className="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap">
                                   <span className="font-medium text-slate-600">
-                                    {sub.currentTitle || 'Consultant'}
+                                    {p.skillRole || reqView.opportunityTitle}
                                   </span>
-                                  {formattedInterview && (
-                                    !isLegacy && onUpdateSubmissionNotes ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => openNotesEditor(sub, 'interview')}
-                                        title="Click to update interview schedule"
-                                        className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-brand-50 hover:bg-brand-100/80 text-brand-700 border border-brand-200/80 font-medium whitespace-nowrap cursor-pointer transition-colors"
-                                      >
-                                        <Calendar className="w-2.5 h-2.5 shrink-0" />
-                                        <span>{formattedInterview}</span>
-                                      </button>
-                                    ) : (
-                                      <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-brand-50 text-brand-700 border border-brand-200/80 font-medium whitespace-nowrap">
-                                        <Calendar className="w-2.5 h-2.5 shrink-0" />
-                                        <span>{formattedInterview}</span>
-                                      </span>
-                                    )
+                                  {p.placementType && (
+                                    <>
+                                      <span className="text-slate-300">&bull;</span>
+                                      <span>{p.placementType}</span>
+                                    </>
+                                  )}
+                                  {p.deployment && (
+                                    <>
+                                      <span className="text-slate-300">&bull;</span>
+                                      <span>{p.deployment}</span>
+                                    </>
                                   )}
                                 </div>
-                                {metaLine && (
-                                  <div
-                                    title={metaLine}
-                                    className="text-[10.5px] text-slate-400 leading-tight truncate"
-                                  >
-                                    {metaLine}
-                                  </div>
-                                )}
-                                {expandedCapSubId === sub.id && sub.capabilitySummary && (
-                                  <div className="mt-2 p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 text-[11px] space-y-2">
-                                    {sub.capabilitySummary.verdict && (
-                                      <p className="text-slate-700 font-medium leading-relaxed">
-                                        {sub.capabilitySummary.verdict}
-                                      </p>
-                                    )}
-                                    {sub.capabilitySummary.strengths.length > 0 && (
-                                      <div className="flex items-start gap-1.5 flex-wrap">
-                                        <span className="text-[10px] font-semibold text-emerald-700 mt-0.5">
-                                          Strengths:
-                                        </span>
-                                        {sub.capabilitySummary.strengths.map((s, idx) => (
-                                          <span
-                                            key={idx}
-                                            className="px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-[10px] font-medium"
-                                          >
-                                            {s}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )}
-                                    {sub.capabilitySummary.gaps.length > 0 && (
-                                      <div className="flex items-start gap-1.5 flex-wrap">
-                                        <span className="text-[10px] font-semibold text-amber-800 mt-0.5">
-                                          Gaps:
-                                        </span>
-                                        {sub.capabilitySummary.gaps.map((g, idx) => (
-                                          <span
-                                            key={idx}
-                                            className="px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200/80 text-amber-800 text-[10px] font-medium"
-                                          >
-                                            {g}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )}
-                                    <div className="text-[10px] text-slate-400">
-                                      {sub.capabilitySummary.evaluatedWithAi &&
-                                      aiCapabilities.enabled
-                                        ? 'AI Evaluated'
-                                        : 'Skill Match Check'}
-                                    </div>
-                                  </div>
-                                )}
                               </div>
                             </div>
                           </td>
 
-                          <td className="px-4 py-4 whitespace-nowrap text-slate-700">
-                            {sub.submittedRate || sub.hourlyRate ? (
-                              <MaskedValue
-                                value={formatRate(sub.submittedRate || sub.hourlyRate || '')}
-                                isMasked={rateMasked}
-                              />
-                            ) : (
-                              <span className="text-slate-400">—</span>
-                            )}
-                          </td>
-
-                          <td className="px-4 py-4 whitespace-nowrap">
-                            {!isLegacy && onUpdateSubmissionStage ? (
-                              <CustomSelect
-                                ariaLabel={`Stage for ${sub.fullName}`}
-                                disabled={busySubId === sub.id}
-                                value={sub.stage}
-                                size="xs"
-                                fullWidth={false}
-                                minMenuWidth={145}
-                                prefixNode={
-                                  busySubId === sub.id ? (
-                                    <Loader2 className="w-2.5 h-2.5 text-brand-600 animate-spin shrink-0" />
-                                  ) : undefined
-                                }
-                                options={applicantStageOptions.map((st) => ({
-                                  value: st,
-                                  label: st,
-                                  dotClass: getStageDotClass(
-                                    st,
-                                    getStageIndex(st, taxonomies.stages)
-                                  ),
-                                }))}
-                                onChange={async (nextVal) => {
-                                  const nextStage = nextVal as RequirementSubmission['stage'];
-                                  const nextLower = nextStage.trim().toLowerCase();
-                                  if (nextLower === 'onboarding' && !placed) {
-                                    onOpenPlacementWizard(requirement, candObj);
-                                    return;
-                                  }
-                                  setBusySubId(sub.id);
-                                  try {
-                                    await onUpdateSubmissionStage(requirement, sub.id, nextStage);
-                                    if (
-                                      onUpdateSubmissionNotes &&
-                                      (nextLower === 'interview' || nextLower === 'closed')
-                                    ) {
-                                      openNotesEditor(
-                                        { ...sub, stage: nextStage },
-                                        nextLower === 'interview' ? 'interview' : 'closed'
-                                      );
-                                    }
-                                  } catch {
-                                    // Error toast handled by caller; keep select synced to persisted stage
-                                  } finally {
-                                    setBusySubId(null);
-                                  }
-                                }}
-                              />
-                            ) : (
-                              <StatusBadge
-                                stage={sub.stage}
-                                dotClass={getStageDotClass(sub.stage, stageIdx)}
-                                size="xs"
-                              />
-                            )}
-                          </td>
-
-                          <td className="pl-4 pr-5 py-4 text-right whitespace-nowrap">
-                            <div className="inline-flex items-center gap-2">
-                              {!isLegacy && aiCapabilities.enabled && (
-                                <button
-                                  type="button"
-                                  disabled={evaluatingSubId === sub.id}
-                                  onClick={() => handleEvaluateSubmission(sub)}
-                                  className="px-2.5 py-1 rounded-md border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100/80 text-indigo-700 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap disabled:opacity-60"
-                                >
-                                  {evaluatingSubId === sub.id ? (
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                  ) : (
-                                    <Sparkles className="w-3 h-3" />
-                                  )}
-                                  <span>
-                                    {evaluatingSubId === sub.id
-                                      ? 'Checking...'
-                                      : sub.capabilitySummary?.evaluatedWithAi
-                                        ? 'Re-run AI'
-                                        : 'Run AI Check'}
-                                  </span>
-                                </button>
-                              )}
-
-                              {!isLegacy && (
-                                <button
-                                  type="button"
-                                  onClick={() => setPitchTargetSub(sub)}
-                                  className="px-2.5 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap"
-                                >
-                                  <Mail className="w-3 h-3 text-brand-600" />
-                                  <span>Prepare Pitch</span>
-                                </button>
-                              )}
-
-                              {!isLegacy && onUpdateSubmissionNotes && (
-                                <button
-                                  type="button"
-                                  onClick={() => openNotesEditor(sub, 'notes')}
-                                  className={`px-2.5 py-1 rounded-md border text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap ${
-                                    editingNotesSub?.id === sub.id
-                                      ? 'bg-brand-50 border-brand-300 text-brand-700'
-                                      : subNotes.length > 0
-                                      ? 'bg-brand-50/70 border-brand-200 text-brand-700 hover:bg-brand-50'
-                                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                                  }`}
-                                >
-                                  <MessageSquare className="w-3 h-3" />
-                                  <span>{subNotes.length > 0 ? `Notes (${subNotes.length})` : 'Add Note'}</span>
-                                </button>
-                              )}
-
-                              {!placed && !isPositionsFull && (
-                                <button
-                                  type="button"
-                                  onClick={() => onOpenPlacementWizard(requirement, candObj)}
-                                  className="px-2.5 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-semibold cursor-pointer transition-colors whitespace-nowrap"
-                                >
-                                  Place
-                                </button>
-                              )}
-
-                              {!isLegacy && onDetachSubmission && (
-                                confirmDetachId === sub.id ? (
-                                  <div className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 rounded-md px-1.5 py-0.5 whitespace-nowrap">
-                                    <ActionButton
-                                      type="button"
-                                      loading={busySubId === sub.id}
-                                      loadingText="Removing..."
-                                      spinnerClassName="w-2.5 h-2.5 animate-spin flex-shrink-0"
-                                      onClick={async () => {
-                                        if (busySubId === sub.id) return;
-                                        setBusySubId(sub.id);
-                                        try {
-                                          await onDetachSubmission(requirement, sub.id);
-                                          setConfirmDetachId(null);
-                                        } finally {
-                                          setBusySubId(null);
-                                        }
-                                      }}
-                                      className="text-[10px] font-bold text-rose-700 hover:underline cursor-pointer"
-                                    >
-                                      Remove
-                                    </ActionButton>
-                                    <span className="text-slate-300">|</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => setConfirmDetachId(null)}
-                                      className="text-[10px] text-slate-500 hover:text-slate-700 cursor-pointer"
-                                    >
-                                      No
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => setConfirmDetachId(sub.id)}
-                                    title={`Detach ${sub.fullName} from requirement`}
-                                    className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer flex-shrink-0"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                )
-                              )}
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <div className="font-semibold text-slate-800">
+                              {p.customer || reqView.companyName}
                             </div>
+                            {p.vendorName && (
+                              <div className="text-[11px] text-amber-700 font-medium">
+                                via {p.vendorName}
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="px-5 py-4 whitespace-nowrap text-slate-600 font-mono text-[11px]">
+                            {p.startDate || p.endDate ? (
+                              <span>
+                                {p.startDate || 'TBD'} &rarr; {p.endDate || 'Ongoing'}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 font-sans">Dates in billing record</span>
+                            )}
+                          </td>
+
+                          <td className="px-5 py-4 whitespace-nowrap font-mono">
+                            {rateMasked ? (
+                              <MaskedValue value="" isMasked={true} className="font-semibold" />
+                            ) : p.billing || p.payRate ? (
+                              <div className="space-y-0.5">
+                                <div className="font-bold text-slate-900">
+                                  {p.billing ? `Bill ${formatRate(p.billing)}` : 'Bill TBD'}
+                                </div>
+                                <div className="text-[11px] text-slate-500">
+                                  {p.payRate ? `Pay ${formatRate(p.payRate)}` : ''}
+                                  {typeof p.hourlySpread === 'number' && p.hourlySpread !== 0 && (
+                                    <span className="ml-1.5 text-emerald-700 font-semibold">
+                                      (+{currencySymbol}
+                                      {p.hourlySpread.toFixed(2)}/hr)
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 font-sans">&mdash;</span>
+                            )}
+                          </td>
+
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <StatusBadge label={statusStr} tone={statusTone} size="xs" />
+                          </td>
+
+                          <td className="px-6 py-4 text-right whitespace-nowrap">
+                            {!p.isSummaryOnly && onSelectPlacement ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onSelectPlacement(p);
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-slate-200 bg-white group-hover:border-brand-300 group-hover:text-brand-700 text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
+                              >
+                                <span>View Details</span>
+                                <ArrowRight className="w-3 h-3" />
+                              </button>
+                            ) : (
+                              <span className="text-[11px] text-slate-400">Placed</span>
+                            )}
                           </td>
                         </tr>
                       );
@@ -1108,303 +1851,244 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                 </table>
               </div>
               <TablePagination
-                page={applicantsPg.page}
-                limit={applicantsPg.limit}
-                total={applicantsPg.total}
-                onPageChange={applicantsPg.setPage}
-                onLimitChange={applicantsPg.setLimit}
-                itemLabel="applicants"
+                page={placedPg.page}
+                limit={placedPg.limit}
+                total={placedPg.total}
+                onPageChange={placedPg.setPage}
+                onLimitChange={placedPg.setLimit}
+                itemLabel="placements"
                 pageSizeOptions={[10, 20, 50]}
               />
             </>
           )}
         </div>
+      )}
 
-        {/* Right Sidebar: Requisition Brief & Details */}
-        <aside className="lg:col-span-4 space-y-4 lg:sticky lg:top-4">
-          {/* Fulfillment & Targets Card */}
-          <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-4 space-y-3.5 text-xs">
-            <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              Requisition Summary
-            </h3>
-
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="bg-slate-50 border border-slate-200/80 rounded-lg p-2.5">
-                <span className="text-[10px] font-semibold uppercase text-slate-400 block">
-                  Open Positions
-                </span>
-                <span className="text-base font-bold text-slate-900 mt-0.5 block">
-                  {openPositions}
-                </span>
-              </div>
-              <div className="bg-slate-50 border border-slate-200/80 rounded-lg p-2.5 space-y-1.5">
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-[10px] font-semibold uppercase text-slate-400">
-                    Filled / Placed
-                  </span>
+      {/* TAB 3: Scope & Public Intake */}
+      {workspaceTab === 'details' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          <div className="lg:col-span-8 space-y-4">
+            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-4 text-xs">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-lg bg-brand-50 border border-brand-200/70 text-brand-600 flex items-center justify-center shrink-0">
+                    <Link2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-slate-900 text-sm">Shareable Public CV Intake Form</h2>
+                    <p className="text-[11px] text-slate-500">
+                      Let candidates or partner vendors submit CVs directly into {reqView.code}.
+                    </p>
+                  </div>
                 </div>
-                <span
-                  className={`text-base font-bold block leading-none ${
-                    isPositionsFull ? 'text-emerald-700' : 'text-slate-900'
+
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={publicFormEnabled}
+                  aria-label="Toggle public CV form"
+                  disabled={isUpdatingPublicForm}
+                  onClick={() => updatePublicFormConfig({ enabled: !publicFormEnabled })}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                    publicFormEnabled ? 'bg-emerald-600' : 'bg-slate-300'
                   }`}
                 >
-                  {filledPositions} / {openPositions}
-                </span>
-                <div className="w-full h-1.5 rounded-full bg-slate-200/80 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all ${
-                      isPositionsFull ? 'bg-emerald-500' : 'bg-brand-600'
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      publicFormEnabled ? 'translate-x-6' : 'translate-x-1'
                     }`}
-                    style={{
-                      width: `${Math.min(100, Math.round((filledPositions / openPositions) * 100))}%`,
-                    }}
                   />
-                </div>
+                </button>
               </div>
+
+              {publicFormEnabled && publicShareUrl ? (
+                <div className="space-y-3 pt-1">
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                    <input
+                      type="text"
+                      readOnly
+                      value={publicShareUrl}
+                      aria-label="Shareable public application link"
+                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                      className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-700 font-mono focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCopyPublicLink}
+                      title="Copy Form Link"
+                      className="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 font-semibold text-xs inline-flex items-center gap-1.5 cursor-pointer flex-shrink-0"
+                    >
+                      {copiedPublicLink ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="text-emerald-700">Copied Link</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copy Link</span>
+                        </>
+                      )}
+                    </button>
+                    <a
+                      href={`/apply/${publicFormToken}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs inline-flex items-center gap-1.5 flex-shrink-0"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Open Form</span>
+                    </a>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 text-[11px] pt-1">
+                    <span className="inline-flex items-center gap-1.5 text-slate-500">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Internal rates and client contacts are never exposed on the public form.</span>
+                    </span>
+                    <button
+                      type="button"
+                      disabled={isUpdatingPublicForm}
+                      onClick={() =>
+                        updatePublicFormConfig({ enabled: true, regenerateToken: true })
+                      }
+                      className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-800 font-semibold cursor-pointer disabled:opacity-50 shrink-0"
+                    >
+                      <RefreshCw
+                        className={`w-3 h-3 ${isUpdatingPublicForm ? 'animate-spin' : ''}`}
+                      />
+                      <span>Regenerate Link</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 text-slate-500 leading-relaxed">
+                  Turn on the switch above to generate a client-safe public intake link. Internal rates and client contact emails always stay hidden.
+                </div>
+              )}
+
+              {publicFormError && (
+                <div className="text-xs text-rose-600 font-medium">{publicFormError}</div>
+              )}
             </div>
 
-            <dl className="space-y-2.5 pt-1 border-t border-slate-100">
-              <div className="flex items-start justify-between gap-2">
-                <dt className="text-slate-400 font-medium">Client</dt>
-                <dd className="text-slate-900 font-semibold text-right">{requirement.companyName}</dd>
-              </div>
-              <div className="flex items-start justify-between gap-2">
-                <dt className="text-slate-400 font-medium">Hiring Contact</dt>
-                <dd className="text-slate-800 font-medium text-right">
-                  {clientContactLabel}
-                  {clientContactTitle ? (
-                    <span className="block text-[10px] text-slate-400">{clientContactTitle}</span>
-                  ) : null}
-                </dd>
-              </div>
-              <div className="flex items-start justify-between gap-2">
-                <dt className="text-slate-400 font-medium">Assigned Recruiter</dt>
-                <dd className="text-slate-800 font-medium text-right">{assignedRecruiterLabel}</dd>
-              </div>
-              <div className="flex items-start justify-between gap-2">
-                <dt className="text-slate-400 font-medium">Location</dt>
-                <dd className="text-slate-800 font-medium text-right">{requirement.location}</dd>
-              </div>
-              {requirement.targetBillRate ? (
-                <div className="flex items-start justify-between gap-2">
-                  <dt className="text-slate-400 font-medium">Target Bill Rate</dt>
-                  <dd className="text-slate-900 font-semibold text-right">
-                    <MaskedValue
-                      value={`${currencySymbol}${requirement.targetBillRate}/hr`}
-                      isMasked={rateMasked}
-                    />
-                  </dd>
+            {/* Public Description / Role Scope Editor */}
+            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-3 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900">Role Scope &amp; Public Summary</h3>
+                    <p className="text-[11px] text-slate-400">
+                      Client-safe summary shown at the top of the public application page.
+                    </p>
+                  </div>
                 </div>
-              ) : null}
-              {requirement.targetPayRate ? (
-                <div className="flex items-start justify-between gap-2">
-                  <dt className="text-slate-400 font-medium">Target Pay Rate</dt>
-                  <dd className="text-slate-800 font-medium text-right">
-                    <MaskedValue
-                      value={`${currencySymbol}${requirement.targetPayRate}/hr`}
-                      isMasked={rateMasked}
-                    />
-                  </dd>
-                </div>
-              ) : null}
-            </dl>
-          </div>
-
-          {/* Required Competencies Card */}
-          <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-4 space-y-2.5 text-xs">
-            <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              Required Competencies
-            </h3>
-            {skills.length === 0 ? (
-              <p className="text-slate-400 text-[11px]">No specific skills listed.</p>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {skills.map((s, idx) => (
-                  <span
-                    key={idx}
-                    className="text-[11px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium"
+                {!isEditingPublicDesc && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDraftPublicDesc(reqView.publicDescription || '');
+                      setIsEditingPublicDesc(true);
+                    }}
+                    className="text-brand-600 font-semibold hover:underline text-xs cursor-pointer"
                   >
-                    {s}
-                  </span>
-                ))}
+                    {reqView.publicDescription ? 'Edit' : 'Add Summary'}
+                  </button>
+                )}
               </div>
-            )}
+
+              {isEditingPublicDesc ? (
+                <div className="space-y-3">
+                  <textarea
+                    rows={5}
+                    value={draftPublicDesc}
+                    onChange={(e) => setDraftPublicDesc(e.target.value)}
+                    placeholder="Brief role scope shown on the public application page (never includes internal rates or client contact emails)."
+                    className="w-full p-3 rounded-xl border border-slate-200 text-xs text-slate-700 leading-relaxed focus:border-brand-500 focus:outline-none"
+                  />
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      disabled={isUpdatingPublicForm}
+                      onClick={() => setIsEditingPublicDesc(false)}
+                      className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-600 hover:bg-slate-50 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isUpdatingPublicForm}
+                      onClick={() => updatePublicFormConfig({ publicDescription: draftPublicDesc })}
+                      className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold cursor-pointer disabled:opacity-50"
+                    >
+                      {isUpdatingPublicForm ? 'Saving...' : 'Save Summary'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-slate-600 leading-relaxed whitespace-pre-line bg-slate-50/70 border border-slate-200/70 rounded-xl p-3.5">
+                  {reqView.publicDescription ||
+                    'No public summary set. Only role title, work model, location, and required skills are shown.'}
+                </p>
+              )}
+            </div>
           </div>
 
-          {/* Shareable Public CV Intake Form Control Card */}
-          <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-4 space-y-3 text-xs">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5">
-                <Link2 className="w-3.5 h-3.5 text-brand-600" />
-                <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Public CV Form
-                </h3>
+          <aside className="lg:col-span-4 space-y-5">
+            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-3.5 text-xs">
+              <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Intake Activity
+              </h3>
+              <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
+                <span className="text-slate-600 font-medium">Public Form Submissions</span>
+                <span className="text-base font-bold font-mono text-slate-900">
+                  {publicIntakeCount}
+                </span>
               </div>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Resumes submitted through this link are automatically parsed, duplicate-checked, and tagged{' '}
+                <strong className="font-semibold text-slate-700">Form Intake</strong> inside Applicants Pipeline.
+              </p>
               <button
                 type="button"
-                role="switch"
-                aria-checked={publicFormEnabled}
-                aria-label="Toggle public CV form"
-                disabled={isUpdatingPublicForm}
-                onClick={() => updatePublicFormConfig({ enabled: !publicFormEnabled })}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
-                  publicFormEnabled ? 'bg-emerald-600' : 'bg-slate-300'
-                }`}
+                onClick={() => setWorkspaceTab('applicants')}
+                className="w-full py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs cursor-pointer transition-colors"
               >
-                <span
-                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                    publicFormEnabled ? 'translate-x-4.5' : 'translate-x-1'
-                  }`}
-                />
+                View Applicants Pipeline &rarr;
               </button>
             </div>
 
-            {publicFormEnabled && publicShareUrl ? (
-              <div className="space-y-2.5">
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="text"
-                    readOnly
-                    value={publicShareUrl}
-                    aria-label="Shareable public application link"
-                    onClick={(e) => (e.target as HTMLInputElement).select()}
-                    className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-[11px] text-slate-700 font-mono focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleCopyPublicLink}
-                    title="Copy Form Link"
-                    className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-[11px] inline-flex items-center gap-1 cursor-pointer flex-shrink-0"
-                  >
-                    {copiedPublicLink ? (
-                      <>
-                        <Check className="w-3 h-3 text-emerald-600" />
-                        <span className="text-emerald-700">Copied</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3 h-3" />
-                        <span>Copy</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between gap-2 text-[11px]">
-                  <a
-                    href={`/apply/${publicFormToken}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 font-semibold text-brand-600 hover:text-brand-700 hover:underline"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                    <span>Open Form</span>
-                  </a>
-                  <button
-                    type="button"
-                    disabled={isUpdatingPublicForm}
-                    onClick={() => updatePublicFormConfig({ enabled: true, regenerateToken: true })}
-                    className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-800 font-medium cursor-pointer disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-3 h-3 ${isUpdatingPublicForm ? 'animate-spin' : ''}`} />
-                    <span>Regenerate Link</span>
-                  </button>
-                </div>
-
-                <div className="pt-2 border-t border-slate-100 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10.5px] font-semibold text-slate-500">
-                      Public Summary (Client-Safe)
-                    </span>
-                    {!isEditingPublicDesc && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDraftPublicDesc(effectiveRequirement?.publicDescription || '');
-                          setIsEditingPublicDesc(true);
-                        }}
-                        className="text-[10.5px] font-semibold text-brand-600 hover:underline cursor-pointer"
-                      >
-                        {effectiveRequirement?.publicDescription ? 'Edit' : 'Add Summary'}
-                      </button>
-                    )}
-                  </div>
-                  {isEditingPublicDesc ? (
-                    <div className="space-y-2">
-                      <textarea
-                        rows={3}
-                        value={draftPublicDesc}
-                        onChange={(e) => setDraftPublicDesc(e.target.value)}
-                        placeholder="Brief role scope shown on the public application page (never includes internal rates or client contact emails)."
-                        className="w-full p-2 rounded-lg border border-slate-200 text-[11px] text-slate-700 focus:border-brand-500 focus:outline-none"
-                      />
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          type="button"
-                          disabled={isUpdatingPublicForm}
-                          onClick={() => setIsEditingPublicDesc(false)}
-                          className="px-2 py-1 rounded border border-slate-200 text-[10.5px] text-slate-600 hover:bg-slate-50 cursor-pointer"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isUpdatingPublicForm}
-                          onClick={() =>
-                            updatePublicFormConfig({ publicDescription: draftPublicDesc })
-                          }
-                          className="px-2.5 py-1 rounded bg-brand-600 hover:bg-brand-700 text-white text-[10.5px] font-semibold cursor-pointer disabled:opacity-50"
-                        >
-                          {isUpdatingPublicForm ? 'Saving...' : 'Save Summary'}
-                        </button>
-                      </div>
+            {customFieldEntries.length > 0 && (
+              <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-3 text-xs">
+                <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Custom Attributes
+                </h3>
+                <dl className="space-y-2.5">
+                  {customFieldEntries.map(([k, v]) => (
+                    <div key={k} className="flex items-start justify-between gap-2">
+                      <dt className="text-slate-400 font-medium capitalize shrink-0">
+                        {k.replace(/_/g, ' ')}
+                      </dt>
+                      <dd className="text-slate-800 font-medium text-right min-w-0 [overflow-wrap:anywhere]">
+                        {String(v)}
+                      </dd>
                     </div>
-                  ) : (
-                    <p className="text-[11px] text-slate-500 leading-relaxed whitespace-pre-line">
-                      {effectiveRequirement?.publicDescription ||
-                        'No public summary set. Only role title, work model, location, and required skills are shown.'}
-                    </p>
-                  )}
-                </div>
+                  ))}
+                </dl>
               </div>
-            ) : (
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                Turn on to generate a shareable link where candidates or vendor partners can submit resumes directly into this job — internal rates and client contacts stay hidden.
-              </p>
             )}
-
-            {publicFormError && (
-              <div className="text-[11px] text-rose-600 font-medium">{publicFormError}</div>
-            )}
-          </div>
-
-          {customFieldEntries.length > 0 && (
-            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-4 space-y-2.5 text-xs">
-              <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                Custom Attributes
-              </h3>
-              <dl className="space-y-1.5">
-                {customFieldEntries.map(([k, v]) => (
-                  <div key={k} className="flex items-start justify-between gap-2">
-                    <dt className="text-slate-400 font-medium capitalize shrink-0">
-                      {k.replace(/_/g, ' ')}
-                    </dt>
-                    <dd className="text-slate-800 font-medium text-right min-w-0 [overflow-wrap:anywhere]">
-                      {String(v)}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          )}
-        </aside>
-      </div>
+          </aside>
+        </div>
+      )}
 
       {/* Shared Ranked Bench Candidate Picker Drawer */}
       <AttachBenchDrawer
         isOpen={showBenchPicker}
         onClose={() => setShowBenchPicker(false)}
-        requirement={effectiveRequirement || requirement}
+        requirement={reqView}
         candidates={candidates}
         rateMasked={rateMasked}
         onAttachCandidates={onAttachCandidates}
@@ -1417,532 +2101,97 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
         }}
       />
 
-      {/* Applicant Call Notes, Interview Schedule & Rejection Feedback Modal */}
-      {editingNotesSub && (() => {
-        const liveEditingSub =
-          submissions.find((s) => s.id === editingNotesSub.id) || editingNotesSub;
-        const liveNotes = liveEditingSub.notes || [];
-        const isInterviewMode = notesModalMode === 'interview';
-        const isClosedMode = notesModalMode === 'closed';
-        const isNotesMode = notesModalMode === 'notes';
-        const isClosedModalStage = liveEditingSub.stage.trim().toLowerCase() === 'closed';
-        const modalStageIdx = getStageIndex(liveEditingSub.stage, taxonomies.stages);
-        const modalInitials = liveEditingSub.fullName
-          .split(' ')
-          .map((n) => n[0])
-          .join('')
-          .slice(0, 2)
-          .toUpperCase();
-        const prevDate = liveEditingSub.interviewDateTime || liveEditingSub.interviewDate || '';
-        const dateChanged = isInterviewMode && draftInterviewDate !== prevDate;
-        const hasNoteText = Boolean(draftNotesText.trim());
-        const submitDisabled =
-          isSavingNotes ||
-          (isInterviewMode
-            ? !hasNoteText && !dateChanged
-            : !hasNoteText);
-        const submitLabel = isClosedMode
-          ? 'Save Feedback'
-          : isInterviewMode
-          ? hasNoteText && dateChanged
-            ? 'Save Schedule & Note'
-            : hasNoteText
-            ? 'Save Note'
-            : 'Save Schedule'
-          : editingNoteId
-          ? 'Update Note'
-          : 'Add Note';
+      {liveFitSub && (
+        <CapabilityFitModal
+          requirement={reqView}
+          submission={liveFitSub}
+          aiEnabled={aiCapabilities.enabled}
+          isEvaluating={evaluatingSubId === liveFitSub.id}
+          onRunAiCheck={
+            !liveFitSub.id.startsWith('legacy_') && aiCapabilities.enabled
+              ? () => handleEvaluateSubmission(liveFitSub)
+              : undefined
+          }
+          onClose={() => setFitModalSubId(null)}
+        />
+      )}
 
-        return (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
-            onClick={() => !isSavingNotes && setEditingNotesSub(null)}
-          >
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSaveSubmissionNotes();
-              }}
-              onClick={(e) => e.stopPropagation()}
-              className={`w-full ${
-                isNotesMode ? 'max-w-xl' : 'max-w-lg'
-              } bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-visible flex flex-col animate-fade-in`}
-            >
-              {/* Modal Header */}
-              <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 rounded-t-2xl flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
-                    {modalInitials}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h4 className="text-sm font-bold text-slate-900 truncate">
-                        {liveEditingSub.fullName}
-                      </h4>
-                      <StatusBadge
-                        stage={liveEditingSub.stage}
-                        dotClass={getStageDotClass(liveEditingSub.stage, modalStageIdx)}
-                        size="xs"
-                      />
-                    </div>
-                    <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                      {requirement.code} &bull; {requirement.opportunityTitle}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  disabled={isSavingNotes}
-                  onClick={() => setEditingNotesSub(null)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
-                  aria-label="Close notes dialog"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+      {liveEditingSub && (
+        <RequirementNotesModal
+          requirement={reqView}
+          liveEditingSub={liveEditingSub}
+          mode={notesModalMode}
+          taxonomies={taxonomies}
+          editingNoteId={editingNoteId}
+          confirmDeleteNoteId={confirmDeleteNoteId}
+          busyNoteId={busyNoteId}
+          draftInterviewDate={draftInterviewDate}
+          draftNotesText={draftNotesText}
+          isSavingNotes={isSavingNotes}
+          notesTextareaRef={notesTextareaRef}
+          onChangeInterviewDate={setDraftInterviewDate}
+          onChangeNotesText={setDraftNotesText}
+          onSelectEditNote={(note) => {
+            setConfirmDeleteNoteId(null);
+            setEditingNoteId(note.id);
+            setDraftNotesText(note.text);
+            notesTextareaRef.current?.focus();
+          }}
+          onSwitchToNewNote={() => {
+            setEditingNoteId(null);
+            setDraftNotesText('');
+            notesTextareaRef.current?.focus();
+          }}
+          onConfirmDeleteChange={setConfirmDeleteNoteId}
+          onDeleteNote={handleDeleteSubmissionNote}
+          onSubmit={handleSaveSubmissionNotes}
+          onClose={() => {
+            setConfirmDeleteNoteId(null);
+            setEditingNotesSub(null);
+          }}
+        />
+      )}
 
-              {/* Modal Body */}
-              <div className="p-5 space-y-4 overflow-visible">
-                {isInterviewMode && (
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1.5">
-                      Interview Date &amp; Time
-                    </label>
-                    <DateTimePicker
-                      value={draftInterviewDate}
-                      onChange={setDraftInterviewDate}
-                      placeholder="Select interview date & time..."
-                      ariaLabel={`Interview date for ${liveEditingSub.fullName}`}
-                    />
-                  </div>
-                )}
-
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
-                    <label className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          isClosedMode || isClosedModalStage ? 'bg-rose-500' : 'bg-brand-600'
-                        }`}
-                      />
-                      <span>
-                        {isClosedMode
-                          ? 'Add Rejection Feedback'
-                          : isInterviewMode
-                          ? 'Interview Note (Optional)'
-                          : editingNoteId
-                          ? 'Edit Note'
-                          : 'Add Note'}
-                      </span>
-                    </label>
-                    {isNotesMode && editingNoteId && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingNoteId(null);
-                          setDraftNotesText('');
-                          notesTextareaRef.current?.focus();
-                        }}
-                        className="text-[11px] font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
-                      >
-                        + New Note Instead
-                      </button>
-                    )}
-                  </div>
-
-                  {isClosedMode && (
-                    <div className="flex items-center gap-1.5 flex-wrap mb-2">
-                      {QUICK_REJECTION_REASONS.map((reason) => (
-                        <button
-                          key={reason}
-                          type="button"
-                          onClick={() =>
-                            setDraftNotesText((prev) => {
-                              const clean = prev.trim();
-                              if (!clean) return reason;
-                              if (clean.toLowerCase().includes(reason.toLowerCase())) return prev;
-                              return `${clean}\n${reason}`;
-                            })
-                          }
-                          className="px-2 py-0.5 rounded-md bg-rose-50/70 hover:bg-rose-100/80 border border-rose-200/80 text-[10.5px] font-medium text-rose-700 transition-colors cursor-pointer"
-                        >
-                          + {reason}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  <textarea
-                    ref={notesTextareaRef}
-                    rows={3}
-                    autoFocus={!isInterviewMode}
-                    aria-label={`Call notes and feedback for ${liveEditingSub.fullName}`}
-                    value={draftNotesText}
-                    onChange={(e) => setDraftNotesText(e.target.value)}
-                    placeholder={
-                      isClosedMode
-                        ? 'Why did the client reject or close out this applicant? (e.g. Budget ceiling, needed hands-on GCP)'
-                        : isInterviewMode
-                        ? 'Optional interview round notes, panel details, or prep instructions...'
-                        : 'Log recruiter call summary, Round 1/2 debrief, or client feedback...'
-                    }
-                    className="w-full px-3 py-2.5 text-xs border border-slate-200 rounded-lg bg-slate-50/40 focus:bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/10 transition-colors"
-                  />
-                </div>
-
-                {/* All Notes List (Notes view only) */}
-                {isNotesMode && (
-                  <div className="space-y-2 pt-1 border-t border-slate-100">
-                    <div className="flex items-center justify-between text-[10.5px] font-bold uppercase tracking-wider text-slate-500">
-                      <span>All Notes ({liveNotes.length})</span>
-                    </div>
-                    {liveNotes.length === 0 ? (
-                      <div className="py-4 text-center text-[11px] text-slate-400 bg-slate-50/60 rounded-lg border border-dashed border-slate-200">
-                        No notes added for {liveEditingSub.fullName} yet.
-                      </div>
-                    ) : (
-                      <div className="max-h-52 overflow-y-auto space-y-2 pr-0.5">
-                        {liveNotes.map((note) => {
-                          const noteTime = formatDateTimeBadge(note.updatedAt || note.createdAt);
-                          const isBeingEdited = editingNoteId === note.id;
-                          const isNoteClosed =
-                            (note.stage || '').trim().toLowerCase() === 'closed' ||
-                            isClosedModalStage;
-                          return (
-                            <div
-                              key={note.id}
-                              className={`rounded-xl border px-3.5 py-2.5 text-xs transition-colors ${
-                                isBeingEdited
-                                  ? 'border-brand-400 bg-brand-50/40'
-                                  : 'border-slate-200 bg-slate-50/70'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-1.5 text-[10.5px] text-slate-400 flex-wrap min-w-0">
-                                  <span className="font-semibold text-slate-700 whitespace-nowrap">
-                                    {note.authorName}
-                                  </span>
-                                  {noteTime && (
-                                    <span className="whitespace-nowrap">&middot; {noteTime}</span>
-                                  )}
-                                  {note.updatedAt && (
-                                    <span className="whitespace-nowrap">(edited)</span>
-                                  )}
-                                  {isNoteClosed && (
-                                    <span className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 font-medium whitespace-nowrap">
-                                      Rejection Feedback
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1 flex-shrink-0">
-                                  {confirmDeleteNoteId === note.id ? (
-                                    <div className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 rounded-md px-1.5 py-0.5 text-[10px]">
-                                      {busyNoteId === note.id ? (
-                                        <span className="inline-flex items-center gap-1 text-rose-700 font-semibold px-1 py-0.5">
-                                          <Loader2 className="w-3 h-3 animate-spin" />
-                                          Deleting...
-                                        </span>
-                                      ) : (
-                                        <>
-                                          <span className="text-rose-700 font-semibold">
-                                            Delete?
-                                          </span>
-                                          <button
-                                            type="button"
-                                            disabled={isSavingNotes}
-                                            onClick={() =>
-                                              handleDeleteSubmissionNote(liveEditingSub, note.id)
-                                            }
-                                            className="px-1.5 py-0.5 rounded bg-rose-600 hover:bg-rose-700 text-white font-bold transition-colors cursor-pointer disabled:opacity-50"
-                                          >
-                                            Yes
-                                          </button>
-                                          <button
-                                            type="button"
-                                            disabled={isSavingNotes}
-                                            onClick={() => setConfirmDeleteNoteId(null)}
-                                            className="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-600 font-semibold border border-slate-200 transition-colors cursor-pointer disabled:opacity-50"
-                                          >
-                                            No
-                                          </button>
-                                        </>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <>
-                                      <button
-                                        type="button"
-                                        disabled={busyNoteId === note.id || isSavingNotes}
-                                        onClick={() => {
-                                          setConfirmDeleteNoteId(null);
-                                          setEditingNoteId(note.id);
-                                          setDraftNotesText(note.text);
-                                          notesTextareaRef.current?.focus();
-                                        }}
-                                        title="Edit note"
-                                        aria-label={`Edit note by ${note.authorName}`}
-                                        className={`p-1 rounded transition-colors cursor-pointer ${
-                                          isBeingEdited
-                                            ? 'text-brand-600 bg-white'
-                                            : 'text-slate-400 hover:text-brand-600 hover:bg-white'
-                                        }`}
-                                      >
-                                        <Pencil className="w-3.5 h-3.5" />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        disabled={Boolean(busyNoteId) || isSavingNotes}
-                                        onClick={() => setConfirmDeleteNoteId(note.id)}
-                                        title="Delete note"
-                                        aria-label={`Delete note by ${note.authorName}`}
-                                        className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer disabled:opacity-40"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                              <p className="text-slate-700 whitespace-pre-line break-words leading-relaxed mt-1">
-                                {note.text}
-                              </p>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Modal Footer */}
-              <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 rounded-b-2xl flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  disabled={isSavingNotes}
-                  onClick={() => {
-                    setConfirmDeleteNoteId(null);
-                    setEditingNotesSub(null);
-                  }}
-                  className="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
-                >
-                  {isClosedMode || isInterviewMode ? 'Skip' : 'Close'}
-                </button>
-                <ActionButton
-                  type="submit"
-                  loading={isSavingNotes}
-                  loadingText="Saving..."
-                  disabled={submitDisabled}
-                  spinnerClassName="w-3.5 h-3.5 animate-spin flex-shrink-0"
-                  className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
-                >
-                  {submitLabel}
-                </ActionButton>
-              </div>
-            </form>
-          </div>
-        );
-      })()}
-
-      {/* Edit Requisition Details Modal */}
       {isEditing && editForm && (
-        <div
-          onClick={() => !isSavingEdit && setIsEditing(false)}
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden flex flex-col animate-fade-in max-h-[92vh]"
-          >
-            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white shrink-0">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shrink-0">
-                  <Pencil className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <h2 className="text-sm font-bold text-white truncate">
-                    Edit Requisition Details
-                  </h2>
-                  <div className="text-[11px] text-slate-400 mt-0.5 truncate">
-                    {requirement.code} &bull; {requirement.opportunityTitle}
-                  </div>
-                </div>
-              </div>
-              <button
-                type="button"
-                disabled={isSavingEdit}
-                onClick={() => setIsEditing(false)}
-                aria-label="Close modal"
-                className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form
-              noValidate
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (isSavingEdit) return;
-                const trimmed = editOpenPositions.trim();
-                const parsed = Number(trimmed);
-                if (
-                  !trimmed ||
-                  !/^\d+$/.test(trimmed) ||
-                  !Number.isInteger(parsed) ||
-                  parsed < 1 ||
-                  parsed > 1000
-                ) {
-                  setEditOpenPosError('Please enter at least 1 open position.');
-                  return;
-                }
-                setIsSavingEdit(true);
-                try {
-                  if (onUpdateReq) await onUpdateReq({ ...editForm, openPositions: parsed });
-                  setEditOpenPosError('');
-                  setIsEditing(false);
-                } catch {
-                  // Error toast handled by parent handler; keep edit form open
-                } finally {
-                  setIsSavingEdit(false);
-                }
-              }}
-              className="flex flex-col flex-1 overflow-hidden"
-            >
-              <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Opportunity Title *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={editForm.opportunityTitle}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, opportunityTitle: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Client Company *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={editForm.companyName}
-                      onChange={(e) => setEditForm({ ...editForm, companyName: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Location
-                    </label>
-                    <input
-                      type="text"
-                      value={editForm.location}
-                      onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      No. of Open Positions *
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={1000}
-                      step={1}
-                      value={editOpenPositions}
-                      onChange={(e) => {
-                        setEditOpenPositions(e.target.value);
-                        if (editOpenPosError) setEditOpenPosError('');
-                      }}
-                      className={`w-full px-3 py-2 border rounded-lg text-xs bg-white focus:outline-none ${
-                        editOpenPosError
-                          ? 'border-rose-400 focus:border-rose-500'
-                          : 'border-slate-200 focus:border-brand-600'
-                      }`}
-                    />
-                    {editOpenPosError && (
-                      <p className="text-[10px] font-semibold text-rose-600 mt-1">
-                        {editOpenPosError}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Stage
-                    </label>
-                    <CustomSelect
-                      value={editForm.status}
-                      onChange={(val) =>
-                        setEditForm({ ...editForm, status: val as Requirement['status'] })
-                      }
-                      ariaLabel="Stage"
-                      options={buildRequirementStageOptions(taxonomies.stages, editForm.status).map(
-                        (s) => ({
-                          value: s,
-                          label: s,
-                          dotClass: getStageDotClass(s, getStageIndex(s, taxonomies.stages)),
-                        })
-                      )}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Assigned Recruiter
-                    </label>
-                    <input
-                      type="text"
-                      value={editForm.assignedRecruiter || ''}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, assignedRecruiter: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Required Competencies
-                  </label>
-                  <SkillTagInput
-                    value={editForm.skillsRequired}
-                    onChange={(nextCsv) => setEditForm({ ...editForm, skillsRequired: nextCsv })}
-                  />
-                </div>
-              </div>
-
-              <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
-                <button
-                  type="button"
-                  disabled={isSavingEdit}
-                  onClick={() => setIsEditing(false)}
-                  className="px-3.5 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <ActionButton
-                  type="submit"
-                  loading={isSavingEdit}
-                  loadingText="Saving..."
-                  className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
-                >
-                  Save Requirement
-                </ActionButton>
-              </div>
-            </form>
-          </div>
-        </div>
+        <EditRequirementModal
+          requirement={reqView}
+          editForm={editForm}
+          editOpenPositions={editOpenPositions}
+          editOpenPosError={editOpenPosError}
+          isSavingEdit={isSavingEdit}
+          taxonomies={taxonomies}
+          onChangeForm={setEditForm}
+          onChangeOpenPositions={(val) => {
+            setEditOpenPositions(val);
+            if (editOpenPosError) setEditOpenPosError('');
+          }}
+          onSave={async () => {
+            if (isSavingEdit) return;
+            const trimmed = editOpenPositions.trim();
+            const parsed = Number(trimmed);
+            if (
+              !trimmed ||
+              !/^\d+$/.test(trimmed) ||
+              !Number.isInteger(parsed) ||
+              parsed < 1 ||
+              parsed > 1000
+            ) {
+              setEditOpenPosError('Please enter at least 1 open position.');
+              return;
+            }
+            setIsSavingEdit(true);
+            try {
+              if (onUpdateReq) await onUpdateReq({ ...editForm, openPositions: parsed });
+              setEditOpenPosError('');
+              setIsEditing(false);
+            } catch {
+              // Error toast handled by parent
+            } finally {
+              setIsSavingEdit(false);
+            }
+          }}
+          onClose={() => setIsEditing(false)}
+        />
       )}
 
       {pitchTargetSub && (
@@ -1950,9 +2199,9 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
           isOpen={Boolean(pitchTargetSub)}
           onClose={() => setPitchTargetSub(null)}
           submissionId={pitchTargetSub.id}
-          requirementCode={requirement.code}
-          requirementTitle={requirement.opportunityTitle}
-          companyName={requirement.companyName}
+          requirementCode={reqView.code}
+          requirementTitle={reqView.opportunityTitle}
+          companyName={reqView.companyName}
           candidate={resolveCandidateForSubmission(pitchTargetSub)}
           fallbackCandidateName={pitchTargetSub.fullName}
           rateMasked={rateMasked}
