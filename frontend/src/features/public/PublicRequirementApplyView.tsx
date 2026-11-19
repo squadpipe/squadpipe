@@ -14,6 +14,7 @@ import {
 import { apiClient } from '../../config/api.config';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { ALLOWED_CV_ACCEPT, validateCvFileSelection } from '../../utils/cvFiles';
+import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../utils/formValidation';
 
 interface PublicRequirementDetails {
   agencyName: string;
@@ -114,8 +115,14 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
     e.preventDefault();
     setFormError('');
 
-    if (!fullName.trim() || !email.trim() || !phone.trim() || !workAuth.trim()) {
-      setFormError('Please complete all required contact and work authorization fields.');
+    const missingFields = getMissingFieldLabels([
+      { label: 'Full Name', valid: Boolean(fullName.trim()) },
+      { label: 'Email', valid: Boolean(email.trim()) },
+      { label: 'Phone', valid: Boolean(phone.trim()) },
+      { label: 'Work Authorization', valid: Boolean(workAuth.trim()) },
+    ]);
+    if (missingFields.length > 0) {
+      setFormError(formatMissingFieldsMessage(missingFields));
       return;
     }
     if (!cvFile) {

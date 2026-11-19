@@ -12,6 +12,7 @@ import { BrandLogo } from '../../components/shared/BrandMark';
 import { apiClient } from '../../config/api.config';
 import { User } from '../../types';
 import { setAuthSession } from '../../utils/authStorage';
+import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../utils/formValidation';
 
 interface LoginViewProps {
   onLoginSuccess: (user: User, token: string) => void;
@@ -146,8 +147,14 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!signupFullName.trim() || !signupCompanyName.trim() || !signupEmail.trim() || !signupPassword) {
-      setErrorMessage('All required fields must be completed.');
+    const missingFields = getMissingFieldLabels([
+      { label: 'Full Name', valid: Boolean(signupFullName.trim()) },
+      { label: 'Company Name', valid: Boolean(signupCompanyName.trim()) },
+      { label: 'Email', valid: Boolean(signupEmail.trim()) },
+      { label: 'Password', valid: Boolean(signupPassword) },
+    ]);
+    if (missingFields.length > 0) {
+      setErrorMessage(formatMissingFieldsMessage(missingFields));
       return;
     }
 

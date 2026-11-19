@@ -18,6 +18,7 @@ import { SortableTableHeader } from '../../components/shared/SortableTableHeader
 import { User } from '../../types';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../utils/formValidation';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapUserFromApi } from '../../utils/entityMappers';
@@ -163,8 +164,12 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   const handleInviteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isInviting) return;
-    if (!newUser.name.trim() || !newUser.email.trim()) {
-      showToast('Validation Error', 'Full Name and Email are required.', 'fa-solid fa-circle-exclamation text-rose-500');
+    const missingFields = getMissingFieldLabels([
+      { label: 'Full Name', valid: Boolean(newUser.name.trim()) },
+      { label: 'Email', valid: Boolean(newUser.email.trim()) },
+    ]);
+    if (missingFields.length > 0) {
+      showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'fa-solid fa-circle-exclamation text-rose-500');
       return;
     }
     setIsInviting(true);
