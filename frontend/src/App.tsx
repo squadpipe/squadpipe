@@ -92,6 +92,16 @@ const SettingsView = React.lazy(() =>
     default: m.SettingsView,
   }))
 );
+const TeamPerformanceView = React.lazy(() =>
+  import('./features/team-performance/TeamPerformanceView').then((m) => ({
+    default: m.TeamPerformanceView,
+  }))
+);
+const UsageView = React.lazy(() =>
+  import('./features/usage/UsageView').then((m) => ({
+    default: m.UsageView,
+  }))
+);
 const PublicRequirementApplyView = React.lazy(() =>
   import('./features/public/PublicRequirementApplyView').then((m) => ({
     default: m.PublicRequirementApplyView,
@@ -2465,6 +2475,32 @@ export const App: React.FC = () => {
                 }}
               />
             ))}
+
+            {currentView === 'team_performance' &&
+              (isAdmin ? (
+                <TeamPerformanceView showToast={showToast} />
+              ) : (
+                <AccessRestrictedView
+                  moduleName="Team Performance"
+                  description="Recruiter performance scorecards, activity leaderboards, and conversion rates are restricted to workspace Administrators."
+                  currentRole={normalizedUserRole}
+                  requiredRoles={['Administrator']}
+                  onBackToDashboard={() => handleNavigateView('dashboard')}
+                />
+              ))}
+
+            {currentView === 'usage' &&
+              (isAdmin ? (
+                <UsageView showToast={showToast} />
+              ) : (
+                <AccessRestrictedView
+                  moduleName="Workspace Usage & Storage"
+                  description="Document storage metrics, record counts, and active AI usage quotas are restricted to workspace Administrators."
+                  currentRole={normalizedUserRole}
+                  requiredRoles={['Administrator']}
+                  onBackToDashboard={() => handleNavigateView('dashboard')}
+                />
+              ))}
 
             {currentView === 'settings_general' &&
               (isAdmin ? (

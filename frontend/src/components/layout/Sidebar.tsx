@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import {
+  BarChart3,
   Building2,
   ChevronDown,
   FileSpreadsheet,
   FileUp,
   Handshake,
+  HardDrive,
   Kanban,
   Lock,
   LogOut,
@@ -323,6 +325,58 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div>
           <div className="px-3.5 text-[10px] font-semibold uppercase tracking-wider mb-1 text-slate-400">
             Settings &amp; Administration
+          </div>
+
+          <div
+            onClick={() => onNavigate('team_performance')}
+            title={!isAdmin ? 'Restricted to Administrators' : 'Recruiter Team Performance & Conversion'}
+            className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
+              currentView === 'team_performance'
+                ? 'bg-[#1F2422] text-white shadow-xs font-semibold'
+                : isAdmin
+                  ? 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
+                  : 'text-slate-500 hover:bg-white/[0.03] hover:text-slate-300'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <BarChart3
+                className={`w-4 h-4 flex-shrink-0 transition-colors ${
+                  currentView === 'team_performance'
+                    ? 'text-brand-400'
+                    : isAdmin
+                      ? 'text-slate-400 group-hover:text-slate-200'
+                      : 'text-slate-500 group-hover:text-slate-300'
+                }`}
+              />
+              <span>Team Performance</span>
+            </div>
+            {!isAdmin && <RestrictedBadge />}
+          </div>
+
+          <div
+            onClick={() => onNavigate('usage')}
+            title={!isAdmin ? 'Restricted to Administrators' : 'Storage Usage & AI Quota Details'}
+            className={`group flex items-center justify-between px-3 py-2 mx-2 cursor-pointer transition-all text-xs rounded-lg font-medium ${
+              currentView === 'usage'
+                ? 'bg-[#1F2422] text-white shadow-xs font-semibold'
+                : isAdmin
+                  ? 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
+                  : 'text-slate-500 hover:bg-white/[0.03] hover:text-slate-300'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <HardDrive
+                className={`w-4 h-4 flex-shrink-0 transition-colors ${
+                  currentView === 'usage'
+                    ? 'text-brand-400'
+                    : isAdmin
+                      ? 'text-slate-400 group-hover:text-slate-200'
+                      : 'text-slate-500 group-hover:text-slate-300'
+                }`}
+              />
+              <span>Usage</span>
+            </div>
+            {!isAdmin && <RestrictedBadge />}
           </div>
 
           <div

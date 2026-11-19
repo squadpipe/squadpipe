@@ -13,6 +13,7 @@ import {
 } from '../../src/services/candidate.service';
 import {
   buildRecruiterPerformanceRows,
+  buildStorageUsageSummaryPure,
   formatLiveWorkloadText,
 } from '../../src/services/analytics.service';
 import { parseCsvHourlyRates } from '../../src/services/csvImporter.service';
@@ -196,6 +197,58 @@ export const runRecruiterWorkflowTests = () => {
   assert.equal(defaultRate.hourlyRateDisplay, '$90/hr (W2)');
   assert.equal(defaultRate.hourlyRateW2, 90);
   assert.equal(defaultRate.hourlyRateC2c, null);
+
+  // 7. Workspace Storage Usage pure aggregator
+  const storageSummary = buildStorageUsageSummaryPure({
+    provider: 'local',
+    storageLimitMb: 512,
+    totalCandidates: 3,
+    files: [
+      {
+        candidateId: 'cand-1',
+        fullName: 'Alice Johnson',
+        fileName: 'Alice_Resume.pdf',
+        format: 'PDF',
+        storageUri: 'local://tenants/t1/cvs/100_Alice_Resume.pdf',
+        bytes: 204800,
+        updatedAt: '2026-11-19T10:00:00.000Z',
+      },
+      {
+        candidateId: 'cand-2',
+        fullName: 'Bob Smith',
+        fileName: 'Bob_CV.docx',
+        format: 'DOCX',
+        storageUri: 'local://tenants/t1/cvs/200_Bob_CV.docx',
+        bytes: 102400,
+        updatedAt: '2026-11-19T11:00:00.000Z',
+      },
+      {
+        candidateId: 'cand-3',
+        fullName: 'No URI Candidate',
+        fileName: null,
+        format: null,
+        storageUri: null,
+        bytes: null,
+        updatedAt: '2026-11-19T12:00:00.000Z',
+      },
+    ],
+    recordCounts: {
+      candidates: 3,
+      requirements: 2,
+      submissions: 4,
+      clients: 1,
+      vendors: 1,
+      placements: 1,
+      emailLogs: 5,
+    },
+  });
+  assert.equal(storageSummary.totalFiles, 2);
+  assert.equal(storageSummary.measuredBytes, 307200);
+  assert.equal(storageSummary.measuredFileCount, 2);
+  assert.equal(storageSummary.storageLimitMb, 512);
+  assert.equal(storageSummary.byFormat[0].format, 'PDF');
+  assert.equal(storageSummary.byFormat[0].bytes, 204800);
+  assert.equal(storageSummary.byFormat[1].format, 'DOCX');
 
   console.log('✅ Recruiter Notes, Performance, Search & Duplicate Tests: PASSED');
 };

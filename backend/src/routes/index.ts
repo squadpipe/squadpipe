@@ -232,7 +232,7 @@ router.get('/dashboard/metrics', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/dashboard/recruiter-performance', async (req: Request, res: Response) => {
+router.get('/dashboard/recruiter-performance', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
     const period = req.query.period ? String(req.query.period).trim().toLowerCase() : 'week';
@@ -1346,6 +1346,16 @@ router.get('/settings/ai-usage', requireRole([UserRole.ADMINISTRATOR]), async (r
     res.json({ success: true, data: summary });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'Failed to load AI usage metrics' });
+  }
+});
+
+router.get('/settings/storage-usage', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const storage = await analyticsService.getWorkspaceStorageUsage(tenantId);
+    res.json({ success: true, data: storage });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'Failed to load storage usage metrics' });
   }
 });
 

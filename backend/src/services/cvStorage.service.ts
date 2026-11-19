@@ -583,6 +583,22 @@ class CvStorageService {
   }
 
   /**
+   * Returns on-disk byte size for a `local://` CV object, or `null` for remote / missing objects.
+   */
+  async getLocalObjectByteSize(storageUri?: string | null): Promise<number | null> {
+    const parsed = parseCvStorageUri(storageUri);
+    if (!parsed || parsed.provider !== 'local') return null;
+
+    try {
+      const targetPath = resolveSafeLocalPath(getLocalCvBaseDir(), parsed.objectKey);
+      const stat = await fs.stat(targetPath);
+      return stat.isFile() ? stat.size : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Best-effort cleanup of a stored CV file when replaced or deleted.
    */
   async deleteCv(storageUri?: string | null): Promise<void> {

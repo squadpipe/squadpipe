@@ -1,6 +1,12 @@
 import { PlacementStatus, UserRole } from '@prisma/client';
 import { prisma } from '../config/prisma.config';
 import { normalizeStageValue } from './requirement.service';
+import {
+  cvStorageService,
+  type CvStorageProvider,
+  parseCvStorageUri,
+  resolveCvStorageProvider,
+} from './cvStorage.service';
 import { SortDirection, sortRecordsByColumn } from '../utils/tableSort';
 
 export const PERFORMANCE_SORTABLE_FIELDS = [
@@ -314,6 +320,203 @@ export class AnalyticsService {
     }
     return result;
   }
+
+  async getWorkspaceStorageUsage(tenantId: string): Promise<WorkspaceStorageUsageSummary> {
+    let provider: CvStorageProvider = 'local';
+    try {
+      provider = resolveCvStorageProvider();
+    } catch {
+      provider = 'local';
+    }
+
+    const rawLimit = Number(
+      process.env.CV_STORAGE_LIMIT_MB || process.env.STORAGE_QUOTA_MB || '0'
+    );
+    const storageLimitMb = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : null;
+
+    const [
+      cvCandidates,
+      totalCandidates,
+      requirementsCount,
+      submissionsCount,
+      clientsCount,
+      vendorsCount,
+      placementsCount,
+      emailLogsCount,
+    ] = await Promise.all([
+      prisma.candidate.findMany({
+        where: { tenantId, resumeFileUrl: { not: null } },
+        select: {
+          id: true,
+          fullName: true,
+          resumeFileName: true,
+          resumeFormat: true,
+          resumeFileUrl: true,
+          updatedAt: true,
+        },
+        orderBy: { updatedAt: 'desc' },
+      }),
+      prisma.candidate.count({ where: { tenantId } }),
+      prisma.requirement.count({ where: { tenantId } }),
+      prisma.submission.count({ where: { tenantId } }),
+      prisma.client.count({ where: { tenantId } }),
+      prisma.vendor.count({ where: { tenantId } }),
+      prisma.placement.count({ where: { tenantId } }),
+      prisma.emailLog.count({ where: { tenantId } }),
+    ]);
+
+    const measuredItems = await Promise.all(
+      cvCandidates.map(async (c) => {
+        const bytes = await cvStorageService.getLocalObjectByteSize(c.resumeFileUrl);
+        return {
+          candidateId: c.id,
+          fullName: c.fullName,
+          fileName: c.resumeFileName,
+          format: c.resumeFormat,
+          storageUri: c.resumeFileUrl,
+          bytes,
+          updatedAt: c.updatedAt,
+        };
+      })
+    );
+
+    return buildStorageUsageSummaryPure({
+      provider,
+      storageLimitMb,
+      totalCandidates,
+      files: measuredItems,
+      recordCounts: {
+        candidates: totalCandidates,
+        requirements: requirementsCount,
+        submissions: submissionsCount,
+        clients: clientsCount,
+        vendors: vendorsCount,
+        placements: placementsCount,
+        emailLogs: emailLogsCount,
+      },
+    });
+  }
+}
+
+export interface StorageFormatBucket {
+  format: string;
+  count: number;
+  bytes: number;
+}
+
+export interface StoredCvUsageItem {
+  candidateId: string;
+  fullName: string;
+  fileName: string;
+  format: string;
+  provider: string;
+  bytes: number | null;
+  updatedAt: string;
+}
+
+export interface WorkspaceStorageUsageSummary {
+  provider: CvStorageProvider;
+  storageLimitMb: number | null;
+  totalFiles: number;
+  candidatesWithCv: number;
+  totalCandidates: number;
+  measuredBytes: number;
+  measuredFileCount: number;
+  byFormat: StorageFormatBucket[];
+  recentFiles: StoredCvUsageItem[];
+  recordCounts: {
+    candidates: number;
+    requirements: number;
+    submissions: number;
+    clients: number;
+    vendors: number;
+    placements: number;
+    emailLogs: number;
+  };
+}
+
+/**
+ * Pure aggregator for tenant CV file storage and CRM record footprint metrics.
+ */
+export function buildStorageUsageSummaryPure(params: {
+  provider: CvStorageProvider;
+  storageLimitMb?: number | null;
+  totalCandidates: number;
+  files: Array<{
+    candidateId: string;
+    fullName: string;
+    fileName?: string | null;
+    format?: string | null;
+    storageUri?: string | null;
+    bytes: number | null;
+    updatedAt: Date | string;
+  }>;
+  recordCounts: WorkspaceStorageUsageSummary['recordCounts'];
+}): WorkspaceStorageUsageSummary {
+  const formatMap = new Map<string, StorageFormatBucket>();
+  let totalFiles = 0;
+  let measuredBytes = 0;
+  let measuredFileCount = 0;
+  const items: StoredCvUsageItem[] = [];
+
+  for (const entry of params.files) {
+    const parsed = parseCvStorageUri(entry.storageUri);
+    if (!parsed) continue;
+    totalFiles += 1;
+
+    const cleanName = String(entry.fileName || parsed.objectKey.split('/').pop() || 'Resume').trim();
+    const rawFormat = String(entry.format || cleanName.split('.').pop() || 'FILE')
+      .trim()
+      .toUpperCase()
+      .slice(0, 12);
+    const bucketKey = rawFormat || 'FILE';
+    const bytesVal = typeof entry.bytes === 'number' && Number.isFinite(entry.bytes) && entry.bytes >= 0
+      ? entry.bytes
+      : null;
+
+    if (bytesVal !== null) {
+      measuredBytes += bytesVal;
+      measuredFileCount += 1;
+    }
+
+    const bucket = formatMap.get(bucketKey) || { format: bucketKey, count: 0, bytes: 0 };
+    bucket.count += 1;
+    if (bytesVal !== null) bucket.bytes += bytesVal;
+    formatMap.set(bucketKey, bucket);
+
+    items.push({
+      candidateId: entry.candidateId,
+      fullName: entry.fullName,
+      fileName: cleanName,
+      format: bucketKey,
+      provider: parsed.provider,
+      bytes: bytesVal,
+      updatedAt:
+        entry.updatedAt instanceof Date
+          ? entry.updatedAt.toISOString()
+          : String(entry.updatedAt || ''),
+    });
+  }
+
+  const byFormat = Array.from(formatMap.values()).sort((a, b) => {
+    if (b.bytes !== a.bytes) return b.bytes - a.bytes;
+    return b.count - a.count;
+  });
+
+  const recentFiles = items.slice(0, 15);
+
+  return {
+    provider: params.provider,
+    storageLimitMb: params.storageLimitMb ?? null,
+    totalFiles,
+    candidatesWithCv: totalFiles,
+    totalCandidates: params.totalCandidates,
+    measuredBytes,
+    measuredFileCount,
+    byFormat,
+    recentFiles,
+    recordCounts: params.recordCounts,
+  };
 }
 
 export const analyticsService = new AnalyticsService();

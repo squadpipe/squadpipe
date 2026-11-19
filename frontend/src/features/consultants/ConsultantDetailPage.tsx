@@ -53,6 +53,12 @@ import { TablePagination } from '../../components/shared/TablePagination';
 import { PreparePitchModal } from '../../components/modals/PreparePitchModal';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { EditConsultantModal } from '../../components/modals/edit/EditConsultantModal';
+import {
+  DetailBreadcrumb,
+  DetailExpandableSkillsBar,
+  DetailTabItem,
+  DetailUnderlineTabs,
+} from '../../components/shared/DetailPageShell';
 
 interface ConsultantDetailPageProps {
   candidate: Candidate | null;
@@ -125,6 +131,8 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
     requirement: Requirement;
     submission: RequirementSubmission;
   } | null>(null);
+  const [workspaceTab, setWorkspaceTab] = useState<'resume' | 'submissions' | 'placements' | 'details'>('resume');
+  const [subSearch, setSubSearch] = useState('');
   const subsSort = useTableSort<'code' | 'opportunityTitle' | 'companyName' | 'interviewDate' | 'stage'>();
   const placementsSort = useTableSort<'customer' | 'skillRole' | 'startDate' | 'billing' | 'status'>();
 
@@ -137,6 +145,8 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
     setIsDeleting(false);
     setIsBlindPdf(false);
     setPitchTarget(null);
+    setWorkspaceTab('resume');
+    setSubSearch('');
     setIsEditing(Boolean(initialEditing));
     subsSort.resetSort();
     placementsSort.resetSort();
@@ -186,7 +196,19 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
     [linkedPlacements]
   );
 
-  const sortedSubmissions = sortArrayByColumn(linkedSubmissions, subsSort.sort, {
+  const filteredSubmissions = subSearch.trim()
+    ? linkedSubmissions.filter(({ requirement: req, submission: sub }) => {
+        const q = subSearch.toLowerCase();
+        return (
+          req.code.toLowerCase().includes(q) ||
+          req.opportunityTitle.toLowerCase().includes(q) ||
+          req.companyName.toLowerCase().includes(q) ||
+          sub.stage.toLowerCase().includes(q)
+        );
+      })
+    : linkedSubmissions;
+
+  const sortedSubmissions = sortArrayByColumn(filteredSubmissions, subsSort.sort, {
     code: (item) => item.requirement.code,
     opportunityTitle: (item) => item.requirement.opportunityTitle,
     companyName: (item) => item.requirement.companyName,
@@ -207,7 +229,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
   const submissionsPg = useClientPagination(
     sortedSubmissions,
     10,
-    `${candidate?.id || ''}|subs|${subsSort.sort.sortBy || ''}|${subsSort.sort.sortDir}`
+    `${candidate?.id || ''}|subs|${subSearch}|${subsSort.sort.sortBy || ''}|${subsSort.sort.sortDir}`
   );
   const placementsPg = useClientPagination(
     sortedPlacements,
@@ -332,255 +354,375 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
     );
   };
 
+  const matchedVendor =
+    (candidate.vendorId ? vendors.find((v) => v.id === candidate.vendorId) : undefined) ||
+    (candidate.vendorName
+      ? vendors.find(
+          (v) => v.name.trim().toLowerCase() === candidate.vendorName!.trim().toLowerCase()
+        )
+      : undefined);
+  const vendorLabel = matchedVendor?.name || candidate.vendorName;
+
+  const consultantTabs: Array<
+    DetailTabItem<'resume' | 'submissions' | 'placements' | 'details'>
+  > = [
+    { id: 'resume', label: 'Overview & Resume', icon: FileText },
+    {
+      id: 'submissions',
+      label: 'Requisition Submissions',
+      icon: Briefcase,
+      badge: linkedSubmissions.length,
+    },
+    {
+      id: 'placements',
+      label: 'Billable Placements',
+      icon: CheckCircle2,
+      badge: linkedPlacements.length,
+    },
+    {
+      id: 'details',
+      label: 'Profile Details',
+      icon: Layers,
+      badge: customFieldEntries.length > 0 ? customFieldEntries.length : undefined,
+    },
+  ];
+
   return (
-    <section className="max-w-7xl mx-auto space-y-4 animate-fade-in">
-      {/* Slim Breadcrumb */}
-      <div className="flex items-center justify-between gap-3 flex-wrap text-xs">
-        <div className="flex items-center gap-2 min-w-0">
-          <button
-            type="button"
-            onClick={onBack}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold shadow-2xs transition-colors cursor-pointer shrink-0"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>{backLabel}</span>
-          </button>
-          <span className="text-slate-300">/</span>
-          <span className="text-[11px] font-semibold text-slate-800 truncate">
-            {candidate.fullName}
-          </span>
-        </div>
-
-        <div className="text-[11px] text-slate-500 hidden sm:flex items-center gap-1.5">
-          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-          <span>
-            {hasStoredOriginalCv
-              ? `Original CV Stored (${candidate.resumeName || 'Attached'})`
-              : 'CRM Profile Brief'}
-          </span>
-        </div>
-      </div>
-
-      {/* Main Header Card */}
-      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow px-6 py-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex items-start sm:items-center gap-4 min-w-0">
-          <div className="w-12 h-12 rounded-xl bg-[#141615] text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0">
-            {initials}
+    <section className="max-w-7xl mx-auto space-y-5 animate-fade-in">
+      <DetailBreadcrumb
+        backLabel={backLabel}
+        onBack={onBack}
+        title={candidate.fullName}
+        rightSlot={
+          <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600">
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                hasStoredOriginalCv ? 'bg-emerald-500' : 'bg-slate-400'
+              }`}
+            />
+            <span>
+              {hasStoredOriginalCv
+                ? `Original CV Stored (${candidate.resumeName || 'Attached'})`
+                : 'CRM Profile Brief'}
+            </span>
           </div>
-          <div className="space-y-1.5 min-w-0">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-lg sm:text-[19px] font-bold text-slate-900 tracking-tight truncate">
-                {candidate.fullName}
-              </h1>
-              {candidate.pipelineStage && (
-                <StatusBadge
-                  label={candidate.pipelineStage}
-                  dotClass={getStageDotClass(candidate.pipelineStage)}
-                  size="xs"
-                />
-              )}
-              {formattedRate && (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200/80">
-                  {formattedRate}
+        }
+      />
+
+      {/* Unified Consultant Hero + 4-Col Metadata Bar + Tabs */}
+      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
+        {/* Title & Action Bar */}
+        <div className="px-6 py-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-xl bg-[#141615] text-white font-bold text-xs flex items-center justify-center flex-shrink-0">
+              {initials}
+            </div>
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <div>
+                <h1 className="text-[17px] sm:text-[18px] font-bold text-slate-900 tracking-tight leading-snug inline align-middle mr-2.5">
+                  {candidate.fullName}
+                </h1>
+                {candidate.pipelineStage && (
+                  <StatusBadge
+                    label={candidate.pipelineStage}
+                    dotClass={getStageDotClass(candidate.pipelineStage)}
+                    size="xs"
+                    className="align-middle"
+                  />
+                )}
+              </div>
+              <p className="text-xs text-slate-500 truncate">
+                <span className="font-medium text-brand-600">
+                  {candidate.currentTitle || 'Technology Consultant'}
                 </span>
-              )}
+                {candidate.workAuth && <span> &middot; {candidate.workAuth}</span>}
+              </p>
             </div>
-            <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
-              <span className="font-semibold text-brand-600">
-                {candidate.currentTitle || 'Technology Consultant'}
-              </span>
-              {candidate.workAuth && (
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+            {onUpdateCandidate && (
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>Edit Profile</span>
+              </button>
+            )}
+
+            {hasStoredOriginalCv && (
+              <button
+                type="button"
+                disabled={isDownloadingCv}
+                onClick={handleDownloadOriginalCv}
+                title={`Download original stored CV${candidate.resumeName ? ` (${candidate.resumeName})` : ''}`}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
+              >
+                {isDownloadingCv ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-600" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 text-brand-600" />
+                )}
+                <span>{isDownloadingCv ? 'Downloading...' : 'Original CV'}</span>
+              </button>
+            )}
+
+            <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white overflow-hidden">
+              <label
+                title="Hide candidate email & phone on exported Profile PDF"
+                className="px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer select-none hover:bg-slate-50 border-r border-slate-200"
+              >
+                <input
+                  type="checkbox"
+                  checked={isBlindPdf}
+                  onChange={(e) => setIsBlindPdf(e.target.checked)}
+                  className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                />
+                <Shield className="w-3 h-3 text-slate-500" />
+                <span>Blind PDF</span>
+              </label>
+              <button
+                type="button"
+                onClick={downloadProfileBriefPdf}
+                title={`Export branded ${brandName} consultant brief PDF (summary only — not the original CV)`}
+                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 text-slate-300" />
+                <span>{isBlindPdf ? 'Blind Profile PDF' : 'Profile PDF'}</span>
+              </button>
+            </div>
+
+            {/* 1-Click Submit to Open Requisition */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowQuickSubmitDropdown((prev) => !prev)}
+                className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Submit to Req</span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 opacity-80 transition-transform ${
+                    showQuickSubmitDropdown ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              {showQuickSubmitDropdown && (
                 <>
-                  <span className="text-slate-300">&bull;</span>
-                  <span className="inline-flex items-center gap-1 text-slate-700 font-medium">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>{candidate.workAuth}</span>
-                  </span>
-                </>
-              )}
-              {candidate.relocation && (
-                <>
-                  <span className="text-slate-300">&bull;</span>
-                  <span className="inline-flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Relocation: {candidate.relocation}</span>
-                  </span>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowQuickSubmitDropdown(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white border border-slate-200 rounded-xl shadow-2xl py-2 z-50 text-xs divide-y divide-slate-100">
+                    <div className="px-3.5 py-2 space-y-2">
+                      <div className="flex items-center justify-between text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                        <span>Select Target Job Requisition</span>
+                        <span>{openReqs.length} open</span>
+                      </div>
+                      {openReqs.length > 4 && (
+                        <div className="relative">
+                          <Search className="w-3 h-3 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          <input
+                            type="text"
+                            autoFocus
+                            value={reqFilterQuery}
+                            onChange={(e) => setReqFilterQuery(e.target.value)}
+                            placeholder="Search title, client, code..."
+                            className="w-full pl-7 pr-2.5 py-1.5 text-[11px] bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-brand-500"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="max-h-64 overflow-y-auto custom-scrollbar py-1">
+                      {filteredOpenReqs.length === 0 ? (
+                        <div className="px-3.5 py-5 text-slate-400 text-center text-[11px]">
+                          {openReqs.length === 0
+                            ? 'No open requisitions available'
+                            : 'No matching open requisitions'}
+                        </div>
+                      ) : (
+                        filteredOpenReqs.map((req) => {
+                          const alreadyAttached = linkedSubmissions.some(
+                            (item) => item.requirement.id === req.id
+                          );
+                          return (
+                            <button
+                              type="button"
+                              key={req.id}
+                              disabled={submittingReqId === req.id}
+                              onClick={async () => {
+                                setSubmittingReqId(req.id);
+                                try {
+                                  await onSubmitToReq(candidate, req);
+                                  setShowQuickSubmitDropdown(false);
+                                } finally {
+                                  setSubmittingReqId(null);
+                                }
+                              }}
+                              className="w-full px-3.5 py-2.5 text-left hover:bg-slate-50 flex flex-col transition-colors group cursor-pointer disabled:opacity-60"
+                            >
+                              <div className="font-semibold text-slate-900 group-hover:text-brand-600 flex items-center justify-between gap-2">
+                                <span className="truncate">{req.opportunityTitle}</span>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {alreadyAttached && (
+                                    <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                      Submitted
+                                    </span>
+                                  )}
+                                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                                    {req.code}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-2 truncate">
+                                <span className="inline-flex items-center gap-1 truncate">
+                                  <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+                                  {req.companyName}
+                                </span>
+                                {req.location && (
+                                  <>
+                                    <span className="text-slate-300">&bull;</span>
+                                    <span className="inline-flex items-center gap-1 truncate">
+                                      <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                                      {req.location}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
                 </>
               )}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap flex-shrink-0">
-          {onUpdateCandidate && (
-            <button
-              type="button"
-              onClick={() => setIsEditing(true)}
-              className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Pencil className="w-3.5 h-3.5" />
-              <span>Edit Profile</span>
-            </button>
-          )}
-
-          {hasStoredOriginalCv && (
-            <button
-              type="button"
-              disabled={isDownloadingCv}
-              onClick={handleDownloadOriginalCv}
-              title={`Download original stored CV${candidate.resumeName ? ` (${candidate.resumeName})` : ''}`}
-              className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
-            >
-              {isDownloadingCv ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-600" />
+        {/* Structured 4-Column Metadata Bar */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 border-t border-slate-100 bg-slate-50/45 text-xs">
+          {/* 1. Contact & Relocation */}
+          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Contact &amp; Relocation
+            </div>
+            <div className="font-semibold text-slate-900 truncate">
+              {candidate.email ? (
+                <a href={`mailto:${candidate.email}`} className="hover:text-brand-600">
+                  {candidate.email}
+                </a>
               ) : (
-                <Download className="w-3.5 h-3.5 text-brand-600" />
+                'Email not recorded'
               )}
-              <span>{isDownloadingCv ? 'Downloading...' : 'Original CV'}</span>
-            </button>
-          )}
-
-          <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white overflow-hidden">
-            <label
-              title="Hide candidate email & phone on exported Profile PDF"
-              className="px-2.5 py-2 text-[11px] font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer select-none hover:bg-slate-50 border-r border-slate-200"
-            >
-              <input
-                type="checkbox"
-                checked={isBlindPdf}
-                onChange={(e) => setIsBlindPdf(e.target.checked)}
-                className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
-              />
-              <Shield className="w-3 h-3 text-slate-500" />
-              <span>Blind PDF</span>
-            </label>
-            <button
-              type="button"
-              onClick={downloadProfileBriefPdf}
-              title={`Export branded ${brandName} consultant brief PDF (summary only — not the original CV)`}
-              className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5 text-slate-300" />
-              <span>{isBlindPdf ? 'Blind Profile PDF' : 'Profile PDF'}</span>
-            </button>
+            </div>
+            <div className="text-[11px] text-slate-500 truncate">
+              {candidate.phone ? (
+                <a href={`tel:${candidate.phone}`} className="hover:text-brand-600">
+                  {candidate.phone}
+                </a>
+              ) : (
+                'No phone'
+              )}
+              {candidate.relocation
+                ? ` · Relocation: ${
+                    candidate.relocation === 'Yes' ? 'Open (Yes)' : candidate.relocation
+                  }`
+                : ''}
+            </div>
           </div>
 
-          {/* 1-Click Submit to Open Requisition */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowQuickSubmitDropdown((prev) => !prev)}
-              className="px-3.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span>Submit to Req</span>
-              <ChevronDown
-                className={`w-3.5 h-3.5 opacity-80 transition-transform ${
-                  showQuickSubmitDropdown ? 'rotate-180' : ''
-                }`}
-              />
-            </button>
+          {/* 2. Work Auth & Partner Vendor */}
+          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Work Auth &amp; Sourcing
+            </div>
+            <div className="font-semibold text-slate-900 truncate flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span className="truncate">{candidate.workAuth || 'Work auth not specified'}</span>
+            </div>
+            <div className="text-[11px] text-slate-500 truncate">
+              {vendorLabel ? (
+                matchedVendor && onOpenVendor ? (
+                  <button
+                    type="button"
+                    onClick={() => onOpenVendor(matchedVendor)}
+                    className="text-brand-700 font-semibold hover:underline cursor-pointer"
+                  >
+                    via {vendorLabel}
+                  </button>
+                ) : (
+                  <span className="text-amber-700 font-medium">via {vendorLabel}</span>
+                )
+              ) : (
+                'Direct / Own Bench'
+              )}
+            </div>
+          </div>
 
-            {showQuickSubmitDropdown && (
+          {/* 3. Target Rate & Credentials */}
+          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Target Rate
+            </div>
+            {rateMasked ? (
               <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setShowQuickSubmitDropdown(false)}
-                />
-                <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white border border-slate-200 rounded-xl shadow-2xl py-2 z-50 text-xs divide-y divide-slate-100">
-                  <div className="px-3.5 py-2 space-y-2">
-                    <div className="flex items-center justify-between text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                      <span>Select Target Job Requisition</span>
-                      <span>{openReqs.length} open</span>
-                    </div>
-                    {openReqs.length > 4 && (
-                      <div className="relative">
-                        <Search className="w-3 h-3 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        <input
-                          type="text"
-                          autoFocus
-                          value={reqFilterQuery}
-                          onChange={(e) => setReqFilterQuery(e.target.value)}
-                          placeholder="Search title, client, code..."
-                          className="w-full pl-7 pr-2.5 py-1.5 text-[11px] bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-brand-500"
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <div className="max-h-64 overflow-y-auto custom-scrollbar py-1">
-                    {filteredOpenReqs.length === 0 ? (
-                      <div className="px-3.5 py-5 text-slate-400 text-center text-[11px]">
-                        {openReqs.length === 0
-                          ? 'No open requisitions available'
-                          : 'No matching open requisitions'}
-                      </div>
-                    ) : (
-                      filteredOpenReqs.map((req) => {
-                        const alreadyAttached = linkedSubmissions.some(
-                          (item) => item.requirement.id === req.id
-                        );
-                        return (
-                          <button
-                            type="button"
-                            key={req.id}
-                            disabled={submittingReqId === req.id}
-                            onClick={async () => {
-                              setSubmittingReqId(req.id);
-                              try {
-                                await onSubmitToReq(candidate, req);
-                                setShowQuickSubmitDropdown(false);
-                              } finally {
-                                setSubmittingReqId(null);
-                              }
-                            }}
-                            className="w-full px-3.5 py-2.5 text-left hover:bg-slate-50 flex flex-col transition-colors group cursor-pointer disabled:opacity-60"
-                          >
-                            <div className="font-semibold text-slate-900 group-hover:text-brand-600 flex items-center justify-between gap-2">
-                              <span className="truncate">{req.opportunityTitle}</span>
-                              <div className="flex items-center gap-1 shrink-0">
-                                {alreadyAttached && (
-                                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                    Submitted
-                                  </span>
-                                )}
-                                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                                  {req.code}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-2 truncate">
-                              <span className="inline-flex items-center gap-1 truncate">
-                                <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
-                                {req.companyName}
-                              </span>
-                              {req.location && (
-                                <>
-                                  <span className="text-slate-300">&bull;</span>
-                                  <span className="inline-flex items-center gap-1 truncate">
-                                    <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                                    {req.location}
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
+                <MaskedValue value="" isMasked={true} className="text-sm font-bold block" />
+                <div className="text-[11px] text-slate-400">Rate protected for your role</div>
+              </>
+            ) : (
+              <>
+                <div className="font-mono font-bold text-slate-900 truncate">
+                  {formattedRate || 'Rate on request'}
+                </div>
+                <div className="text-[11px] text-slate-500 truncate" title={resolvedEducation}>
+                  {resolvedEducation}
                 </div>
               </>
             )}
           </div>
+
+          {/* 4. Pipeline Activity & Owner */}
+          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Pipeline &amp; Owner
+            </div>
+            <div className="font-semibold text-slate-900 truncate">
+              {linkedSubmissions.length} Submissions &middot;{' '}
+              <span className="text-emerald-700">{activeLinkedPlacements.length} Active</span>
+            </div>
+            <div className="text-[11px] text-slate-500 truncate">
+              Owner:{' '}
+              <strong className="font-medium text-slate-700">
+                {candidate.assignedRecruiter || 'Unassigned'}
+              </strong>
+            </div>
+          </div>
         </div>
+
+        <DetailUnderlineTabs
+          ariaLabel="Consultant workspace sections"
+          tabs={consultantTabs}
+          activeTab={workspaceTab}
+          onChange={setWorkspaceTab}
+        />
       </div>
 
-      {/* Main 2-Column Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
-        {/* Left Main Content: Summary, Resume Sections, Linked Requisitions & Placements */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* Honest Summary Notice */}
-          <div className="flex items-start gap-2.5 rounded-xl bg-white border border-slate-200/80 px-4 py-3 text-[11px] text-slate-600 card-shadow">
+      {/* TAB 1: Overview & Resume */}
+      {workspaceTab === 'resume' && (
+        <div className="space-y-5">
+          <DetailExpandableSkillsBar
+            label="Core Skills:"
+            skills={skills}
+            editLabel="Edit skills"
+            onEdit={onUpdateCandidate ? () => setIsEditing(true) : undefined}
+          />
+
+          <div className="flex items-start gap-2.5 rounded-xl bg-white border border-slate-200/80 px-5 py-3 text-[11px] text-slate-600 card-shadow">
             <Info className="w-3.5 h-3.5 text-brand-600 mt-0.5 shrink-0" />
             <span>
               This is a <strong className="font-semibold text-slate-900">{brandName}</strong>{' '}
@@ -591,8 +733,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
             </span>
           </div>
 
-          {/* Executive Summary Card */}
-          <section className="bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-2.5 text-xs">
+          <section className="bg-white rounded-xl border border-slate-200/80 card-shadow p-6 space-y-2.5 text-xs">
             <div className="flex items-center gap-2">
               <FileText className="w-3.5 h-3.5 text-brand-600 shrink-0" />
               <h2 className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
@@ -606,15 +747,12 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                 ))}
               </div>
             ) : (
-              <p className="text-slate-600 leading-relaxed">
-                {fallbackSummary}
-              </p>
+              <p className="text-slate-600 leading-relaxed">{fallbackSummary}</p>
             )}
           </section>
 
-          {/* Extracted Experience OR Readiness Snapshot */}
           {detailSections.length > 0 ? (
-            <section className="bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-3.5 text-xs">
+            <section className="bg-white rounded-xl border border-slate-200/80 card-shadow p-6 space-y-4 text-xs">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Briefcase className="w-3.5 h-3.5 text-brand-600 shrink-0" />
@@ -622,7 +760,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                     Extracted Resume Details &amp; Experience
                   </h2>
                 </div>
-                <span className="text-[10px] font-medium text-slate-400">
+                <span className="text-[10.5px] font-medium text-slate-400">
                   {detailSections.length} {detailSections.length === 1 ? 'section' : 'sections'}
                 </span>
               </div>
@@ -631,13 +769,13 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                 {detailSections.map((section, sIdx) => (
                   <div
                     key={`${section.title}_${sIdx}`}
-                    className="rounded-lg border border-slate-200/80 bg-slate-50/60 p-3.5 space-y-2"
+                    className="rounded-xl border border-slate-200/80 bg-slate-50/50 p-4 space-y-2"
                   >
-                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-800">
+                    <div className="flex items-center gap-1.5 text-[11.5px] font-bold text-slate-800">
                       {getSectionIcon(section.title)}
                       <span>{section.title}</span>
                     </div>
-                    <div className="space-y-1.5 text-[11px] text-slate-700 leading-relaxed">
+                    <div className="space-y-1.5 text-[11.5px] text-slate-700 leading-relaxed">
                       {section.items.map((line, lIdx) => {
                         const isBullet = line.startsWith('•');
                         const cleanedContent = cleanExtractedResumeText(
@@ -660,175 +798,215 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
               </div>
             </section>
           ) : (
-            <section className="bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-3 text-xs">
+            <section className="bg-white rounded-xl border border-slate-200/80 card-shadow p-6 space-y-2.5 text-xs">
               <div className="flex items-center gap-2">
                 <Briefcase className="w-3.5 h-3.5 text-brand-600 shrink-0" />
                 <h2 className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
                   Consultant Readiness Overview
                 </h2>
               </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
+              <p className="text-[11.5px] text-slate-500 leading-relaxed">
                 Detailed work history text is not attached to this directory entry. Use{' '}
                 <strong className="font-semibold text-slate-700">Edit Profile</strong> to upload an
                 original CV file or update profile attributes.
               </p>
             </section>
           )}
+        </div>
+      )}
 
-          {/* Requisition Submissions */}
-          <section className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-            <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Briefcase className="w-3.5 h-3.5 text-brand-600" />
-                <h2 className="font-bold text-slate-900">
-                  Requisition Submissions ({linkedSubmissions.length})
-                </h2>
-              </div>
+      {/* TAB 2: Requisition Submissions */}
+      {workspaceTab === 'submissions' && (
+        <section className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Briefcase className="w-3.5 h-3.5 text-brand-600" />
+              <h2 className="font-bold text-slate-900">
+                Requisition Submissions ({linkedSubmissions.length})
+              </h2>
             </div>
-            {linkedSubmissions.length === 0 ? (
-              <div className="px-5 py-8 text-center text-[11px] text-slate-400">
-                Not submitted to any requisitions yet. Use <strong>Submit to Req</strong> above to submit.
-              </div>
-            ) : (
-              <>
-                <div className="max-h-[340px] overflow-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase">
-                      <tr>
-                        <SortableTableHeader
-                          label="Req ID"
-                          column="code"
-                          sort={subsSort.sort}
-                          onSort={subsSort.handleSort}
-                          defaultDir="asc"
-                          className="px-4 py-2.5 whitespace-nowrap"
-                        />
-                        <SortableTableHeader
-                          label="Opportunity"
-                          column="opportunityTitle"
-                          sort={subsSort.sort}
-                          onSort={subsSort.handleSort}
-                          defaultDir="asc"
-                          className="px-4 py-2.5 whitespace-nowrap"
-                        />
-                        <SortableTableHeader
-                          label="Client"
-                          column="companyName"
-                          sort={subsSort.sort}
-                          onSort={subsSort.handleSort}
-                          defaultDir="asc"
-                          className="px-4 py-2.5 whitespace-nowrap"
-                        />
-                        <SortableTableHeader
-                          label="Interview"
-                          column="interviewDate"
-                          sort={subsSort.sort}
-                          onSort={subsSort.handleSort}
-                          defaultDir="desc"
-                          className="px-4 py-2.5 whitespace-nowrap"
-                        />
-                        <SortableTableHeader
-                          label="Stage"
-                          column="stage"
-                          sort={subsSort.sort}
-                          onSort={subsSort.handleSort}
-                          defaultDir="asc"
-                          className="px-4 py-2.5 whitespace-nowrap"
-                        />
-                        <th className="px-4 py-2.5 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {submissionsPg.pagedItems.map(({ requirement: req, submission: sub }) => (
-                        <tr
-                          key={sub.id}
-                          onClick={() => onOpenRequirement && onOpenRequirement(req)}
-                          className={
-                            onOpenRequirement
-                              ? 'hover:bg-slate-50/80 cursor-pointer transition-colors'
-                              : undefined
-                          }
-                        >
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
-                              {req.code}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 font-semibold text-slate-900">
-                            {req.opportunityTitle}
-                          </td>
-                          <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
-                            {req.companyName}
-                          </td>
-                          <td className="px-4 py-3 text-[11px] text-brand-700 font-medium whitespace-nowrap">
-                            {sub.interviewDateTime || sub.interviewDate
-                              ? formatDateTimeBadge(sub.interviewDateTime || sub.interviewDate) ||
-                                sub.interviewDate
-                              : '—'}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <StatusBadge
-                              stage={sub.stage}
-                              dotClass={getStageDotClass(sub.stage)}
-                              size="xs"
-                            />
-                          </td>
-                          <td className="px-4 py-3 text-right whitespace-nowrap">
-                            {!sub.id.startsWith('legacy_') ? (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setPitchTarget({ requirement: req, submission: sub });
-                                }}
-                                className="px-2.5 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
-                              >
-                                <Mail className="w-3 h-3 text-brand-600" />
-                                <span>Prepare Pitch</span>
-                              </button>
-                            ) : (
-                              <span className="text-slate-300">—</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <TablePagination
-                  page={submissionsPg.page}
-                  limit={submissionsPg.limit}
-                  total={submissionsPg.total}
-                  onPageChange={submissionsPg.setPage}
-                  onLimitChange={submissionsPg.setLimit}
-                  itemLabel="submissions"
-                  pageSizeOptions={[10, 20, 50]}
+            {linkedSubmissions.length > 0 && (
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={subSearch}
+                  onChange={(e) => setSubSearch(e.target.value)}
+                  placeholder="Filter submissions..."
+                  className="pl-8 pr-3 py-1 text-xs border border-slate-200 rounded-lg bg-white w-full sm:w-52 text-slate-700 focus:outline-none focus:border-brand-600"
                 />
-              </>
-            )}
-          </section>
-
-          {/* Billable Placements */}
-          {linkedPlacements.length > 0 && (
-            <section className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-              <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
-                <h2 className="font-bold text-slate-900">
-                  Billable Placements ({linkedPlacements.length})
-                </h2>
-                {onNavigateToBillable && (
-                  <button
-                    type="button"
-                    onClick={onNavigateToBillable}
-                    className="text-[11px] font-semibold text-brand-600 hover:underline inline-flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>View Billable Consultants</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
-                )}
               </div>
-              <div className="max-h-[340px] overflow-auto">
+            )}
+          </div>
+          {linkedSubmissions.length === 0 ? (
+            <div className="py-12 text-center text-slate-400">
+              Not submitted to any requisitions yet. Use <strong>Submit to Req</strong> above to submit.
+            </div>
+          ) : filteredSubmissions.length === 0 ? (
+            <div className="py-10 text-center text-slate-400">
+              No submissions match "{subSearch}".{' '}
+              <button
+                type="button"
+                onClick={() => setSubSearch('')}
+                className="font-semibold text-brand-600 hover:underline cursor-pointer"
+              >
+                Show all
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase">
+                  <thead className="bg-slate-50/80 border-b border-slate-100 text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
+                    <tr>
+                      <SortableTableHeader
+                        label="Req ID"
+                        column="code"
+                        sort={subsSort.sort}
+                        onSort={subsSort.handleSort}
+                        defaultDir="asc"
+                        className="pl-6 pr-4 py-3 whitespace-nowrap"
+                      />
+                      <SortableTableHeader
+                        label="Opportunity"
+                        column="opportunityTitle"
+                        sort={subsSort.sort}
+                        onSort={subsSort.handleSort}
+                        defaultDir="asc"
+                        className="px-4 py-3 whitespace-nowrap"
+                      />
+                      <SortableTableHeader
+                        label="Client"
+                        column="companyName"
+                        sort={subsSort.sort}
+                        onSort={subsSort.handleSort}
+                        defaultDir="asc"
+                        className="px-4 py-3 whitespace-nowrap"
+                      />
+                      <SortableTableHeader
+                        label="Interview"
+                        column="interviewDate"
+                        sort={subsSort.sort}
+                        onSort={subsSort.handleSort}
+                        defaultDir="desc"
+                        className="px-4 py-3 whitespace-nowrap"
+                      />
+                      <SortableTableHeader
+                        label="Stage"
+                        column="stage"
+                        sort={subsSort.sort}
+                        onSort={subsSort.handleSort}
+                        defaultDir="asc"
+                        className="px-4 py-3 whitespace-nowrap"
+                      />
+                      <th className="pl-4 pr-6 py-3 text-right whitespace-nowrap">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {submissionsPg.pagedItems.map(({ requirement: req, submission: sub }) => (
+                      <tr
+                        key={sub.id}
+                        onClick={() => onOpenRequirement && onOpenRequirement(req)}
+                        className={
+                          onOpenRequirement
+                            ? 'hover:bg-slate-50/80 cursor-pointer transition-colors group'
+                            : undefined
+                        }
+                      >
+                        <td className="pl-6 pr-4 py-3.5 whitespace-nowrap">
+                          <span className="text-[10.5px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                            {req.code}
+                          </span>
+                        </td>
+                        <td
+                          className={`px-4 py-3.5 font-semibold text-slate-900 ${
+                            onOpenRequirement ? 'group-hover:text-brand-700 transition-colors' : ''
+                          }`}
+                        >
+                          {req.opportunityTitle}
+                        </td>
+                        <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap">
+                          {req.companyName}
+                        </td>
+                        <td className="px-4 py-3.5 text-[11px] text-brand-700 font-medium whitespace-nowrap">
+                          {sub.interviewDateTime || sub.interviewDate
+                            ? formatDateTimeBadge(sub.interviewDateTime || sub.interviewDate) ||
+                              sub.interviewDate
+                            : '—'}
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap">
+                          <StatusBadge
+                            stage={sub.stage}
+                            dotClass={getStageDotClass(sub.stage)}
+                            size="xs"
+                          />
+                        </td>
+                        <td className="pl-4 pr-6 py-3.5 text-right whitespace-nowrap">
+                          {!sub.id.startsWith('legacy_') ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPitchTarget({ requirement: req, submission: sub });
+                              }}
+                              className="h-7 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-brand-50/70 hover:border-brand-200 text-slate-700 hover:text-brand-700 text-[11px] font-semibold inline-flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
+                            >
+                              <Mail className="w-3.5 h-3.5 text-brand-600 shrink-0" />
+                              <span>Prepare Pitch</span>
+                            </button>
+                          ) : (
+                            <span className="text-slate-300">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <TablePagination
+                page={submissionsPg.page}
+                limit={submissionsPg.limit}
+                total={submissionsPg.total}
+                onPageChange={submissionsPg.setPage}
+                onLimitChange={submissionsPg.setLimit}
+                itemLabel="submissions"
+                pageSizeOptions={[10, 20, 50]}
+              />
+            </>
+          )}
+        </section>
+      )}
+
+      {/* TAB 3: Billable Placements */}
+      {workspaceTab === 'placements' && (
+        <section className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              <h2 className="font-bold text-slate-900">
+                Billable Placements ({linkedPlacements.length})
+              </h2>
+            </div>
+            {onNavigateToBillable && (
+              <button
+                type="button"
+                onClick={onNavigateToBillable}
+                className="text-[11px] font-semibold text-brand-600 hover:underline inline-flex items-center gap-1 cursor-pointer"
+              >
+                <span>View Billable Consultants</span>
+                <ArrowRight className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+          {linkedPlacements.length === 0 ? (
+            <div className="py-12 text-center text-slate-400">
+              No billable placements recorded for this consultant yet.
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50/80 border-b border-slate-100 text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
                     <tr>
                       <SortableTableHeader
                         label="Client"
@@ -836,7 +1014,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                         sort={placementsSort.sort}
                         onSort={placementsSort.handleSort}
                         defaultDir="asc"
-                        className="px-4 py-2.5 whitespace-nowrap"
+                        className="pl-6 pr-4 py-3 whitespace-nowrap"
                       />
                       <SortableTableHeader
                         label="Role / Skill"
@@ -844,7 +1022,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                         sort={placementsSort.sort}
                         onSort={placementsSort.handleSort}
                         defaultDir="asc"
-                        className="px-4 py-2.5 whitespace-nowrap"
+                        className="px-4 py-3 whitespace-nowrap"
                       />
                       <SortableTableHeader
                         label="Contract Period"
@@ -852,7 +1030,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                         sort={placementsSort.sort}
                         onSort={placementsSort.handleSort}
                         defaultDir="desc"
-                        className="px-4 py-2.5 whitespace-nowrap"
+                        className="px-4 py-3 whitespace-nowrap"
                       />
                       <SortableTableHeader
                         label="Bill Rate"
@@ -861,7 +1039,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                         onSort={placementsSort.handleSort}
                         defaultDir="desc"
                         disabled={rateMasked}
-                        className="px-4 py-2.5 whitespace-nowrap"
+                        className="px-4 py-3 whitespace-nowrap"
                       />
                       <SortableTableHeader
                         label="Status"
@@ -870,7 +1048,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                         onSort={placementsSort.handleSort}
                         defaultDir="asc"
                         align="right"
-                        className="px-4 py-2.5 whitespace-nowrap"
+                        className="pl-4 pr-6 py-3 whitespace-nowrap"
                       />
                     </tr>
                   </thead>
@@ -883,20 +1061,26 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                           onSelectPlacement ? 'hover:bg-slate-50/90 cursor-pointer' : 'hover:bg-slate-50/70'
                         }`}
                       >
-                        <td className={`px-4 py-3 font-semibold text-slate-900 whitespace-nowrap ${onSelectPlacement ? 'group-hover:text-brand-700 transition-colors' : ''}`}>
+                        <td
+                          className={`pl-6 pr-4 py-3.5 font-semibold text-slate-900 whitespace-nowrap ${
+                            onSelectPlacement ? 'group-hover:text-brand-700 transition-colors' : ''
+                          }`}
+                        >
                           {p.customer}
                         </td>
-                        <td className="px-4 py-3 text-slate-600">
+                        <td className="px-4 py-3.5 text-slate-600">
                           {p.skillRole}{' '}
-                          <span className="text-[10px] text-slate-400">&bull; {p.placementType}</span>
+                          <span className="text-[11px] text-slate-400">
+                            &middot; {p.placementType}
+                          </span>
                         </td>
-                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                        <td className="px-4 py-3.5 text-slate-500 whitespace-nowrap font-mono text-[11px]">
                           {p.startDate} &rarr; {p.endDate}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3.5 whitespace-nowrap">
                           <MaskedValue value={p.billing} isMasked={rateMasked} />
                         </td>
-                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <td className="pl-4 pr-6 py-3.5 text-right whitespace-nowrap">
                           <StatusBadge stage={p.status} size="xs" />
                         </td>
                       </tr>
@@ -913,18 +1097,20 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                 itemLabel="placements"
                 pageSizeOptions={[10, 20, 50]}
               />
-            </section>
+            </>
           )}
-        </div>
+        </section>
+      )}
 
-        {/* Right Metadata Sidebar */}
-        <aside className="space-y-4">
-          {/* Contact & Readiness Card */}
-          <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-4 space-y-3 text-xs">
-            <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              Profile Summary
-            </h3>
-            <dl className="space-y-2.5 text-xs">
+      {/* TAB 4: Profile Details & Attributes */}
+      {workspaceTab === 'details' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+          <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+              <UserCheck className="w-3.5 h-3.5 text-brand-600" />
+              <h3 className="font-bold text-slate-900">Profile &amp; Contact Summary</h3>
+            </div>
+            <dl className="p-6 space-y-2.5">
               <div className="flex items-start justify-between gap-2">
                 <dt className="text-slate-400 font-medium inline-flex items-center gap-1">
                   <Mail className="w-3 h-3" />
@@ -957,7 +1143,9 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
               </div>
               <div className="flex items-start justify-between gap-2">
                 <dt className="text-slate-400 font-medium">Work Auth</dt>
-                <dd className="text-slate-800 font-medium text-right">{candidate.workAuth || '—'}</dd>
+                <dd className="text-slate-800 font-medium text-right">
+                  {candidate.workAuth || '—'}
+                </dd>
               </div>
               <div className="flex items-start justify-between gap-2">
                 <dt className="text-slate-400 font-medium">Target Rate</dt>
@@ -983,192 +1171,157 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
               <div className="flex items-start justify-between gap-2">
                 <dt className="text-slate-400 font-medium shrink-0">Partner Vendor</dt>
                 <dd className="text-slate-800 font-medium text-right min-w-0 [overflow-wrap:anywhere]">
-                  {(() => {
-                    const matchedVendor =
-                      (candidate.vendorId
-                        ? vendors.find((v) => v.id === candidate.vendorId)
-                        : undefined) ||
-                      (candidate.vendorName
-                        ? vendors.find(
-                            (v) => v.name.trim().toLowerCase() === candidate.vendorName!.trim().toLowerCase()
-                          )
-                        : undefined);
-                    const vendorLabel = matchedVendor?.name || candidate.vendorName;
-                    if (!vendorLabel) return <span className="text-slate-500">Direct / Own Bench</span>;
-                    if (matchedVendor && onOpenVendor) {
-                      return (
-                        <button
-                          type="button"
-                          onClick={() => onOpenVendor(matchedVendor)}
-                          className="text-brand-700 font-semibold hover:underline cursor-pointer"
-                        >
-                          {vendorLabel}
-                        </button>
-                      );
-                    }
-                    return <span className="text-amber-700 font-semibold">{vendorLabel}</span>;
-                  })()}
+                  {!vendorLabel ? (
+                    <span className="text-slate-500">Direct / Own Bench</span>
+                  ) : matchedVendor && onOpenVendor ? (
+                    <button
+                      type="button"
+                      onClick={() => onOpenVendor(matchedVendor)}
+                      className="text-brand-700 font-semibold hover:underline cursor-pointer"
+                    >
+                      {vendorLabel}
+                    </button>
+                  ) : (
+                    <span className="text-amber-700 font-semibold">{vendorLabel}</span>
+                  )}
                 </dd>
               </div>
             </dl>
           </div>
 
-          {/* Core Competencies */}
-          <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-4 space-y-2.5 text-xs">
-            <div className="flex items-center justify-between">
-              <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                Core Competencies
-              </h3>
-              {skills.length > 0 && (
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                  {skills.length}
-                </span>
-              )}
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
+              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+                <GraduationCap className="w-3.5 h-3.5 text-brand-600" />
+                <h3 className="font-bold text-slate-900">Education &amp; Credentials</h3>
+              </div>
+              <div className="p-6 space-y-2.5">
+                <div className="text-xs font-semibold text-slate-900">{resolvedEducation}</div>
+                {educationSection && educationSection.items.length > 0 && (
+                  <div className="space-y-1 text-[11px] text-slate-600 leading-relaxed">
+                    {educationSection.items.map((line, idx) => (
+                      <div key={idx}>{cleanExtractedResumeText(line.replace(/^[•\-\s]+/, ''))}</div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-500 pt-1">
+                  <BadgeCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Verified CRM Record</span>
+                </div>
+              </div>
             </div>
-            {skills.length === 0 ? (
-              <p className="text-slate-400 text-[11px]">No skills listed yet.</p>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {skills.map((skill, idx) => (
-                  <span
-                    key={idx}
-                    className="px-2 py-0.5 rounded-md text-[11px] bg-slate-100 text-slate-700 font-medium"
+
+            {customFieldEntries.length > 0 && (
+              <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
+                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+                  <Layers className="w-3.5 h-3.5 text-brand-600" />
+                  <h3 className="font-bold text-slate-900">Additional Attributes</h3>
+                </div>
+                <dl className="p-6 space-y-2">
+                  {customFieldEntries.map(([fieldName, value]) => (
+                    <div key={fieldName} className="flex items-start justify-between gap-2">
+                      <dt className="text-slate-400 font-medium capitalize shrink-0">
+                        {fieldName.replace(/_/g, ' ')}
+                      </dt>
+                      <dd className="text-slate-800 font-medium text-right min-w-0 [overflow-wrap:anywhere]">
+                        {String(value)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            )}
+
+            {onDeleteCandidate && (
+              <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-6 space-y-3 text-xs">
+                <div>
+                  <h3 className="font-bold text-slate-900">Profile Lifecycle</h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Remove this consultant profile and associated requirement submissions.
+                  </p>
+                </div>
+                {!showDeleteConfirm ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="px-3.5 py-2 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 font-semibold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
-                    {skill}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Education & Credentials */}
-          <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-4 space-y-2 text-xs">
-            <div className="flex items-center gap-1.5">
-              <GraduationCap className="w-3.5 h-3.5 text-brand-600" />
-              <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                Education &amp; Credentials
-              </h3>
-            </div>
-            <div className="text-xs font-semibold text-slate-900">{resolvedEducation}</div>
-            {educationSection && educationSection.items.length > 0 && (
-              <div className="space-y-1 text-[11px] text-slate-600 leading-relaxed">
-                {educationSection.items.map((line, idx) => (
-                  <div key={idx}>{cleanExtractedResumeText(line.replace(/^[•\-\s]+/, ''))}</div>
-                ))}
-              </div>
-            )}
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 pt-1">
-              <BadgeCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Verified CRM Record</span>
-            </div>
-          </div>
-
-          {/* Custom Attributes */}
-          {customFieldEntries.length > 0 && (
-            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-4 space-y-2.5 text-xs">
-              <div className="flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-brand-600" />
-                <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Additional Attributes
-                </h3>
-              </div>
-              <dl className="space-y-1.5">
-                {customFieldEntries.map(([fieldName, value]) => (
-                  <div key={fieldName} className="flex items-start justify-between gap-2">
-                    <dt className="text-slate-400 font-medium capitalize shrink-0">
-                      {fieldName.replace(/_/g, ' ')}
-                    </dt>
-                    <dd className="text-slate-800 font-medium text-right min-w-0 [overflow-wrap:anywhere]">
-                      {String(value)}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          )}
-
-          {/* Delete Consultant Control */}
-          {onDeleteCandidate && (
-            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-4 space-y-2.5 text-xs">
-              {!showDeleteConfirm ? (
-                <button
-                  type="button"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="w-full px-3 py-2 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 font-semibold text-xs inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Delete Consultant</span>
-                </button>
-              ) : isBillable ? (
-                <div className="space-y-2.5">
-                  <div className="flex items-start gap-2 text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-[11px]">
-                    <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
-                    <span>
-                      Cannot delete a billable consultant. Remove their active placement under Billable Consultants first.
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowDeleteConfirm(false)}
-                      className="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-[11px] font-semibold cursor-pointer"
-                    >
-                      Close
-                    </button>
-                    {onNavigateToBillable && (
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Consultant</span>
+                  </button>
+                ) : isBillable ? (
+                  <div className="space-y-2.5">
+                    <div className="flex items-start gap-2 text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3 text-[11px]">
+                      <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                      <span>
+                        Cannot delete a billable consultant. Remove their active placement under
+                        Billable Consultants first.
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={onNavigateToBillable}
-                        className="flex-1 px-2.5 py-1.5 rounded-lg bg-brand-600 text-white text-[11px] font-semibold cursor-pointer"
+                        onClick={() => setShowDeleteConfirm(false)}
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-[11px] font-semibold cursor-pointer"
                       >
-                        Go to Billable
+                        Close
                       </button>
-                    )}
+                      {onNavigateToBillable && (
+                        <button
+                          type="button"
+                          onClick={onNavigateToBillable}
+                          className="px-3 py-1.5 rounded-lg bg-brand-600 text-white text-[11px] font-semibold cursor-pointer"
+                        >
+                          Go to Billable
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="space-y-2.5">
-                  <div className="flex items-start gap-2 text-rose-700 text-[11px]">
-                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>
-                      Permanently delete <strong>{candidate.fullName}</strong>? This removes associated submission records.
-                    </span>
+                ) : (
+                  <div className="space-y-2.5 pt-1">
+                    <div className="flex items-start gap-2 text-rose-700 text-[11px]">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>
+                        Permanently delete <strong>{candidate.fullName}</strong>? This removes
+                        associated submission records.
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={isDeleting}
+                        onClick={() => setShowDeleteConfirm(false)}
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-[11px] font-semibold cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <ActionButton
+                        type="button"
+                        loading={isDeleting}
+                        loadingText="Deleting..."
+                        onClick={async () => {
+                          setIsDeleting(true);
+                          try {
+                            await onDeleteCandidate(candidate);
+                            onBack();
+                          } catch {
+                            // Error toast displayed by parent caller
+                          } finally {
+                            setIsDeleting(false);
+                          }
+                        }}
+                        className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-semibold cursor-pointer"
+                      >
+                        Confirm Delete
+                      </ActionButton>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={isDeleting}
-                      onClick={() => setShowDeleteConfirm(false)}
-                      className="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-[11px] font-semibold cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <ActionButton
-                      type="button"
-                      loading={isDeleting}
-                      loadingText="Deleting..."
-                      onClick={async () => {
-                        setIsDeleting(true);
-                        try {
-                          await onDeleteCandidate(candidate);
-                          onBack();
-                        } catch {
-                          // Error toast displayed by parent caller
-                        } finally {
-                          setIsDeleting(false);
-                        }
-                      }}
-                      className="flex-1 px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-semibold cursor-pointer"
-                    >
-                      Confirm Delete
-                    </ActionButton>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </aside>
-      </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {onUpdateCandidate && (
         <EditConsultantModal

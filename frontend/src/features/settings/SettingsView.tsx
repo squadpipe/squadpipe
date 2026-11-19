@@ -6,7 +6,6 @@ import {
   KeyRound,
   Save,
   SlidersHorizontal,
-  Sparkles,
   Trash2,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
@@ -72,15 +71,6 @@ interface AiUsageSummaryResponse {
   };
 }
 
-const AI_FEATURE_LABELS: Record<string, string> = {
-  resume_parse: 'Resume Parse',
-  email_parse: 'Email Intake',
-  capability_check: 'Capability Check',
-  match_rank: 'Match Rank',
-  pitch_draft: 'Pitch Draft',
-  agent_prep: 'Action Center',
-};
-
 const DEFAULT_GENERAL: GeneralSettings = {
   agencyName: '',
   legalEntityName: '',
@@ -110,8 +100,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [byoApiKey, setByoApiKey] = useState('');
   const [byoCloudflareAccountId, setByoCloudflareAccountId] = useState('');
   const [byoCustomBaseUrl, setByoCustomBaseUrl] = useState('');
-  const [actionLimitInput, setActionLimitInput] = useState('');
-  const [tokenLimitInput, setTokenLimitInput] = useState('');
 
   const syncAiSummaryState = (usage: AiUsageSummaryResponse | null) => {
     setAiUsage(usage);
@@ -120,10 +108,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setByoProvider(usage.byo.byoProvider || 'openai');
     setByoCloudflareAccountId(usage.byo.cloudflareAccountId || '');
     setByoCustomBaseUrl(usage.byo.customBaseUrl || '');
-    const nextSelfAction = usage.byo.selfActionLimit ?? usage.byo.monthlyActionLimit;
-    const nextSelfToken = usage.byo.selfTokenLimit ?? usage.byo.monthlyTokenLimit;
-    setActionLimitInput(nextSelfAction ? String(nextSelfAction) : '');
-    setTokenLimitInput(nextSelfToken ? String(nextSelfToken) : '');
     setByoApiKey('');
   };
 
@@ -167,20 +151,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setSavingAiConfig(true);
     try {
       const payload: Record<string, any> = {
-        selfActionLimit: actionLimitInput.trim() ? Number(actionLimitInput.trim()) : null,
-        selfTokenLimit: tokenLimitInput.trim() ? Number(tokenLimitInput.trim()) : null,
+        byoEnabled,
+        byoProvider,
+        cloudflareAccountId: byoCloudflareAccountId.trim(),
+        customBaseUrl: byoCustomBaseUrl.trim(),
       };
-      if (aiUsage?.allowByoKey) {
-        payload.byoEnabled = byoEnabled;
-        payload.byoProvider = byoProvider;
-        payload.cloudflareAccountId = byoCloudflareAccountId.trim();
-        payload.customBaseUrl = byoCustomBaseUrl.trim();
-        if (options?.clearApiKey) {
-          payload.clearApiKey = true;
-          payload.byoEnabled = false;
-        } else if (byoApiKey.trim()) {
-          payload.apiKey = byoApiKey.trim();
-        }
+      if (options?.clearApiKey) {
+        payload.clearApiKey = true;
+        payload.byoEnabled = false;
+      } else if (byoApiKey.trim()) {
+        payload.apiKey = byoApiKey.trim();
       }
 
       const res = await apiClient.put('/settings/ai-config', payload);
@@ -189,10 +169,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       if (data?.ai) setAiCapabilities(data.ai);
 
       showToast(
-        options?.clearApiKey ? 'BYO AI Key Removed' : 'AI Settings Saved',
+        options?.clearApiKey ? 'BYO AI Key Removed' : 'AI Provider Key Saved',
         options?.clearApiKey
           ? 'Encrypted workspace AI key was removed.'
-          : 'Monthly limits and AI configuration updated.',
+          : 'Bring-your-own AI provider settings updated.',
         'fa-solid fa-circle-check text-emerald-500'
       );
     } catch (err: any) {
@@ -452,282 +432,110 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </form>
       )}
 
-      {/* AI Metering, Monthly Quotas & Optional BYO Key Controls */}
-      {!loading && aiUsage && (
+      {/* Optional BYO AI Key Configuration (only shown when tenant BYO key is permitted) */}
+      {!loading && aiUsage && aiUsage.allowByoKey && (
         <form
           onSubmit={(e) => handleSaveAiConfig(e)}
           className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden text-xs"
         >
           <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <Sparkles className="w-4 h-4 text-brand-600" />
+              <KeyRound className="w-4 h-4 text-brand-600" />
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  AI Usage &amp; Monthly Quota Controls
+                  Bring Your Own AI Key (BYO Key)
                 </h3>
                 <p className="text-[11px] text-slate-500">
-                  Track monthly metered AI calls, enforce caps, and fall back safely to offline workflows when limits are reached.
+                  Credentials are encrypted at rest before storage and override the shared platform key. View token metrics on the Usage page once active.
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {aiUsage.planTier && aiUsage.planTier !== 'default' && (
-                <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-indigo-50 text-indigo-700 border-indigo-200 capitalize">
-                  Plan: {aiUsage.planTier}
-                </span>
-              )}
-              <span
-                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border ${
-                  aiUsage.aiConfigured && !aiUsage.quotaExceeded
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    : aiUsage.quotaExceeded
-                      ? 'bg-amber-50 text-amber-800 border-amber-200'
-                      : 'bg-slate-100 text-slate-600 border-slate-200'
-                }`}
-              >
-                {aiUsage.aiDisabledByPlan
-                  ? 'Disabled on Current Plan'
-                  : aiUsage.quotaExceeded
-                    ? 'Monthly Limit Reached (Offline Mode Active)'
-                    : aiUsage.aiConfigured
-                      ? `Active (${aiUsage.activeProvider.toUpperCase()}${aiUsage.usingByoKey ? ' • BYO Key' : ''})`
-                      : 'Standard Offline Mode (AI Disabled)'}
-              </span>
-            </div>
+            <label className="inline-flex items-center gap-2 font-semibold text-slate-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={byoEnabled}
+                onChange={(e) => setByoEnabled(e.target.checked)}
+                className="w-4 h-4 text-brand-600 rounded cursor-pointer"
+              />
+              <span>Enable BYO Key</span>
+            </label>
           </div>
 
-          <div className="p-5 space-y-5">
-            {aiUsage.quotaReason && (
-              <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium">
-                {aiUsage.quotaReason}
-              </div>
-            )}
+          <div className="p-5 space-y-4">
+            {byoEnabled && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50/70 p-4 rounded-xl border border-slate-200">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1.5">Provider</label>
+                  <CustomSelect
+                    value={byoProvider}
+                    onChange={setByoProvider}
+                    ariaLabel="BYO AI Provider"
+                    options={[
+                      { value: 'openai', label: 'OpenAI' },
+                      { value: 'anthropic', label: 'Anthropic Claude' },
+                      { value: 'gemini', label: 'Google Gemini' },
+                      { value: 'cloudflare', label: 'Cloudflare Workers AI' },
+                      { value: 'ollama', label: 'Self-Hosted Ollama' },
+                      { value: 'custom', label: 'Custom OpenAI-Compatible Endpoint' },
+                    ]}
+                  />
+                </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-                <div className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-400">
-                  Monthly Actions Used
-                </div>
-                <div className="text-lg font-bold text-slate-900 tabular-nums">
-                  {aiUsage.actionsUsed.toLocaleString()}
-                  {aiUsage.actionLimit > 0 && (
-                    <span className="text-xs font-semibold text-slate-400">
-                      {' '}
-                      / {aiUsage.actionLimit.toLocaleString()}
-                    </span>
-                  )}
-                </div>
-                {aiUsage.actionLimit > 0 ? (
-                  <div className="w-full h-1.5 rounded-full bg-slate-200 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${
-                        aiUsage.quotaExceeded ? 'bg-amber-500' : 'bg-brand-600'
-                      }`}
-                      style={{
-                        width: `${Math.min(100, Math.round((aiUsage.actionsUsed / aiUsage.actionLimit) * 100))}%`,
-                      }}
-                    />
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="font-semibold text-slate-700">API Key / Token</label>
+                    {aiUsage.byo.hasApiKey && (
+                      <button
+                        type="button"
+                        disabled={savingAiConfig}
+                        onClick={(e) => handleSaveAiConfig(e, { clearApiKey: true })}
+                        className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-rose-600 hover:underline cursor-pointer"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Clear ({aiUsage.byo.maskedKeyHint})</span>
+                      </button>
+                    )}
                   </div>
-                ) : (
-                  <div className="text-[10.5px] text-slate-400">No monthly action cap configured</div>
-                )}
-              </div>
+                  <input
+                    type="password"
+                    value={byoApiKey}
+                    onChange={(e) => setByoApiKey(e.target.value)}
+                    placeholder={
+                      aiUsage.byo.hasApiKey
+                        ? `Saved (${aiUsage.byo.maskedKeyHint}) — enter to replace`
+                        : 'Paste provider API key'
+                    }
+                    className="w-full px-3 py-2 border border-slate-200 bg-white rounded-lg focus:border-brand-500 focus:outline-none"
+                  />
+                </div>
 
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-                <div className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-400">
-                  Monthly Tokens Used
-                </div>
-                <div className="text-lg font-bold text-slate-900 tabular-nums">
-                  {aiUsage.tokensUsed.toLocaleString()}
-                  {aiUsage.tokenLimit > 0 && (
-                    <span className="text-xs font-semibold text-slate-400">
-                      {' '}
-                      / {aiUsage.tokenLimit.toLocaleString()}
-                    </span>
-                  )}
-                </div>
-                <div className="text-[10.5px] text-slate-500 tabular-nums">
-                  {aiUsage.inputTokens.toLocaleString()} input &bull;{' '}
-                  {aiUsage.outputTokens.toLocaleString()} output
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-                <div className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-400">
-                  Activity Breakdown
-                </div>
-                <div className="flex flex-wrap gap-1.5 pt-0.5">
-                  {Object.entries(aiUsage.byFeature).map(([feature, stats]) => (
-                    <span
-                      key={feature}
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-medium border ${
-                        stats.actions > 0
-                          ? 'bg-white border-slate-200 text-slate-800 font-semibold'
-                          : 'bg-slate-100/70 border-slate-200/60 text-slate-400'
-                      }`}
-                    >
-                      {AI_FEATURE_LABELS[feature] || feature}: {stats.actions}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1.5">
-                  Self-Imposed Monthly Action Cap (Optional)
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={actionLimitInput}
-                  onChange={(e) => setActionLimitInput(e.target.value)}
-                  placeholder={
-                    !aiUsage.usingByoKey && (aiUsage.planActionLimit || 0) > 0
-                      ? `Plan ceiling: ${aiUsage.planActionLimit?.toLocaleString()} actions/mo`
-                      : 'Leave empty for plan / unlimited default'
-                  }
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:border-brand-500 focus:outline-none"
-                />
-                <p className="text-[10.5px] text-slate-400 mt-1">
-                  {aiUsage.usingByoKey
-                    ? 'Applies to your own BYO API key.'
-                    : (aiUsage.planActionLimit || 0) > 0
-                      ? `Plan allowance: ${aiUsage.planActionLimit?.toLocaleString()} actions/mo (can lower below plan cap, cannot exceed it).`
-                      : 'Plan allowance: Unlimited (optional workspace budget guard).'}
-                </p>
-              </div>
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1.5">
-                  Self-Imposed Monthly Token Cap (Optional)
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  step={1000}
-                  value={tokenLimitInput}
-                  onChange={(e) => setTokenLimitInput(e.target.value)}
-                  placeholder={
-                    !aiUsage.usingByoKey && (aiUsage.planTokenLimit || 0) > 0
-                      ? `Plan ceiling: ${aiUsage.planTokenLimit?.toLocaleString()} tokens/mo`
-                      : 'Leave empty for plan / unlimited default'
-                  }
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:border-brand-500 focus:outline-none"
-                />
-                <p className="text-[10.5px] text-slate-400 mt-1">
-                  {aiUsage.usingByoKey
-                    ? 'Applies to your own BYO API key.'
-                    : (aiUsage.planTokenLimit || 0) > 0
-                      ? `Plan allowance: ${aiUsage.planTokenLimit?.toLocaleString()} tokens/mo (can lower below plan cap, cannot exceed it).`
-                      : 'Plan allowance: Unlimited (optional token budget guard).'}
-                </p>
-              </div>
-            </div>
-
-            {/* Optional BYO AI Key Section (SaaS / Enterprise Plan Flagged Only) */}
-            {aiUsage.allowByoKey && (
-              <div className="pt-4 border-t border-slate-200 space-y-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <KeyRound className="w-4 h-4 text-brand-600" />
-                    <div>
-                      <div className="font-bold text-slate-900">Bring Your Own AI Key (BYO Key)</div>
-                      <div className="text-[11px] text-slate-500">
-                        Credentials are encrypted at rest before storage and override the shared platform key.
-                      </div>
-                    </div>
-                  </div>
-                  <label className="inline-flex items-center gap-2 font-semibold text-slate-700 cursor-pointer">
+                {byoProvider === 'cloudflare' && (
+                  <div className="md:col-span-2">
+                    <label className="block font-semibold text-slate-700 mb-1.5">
+                      Cloudflare Account ID
+                    </label>
                     <input
-                      type="checkbox"
-                      checked={byoEnabled}
-                      onChange={(e) => setByoEnabled(e.target.checked)}
-                      className="w-4 h-4 text-brand-600 rounded cursor-pointer"
+                      type="text"
+                      value={byoCloudflareAccountId}
+                      onChange={(e) => setByoCloudflareAccountId(e.target.value)}
+                      placeholder="32-character Cloudflare Account ID"
+                      className="w-full px-3 py-2 border border-slate-200 bg-white rounded-lg focus:border-brand-500 focus:outline-none"
                     />
-                    <span>Enable BYO Key</span>
-                  </label>
-                </div>
+                  </div>
+                )}
 
-                {byoEnabled && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50/70 p-4 rounded-xl border border-slate-200">
-                    <div>
-                      <label className="block font-semibold text-slate-700 mb-1.5">
-                        Provider
-                      </label>
-                      <CustomSelect
-                        value={byoProvider}
-                        onChange={setByoProvider}
-                        ariaLabel="BYO AI Provider"
-                        options={[
-                          { value: 'openai', label: 'OpenAI' },
-                          { value: 'anthropic', label: 'Anthropic Claude' },
-                          { value: 'gemini', label: 'Google Gemini' },
-                          { value: 'cloudflare', label: 'Cloudflare Workers AI' },
-                          { value: 'ollama', label: 'Self-Hosted Ollama' },
-                          { value: 'custom', label: 'Custom OpenAI-Compatible Endpoint' },
-                        ]}
-                      />
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <label className="font-semibold text-slate-700">API Key / Token</label>
-                        {aiUsage.byo.hasApiKey && (
-                          <button
-                            type="button"
-                            disabled={savingAiConfig}
-                            onClick={(e) => handleSaveAiConfig(e, { clearApiKey: true })}
-                            className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-rose-600 hover:underline cursor-pointer"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                            <span>Clear ({aiUsage.byo.maskedKeyHint})</span>
-                          </button>
-                        )}
-                      </div>
-                      <input
-                        type="password"
-                        value={byoApiKey}
-                        onChange={(e) => setByoApiKey(e.target.value)}
-                        placeholder={
-                          aiUsage.byo.hasApiKey
-                            ? `Saved (${aiUsage.byo.maskedKeyHint}) — enter to replace`
-                            : 'Paste provider API key'
-                        }
-                        className="w-full px-3 py-2 border border-slate-200 bg-white rounded-lg focus:border-brand-500 focus:outline-none"
-                      />
-                    </div>
-
-                    {byoProvider === 'cloudflare' && (
-                      <div className="md:col-span-2">
-                        <label className="block font-semibold text-slate-700 mb-1.5">
-                          Cloudflare Account ID
-                        </label>
-                        <input
-                          type="text"
-                          value={byoCloudflareAccountId}
-                          onChange={(e) => setByoCloudflareAccountId(e.target.value)}
-                          placeholder="32-character Cloudflare Account ID"
-                          className="w-full px-3 py-2 border border-slate-200 bg-white rounded-lg focus:border-brand-500 focus:outline-none"
-                        />
-                      </div>
-                    )}
-
-                    {(byoProvider === 'ollama' || byoProvider === 'custom') && (
-                      <div className="md:col-span-2">
-                        <label className="block font-semibold text-slate-700 mb-1.5">
-                          Endpoint Base URL
-                        </label>
-                        <input
-                          type="url"
-                          value={byoCustomBaseUrl}
-                          onChange={(e) => setByoCustomBaseUrl(e.target.value)}
-                          placeholder="https://your-gateway.example/v1"
-                          className="w-full px-3 py-2 border border-slate-200 bg-white rounded-lg focus:border-brand-500 focus:outline-none"
-                        />
-                      </div>
-                    )}
+                {(byoProvider === 'ollama' || byoProvider === 'custom') && (
+                  <div className="md:col-span-2">
+                    <label className="block font-semibold text-slate-700 mb-1.5">
+                      Endpoint Base URL
+                    </label>
+                    <input
+                      type="url"
+                      value={byoCustomBaseUrl}
+                      onChange={(e) => setByoCustomBaseUrl(e.target.value)}
+                      placeholder="https://your-gateway.example/v1"
+                      className="w-full px-3 py-2 border border-slate-200 bg-white rounded-lg focus:border-brand-500 focus:outline-none"
+                    />
                   </div>
                 )}
               </div>
@@ -741,7 +549,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 icon={<Save className="w-3.5 h-3.5" />}
                 className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg text-xs shadow-xs transition-colors cursor-pointer"
               >
-                Save AI Controls
+                Save AI Provider Key
               </ActionButton>
             </div>
           </div>

@@ -72,6 +72,15 @@ export interface QuotaCheckResult {
   tokenLimit: number;
 }
 
+export interface AiModelUsageRow {
+  provider: string;
+  model: string;
+  actions: number;
+  inputTokens: number;
+  outputTokens: number;
+  avgLatencyMs: number;
+}
+
 export interface TenantAiUsageSummary {
   monthStart: string;
   activeProvider: AiProviderName;
@@ -94,6 +103,7 @@ export interface TenantAiUsageSummary {
     AiUsageFeature,
     { actions: number; inputTokens: number; outputTokens: number }
   >;
+  byModel?: AiModelUsageRow[];
   byo: PublicTenantByoConfig;
 }
 
@@ -879,20 +889,38 @@ export class AiUsageService {
     let actionsUsed = 0;
     let totalInput = 0;
     let totalOutput = 0;
+    let byModel: AiModelUsageRow[] = [];
 
     try {
-      const grouped = await prisma.aiUsageLog.groupBy({
-        by: ['feature'],
-        where: {
-          tenantId,
-          createdAt: { gte: monthStart },
-        },
-        _count: { _all: true },
-        _sum: {
-          inputTokens: true,
-          outputTokens: true,
-        },
-      });
+      const [grouped, groupedModels] = await Promise.all([
+        prisma.aiUsageLog.groupBy({
+          by: ['feature'],
+          where: {
+            tenantId,
+            createdAt: { gte: monthStart },
+          },
+          _count: { _all: true },
+          _sum: {
+            inputTokens: true,
+            outputTokens: true,
+          },
+        }),
+        prisma.aiUsageLog.groupBy({
+          by: ['provider', 'model'],
+          where: {
+            tenantId,
+            createdAt: { gte: monthStart },
+          },
+          _count: { _all: true },
+          _sum: {
+            inputTokens: true,
+            outputTokens: true,
+          },
+          _avg: {
+            latencyMs: true,
+          },
+        }),
+      ]);
 
       for (const row of grouped) {
         const count = row._count._all || 0;
@@ -907,6 +935,17 @@ export class AiUsageService {
           byFeature[key] = { actions: count, inputTokens: inp, outputTokens: out };
         }
       }
+
+      byModel = groupedModels
+        .map((m) => ({
+          provider: String(m.provider || 'unknown'),
+          model: String(m.model || 'unknown'),
+          actions: m._count._all || 0,
+          inputTokens: m._sum.inputTokens || 0,
+          outputTokens: m._sum.outputTokens || 0,
+          avgLatencyMs: Math.round(m._avg?.latencyMs || 0),
+        }))
+        .sort((a, b) => b.actions - a.actions);
     } catch {
       // Graceful zero summary if table/query is unavailable
     }
@@ -937,6 +976,7 @@ export class AiUsageService {
       quotaExceeded: quota.exceeded,
       ...(quota.reason ? { quotaReason: quota.reason } : {}),
       byFeature,
+      byModel,
       byo: sanitizeStoredTenantAiConfig(stored),
     };
   }

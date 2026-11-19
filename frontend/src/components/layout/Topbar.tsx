@@ -54,6 +54,10 @@ export const Topbar: React.FC<TopbarProps> = ({
         return 'Smart Reminders';
       case 'import_data':
         return 'Import Candidates & Resumes';
+      case 'team_performance':
+        return 'Team Performance';
+      case 'usage':
+        return 'Workspace Usage & Storage';
       case 'settings_general':
         return 'General Settings';
       default:
