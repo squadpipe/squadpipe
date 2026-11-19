@@ -418,6 +418,13 @@ export const runAiServiceTests = async () => {
   assert.equal(offlineEmailRes.companyName, 'Apex Health Systems');
   assert.equal(offlineEmailRes.targetBillRate, 135);
   assert.equal(offlineEmailRes.targetPayRate, 95);
+  assert.ok(
+    typeof offlineEmailRes.publicDescription === 'string' &&
+      offlineEmailRes.publicDescription.length > 20,
+    'Offline email parse must auto-generate a client-safe publicDescription'
+  );
+  assert.equal(offlineEmailRes.publicDescription.includes('Apex Health'), false);
+  assert.equal(offlineEmailRes.publicDescription.includes('135'), false);
 
   let seenPromptForMaskedEmail = '';
   const emailInspectingAiService = new AiService({
@@ -615,6 +622,11 @@ export const runAiServiceTests = async () => {
   assert.equal(cleanedAiEmailRes.clientContactEmail, '');
   assert.equal(cleanedAiEmailRes.opportunityTitle, 'React Developer');
   assert.equal(/not specified in email/i.test(cleanedAiEmailRes.missingNotes), false);
+  assert.ok(
+    typeof cleanedAiEmailRes.publicDescription === 'string' &&
+      cleanedAiEmailRes.publicDescription.length > 20,
+    'AI email parse should include candidate-facing publicDescription'
+  );
 
   // Sparse email with no location/company/signature leaves blank fields & extracts multi-headcount pure role
   const sparseEmailRes = extractEmailHeuristics(

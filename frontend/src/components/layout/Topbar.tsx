@@ -53,8 +53,12 @@ export const Topbar: React.FC<TopbarProps> = ({
         return 'Placement Details';
       case 'user_management':
         return 'User Management & Team Permissions';
+      case 'application_forms':
+        return 'Application Forms';
       case 'custom_fields':
-        return 'Custom Fields & Dropdown Options';
+        return 'Custom Form Fields';
+      case 'dropdown_lists':
+        return 'Master Dropdown Lists';
       case 'automation':
         return 'Smart Reminders';
       case 'import_data':

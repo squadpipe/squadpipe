@@ -11,6 +11,7 @@ export interface TablePaginationProps {
   itemLabel?: string;
   isLoading?: boolean;
   pageSizeOptions?: number[];
+  alwaysShow?: boolean;
 }
 
 export const TablePagination: React.FC<TablePaginationProps> = ({
@@ -22,9 +23,10 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
   itemLabel = 'results',
   isLoading = false,
   pageSizeOptions = [10, 20, 50],
+  alwaysShow = false,
 }) => {
   const minThreshold = pageSizeOptions.length > 0 ? Math.min(...pageSizeOptions) : 10;
-  if (total <= minThreshold) {
+  if (total === 0 || (!alwaysShow && total <= minThreshold)) {
     return null;
   }
 

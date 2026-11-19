@@ -4,6 +4,7 @@ import {
   sanitizeExtractedText,
   sanitizeMissingNotes,
 } from './extractionSanitizer';
+import { sanitizePublicSummaryHtml } from '../../utils/publicSummary';
 
 const cleanStringList = (maxItems: number, maxLen: number) =>
   z
@@ -67,6 +68,10 @@ export const EmailIntakeAiSchema = z.object({
     .string()
     .default('')
     .transform((s) => sanitizeMissingNotes(s).slice(0, 500)),
+  publicDescription: z
+    .string()
+    .default('')
+    .transform((s) => sanitizePublicSummaryHtml(s).slice(0, 3000)),
 });
 
 export const SubmissionCapabilityAiSchema = z.object({

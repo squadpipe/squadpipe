@@ -5,6 +5,10 @@ import {
   computeOfflineCapabilityEvaluation,
   redactRatesFromText,
 } from './ai/ai.service';
+import { candidateIndexingService } from './vector/candidateIndexing.service';
+import { embeddingService } from './vector/embedding.service';
+import { buildRequirementSearchQuery } from './vector/resumeChunker';
+import { getVectorStore } from './vector/vectorStore.router';
 import type {
   CapabilityCandidateInput,
   CapabilityEvaluationResult,
@@ -242,8 +246,13 @@ export class CapabilityService {
   ) {
     if (!submissions || submissions.length === 0) return;
 
-    if (submissions.length === 1) {
-      await this.evaluateSubmission(submissions[0].id, options.tenantId, {
+    const evaluable = submissions.filter(
+      (sub) => Boolean(sub.candidate?.skillset?.trim() || sub.candidate?.rawSnippet?.trim())
+    );
+    if (evaluable.length === 0) return;
+
+    if (evaluable.length === 1) {
+      await this.evaluateSubmission(evaluable[0].id, options.tenantId, {
         rateMasked: true,
       });
       return;
@@ -251,7 +260,7 @@ export class CapabilityService {
 
     const reqInput = toCapabilityRequirementInput(requirement);
     await Promise.all(
-      submissions.map((sub) => {
+      evaluable.map((sub) => {
         const evalResult = computeOfflineCapabilityEvaluation(
           toCapabilityCandidateInput(sub.candidate),
           reqInput
@@ -284,6 +293,8 @@ export class CapabilityService {
     rankings: RankedCandidateResult[];
     candidates: any[];
     aiUsed: boolean;
+    retrievalMethod?: 'pgvector_hybrid' | 'pg_fts' | 'in_memory';
+    totalTenantPool?: number;
     totalEvaluated: number;
     quotaNotice?: string;
   }> {
@@ -297,7 +308,7 @@ export class CapabilityService {
       candidateIds,
       candidates: suppliedCandidates,
       rateMasked = false,
-      maxShortlist = 25,
+      maxShortlist = 45,
       aiSvc = aiService,
     } = params;
 
@@ -340,102 +351,107 @@ export class CapabilityService {
       updatedAt: true,
     } as const;
 
+    const cleanIds = Array.isArray(candidateIds) && candidateIds.length > 0
+      ? Array.from(new Set(candidateIds.map((id) => String(id || '').trim()).filter(Boolean))).slice(0, 150)
+      : undefined;
+
     let candidatePool: CapabilityCandidateInput[] = [];
     const fullRowById = new Map<string, any>();
+    let retrievalMethod: 'pgvector_hybrid' | 'pg_fts' | 'in_memory' = 'pg_fts';
+    let totalTenantPool = 0;
 
-    if (Array.isArray(candidateIds) && candidateIds.length > 0) {
-      const cleanIds = Array.from(
-        new Set(candidateIds.map((id) => String(id || '').trim()).filter(Boolean))
-      ).slice(0, 150);
+    try {
+      // Ensure unchunked active consultants in this tenant are immediately searchable
+      await candidateIndexingService.ensureTenantIndexedForSearch(tenantId);
 
-      const dbRows = await prisma.candidate.findMany({
-        where: {
-          tenantId,
-          id: { in: cleanIds },
-          pipelineStage: { not: CandidatePipelineStage.ARCHIVED },
-        },
-        select: candidateSelect,
+      const { queryText, skillTokens } = buildRequirementSearchQuery({
+        opportunityTitle: effectiveReq.opportunityTitle,
+        skillsRequired: effectiveReq.skillsRequired,
+        location: effectiveReq.location,
+        workModel: effectiveReq.workModel,
+        publicDescription: requirement.publicDescription,
+        rawEmailText: effectiveReq.rawEmailText,
       });
-      for (const r of dbRows) fullRowById.set(r.id, r);
-      candidatePool = dbRows.map(toCapabilityCandidateInput);
-    } else {
-      const cleanSearch = String(search || '').trim();
-      const cleanWorkAuth = String(workAuth || '').trim();
-      const skillTokens = String(effectiveReq.skillsRequired || '')
-        .split(',')
-        .map((s) => s.trim())
-        .filter((s) => s.length >= 2)
-        .slice(0, 12);
 
-      const andConditions: Prisma.CandidateWhereInput[] = [
-        { tenantId },
-        { pipelineStage: { not: CandidatePipelineStage.ARCHIVED } },
-      ];
-      if (cleanWorkAuth && cleanWorkAuth !== 'All') {
-        andConditions.push({ workAuth: { contains: cleanWorkAuth, mode: 'insensitive' } });
-      }
-      if (cleanSearch) {
-        andConditions.push({
-          OR: [
-            { fullName: { contains: cleanSearch, mode: 'insensitive' } },
-            { skillset: { contains: cleanSearch, mode: 'insensitive' } },
-            { currentTitle: { contains: cleanSearch, mode: 'insensitive' } },
-            { rawSnippet: { contains: cleanSearch, mode: 'insensitive' } },
-          ],
-        });
-      }
+      const queryEmbedded = await embeddingService.embedTexts([queryText], { tenantId });
+      const queryVector = queryEmbedded?.vectors?.[0] ?? null;
+      const vectorStore = getVectorStore();
 
-      const baseWhere: Prisma.CandidateWhereInput = { AND: andConditions };
+      const hybridRes = await vectorStore.hybridSearchCandidates({
+        tenantId,
+        queryText,
+        queryVector,
+        skillTokens,
+        searchFilter: search,
+        workAuthFilter: workAuth,
+        candidateIdsFilter: cleanIds,
+        limit: Math.max(25, Math.min(100, maxShortlist)),
+      });
 
-      const tokenOrFilters: Prisma.CandidateWhereInput[] = skillTokens.flatMap((token) => [
-        { skillset: { contains: token, mode: 'insensitive' } },
-        { currentTitle: { contains: token, mode: 'insensitive' } },
-        { rawSnippet: { contains: token, mode: 'insensitive' } },
-      ]);
+      retrievalMethod = hybridRes.retrievalMethod;
+      totalTenantPool = hybridRes.totalTenantPool;
 
-      const filteredRows =
-        tokenOrFilters.length > 0
-          ? await prisma.candidate.findMany({
-              where: { AND: [...andConditions, { OR: tokenOrFilters }] },
-              select: candidateSelect,
-              take: 300,
-              orderBy: { updatedAt: 'desc' },
-            })
-          : [];
-
-      let mergedRows = filteredRows;
-      if (mergedRows.length < maxShortlist) {
-        const existingIds = mergedRows.map((r) => r.id);
-        const topUpRows = await prisma.candidate.findMany({
-          where: {
-            AND: [
-              ...andConditions,
-              ...(existingIds.length > 0 ? [{ id: { notIn: existingIds } }] : []),
-            ],
-          },
+      const matchedIds = hybridRes.matches.map((m) => m.candidateId);
+      if (matchedIds.length > 0) {
+        const dbRows = await prisma.candidate.findMany({
+          where: { tenantId, id: { in: matchedIds } },
           select: candidateSelect,
-          take: Math.max(0, 300 - mergedRows.length),
-          orderBy: { updatedAt: 'desc' },
         });
-        mergedRows = [...mergedRows, ...topUpRows];
-      }
+        for (const r of dbRows) fullRowById.set(r.id, r);
 
-      for (const r of mergedRows) fullRowById.set(r.id, r);
-      candidatePool = mergedRows.map(toCapabilityCandidateInput);
+        const matchMetaById = new Map(hybridRes.matches.map((m) => [m.candidateId, m]));
+        candidatePool = matchedIds
+          .map((id) => {
+            const row = fullRowById.get(id);
+            if (!row) return null;
+            const input = toCapabilityCandidateInput(row);
+            const meta = matchMetaById.get(id);
+            if (meta?.matchedChunks?.length) {
+              input.matchedChunks = meta.matchedChunks;
+            }
+            return input;
+          })
+          .filter((x): x is CapabilityCandidateInput => Boolean(x));
+      }
+    } catch {
+      // Safe fallback to in-memory/Prisma query if vector table is unavailable in isolated runs
+      candidatePool = [];
     }
 
     if (candidatePool.length === 0 && Array.isArray(suppliedCandidates) && suppliedCandidates.length > 0) {
+      retrievalMethod = 'in_memory';
       candidatePool = suppliedCandidates;
+      totalTenantPool = suppliedCandidates.length;
     }
 
-    const shortlisted = preFilterCandidatesForMatch(candidatePool, effectiveReq, maxShortlist);
-    const rankedResult = await aiSvc.rankCandidatesForRequirement(shortlisted, effectiveReq, {
+    const shortlisted =
+      retrievalMethod === 'in_memory'
+        ? preFilterCandidatesForMatch(candidatePool, effectiveReq, maxShortlist)
+        : candidatePool.slice(0, maxShortlist);
+
+    const aiRankBatch = shortlisted.slice(0, 30);
+    const tailCandidates = shortlisted.slice(30);
+
+    const rankedResult = await aiSvc.rankCandidatesForRequirement(aiRankBatch, effectiveReq, {
       rateMasked: Boolean(rateMasked),
       tenantId,
       userId,
     });
 
-    const sortedRankings = [...rankedResult.rankings].sort((a, b) => b.fitScore - a.fitScore);
+    const tailRankings: RankedCandidateResult[] = tailCandidates.map((c) => {
+      const evalRes = computeOfflineCapabilityEvaluation(c, effectiveReq);
+      return {
+        candidateId: c.id,
+        fitScore: evalRes.fitScore,
+        matchedHighlights: evalRes.strengths.slice(0, 4),
+        gaps: evalRes.gaps.slice(0, 4),
+        oneLineSummary: evalRes.verdict,
+      };
+    });
+
+    const sortedRankings = [...rankedResult.rankings, ...tailRankings].sort(
+      (a, b) => b.fitScore - a.fitScore
+    );
     const rankedCandidates = sortedRankings
       .map((r) => fullRowById.get(r.candidateId))
       .filter(Boolean);
@@ -444,6 +460,8 @@ export class CapabilityService {
       rankings: sortedRankings,
       candidates: rankedCandidates,
       aiUsed: rankedResult.aiUsed,
+      retrievalMethod,
+      totalTenantPool,
       totalEvaluated: shortlisted.length,
       ...(rankedResult.quotaNotice ? { quotaNotice: rankedResult.quotaNotice } : {}),
     };

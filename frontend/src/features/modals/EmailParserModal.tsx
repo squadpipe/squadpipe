@@ -17,7 +17,9 @@ import { useAiCapabilities } from '../../utils/workspaceBrand';
 import { mapRequirementFromApi } from '../../utils/entityMappers';
 import { SearchableSelectInput } from '../../components/shared/SearchableSelectInput';
 import { CustomSelect } from '../../components/shared/CustomSelect';
+import { RoleSummaryField } from '../../components/shared/RichTextEditor';
 import { MULTI_INDUSTRY_SKILLS_TAXONOMY } from '../../utils/skillsTaxonomy';
+import { buildClientSafeSummaryHtml } from '../../utils/richText';
 import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../utils/formValidation';
 
@@ -127,6 +129,7 @@ const EMPTY_FORM = {
   targetBillRate: 0,
   targetPayRate: 0,
   missingNotes: '',
+  publicDescription: '',
 };
 
 export const EmailParserModal: React.FC<EmailParserModalProps> = ({
@@ -217,6 +220,20 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
             missingNotes: Array.isArray(d.missingFields)
               ? d.missingFields.map((item: unknown) => cleanField(item)).filter(Boolean).join(', ')
               : cleanNotes(d.missingNotes),
+            publicDescription:
+              String(d.publicDescription || '').trim() ||
+              buildClientSafeSummaryHtml({
+                opportunityTitle: cleanField(d.opportunityTitle || d.jobTitle) || 'Technical Specialist',
+                openPositions: d.openPositions ? Number(d.openPositions) : 1,
+                workModel: detectedWorkModel,
+                location:
+                  nextLocation === 'Remote' && matchedClient?.location
+                    ? matchedClient.location
+                    : nextLocation,
+                skillsRequired: parsedSkills || '',
+                companyName: resolvedCompany || '',
+                rawEmailText: cleanInput,
+              }),
           };
         });
         setAiUsed(usedAi);
@@ -423,6 +440,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
       assignedRecruiter: extractedReq.assignedRecruiter.trim(),
       targetBillRate: Number(extractedReq.targetBillRate) || 115,
       targetPayRate: Number(extractedReq.targetPayRate) || 85,
+      publicDescription: extractedReq.publicDescription.trim() || null,
     };
 
     try {
@@ -441,6 +459,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
         targetPayRate: newReq.targetPayRate,
         status: newReq.status,
         rawEmailText,
+        publicDescription: extractedReq.publicDescription.trim() || null,
         missingNotes: extractedReq.missingNotes,
       });
       if (res.data?.data) {
@@ -903,6 +922,34 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                   className="mt-1.5 w-full px-2.5 py-1 text-[11px] bg-white/80 border border-slate-200 rounded-lg text-slate-600 focus:border-brand-600 focus:outline-none"
                 />
               </div>
+
+              {/* Role Scope & Public Summary (AI Auto-Generated & Client-Safe Rich Text) */}
+              <RoleSummaryField
+                label="Role Scope & Public Summary (Candidate-Facing)"
+                labelClassName="text-[10px] font-bold text-slate-500 uppercase"
+                value={extractedReq.publicDescription}
+                onChange={(nextHtml) =>
+                  setExtractedReq((prev) => ({ ...prev, publicDescription: nextHtml }))
+                }
+                onAutoFill={() =>
+                  setExtractedReq((prev) => ({
+                    ...prev,
+                    publicDescription: buildClientSafeSummaryHtml({
+                      opportunityTitle: prev.opportunityTitle || 'Technical Specialist',
+                      openPositions: Number(prev.openPositions) || 1,
+                      workModel: prev.workModel,
+                      location: prev.location,
+                      skillsRequired: prev.skillsRequired,
+                      companyName: prev.companyName,
+                      rawEmailText,
+                    }),
+                  }))
+                }
+                minHeight={105}
+                maxHeight={240}
+                placeholder="AI will draft a client-safe job overview & key responsibilities when you paste an email above..."
+                helperText="Client-safe summary shown on public application links (never exposes client names, contacts, or rates)."
+              />
 
               {/* Missing Info / AI Extraction Notes */}
               <div>

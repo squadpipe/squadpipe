@@ -11,13 +11,19 @@ import {
   parseSortParams,
 } from '../utils/tableSort';
 import { csvImporterService } from '../services/csvImporter.service';
+import { candidateIndexingService } from '../services/vector/candidateIndexing.service';
+import { embeddingService } from '../services/vector/embedding.service';
+import { getVectorStore } from '../services/vector/vectorStore.router';
 import { resumeParserClientService } from '../services/resumeParserClient.service';
 import { smtpService } from '../services/smtp.service';
 import {
   renderSubmissionEmail,
 } from '../services/emailTemplate.service';
 import {
+  ApplicationFormTemplate,
+  getApplicationForms,
   getTenantSettings,
+  saveApplicationForms,
   saveGeneralSettings,
 } from '../config/smtp.config';
 import { aiUsageService } from '../services/ai/aiUsage.service';
@@ -106,6 +112,28 @@ router.get('/public/apply/:token', authRateLimiter, async (req: Request, res: Re
     });
   }
 });
+
+router.post(
+  '/public/apply/:token/parse-cv',
+  publicUploadRateLimiter,
+  optionalSingleCvUpload,
+  async (req: Request, res: Response) => {
+    try {
+      const parsed = await publicIntakeService.parsePublicResumeBasic({
+        token: req.params.token,
+        file: req.file,
+      });
+      res.json({ success: true, data: parsed });
+    } catch (error: any) {
+      const msg = String(error?.message || '');
+      const status = error?.statusCode || (msg.includes('Unsupported CV') ? 400 : 500);
+      res.status(status).json({
+        success: false,
+        message: msg || 'Unable to inspect resume.',
+      });
+    }
+  }
+);
 
 router.post(
   '/public/apply/:token',
@@ -315,6 +343,41 @@ const LEADERSHIP_ROLES: UserRole[] = [
 ];
 
 router.get('/candidates', candidateController.getCandidates);
+router.get('/candidates/vector-status', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const [stats, embeddingsConfigured] = await Promise.all([
+      getVectorStore().getTenantIndexStats(tenantId),
+      embeddingService.isConfiguredForTenant(tenantId),
+    ]);
+    res.json({
+      success: true,
+      data: {
+        ...stats,
+        embeddingsConfigured,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: error?.message || 'Could not inspect vector index status',
+    });
+  }
+});
+router.post('/candidates/reindex-vectors', requireRole(LEADERSHIP_ROLES), async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const result = await candidateIndexingService.reindexTenant(tenantId, {
+      forceReembed: Boolean(req.body?.forceReembed),
+    });
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: error?.message || 'Vector reindex failed',
+    });
+  }
+});
 router.post('/candidates', uploadRateLimiter, optionalSingleCvUpload, candidateController.createCandidate);
 router.get('/candidates/:id', candidateController.getCandidateById);
 router.put('/candidates/:id', uploadRateLimiter, optionalSingleCvUpload, candidateController.updateCandidate);
@@ -470,13 +533,14 @@ router.patch('/requirements/:id/stage', requirementController.updateRequirementS
 router.post('/requirements/:id/public-form', async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
-    const { enabled, regenerateToken, publicDescription } = req.body || {};
+    const { enabled, regenerateToken, publicDescription, publicFormTemplateId } = req.body || {};
     const updated = await publicIntakeService.toggleRequirementPublicForm({
       requirementId: req.params.id,
       tenantId,
       ...(enabled !== undefined ? { enabled: Boolean(enabled) } : {}),
       ...(regenerateToken !== undefined ? { regenerateToken: Boolean(regenerateToken) } : {}),
       ...(publicDescription !== undefined ? { publicDescription } : {}),
+      ...(publicFormTemplateId !== undefined ? { publicFormTemplateId } : {}),
     });
     res.json({ success: true, data: updated });
   } catch (error: any) {
@@ -930,6 +994,237 @@ router.delete('/users/:id', requireRole([UserRole.ADMINISTRATOR]), async (req: R
     res.status(500).json({ success: false, message: 'Failed to delete user' });
   }
 });
+
+// Public Application Form Templates (Multiple Forms + Default Selection)
+router.get('/application-forms', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const forms = await getApplicationForms(tenantId);
+    res.json({ success: true, data: forms });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: error?.message || 'Failed to load application forms',
+    });
+  }
+});
+
+router.post(
+  '/application-forms',
+  requireRole([UserRole.ADMINISTRATOR]),
+  async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.user?.tenantId || 'squadpipe-agency';
+      const existing = await getApplicationForms(tenantId);
+      const body = req.body || {};
+      const name = String(body.name || '').trim();
+      if (!name) {
+        return res.status(400).json({ success: false, message: 'Form name is required.' });
+      }
+      const makeDefault = Boolean(body.isDefault);
+      const created: ApplicationFormTemplate = {
+        id: `form-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        name,
+        description: String(body.description || '').trim(),
+        heading: String(body.heading || 'Submit Candidate Profile & Resume').trim(),
+        subheading: String(
+          body.subheading ||
+            'Candidates applying directly or partner agencies submitting consultants can attach a resume below.'
+        ).trim(),
+        isDefault: makeDefault,
+        includeCurrentTitle: body.includeCurrentTitle !== false,
+        requireCurrentTitle: Boolean(body.includeCurrentTitle !== false && body.requireCurrentTitle),
+        includeExpectedRate: body.includeExpectedRate !== false,
+        requireExpectedRate: Boolean(body.includeExpectedRate !== false && body.requireExpectedRate),
+        includeVendorName: Boolean(body.includeVendorName),
+        requireVendorName: Boolean(body.includeVendorName && body.requireVendorName),
+        includeNoticePeriod: Boolean(body.includeNoticePeriod),
+        requireNoticePeriod: Boolean(body.includeNoticePeriod && body.requireNoticePeriod),
+        includeLinkedinUrl: Boolean(body.includeLinkedinUrl),
+        requireLinkedinUrl: Boolean(body.includeLinkedinUrl && body.requireLinkedinUrl),
+        customFieldKeys: Array.isArray(body.customFieldKeys)
+          ? body.customFieldKeys.map((k: any) => String(k).trim()).filter(Boolean)
+          : [],
+        customFields: Array.isArray(body.customFields) ? body.customFields : [],
+        updatedAt: new Date().toISOString(),
+      };
+      const nextList = makeDefault
+        ? [...existing.map((f) => ({ ...f, isDefault: false })), created]
+        : [...existing, created];
+      const saved = await saveApplicationForms(tenantId, nextList);
+      res.status(201).json({ success: true, data: saved });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: error?.message || 'Failed to create application form',
+      });
+    }
+  }
+);
+
+router.put(
+  '/application-forms/:id',
+  requireRole([UserRole.ADMINISTRATOR]),
+  async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.user?.tenantId || 'squadpipe-agency';
+      const existing = await getApplicationForms(tenantId);
+      const targetIdx = existing.findIndex((f) => f.id === req.params.id);
+      if (targetIdx === -1) {
+        return res.status(404).json({ success: false, message: 'Application form not found.' });
+      }
+      const current = existing[targetIdx];
+      const body = req.body || {};
+      const name = body.name !== undefined ? String(body.name || '').trim() : current.name;
+      if (!name) {
+        return res.status(400).json({ success: false, message: 'Form name is required.' });
+      }
+      const makeDefault = body.isDefault !== undefined ? Boolean(body.isDefault) : current.isDefault;
+      const includeCurrentTitle =
+        body.includeCurrentTitle !== undefined
+          ? Boolean(body.includeCurrentTitle)
+          : current.includeCurrentTitle;
+      const includeExpectedRate =
+        body.includeExpectedRate !== undefined
+          ? Boolean(body.includeExpectedRate)
+          : current.includeExpectedRate;
+      const includeVendorName =
+        body.includeVendorName !== undefined
+          ? Boolean(body.includeVendorName)
+          : current.includeVendorName;
+      const includeNoticePeriod =
+        body.includeNoticePeriod !== undefined
+          ? Boolean(body.includeNoticePeriod)
+          : current.includeNoticePeriod;
+      const includeLinkedinUrl =
+        body.includeLinkedinUrl !== undefined
+          ? Boolean(body.includeLinkedinUrl)
+          : current.includeLinkedinUrl;
+
+      const updatedItem: ApplicationFormTemplate = {
+        ...current,
+        name,
+        description:
+          body.description !== undefined ? String(body.description || '').trim() : current.description,
+        heading:
+          body.heading !== undefined
+            ? String(body.heading || 'Submit Candidate Profile & Resume').trim()
+            : current.heading,
+        subheading:
+          body.subheading !== undefined ? String(body.subheading || '').trim() : current.subheading,
+        isDefault: makeDefault,
+        includeCurrentTitle,
+        requireCurrentTitle: Boolean(
+          includeCurrentTitle &&
+            (body.requireCurrentTitle !== undefined
+              ? body.requireCurrentTitle
+              : current.requireCurrentTitle)
+        ),
+        includeExpectedRate,
+        requireExpectedRate: Boolean(
+          includeExpectedRate &&
+            (body.requireExpectedRate !== undefined
+              ? body.requireExpectedRate
+              : current.requireExpectedRate)
+        ),
+        includeVendorName,
+        requireVendorName: Boolean(
+          includeVendorName &&
+            (body.requireVendorName !== undefined
+              ? body.requireVendorName
+              : current.requireVendorName)
+        ),
+        includeNoticePeriod,
+        requireNoticePeriod: Boolean(
+          includeNoticePeriod &&
+            (body.requireNoticePeriod !== undefined
+              ? body.requireNoticePeriod
+              : current.requireNoticePeriod)
+        ),
+        includeLinkedinUrl,
+        requireLinkedinUrl: Boolean(
+          includeLinkedinUrl &&
+            (body.requireLinkedinUrl !== undefined
+              ? body.requireLinkedinUrl
+              : current.requireLinkedinUrl)
+        ),
+        customFieldKeys: Array.isArray(body.customFieldKeys)
+          ? body.customFieldKeys.map((k: any) => String(k).trim()).filter(Boolean)
+          : current.customFieldKeys,
+        customFields: Array.isArray(body.customFields)
+          ? body.customFields
+          : current.customFields || [],
+        updatedAt: new Date().toISOString(),
+      };
+
+      const nextList = existing.map((f, idx) => {
+        if (idx === targetIdx) return updatedItem;
+        return makeDefault ? { ...f, isDefault: false } : f;
+      });
+      const saved = await saveApplicationForms(tenantId, nextList);
+      res.json({ success: true, data: saved });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: error?.message || 'Failed to update application form',
+      });
+    }
+  }
+);
+
+router.patch(
+  '/application-forms/:id/default',
+  requireRole([UserRole.ADMINISTRATOR]),
+  async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.user?.tenantId || 'squadpipe-agency';
+      const existing = await getApplicationForms(tenantId);
+      if (!existing.some((f) => f.id === req.params.id)) {
+        return res.status(404).json({ success: false, message: 'Application form not found.' });
+      }
+      const nextList = existing.map((f) => ({
+        ...f,
+        isDefault: f.id === req.params.id,
+        ...(f.id === req.params.id ? { updatedAt: new Date().toISOString() } : {}),
+      }));
+      const saved = await saveApplicationForms(tenantId, nextList);
+      res.json({ success: true, data: saved });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: error?.message || 'Failed to set default application form',
+      });
+    }
+  }
+);
+
+router.delete(
+  '/application-forms/:id',
+  requireRole([UserRole.ADMINISTRATOR]),
+  async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.user?.tenantId || 'squadpipe-agency';
+      const existing = await getApplicationForms(tenantId);
+      if (existing.length <= 1) {
+        return res.status(400).json({
+          success: false,
+          message: 'At least one application form template must remain.',
+        });
+      }
+      const remaining = existing.filter((f) => f.id !== req.params.id);
+      if (remaining.length === existing.length) {
+        return res.status(404).json({ success: false, message: 'Application form not found.' });
+      }
+      const saved = await saveApplicationForms(tenantId, remaining);
+      res.json({ success: true, data: saved });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: error?.message || 'Failed to delete application form',
+      });
+    }
+  }
+);
 
 // Custom Fields
 router.get('/custom-fields', async (req: Request, res: Response) => {

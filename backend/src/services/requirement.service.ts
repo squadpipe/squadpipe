@@ -3,6 +3,7 @@ import { PlacementStatus, Prisma, WorkModel, AutomationCategory } from '@prisma/
 import { slaEngineService } from './slaEngine.service';
 import { automationEngineService } from './automationEngine.service';
 import { parseCustomFields } from '../utils/customFields';
+import { sanitizePublicSummaryHtml } from '../utils/publicSummary';
 import { parseRateNumber } from '../utils/rateParser';
 import {
   SortDirection,
@@ -89,6 +90,7 @@ export const KANBAN_CARD_SELECT = {
   publicFormEnabled: true,
   publicFormToken: true,
   publicDescription: true,
+  customFields: true,
   createdAt: true,
   updatedAt: true,
   client: { select: { id: true, name: true } },
@@ -566,6 +568,9 @@ export class RequirementService {
         targetPayRate: payRateNum,
         status: mappedStatus,
         rawEmailText: raw.rawEmailText || null,
+        publicDescription: raw.publicDescription
+          ? sanitizePublicSummaryHtml(String(raw.publicDescription)) || null
+          : null,
         missingNotes: raw.missingNotes || null,
         customFields: parseCustomFields(raw.customFields) ?? {},
         assignedRecruiterId: resolvedRecruiterId
@@ -594,6 +599,11 @@ export class RequirementService {
     if (raw.companyName !== undefined) data.companyName = String(raw.companyName).trim();
     if (raw.location !== undefined) data.location = String(raw.location).trim();
     if (raw.skillsRequired !== undefined) data.skillsRequired = String(raw.skillsRequired).trim();
+    if (raw.publicDescription !== undefined) {
+      data.publicDescription = raw.publicDescription
+        ? sanitizePublicSummaryHtml(String(raw.publicDescription)) || null
+        : null;
+    }
     if (raw.customFields !== undefined) data.customFields = parseCustomFields(raw.customFields) ?? {};
     if (raw.status !== undefined) {
       data.status = requirementStatusMap[raw.status] || String(raw.status).trim();

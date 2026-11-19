@@ -1,5 +1,6 @@
 import { prisma } from '../config/prisma.config';
 import { CandidatePipelineStage } from '@prisma/client';
+import { candidateIndexingService } from './vector/candidateIndexing.service';
 
 export interface CsvCandidateRow {
   fullName: string;
@@ -71,6 +72,7 @@ export class CsvImporterService {
       });
 
       results.push(created);
+      candidateIndexingService.scheduleCandidateSync(created.id, tenantId);
     }
 
     return results;

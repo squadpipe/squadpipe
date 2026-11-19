@@ -217,6 +217,7 @@ model Candidate {
 
   submissions        Submission[]
   placements         Placement[]
+  chunks             CandidateChunk[]
 
   @@unique([tenantId, email])
   @@index([fullName])
@@ -225,6 +226,25 @@ model Candidate {
   @@index([assignedRecruiterId])
   @@index([vendorId])
   @@index([tenantId])
+}
+
+model CandidateChunk {
+  id             String                        @id @default(uuid())
+  tenantId       String                        @default("squadpipe-agency")
+  candidateId    String
+  candidate      Candidate                     @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  chunkIndex     Int
+  sectionType    String                        @default("RESUME")
+  chunkText      String                        @db.Text
+  contentHash    String
+  embedding      Unsupported("halfvec(768)")?
+  embeddingModel String?
+  createdAt      DateTime                      @default(now())
+  updatedAt      DateTime                      @updatedAt
+
+  @@unique([candidateId, chunkIndex])
+  @@index([tenantId])
+  @@index([tenantId, candidateId])
 }
 
 model Client {

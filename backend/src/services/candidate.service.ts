@@ -8,6 +8,7 @@ import {
 } from './cvStorage.service';
 import { parseCustomFields } from '../utils/customFields';
 import { parseRateNumber } from '../utils/rateParser';
+import { candidateIndexingService } from './vector/candidateIndexing.service';
 import {
   SortDirection,
   buildPrismaOrderBy,
@@ -370,7 +371,7 @@ export class CandidateService {
     const resolvedVendorId = await this.resolveTenantVendorId(tenantId, raw);
 
     try {
-      return await prisma.candidate.create({
+      const created = await prisma.candidate.create({
         data: {
           tenantId,
           fullName: raw.fullName?.trim() || 'Anonymous Candidate',
@@ -395,6 +396,8 @@ export class CandidateService {
         },
         include: CANDIDATE_DEFAULT_INCLUDE,
       });
+      candidateIndexingService.scheduleCandidateSync(created.id, tenantId);
+      return created;
     } catch (error: any) {
       if (storedCv?.storageUri) {
         await cvStorageService.deleteCv(storedCv.storageUri);
@@ -482,6 +485,7 @@ export class CandidateService {
         await cvStorageService.deleteCv(existing.resumeFileUrl);
       }
 
+      candidateIndexingService.scheduleCandidateSync(updated.id, updated.tenantId);
       return updated;
     } catch (error: any) {
       if (storedCv?.storageUri) {
@@ -555,6 +559,7 @@ export class CandidateService {
     }
 
     const deleted = await prisma.candidate.delete({ where: { id } });
+    await candidateIndexingService.deleteCandidate(existing.tenantId, id).catch(() => {});
     if (existing.resumeFileUrl) {
       await cvStorageService.deleteCv(existing.resumeFileUrl);
     }

@@ -34,13 +34,13 @@ import {
   Columns,
   FileSpreadsheet,
   List,
+  Lock,
   MailOpen,
   Pencil,
   Plus,
   Search,
   Sparkles,
   Trash2,
-  User,
   UsersRound,
   X,
 } from 'lucide-react';
@@ -51,6 +51,8 @@ import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { CustomSelect } from '../../components/shared/CustomSelect';
+import { RoleSummaryField } from '../../components/shared/RichTextEditor';
+import { buildClientSafeSummaryHtml } from '../../utils/richText';
 import { ModalPortal } from '../../components/shared/ModalPortal';
 import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 import { SkillTagInput } from '../../components/shared/SkillTagInput';
@@ -139,6 +141,7 @@ interface DroppableKanbanColumnProps {
   itemIds: string[];
   dotClass: string;
   totalCount: number;
+  totalOpenings: number;
   isDropTarget: boolean;
   isMovingIntoStage: boolean;
   children: React.ReactNode;
@@ -149,6 +152,7 @@ const DroppableKanbanColumn: React.FC<DroppableKanbanColumnProps> = ({
   itemIds,
   dotClass,
   totalCount,
+  totalOpenings,
   isDropTarget,
   isMovingIntoStage,
   children,
@@ -159,29 +163,34 @@ const DroppableKanbanColumn: React.FC<DroppableKanbanColumnProps> = ({
     <div
       ref={setNodeRef}
       data-kanban-stage={stage}
-      className={`p-3.5 rounded-xl border flex flex-col min-h-[600px] max-h-[calc(100vh-195px)] transition-all duration-200 ${
+      className={`p-3 rounded-xl border flex flex-col min-h-[560px] max-h-[calc(100vh-195px)] transition-all duration-200 ${
         isMovingIntoStage
           ? 'bg-brand-50/45 border-brand-300 ring-2 ring-brand-500/15'
           : isDropTarget
           ? 'border-slate-300 bg-slate-100/95'
-          : 'bg-slate-100/75 border-slate-200/80'
+          : 'bg-slate-100/70 border-slate-200/80'
       }`}
     >
       {/* Column Header */}
-      <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-slate-200/80 flex-shrink-0">
+      <div className="flex items-center justify-between gap-2 px-0.5 pb-2.5 mb-2.5 border-b border-slate-200/80 flex-shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotClass}`} />
           <span className="font-bold text-xs text-slate-800 tracking-tight truncate">
             {stage}
           </span>
+          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-white border border-slate-200/90 text-slate-700 flex-shrink-0 tabular-nums shadow-2xs">
+            {totalCount}
+          </span>
         </div>
-        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white border border-slate-200/90 text-slate-600 flex-shrink-0 tabular-nums">
-          {totalCount}
-        </span>
+        {totalOpenings > 0 && (
+          <span className="text-[10px] font-medium text-slate-400 tabular-nums whitespace-nowrap flex-shrink-0">
+            {totalOpenings} {totalOpenings === 1 ? 'opening' : 'openings'}
+          </span>
+        )}
       </div>
 
       <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
-        <div className="space-y-3 overflow-y-auto overflow-x-hidden min-h-0 flex-1 flex flex-col pr-0.5 custom-scrollbar">
+        <div className="space-y-2.5 overflow-y-auto overflow-x-hidden min-h-0 flex-1 flex flex-col pr-0.5 custom-scrollbar">
           {children}
         </div>
       </SortableContext>
@@ -222,10 +231,10 @@ const SortableKanbanCard: React.FC<SortableKanbanCardProps> = ({ req, children }
       style={style}
       {...attributes}
       {...listeners}
-      className={`flex-shrink-0 rounded-xl border overflow-hidden select-none touch-none transition-shadow duration-150 ${
+      className={`group/card flex-shrink-0 rounded-xl border overflow-hidden select-none touch-none transition-all duration-150 ${
         isDragging
           ? 'opacity-35 border-dashed border-brand-400 bg-brand-50/40 shadow-none ring-1 ring-brand-300/60'
-          : 'bg-white border-slate-200/90 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_4px_12px_rgba(15,23,42,0.07)] hover:border-slate-300/90 cursor-grab active:cursor-grabbing'
+          : 'bg-white border-slate-200/90 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_6px_16px_rgba(15,23,42,0.08)] hover:border-slate-300 cursor-grab active:cursor-grabbing'
       }`}
     >
       {children}
@@ -889,175 +898,208 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
   const renderCardBody = (req: Requirement) => {
     const meta = getStageMeta(req.status);
     const skills = getSkillsList(req.skillsRequired);
-    const visibleSkills = skills.slice(0, 3);
+    // Show 2 wider skill chips if the first two skills are long, otherwise up to 3
+    const firstTwoLen = (skills[0]?.length || 0) + (skills[1]?.length || 0);
+    const maxVisibleSkills = firstTwoLen > 18 ? 2 : 3;
+    const visibleSkills = skills.slice(0, maxVisibleSkills);
     const extraSkillCount = Math.max(0, skills.length - visibleSkills.length);
+
     const activeSubs = (req.submissions || []).filter((s) => s.stage !== 'Closed');
     const totalApplicants =
       activeSubs.length > 0 ? activeSubs.length : (req.submissionCount ?? (req.resourceName ? 1 : 0));
     const singleApplicantName = activeSubs[0]?.fullName || req.resourceName || 'Applicant';
+    const previewNames =
+      activeSubs.length > 0
+        ? activeSubs.slice(0, 3).map((s) => s.fullName)
+        : req.resourceName
+        ? [req.resourceName]
+        : [];
     const timeLabel = formatRelativeTime(req.createdAt);
-    const footerColsClass =
-      onUpdateReq && onDeleteReq
-        ? 'grid-cols-3'
-        : onUpdateReq || onDeleteReq
-        ? 'grid-cols-2'
-        : 'grid-cols-1';
+    const openPos = Math.max(1, Number(req.openPositions) || 1);
+    const filledPos = req.filledPositions ?? req.activePlacements?.length ?? 0;
+    const workModeTag = req.workModel || (req.location?.toLowerCase().includes('remote') ? 'Remote' : '');
 
     return (
-      <>
-        <div className="px-4 pt-4 pb-4 space-y-3">
-          {/* Row 1: Stage Dot + Req Code & Bold Rate */}
-          <div className="flex items-center justify-between gap-2">
+      <div className="p-3.5 space-y-2.5">
+        {/* Row 1: Stage Dot + Req Code + Openings Pill & Bill Rate */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
             <button
               type="button"
               data-allow-drag="true"
               onClick={() => handleCardTitleClick(req)}
-              className="inline-flex items-center gap-1.5 text-[11px] font-mono font-medium text-slate-400 hover:text-brand-600 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 text-[11px] font-mono font-semibold text-slate-500 hover:text-brand-600 transition-colors cursor-pointer"
             >
               <span className={`w-2 h-2 rounded-full flex-shrink-0 ${meta.dotClass}`} />
               <span>{req.code}</span>
             </button>
 
-            {!rateMasked && Boolean(req.targetBillRate) && (
-              <span className="tabular-nums whitespace-nowrap">
-                <span className="text-[12px] font-medium text-slate-700">
-                  {currencySymbol}
-                  {req.targetBillRate}
-                </span>
-                <span className="text-[10.5px] font-normal text-slate-400">/hr</span>
+            <span
+              className={`px-1.5 py-0.5 rounded text-[10px] font-semibold tabular-nums whitespace-nowrap ${
+                filledPos >= openPos
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/70'
+                  : filledPos > 0
+                  ? 'bg-brand-50 text-brand-700 border border-brand-200/70'
+                  : 'bg-slate-100 text-slate-600'
+              }`}
+            >
+              {filledPos > 0 ? `${filledPos}/${openPos} Filled` : `${openPos} Open`}
+            </span>
+          </div>
+
+          {!rateMasked && Boolean(req.targetBillRate) && (
+            <span className="tabular-nums whitespace-nowrap bg-slate-50 border border-slate-200/80 px-1.5 py-0.5 rounded-md">
+              <span className="text-[11.5px] font-bold font-mono text-slate-800">
+                {currencySymbol}
+                {req.targetBillRate}
+              </span>
+              <span className="text-[10px] font-normal text-slate-400">/hr</span>
+            </span>
+          )}
+        </div>
+
+        {/* Row 2: Role Title & Client Company + Work Model */}
+        <div className="space-y-1">
+          <h4
+            onClick={() => handleCardTitleClick(req)}
+            title={req.opportunityTitle}
+            className="font-semibold text-[13.5px] text-slate-900 leading-[1.35] line-clamp-2 tracking-[-0.01em] cursor-pointer hover:text-brand-600 transition-colors"
+          >
+            {req.opportunityTitle}
+          </h4>
+          <div className="flex items-center gap-1.5 text-[11.5px] text-slate-500 min-w-0">
+            <Building2 className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+            <span className="truncate font-medium text-slate-600" title={req.companyName}>
+              {req.companyName}
+            </span>
+            {workModeTag && (
+              <>
+                <span className="text-slate-300 flex-shrink-0">&middot;</span>
+                <span className="text-[11px] text-slate-400 flex-shrink-0">{workModeTag}</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Row 3: Readable Skill Tags */}
+        {visibleSkills.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap pt-0.5">
+            {visibleSkills.map((sk) => (
+              <span
+                key={sk}
+                title={sk}
+                className="px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200/80 text-slate-600 text-[10.5px] font-medium whitespace-nowrap truncate max-w-[145px]"
+              >
+                {sk}
+              </span>
+            ))}
+            {extraSkillCount > 0 && (
+              <span
+                title={skills.slice(visibleSkills.length).join(', ')}
+                className="px-1.5 py-0.5 rounded-md bg-slate-100/80 text-slate-500 text-[10px] font-semibold whitespace-nowrap flex-shrink-0"
+              >
+                +{extraSkillCount}
               </span>
             )}
           </div>
+        )}
 
-          {/* Row 2: Role Title & Client Company */}
-          <div className="space-y-1">
-            <h4
-              onClick={() => handleCardTitleClick(req)}
-              title={req.opportunityTitle}
-              className="font-medium text-[14px] text-slate-900 leading-[1.35] line-clamp-2 tracking-[-0.01em] cursor-pointer hover:text-brand-600 transition-colors"
-            >
-              {req.opportunityTitle}
-            </h4>
-            <div className="flex items-center gap-1.5 text-[12px] text-slate-500 font-normal min-w-0">
-              <Building2 className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-              <span className="truncate" title={req.companyName}>
-                {req.companyName}
-              </span>
-            </div>
-          </div>
-
-          {/* Row 3: Skill Tags */}
-          {visibleSkills.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-nowrap overflow-hidden pt-0.5">
-              {visibleSkills.map((sk) => (
-                <span
-                  key={sk}
-                  title={sk}
-                  className="px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200/70 text-slate-600 text-[11px] font-medium whitespace-nowrap truncate max-w-[120px]"
-                >
-                  {sk}
-                </span>
-              ))}
-              {extraSkillCount > 0 && (
-                <span
-                  title={skills.slice(visibleSkills.length).join(', ')}
-                  className="px-1.5 py-0.5 rounded-md bg-slate-50 border border-slate-200/70 text-slate-500 text-[11px] font-medium whitespace-nowrap flex-shrink-0"
-                >
-                  +{extraSkillCount}
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Row 4: Applicants + Relative Time OR Dashed Bench Match CTA */}
-          {totalApplicants > 0 ? (
-            <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => handleCardTitleClick(req)}
-                title={
-                  activeSubs.length > 0
-                    ? activeSubs.map((s) => `${s.fullName} (${s.stage})`).join(', ')
-                    : singleApplicantName
-                }
-                className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer group"
-              >
-                {totalApplicants === 1 ? (
-                  <>
-                    <User className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                    <span className="text-[12px] font-medium text-slate-700 group-hover:text-brand-600 truncate transition-colors">
-                      {singleApplicantName}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <UsersRound className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                    <span className="text-[12px] font-medium text-slate-700 group-hover:text-brand-600 truncate transition-colors">
-                      {totalApplicants} applicants
-                    </span>
-                  </>
-                )}
-              </button>
-
-              <div className="flex items-center gap-1 text-[11px] text-slate-400 flex-shrink-0 whitespace-nowrap">
-                <Clock className="w-3 h-3 text-slate-400" />
-                <span>{timeLabel}</span>
-              </div>
-            </div>
-          ) : (
-            <div className="pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => onOpenMatcher(req)}
-                className="w-full py-2 px-3 rounded-lg border border-dashed border-brand-200 bg-brand-50/40 hover:bg-brand-50 text-brand-700 text-[11.5px] font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
-              >
-                <UsersRound className="w-3.5 h-3.5 flex-shrink-0" />
-                <span>No applicants yet — match from bench</span>
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Row 5: Flush Bottom 3-Segment Action Bar */}
-        <div
-          onPointerDown={(e) => e.stopPropagation()}
-          className={`grid ${footerColsClass} border-t border-slate-100 divide-x divide-slate-100 bg-slate-50/40 text-[11px]`}
-        >
+        {/* Row 4: Unified Footer — Applicants + Hover Edit/Delete + Match Pill */}
+        <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-1.5">
           <button
             type="button"
-            onClick={() => onOpenMatcher(req)}
-            title="Match bench consultants"
-            className="py-1.5 px-1.5 flex items-center justify-center gap-1 hover:bg-brand-50/70 text-brand-700 font-medium transition-colors cursor-pointer whitespace-nowrap"
+            onClick={() => handleCardTitleClick(req)}
+            title={
+              activeSubs.length > 0
+                ? activeSubs.map((s) => `${s.fullName} (${s.stage})`).join(', ')
+                : totalApplicants > 0
+                ? singleApplicantName
+                : `Posted ${timeLabel}`
+            }
+            className="flex items-center gap-1.5 min-w-0 flex-1 text-left cursor-pointer group/app"
           >
-            <UsersRound className="w-3 h-3 text-brand-600 flex-shrink-0" />
-            <span>Match</span>
+            {totalApplicants > 0 ? (
+              <>
+                {previewNames.length > 0 ? (
+                  <div className="flex items-center -space-x-1.5 flex-shrink-0">
+                    {previewNames.map((name, idx) => (
+                      <span
+                        key={`${name}_${idx}`}
+                        className={`w-5 h-5 rounded-full text-[9px] font-bold text-white flex items-center justify-center ring-2 ring-white ${
+                          avatarPalette[idx % avatarPalette.length]
+                        }`}
+                      >
+                        {previewNames.length === 1 ? getTwoInitials(name) : getSingleInitial(name)}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <UsersRound className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                )}
+                <span className="text-[11.5px] font-medium text-slate-700 group-hover/app:text-brand-600 truncate transition-colors">
+                  {totalApplicants === 1 && previewNames.length === 1
+                    ? singleApplicantName
+                    : `${totalApplicants} applicants`}
+                </span>
+              </>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
+                <Clock className="w-3 h-3 text-slate-300 flex-shrink-0" />
+                <span>{timeLabel}</span>
+              </span>
+            )}
           </button>
 
-          {onUpdateReq && (
+          <div
+            onPointerDown={(e) => e.stopPropagation()}
+            className="flex items-center gap-1 flex-shrink-0"
+          >
+            {onUpdateReq && (
+              <button
+                type="button"
+                onClick={() => setEditingReq({ ...req })}
+                title="Edit requirement"
+                aria-label="Edit requirement"
+                className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 opacity-0 group-hover/card:opacity-100 focus:opacity-100 transition-all cursor-pointer"
+              >
+                <Pencil className="w-3 h-3" />
+              </button>
+            )}
+            {onDeleteReq && (
+              <button
+                type="button"
+                onClick={() => setReqToDelete(req)}
+                title={
+                  filledPos > 0
+                    ? `Protected: ${filledPos} active billable consultant(s) attached`
+                    : 'Delete requirement'
+                }
+                aria-label={
+                  filledPos > 0
+                    ? `Protected: ${filledPos} active billable consultant(s) attached`
+                    : 'Delete requirement'
+                }
+                className={`p-1 rounded-md opacity-0 group-hover/card:opacity-100 focus:opacity-100 transition-all cursor-pointer ${
+                  filledPos > 0
+                    ? 'text-amber-500 hover:text-amber-700 hover:bg-amber-50'
+                    : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
+                }`}
+              >
+                {filledPos > 0 ? <Lock className="w-3 h-3" /> : <Trash2 className="w-3 h-3" />}
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => setEditingReq({ ...req })}
-              title="Edit requirement"
-              className="py-1.5 px-1.5 flex items-center justify-center gap-1 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium transition-colors cursor-pointer whitespace-nowrap"
+              onClick={() => onOpenMatcher(req)}
+              title="Match bench consultants"
+              className="px-2 py-1 rounded-md bg-brand-50/80 hover:bg-brand-600 text-brand-700 hover:text-white border border-brand-200/80 hover:border-brand-600 text-[11px] font-semibold inline-flex items-center gap-1 transition-all cursor-pointer whitespace-nowrap"
             >
-              <Pencil className="w-3 h-3 text-slate-500 flex-shrink-0" />
-              <span>Edit</span>
+              <UsersRound className="w-3 h-3 flex-shrink-0" />
+              <span>Match</span>
             </button>
-          )}
-
-          {onDeleteReq && (
-            <button
-              type="button"
-              onClick={() => setReqToDelete(req)}
-              title="Delete requirement"
-              className="py-1.5 px-1.5 flex items-center justify-center text-rose-500 hover:bg-rose-50/70 hover:text-rose-600 transition-colors cursor-pointer"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
-          )}
+          </div>
         </div>
-      </>
+      </div>
     );
   };
 
@@ -1199,6 +1241,10 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                   isDropTarget && dragOriginRef.current?.originStage !== stage
                 );
                 const meta = getStageMeta(stage);
+                const stageOpenings = reqsInStage.reduce(
+                  (sum, r) => sum + Math.max(1, Number(r.openPositions) || 1),
+                  0
+                );
 
                 return (
                   <DroppableKanbanColumn
@@ -1207,18 +1253,19 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                     itemIds={reqsInStage.map((r) => r.id)}
                     dotClass={meta.dotClass}
                     totalCount={colTotal}
+                    totalOpenings={stageOpenings}
                     isDropTarget={isDropTarget}
                     isMovingIntoStage={isMovingIntoStage}
                   >
                     {reqsInStage.length === 0 ? (
                       <div
-                        className={`flex-1 flex flex-col items-center justify-center p-5 text-center text-[11px] rounded-xl transition-colors ${
+                        className={`h-32 flex flex-col items-center justify-center p-4 text-center text-[11px] rounded-xl transition-all ${
                           isMovingIntoStage
-                            ? 'bg-white/80 text-brand-700 font-semibold border border-dashed border-brand-300'
-                            : 'border border-dashed border-slate-200/90 bg-white/50 text-slate-400'
+                            ? 'bg-brand-50/70 text-brand-700 font-semibold border-2 border-dashed border-brand-300 shadow-xs'
+                            : 'border border-dashed border-slate-200/90 bg-white/55 text-slate-400'
                         }`}
                       >
-                        <Columns className="w-5 h-5 mb-2 text-slate-300" />
+                        <Columns className="w-4 h-4 mb-1.5 text-slate-300" />
                         <p className="font-medium text-slate-500">
                           {isMovingIntoStage
                             ? `Release to move to ${stage}`
@@ -1228,7 +1275,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                           <button
                             type="button"
                             onClick={onOpenAddReq}
-                            className="mt-2.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-slate-200 text-slate-600 hover:text-brand-600 hover:border-brand-200 text-[10px] font-semibold transition-colors cursor-pointer"
+                            className="mt-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-slate-200 text-slate-600 hover:text-brand-600 hover:border-brand-200 text-[10px] font-semibold transition-colors cursor-pointer"
                           >
                             <Plus className="w-3 h-3" />
                             <span>Add Requirement</span>
@@ -1432,15 +1479,30 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
                         )}
-                        {onDeleteReq && (
-                          <button
-                            onClick={() => setReqToDelete(req)}
-                            title="Delete requirement"
-                            className="ml-1 p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+                        {onDeleteReq && (() => {
+                          const rowFilledPos = req.filledPositions ?? req.activePlacements?.length ?? 0;
+                          return (
+                            <button
+                              onClick={() => setReqToDelete(req)}
+                              title={
+                                rowFilledPos > 0
+                                  ? `Protected: ${rowFilledPos} active billable consultant(s) attached`
+                                  : 'Delete requirement'
+                              }
+                              className={`ml-1 p-1 rounded transition-colors cursor-pointer ${
+                                rowFilledPos > 0
+                                  ? 'text-amber-500 hover:text-amber-700 hover:bg-amber-50'
+                                  : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
+                              }`}
+                            >
+                              {rowFilledPos > 0 ? (
+                                <Lock className="w-3.5 h-3.5" />
+                              ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))
@@ -1603,6 +1665,30 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                 />
               </div>
 
+              <RoleSummaryField
+                label="Role Scope & Public Summary"
+                value={editingReq.publicDescription || ''}
+                onChange={(nextHtml) =>
+                  setEditingReq({ ...editingReq, publicDescription: nextHtml })
+                }
+                onAutoFill={() =>
+                  setEditingReq({
+                    ...editingReq,
+                    publicDescription: buildClientSafeSummaryHtml({
+                      opportunityTitle: editingReq.opportunityTitle,
+                      openPositions: Number(editOpenPositions) || editingReq.openPositions || 1,
+                      workModel: editingReq.workModel,
+                      location: editingReq.location,
+                      skillsRequired: editingReq.skillsRequired,
+                      companyName: editingReq.companyName,
+                      rawEmailText: editingReq.rawEmailText,
+                    }),
+                  })
+                }
+                minHeight={105}
+                maxHeight={240}
+              />
+
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
@@ -1636,22 +1722,38 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
         {reqToDelete && (() => {
           const activePlacedCount = reqToDelete.filledPositions ?? reqToDelete.activePlacements?.length ?? 0;
           const hasBillable = activePlacedCount > 0;
+          const activePlacementList = reqToDelete.activePlacements || [];
           return (
             <div className="p-6 space-y-4">
               <div className="flex items-start gap-3.5">
                 <div className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${hasBillable ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-rose-50 border-rose-200 text-rose-600'}`}>
-                  <AlertTriangle className="w-4 h-4" />
+                  {hasBillable ? <Lock className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1.5 min-w-0 flex-1">
                   <h3 className="text-sm font-bold text-slate-900">
-                    {hasBillable ? 'Cannot Delete Active Requirement' : 'Delete Requirement?'}
+                    {hasBillable ? 'Protected: Active Billable Requirement' : 'Delete Requirement?'}
                   </h3>
                   {hasBillable ? (
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      <span className="font-bold text-slate-800">{reqToDelete.code}</span> currently has{' '}
-                      <span className="font-bold text-amber-700">{activePlacedCount} active billable consultant(s)</span>.
-                      Please release all placed consultant(s) from <span className="font-semibold text-slate-800">Billable Consultants</span> before deleting this requirement.
-                    </p>
+                    <>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        <span className="font-bold text-slate-800">{reqToDelete.code}</span> ({reqToDelete.opportunityTitle}) currently has{' '}
+                        <span className="font-bold text-amber-700">{activePlacedCount} active billable consultant{activePlacedCount === 1 ? '' : 's'}</span>.
+                        To protect billing records and submission audit history, release all placed consultant(s) before deleting this requirement.
+                      </p>
+                      {activePlacementList.length > 0 && (
+                        <div className="pt-1 flex flex-wrap gap-1.5">
+                          {activePlacementList.map((pl) => (
+                            <span
+                              key={pl.id}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-50/80 border border-amber-200/80 text-[11px] font-semibold text-amber-900"
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              <span>{pl.resourceName}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <>
                       <p className="text-xs text-slate-500 leading-relaxed">
@@ -1677,7 +1779,19 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                 >
                   {hasBillable ? 'Close' : 'Cancel'}
                 </button>
-                {!hasBillable && (
+                {hasBillable && onSelectReq ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const target = reqToDelete;
+                      setReqToDelete(null);
+                      onSelectReq(target);
+                    }}
+                    className="px-4 py-2 text-xs font-semibold bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer"
+                  >
+                    View Placed Consultants &rarr;
+                  </button>
+                ) : !hasBillable ? (
                   <ActionButton
                     type="button"
                     loading={isDeletingReq}
@@ -1699,7 +1813,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                   >
                     Delete Requisition
                   </ActionButton>
-                )}
+                ) : null}
               </div>
             </div>
           );

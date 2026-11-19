@@ -6,6 +6,7 @@ import {
   serializePublicRequirementPayload,
   validatePublicApplicationInput,
 } from '../../src/services/publicIntake.service';
+import { sanitizePublicSummaryHtml } from '../../src/utils/publicSummary';
 
 export const runPublicIntakeTests = () => {
   console.log('--- Running Public Requirement CV Intake Form Tests ---');
@@ -47,19 +48,37 @@ export const runPublicIntakeTests = () => {
   };
 
   const publicPayload = serializePublicRequirementPayload(
-    sensitiveReqRecord as any,
+    {
+      ...sensitiveReqRecord,
+      rawEmailText: [
+        'From: Hidden VP <vp@secretbank.com>',
+        'Client: Confidential Bank Corp',
+        'Internal note: bill client $155/hr and target pay $110/hr.',
+        '- Lead Kubernetes multi-region cluster design and Terraform automation.',
+        '- Partner with security engineering for SOC2 & IAM hardening.',
+        'Looking for 8+ years experience, 12 months contract.',
+      ].join('\n'),
+    } as any,
     'Beacon IT Staffing'
   );
   const serializedStr = JSON.stringify(publicPayload);
 
   assert.equal(publicPayload.agencyName, 'Beacon IT Staffing');
-  assert.equal(publicPayload.code, 'REQ-2045');
   assert.equal(publicPayload.opportunityTitle, 'Senior Cloud Platform Engineer');
   assert.equal(publicPayload.workModel, 'Hybrid');
   assert.equal(publicPayload.openPositions, 2);
   assert.equal(publicPayload.publicDescription, 'Build multi-region Kubernetes clusters on AWS.');
+  assert.ok(publicPayload.highlights.some((h) => h.includes('Kubernetes multi-region')));
+  assert.ok(publicPayload.engagementSummary?.includes('8+ years'));
+
+  const cleanedHtml = sanitizePublicSummaryHtml(
+    '<p onclick="alert(1)">Role scope</p><ul><li>Build AWS APIs</li></ul><script>evil()</script>'
+  );
+  assert.equal(cleanedHtml, '<p>Role scope</p><ul><li>Build AWS APIs</li></ul>');
 
   for (const forbiddenKey of [
+    'code',
+    'requirementCode',
     'companyName',
     'targetBillRate',
     'maxBillRate',
@@ -77,6 +96,7 @@ export const runPublicIntakeTests = () => {
       `Forbidden internal field leaked in public payload: ${forbiddenKey}`
     );
   }
+  assert.equal(serializedStr.includes('REQ-2045'), false);
   assert.equal(serializedStr.includes('Confidential Bank'), false);
   assert.equal(serializedStr.includes('secretbank.com'), false);
   assert.equal(serializedStr.includes('155'), false);

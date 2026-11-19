@@ -263,6 +263,12 @@ export const mapRequirementFromApi = (r: any): Requirement & { createdAt?: strin
     publicFormEnabled: Boolean(r.publicFormEnabled),
     publicFormToken: r.publicFormToken || null,
     publicDescription: r.publicDescription || null,
+    rawEmailText: r.rawEmailText || null,
+    publicFormTemplateId:
+      r.publicFormTemplateId ||
+      (r.customFields && typeof r.customFields === 'object'
+        ? r.customFields._publicFormTemplateId || null
+        : null),
     customFields: r.customFields,
     createdAt: r.createdAt || new Date().toISOString(),
     updatedAt: r.updatedAt || r.createdAt || new Date().toISOString(),

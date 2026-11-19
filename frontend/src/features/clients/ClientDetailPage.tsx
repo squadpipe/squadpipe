@@ -380,20 +380,20 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               HQ &amp; Website
             </div>
-            <div className="font-semibold text-slate-900 truncate flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <span className="truncate">{client.location || 'Location not set'}</span>
+            <div className="font-semibold text-slate-900 flex items-start gap-1.5 leading-snug">
+              <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+              <span className="break-words">{client.location || 'Location not set'}</span>
             </div>
-            <div className="text-[11px] text-slate-500 truncate">
+            <div className="text-[11px] text-slate-500 leading-snug break-words">
               {cleanWebsite && cleanWebsite !== 'https://' ? (
                 <a
                   href={websiteHref}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-brand-600 hover:underline font-medium"
+                  className="inline-flex items-center gap-1 text-brand-600 hover:underline font-medium break-all"
                 >
                   <Globe className="w-3 h-3 shrink-0" />
-                  <span className="truncate">{cleanWebsite}</span>
+                  <span>{cleanWebsite}</span>
                   <ExternalLink className="w-2.5 h-2.5 shrink-0" />
                 </a>
               ) : client.boardNumber ? (
@@ -409,12 +409,12 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Primary Contact
             </div>
-            <div className="font-semibold text-slate-900 truncate">
+            <div className="font-semibold text-slate-900 leading-snug break-words">
               {primaryContactName || 'No primary contact'}
             </div>
-            <div className="text-[11px] text-slate-500 truncate">
+            <div className="text-[11px] text-slate-500 leading-snug break-words">
               {primaryContact?.email ? (
-                <a href={`mailto:${primaryContact.email}`} className="hover:text-brand-600">
+                <a href={`mailto:${primaryContact.email}`} className="hover:text-brand-600 break-all">
                   {primaryContact.email}
                 </a>
               ) : client.boardNumber ? (
@@ -430,10 +430,10 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Job Requisitions
             </div>
-            <div className="font-semibold text-slate-900 truncate">
+            <div className="font-semibold text-slate-900 leading-snug">
               {openClientReqsCount} Open &middot; {clientReqs.length} Total
             </div>
-            <div className="text-[11px] text-slate-500 truncate">
+            <div className="text-[11px] text-slate-500 leading-snug">
               {closedClientReqsCount > 0
                 ? `${closedClientReqsCount} closed / fulfilled`
                 : 'Active client pipeline'}
@@ -445,11 +445,11 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Billable &amp; Agreement
             </div>
-            <div className="font-semibold text-slate-900 truncate">
+            <div className="font-semibold text-slate-900 leading-snug">
               <span className="text-emerald-700">{activeClientPlacements.length} Active</span>{' '}
               &middot; {clientPlacements.length} Placements
             </div>
-            <div className="text-[11px] text-slate-500 truncate">
+            <div className="text-[11px] text-slate-500 leading-snug">
               Standard Corporate MSA (C2C / W2)
             </div>
           </div>

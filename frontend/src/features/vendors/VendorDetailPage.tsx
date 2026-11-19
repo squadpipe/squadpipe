@@ -319,13 +319,13 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Location &amp; Contact
             </div>
-            <div className="font-semibold text-slate-900 truncate flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <span className="truncate">{vendor.location || 'Location not specified'}</span>
+            <div className="font-semibold text-slate-900 flex items-start gap-1.5 leading-snug">
+              <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+              <span className="break-words">{vendor.location || 'Location not specified'}</span>
             </div>
-            <div className="text-[11px] text-slate-500 truncate">
+            <div className="text-[11px] text-slate-500 leading-snug break-words">
               {primaryContact?.email ? (
-                <a href={`mailto:${primaryContact.email}`} className="hover:text-brand-600">
+                <a href={`mailto:${primaryContact.email}`} className="hover:text-brand-600 break-all">
                   {primaryContact.fullName ? `${primaryContact.fullName} · ` : ''}
                   {primaryContact.email}
                 </a>
@@ -340,7 +340,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Compliance &amp; COI
             </div>
-            <div className="font-semibold text-slate-900 truncate flex items-center gap-1.5">
+            <div className="font-semibold text-slate-900 flex items-center gap-1.5 leading-snug">
               <ShieldCheck
                 className={`w-3.5 h-3.5 shrink-0 ${
                   isMsaExecuted ? 'text-emerald-600' : 'text-amber-600'
@@ -349,7 +349,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
               <span>{isMsaExecuted ? 'MSA Executed' : 'Pending Review'}</span>
             </div>
             <div
-              className={`text-[11px] truncate ${
+              className={`text-[11px] leading-snug break-words ${
                 coiDaysRemaining !== null && coiDaysRemaining < 0
                   ? 'text-rose-600 font-semibold'
                   : coiDaysRemaining !== null && coiDaysRemaining <= 30
@@ -372,10 +372,10 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Payment Terms
             </div>
-            <div className="font-semibold text-slate-900 truncate">
+            <div className="font-semibold text-slate-900 leading-snug break-words">
               {vendor.paymentTerms || 'Not specified'}
             </div>
-            <div className="text-[11px] text-slate-500 truncate">
+            <div className="text-[11px] text-slate-500 leading-snug break-words">
               Invoicing:{' '}
               <strong className="font-medium text-slate-700">
                 {vendor.invoicingTerms || '—'}
@@ -388,11 +388,11 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Bench &amp; Active C2C
             </div>
-            <div className="font-semibold text-slate-900 truncate">
+            <div className="font-semibold text-slate-900 leading-snug">
               {vendorCandidates.length} Consultants &middot;{' '}
               <span className="text-emerald-700">{activeVendorPlacements.length} Active C2C</span>
             </div>
-            <div className="text-[11px] text-slate-500 truncate">
+            <div className="text-[11px] text-slate-500 leading-snug">
               Est. Payout:{' '}
               <span className="font-mono font-semibold text-slate-700">
                 <MaskedValue

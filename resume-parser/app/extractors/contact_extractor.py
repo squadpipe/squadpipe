@@ -21,12 +21,29 @@ NON_NAME_TERMS = {
     "lead", "senior", "principal", "staff", "junior", "architect", "engineer",
     "developer", "manager", "director", "consultant", "specialist", "analyst",
     "cloud", "data", "software", "full", "stack", "nurse", "accountant",
+    "technologies", "technology", "private", "limited", "pvt", "ltd", "inc",
+    "llc", "corp", "corporation", "company", "enterprise", "enterprises",
+    "solutions", "services", "systems", "system", "platform", "group",
+    "knowledge", "base", "guide", "workflow", "manual", "handbook", "brochure",
+    "overview", "complete", "features", "welcome", "contents", "section",
+    "prepared", "table", "document", "report", "invoice", "agreement",
+    "contract", "requisition", "requirement", "description", "client",
+    "vendor", "staffing", "recruiting", "recruitment", "squadpipe", "softiox",
+    "financial", "healthcare", "clinical", "technical", "business", "operations",
 }
 
 
 def _is_valid_person_name(candidate: str) -> bool:
     words = candidate.strip().split()
     if not (2 <= len(words) <= 4):
+        return False
+    # Reject spaced single-letter headers like "S O" or "K N O W"
+    clean_words = [w.strip(".'-") for w in words]
+    if any(len(w) == 0 for w in clean_words):
+        return False
+    if sum(1 for w in clean_words if len(w) >= 2) < 2:
+        return False
+    if max(len(w) for w in clean_words) < 3:
         return False
     lower_words = {w.lower().strip(".") for w in words}
     if lower_words & NON_NAME_TERMS:
@@ -60,9 +77,10 @@ def extract_contacts(text: str) -> Tuple[Optional[str], Optional[str], Optional[
     phone = _extract_phone(text)
 
     sections = split_resume_sections(text)
-    header_lines = sections["header"][:12] if sections["header"] else [
+    # Scan up to 25 top lines so bulky/long CVs with cover summaries or multi-line headers are never missed
+    header_lines = sections["header"][:25] if sections["header"] else [
         line.strip() for line in text.splitlines() if line.strip()
-    ][:12]
+    ][:25]
 
     full_name: Optional[str] = None
 
@@ -79,7 +97,7 @@ def extract_contacts(text: str) -> Tuple[Optional[str], Optional[str], Optional[
     # 2. Try spaCy NER PERSON detection line-by-line over top header segments
     nlp = get_nlp()
     if "ner" in nlp.pipe_names and cleaned_header_segments:
-        for segment in cleaned_header_segments[:8]:
+        for segment in cleaned_header_segments[:15]:
             doc = nlp(segment)
             for ent in doc.ents:
                 if ent.label_ == "PERSON":
@@ -90,15 +108,11 @@ def extract_contacts(text: str) -> Tuple[Optional[str], Optional[str], Optional[
             if full_name:
                 break
 
-    # 3. Deterministic fallback on top header lines
+    # 3. Deterministic fallback on top header lines (only if it passes _is_valid_person_name)
     if not full_name:
-        for segment in cleaned_header_segments[:6]:
+        for segment in cleaned_header_segments[:12]:
             if _is_valid_person_name(segment):
                 full_name = segment
                 break
-
-    if not full_name and header_lines:
-        first_words = header_lines[0].split()[:2]
-        full_name = " ".join(first_words) if first_words else "Candidate Profile"
 
     return full_name, email, phone

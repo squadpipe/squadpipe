@@ -3,8 +3,10 @@ import { Briefcase, Plus, X } from 'lucide-react';
 import { Requirement, Client, User } from '../../../types';
 import { DynamicCustomFieldsSection, useMasterTaxonomies } from '../../shared/DynamicCustomFieldsSection';
 import { formatRateDisplay, parseRateNumber, useCurrency } from '../../../utils/currency';
+import { buildClientSafeSummaryHtml } from '../../../utils/richText';
 import { SearchableSelectInput } from '../../shared/SearchableSelectInput';
 import { CustomSelect } from '../../shared/CustomSelect';
+import { RoleSummaryField } from '../../shared/RichTextEditor';
 import { ActionButton } from '../../shared/ActionButton';
 import { AnimatedModal } from '../../shared/MotionPrimitives';
 import {
@@ -45,6 +47,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
     skillsRequired: '',
     assignedRecruiter: users[0]?.name || '',
     status: 'Requirement' as Requirement['status'],
+    publicDescription: '',
     remarks: '',
   });
   const [form, setForm] = useState(getInitialForm);
@@ -101,6 +104,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
       skillsRequired: form.skillsRequired.trim() || 'Java, Cloud, Microservices',
       assignedRecruiter: form.assignedRecruiter,
       status: form.status,
+      publicDescription: form.publicDescription.trim() || null,
       customFields: customValues,
     };
 
@@ -307,8 +311,35 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
               </div>
             </div>
 
+            <RoleSummaryField
+              labelClassName="block font-semibold text-slate-700"
+              value={form.publicDescription}
+              onChange={(nextHtml) => setForm((prev) => ({ ...prev, publicDescription: nextHtml }))}
+              onAutoFill={() =>
+                setForm((prev) => ({
+                  ...prev,
+                  publicDescription: buildClientSafeSummaryHtml({
+                    opportunityTitle: prev.opportunityTitle || 'Technical Specialist',
+                    openPositions: Number(prev.openPositions) || 1,
+                    workModel: prev.location.toLowerCase().includes('hybrid')
+                      ? 'Hybrid'
+                      : prev.location.toLowerCase().includes('onsite')
+                      ? 'Onsite'
+                      : 'Remote',
+                    location: prev.location,
+                    skillsRequired: prev.skillsRequired,
+                    companyName: prev.companyName,
+                    rawEmailText: prev.remarks,
+                  }),
+                }))
+              }
+              minHeight={105}
+              maxHeight={240}
+              placeholder="Write a client-safe role scope, responsibilities checklist, and engagement overview..."
+            />
+
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Job Spec Notes & Remarks</label>
+              <label className="block font-semibold text-slate-700 mb-1">Internal Job Spec Notes &amp; Remarks</label>
               <textarea
                 value={form.remarks}
                 onChange={(e) => setForm({ ...form, remarks: e.target.value })}

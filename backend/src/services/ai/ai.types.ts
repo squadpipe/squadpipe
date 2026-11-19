@@ -66,6 +66,7 @@ export interface EmailIntakeBaseline {
   targetPayRate?: number;
   skills?: string[];
   missingNotes?: string;
+  publicDescription?: string;
 }
 
 export interface CapabilityCandidateInput {
@@ -77,6 +78,7 @@ export interface CapabilityCandidateInput {
   relocation?: string;
   hourlyRateDisplay?: string;
   rawSnippet?: string;
+  matchedChunks?: string[];
 }
 
 export interface CapabilityRequirementInput {

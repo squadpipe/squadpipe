@@ -34,6 +34,7 @@ export interface ResolvedAiConfig {
   maxInputChars: number;
   modelFast: string;
   modelSmart: string;
+  embeddingModel: string;
   gatewayBaseUrl: string;
   actionCenterAgentEnabled: boolean;
   credentials: {
@@ -75,6 +76,16 @@ const DEFAULT_SMART_MODELS: Record<AiProviderName, string> = {
   anthropic: 'claude-sonnet-4-0',
   ollama: 'qwen2.5:32b',
   custom: 'gpt-4.1-mini',
+};
+
+const DEFAULT_EMBEDDING_MODELS: Record<AiProviderName, string> = {
+  none: '',
+  cloudflare: '@cf/baai/bge-base-en-v1.5',
+  openai: 'text-embedding-3-small',
+  gemini: 'gemini-embedding-001',
+  anthropic: '',
+  ollama: 'nomic-embed-text',
+  custom: 'text-embedding-3-small',
 };
 
 function clampInt(raw: string | undefined, fallback: number, min: number, max: number): number {
@@ -148,6 +159,7 @@ export function resolveAiConfig(env: NodeJS.ProcessEnv = process.env): ResolvedA
     maxInputChars: clampInt(env.AI_MAX_INPUT_CHARS, 16000, 1000, 100000),
     modelFast: String(env.AI_MODEL_FAST || '').trim() || DEFAULT_FAST_MODELS[provider],
     modelSmart: String(env.AI_MODEL_SMART || '').trim() || DEFAULT_SMART_MODELS[provider],
+    embeddingModel: String(env.AI_EMBEDDING_MODEL || '').trim() || DEFAULT_EMBEDDING_MODELS[provider],
     gatewayBaseUrl: String(env.AI_GATEWAY_BASE_URL || '').trim(),
     actionCenterAgentEnabled,
     credentials,

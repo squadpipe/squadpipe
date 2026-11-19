@@ -4,11 +4,14 @@ import {
   BarChart3,
   Building2,
   ChevronDown,
+  Columns,
   FileSpreadsheet,
+  FileText,
   FileUp,
   Handshake,
   HardDrive,
   Kanban,
+  Layers,
   Lock,
   LogOut,
   MoreVertical,
@@ -58,6 +61,7 @@ interface NavItemConfig {
   restricted?: boolean;
   tooltip?: string;
   badge?: React.ReactNode;
+  children?: NavItemConfig[];
 }
 
 interface NavSectionConfig {
@@ -144,6 +148,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSignOut,
 }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [formsMenuOpen, setFormsMenuOpen] = useState(true);
   const displayRole = formatUserRole(currentUser?.role);
   const isAdmin = isAdminProp ?? displayRole === 'Administrator';
   const canImportData =
@@ -247,18 +252,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
           ),
         },
         {
-          view: 'custom_fields',
-          label: 'Custom Fields',
+          view: 'forms_and_fields',
+          label: 'Forms & Fields',
           icon: Tags,
           restricted: !isAdmin,
-          tooltip: !isAdmin ? 'Restricted to Administrators' : 'Manage Custom Fields & Taxonomies',
-          badge: isAdmin ? (
-            <span className="text-[10px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded tabular-nums">
-              {counts.customFields}
-            </span>
-          ) : (
-            <RestrictedBadge />
-          ),
+          tooltip: !isAdmin ? 'Restricted to Administrators' : 'Application Forms, Custom Fields & Dropdowns',
+          badge: !isAdmin ? <RestrictedBadge /> : undefined,
+          children: [
+            {
+              view: 'application_forms',
+              label: 'Application Forms',
+              icon: FileText,
+              restricted: !isAdmin,
+              tooltip: !isAdmin ? 'Restricted to Administrators' : 'Public Job Application Form Templates',
+            },
+            {
+              view: 'custom_fields',
+              label: 'Custom Form Fields',
+              icon: Columns,
+              restricted: !isAdmin,
+              tooltip: !isAdmin ? 'Restricted to Administrators' : 'Manage Custom Entity Form Attributes',
+              badge: isAdmin ? (
+                <span className="text-[10px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded tabular-nums">
+                  {counts.customFields}
+                </span>
+              ) : undefined,
+            },
+            {
+              view: 'dropdown_lists',
+              label: 'Master Dropdown Lists',
+              icon: Layers,
+              restricted: !isAdmin,
+              tooltip: !isAdmin ? 'Restricted to Administrators' : 'Manage Work Auth, Stages, Degrees & Terms',
+              badge: isAdmin ? (
+                <span className="text-[9.5px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded tabular-nums">
+                  4 Lists
+                </span>
+              ) : undefined,
+            },
+          ],
         },
         {
           view: 'import_data',
@@ -413,8 +445,137 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="space-y-0.5">
               {section.items.map((item) => {
                 const Icon = item.icon;
-                const active = currentView === item.view;
+                const hasChildren = Boolean(item.children && item.children.length > 0);
+                const childActive = hasChildren
+                  ? item.children!.some((child) => currentView === child.view)
+                  : false;
+                const active = currentView === item.view || childActive;
                 const activeIconClass = item.activeIconClass || 'text-brand-400';
+
+                if (hasChildren && compact) {
+                  return (
+                    <React.Fragment key={item.view}>
+                      {item.children!.map((child) => {
+                        const ChildIcon = child.icon;
+                        const isChildActive = currentView === child.view;
+                        return (
+                          <button
+                            key={child.view}
+                            type="button"
+                            onClick={() => handleSelectNav(child.view)}
+                            title={child.tooltip || child.label}
+                            aria-label={child.label}
+                            className={`w-[calc(100%-1rem)] mx-2 flex items-center justify-center px-0 py-2.5 relative cursor-pointer transition-all text-xs rounded-lg font-medium ${
+                              isChildActive
+                                ? 'bg-[#1F2422] text-white shadow-xs font-semibold'
+                                : child.restricted
+                                  ? 'text-slate-500 hover:bg-white/[0.03] hover:text-slate-300'
+                                  : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
+                            }`}
+                          >
+                            <ChildIcon
+                              className={`w-4 h-4 flex-shrink-0 transition-colors ${
+                                isChildActive
+                                  ? activeIconClass
+                                  : child.restricted
+                                    ? 'text-slate-500'
+                                    : 'text-slate-400'
+                              }`}
+                            />
+                            {child.restricted && (
+                              <span
+                                className="absolute top-1.5 right-2 w-1.5 h-1.5 rounded-full bg-amber-400/80"
+                                aria-hidden="true"
+                              />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </React.Fragment>
+                  );
+                }
+
+                if (hasChildren) {
+                  const isSubmenuExpanded = formsMenuOpen || childActive;
+                  return (
+                    <div key={item.view} className="space-y-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setFormsMenuOpen((prev) => !prev)}
+                        title={item.tooltip || item.label}
+                        aria-label={item.label}
+                        aria-expanded={isSubmenuExpanded}
+                        className={`w-[calc(100%-1rem)] mx-2 flex items-center justify-between px-3 py-2 text-left cursor-pointer transition-all text-xs rounded-lg font-medium ${
+                          childActive
+                            ? 'bg-white/[0.05] text-white font-semibold'
+                            : item.restricted
+                              ? 'text-slate-500 hover:bg-white/[0.03] hover:text-slate-300'
+                              : 'text-slate-300 hover:bg-white/[0.04] hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center min-w-0 gap-2.5">
+                          <Icon
+                            className={`w-4 h-4 flex-shrink-0 transition-colors ${
+                              childActive
+                                ? activeIconClass
+                                : item.restricted
+                                  ? 'text-slate-500'
+                                  : 'text-slate-400'
+                            }`}
+                          />
+                          <span className="truncate">{item.label}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {item.badge}
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-150 ${
+                              isSubmenuExpanded ? 'rotate-180' : ''
+                            }`}
+                          />
+                        </div>
+                      </button>
+
+                      {isSubmenuExpanded && (
+                        <div className="ml-6 mr-2 pl-2.5 border-l border-white/[0.1] space-y-0.5 py-0.5">
+                          {item.children!.map((child) => {
+                            const ChildIcon = child.icon;
+                            const isChildActive = currentView === child.view;
+                            return (
+                              <button
+                                key={child.view}
+                                type="button"
+                                onClick={() => handleSelectNav(child.view)}
+                                title={child.tooltip || child.label}
+                                aria-label={child.label}
+                                className={`w-full flex items-center justify-between px-2.5 py-1.5 text-left cursor-pointer transition-all text-[11.5px] rounded-md font-medium ${
+                                  isChildActive
+                                    ? 'bg-[#1F2422] text-white shadow-xs font-semibold'
+                                    : child.restricted
+                                      ? 'text-slate-500 hover:bg-white/[0.03] hover:text-slate-300'
+                                      : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
+                                }`}
+                              >
+                                <div className="flex items-center min-w-0 gap-2">
+                                  <ChildIcon
+                                    className={`w-3.5 h-3.5 flex-shrink-0 transition-colors ${
+                                      isChildActive
+                                        ? activeIconClass
+                                        : child.restricted
+                                          ? 'text-slate-500'
+                                          : 'text-slate-400'
+                                    }`}
+                                  />
+                                  <span className="truncate">{child.label}</span>
+                                </div>
+                                {child.badge}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
 
                 return (
                   <button

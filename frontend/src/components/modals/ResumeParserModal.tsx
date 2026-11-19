@@ -100,11 +100,56 @@ function normalizeRelocation(raw?: string): 'Yes' | 'No' {
 }
 
 const PLACEHOLDER_VALUE_RE =
-  /^(?:not\s+(?:explicitly\s+)?(?:specified|mentioned|provided|stated|disclosed|available|found)|unspecified|none|n\/?a|unknown|tbd|missing|pending)$/i;
+  /^(?:not\s+(?:explicitly\s+)?(?:specified|mentioned|provided|stated|disclosed|available|found)|unspecified|none|n\/?a|unknown|tbd|missing|pending|assigned\s+recruiter|candidate\s+profile|uploaded\s+candidate)$/i;
+
+const NON_PERSON_TOKEN_RE =
+  /\b(?:developers?|engineers?|architects?|consultants?|analysts?|managers?|directors?|leads?|specialists?|administrators?|admins?|designers?|coordinators?|technicians?|nurses?|accountants?|controllers?|auditors?|recruiters?|scientists?|strategists?|technologies|technology|private|limited|pvt|ltd|inc|llc|corp|corporation|company|enterprise|solutions|services|systems|platform|knowledge|base|guide|workflow|manual|handbook|brochure|overview|complete|features|welcome|contents|section|curriculum|vitae|resume|cv|profile|uploaded|candidate|squadpipe|softiox|invoice|agreement|requisition|requirement|description|senior|junior|principal|staff)\b/i;
 
 function cleanParsedField(val?: unknown): string {
   const cleaned = String(val ?? '').trim();
   return !cleaned || PLACEHOLDER_VALUE_RE.test(cleaned) ? '' : cleaned;
+}
+
+function cleanCandidatePersonName(rawName?: unknown, currentTitle?: unknown): string {
+  const cleaned = cleanParsedField(rawName);
+  if (!cleaned) return '';
+  const titleClean = cleanParsedField(currentTitle);
+  if (titleClean && cleaned.toLowerCase() === titleClean.toLowerCase()) {
+    return '';
+  }
+  if (NON_PERSON_TOKEN_RE.test(cleaned) || /[@0-9/\\]/.test(cleaned)) {
+    return '';
+  }
+  const words = cleaned
+    .split(/\s+/)
+    .map((w) => w.replace(/^[.'"-]+|[.'"-]+$/g, ''))
+    .filter(Boolean);
+  if (words.length < 2 || words.length > 4) {
+    return '';
+  }
+  if (Math.max(...words.map((w) => w.length)) < 3) {
+    return '';
+  }
+  if (words.filter((w) => w.length >= 2).length < 2) {
+    return '';
+  }
+  return cleaned;
+}
+
+function inferPersonNameFromFileName(fileName: string, currentTitle?: string): string {
+  const stem = fileName
+    .replace(/\.[^/.]+$/, '')
+    .replace(/^\d+[_-\s]+/, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b(?:resume|cv|curriculum|vitae|updated|final|draft|v\d+|\d{4})\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!stem) return '';
+  const firstTwoOrThree = stem.split(' ').slice(0, 2).join(' ');
+  return (
+    cleanCandidatePersonName(stem, currentTitle) ||
+    cleanCandidatePersonName(firstTwoOrThree, currentTitle)
+  );
 }
 
 function mapParsedResumeToDraft(
@@ -115,33 +160,39 @@ function mapParsedResumeToDraft(
 ): { profile: ResumeProfileDraft; aiUsed: boolean } {
   const parsed = resData?.data || resData || {};
   const aiUsed = Boolean(resData?.aiUsed ?? parsed?.aiUsed);
+  const isBulkMode = Boolean(options?.uniqueFallbackEmail);
   const skillsText = Array.isArray(parsed.skills)
     ? parsed.skills.map((s: unknown) => cleanParsedField(s)).filter(Boolean).join(', ')
-    : cleanParsedField(parsed.skillset || parsed.skills) || 'AWS, Kubernetes, Python, SQL';
+    : cleanParsedField(parsed.skillset || parsed.skills);
+  const extractedTitle = cleanParsedField(parsed.current_title || parsed.currentTitle);
+  const extractedName =
+    cleanCandidatePersonName(parsed.full_name || parsed.fullName, extractedTitle) ||
+    inferPersonNameFromFileName(file.name, extractedTitle);
   const baseName = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ').trim() || 'Uploaded Candidate';
-  const emailSlug = baseName.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '') || 'candidate';
-  const fallbackEmail = options?.uniqueFallbackEmail
-    ? `${emailSlug}.${Date.now()}${options?.batchIndex ?? 0}@no-email.local`
-    : 'candidate@gmail.com';
+  const emailSlug =
+    (extractedName || baseName)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '.')
+      .replace(/^\.+|\.+$/g, '') || 'candidate';
+  const extractedEmail = cleanParsedField(parsed.email);
+  const resolvedEmail =
+    extractedEmail ||
+    (isBulkMode ? `${emailSlug}.${Date.now()}${options?.batchIndex ?? 0}@no-email.local` : '');
   const rawRate = cleanParsedField(parsed.hourly_rate || parsed.hourlyRate);
 
   return {
     aiUsed,
     profile: {
-      fullName: cleanParsedField(parsed.full_name || parsed.fullName) || baseName,
-      phone: cleanParsedField(parsed.phone) || '+1 (555) 010-0200',
-      email: cleanParsedField(parsed.email) || fallbackEmail,
+      fullName: extractedName || (isBulkMode ? baseName : ''),
+      phone: cleanParsedField(parsed.phone),
+      email: resolvedEmail,
       workAuth: normalizeWorkAuth(cleanParsedField(parsed.work_auth || parsed.workAuth)),
-      education: cleanParsedField(parsed.education) || "Bachelor's Degree",
-      currentTitle:
-        cleanParsedField(parsed.current_title || parsed.currentTitle) || 'Senior Software Engineer',
+      education: cleanParsedField(parsed.education),
+      currentTitle: extractedTitle,
       skillset: skillsText,
-      hourlyRate: rawRate ? formatRateDisplay(rawRate, currencySymbol) : `${currencySymbol}90/hr (W2)`,
+      hourlyRate: rawRate ? formatRateDisplay(rawRate, currencySymbol) : '',
       relocation: normalizeRelocation(cleanParsedField(parsed.relocation)),
-      recruiter:
-        options?.defaultRecruiter?.trim() ||
-        cleanParsedField(parsed.recruiter) ||
-        'Assigned Recruiter',
+      recruiter: options?.defaultRecruiter?.trim() || cleanParsedField(parsed.recruiter) || '',
       fileName: file.name,
       rawSnippet:
         parsed.raw_text_snippet ||
@@ -268,20 +319,20 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
       setParseProgress(100);
       setIsParsing(false);
       setAiUsed(false);
-      const inferredName = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+      const inferredName = inferPersonNameFromFileName(file.name);
       setProfile({
         fullName: inferredName,
-        phone: '+1 (555) 234-5678',
-        email: `${inferredName.toLowerCase().replace(/\s+/g, '.')}@gmail.com`,
+        phone: '',
+        email: '',
         workAuth: 'US Citizen',
-        education: "Master's Degree",
-        currentTitle: 'Senior IT Consultant',
-        skillset: 'AWS, Python, Kubernetes, CI/CD, SQL',
-        hourlyRate: `${currencySymbol}90/hr (W2)`,
+        education: '',
+        currentTitle: '',
+        skillset: '',
+        hourlyRate: '',
         relocation: 'Yes',
-        recruiter: 'Assigned Recruiter',
+        recruiter: '',
         fileName: file.name,
-        rawSnippet: `Resume File: ${file.name}\nCandidate: ${inferredName}\nPrimary Skills: AWS, Python, Kubernetes, SQL`,
+        rawSnippet: `Resume File: ${file.name}`,
         professionalSummary: '',
       });
       setHasParsedFile(true);
@@ -877,15 +928,22 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
               </div>
 
               {/* Parsing Controls */}
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
-                  {hasParsedFile ? (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                  ) : (
-                    <Info className="w-3.5 h-3.5 text-slate-400" />
+              <div className="flex items-center justify-between pt-1 gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
+                    {hasParsedFile ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                    ) : (
+                      <Info className="w-3.5 h-3.5 text-slate-400" />
+                    )}
+                    <span>{hasParsedFile ? 'Document Parsed Successfully' : 'Awaiting Resume Upload'}</span>
+                  </span>
+                  {hasParsedFile && profile.rawSnippet.length > 4000 && (
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[9.5px] font-semibold text-emerald-700">
+                      Full Multi-Page Text ({(profile.rawSnippet.length / 1000).toFixed(1)}k chars)
+                    </span>
                   )}
-                  <span>{hasParsedFile ? 'Document Parsed Successfully' : 'Awaiting Resume Upload'}</span>
-                </span>
+                </div>
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -920,6 +978,16 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
                   )
                 )}
               </div>
+
+              {hasParsedFile && !profile.fullName.trim() && (
+                <div className="p-2.5 rounded-lg bg-amber-50/90 border border-amber-200 text-amber-900 text-[11px] flex items-start gap-2 leading-relaxed">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Candidate name was not detected automatically.</span>{' '}
+                    This file may be a non-resume document or a long CV with a custom header. Nothing is blocked &mdash; enter or verify the candidate&apos;s <strong>Full Name</strong> below before saving.
+                  </div>
+                </div>
+              )}
 
               {/* Form Grid */}
               <div className="grid grid-cols-2 gap-2.5">

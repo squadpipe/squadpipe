@@ -32,4 +32,4 @@ def extract_education(text: str) -> str:
             return found
 
     all_lines = [line.strip() for line in text.splitlines() if line.strip()]
-    return _search_lines_for_education(all_lines) or "Bachelor's Degree"
+    return _search_lines_for_education(all_lines) or ""

@@ -2903,17 +2903,32 @@ export const App: React.FC = () => {
               />
             ))}
 
-          {currentView === 'custom_fields' &&
+          {(currentView === 'application_forms' ||
+            currentView === 'custom_fields' ||
+            currentView === 'dropdown_lists') &&
             (isAdmin ? (
               <CustomFieldsView
+                pageMode={
+                  currentView === 'application_forms'
+                    ? 'forms'
+                    : currentView === 'dropdown_lists'
+                      ? 'dropdowns'
+                      : 'fields'
+                }
                 customFields={customFields}
                 onAddCustomField={(f) => setCustomFields((prev) => [...prev, f])}
                 showToast={showToast}
               />
             ) : (
               <AccessRestrictedView
-                moduleName="Custom Fields & Dropdown Options"
-                description="Creating or editing custom fields and master dropdown taxonomies is restricted to workspace Administrators."
+                moduleName={
+                  currentView === 'application_forms'
+                    ? 'Application Forms'
+                    : currentView === 'dropdown_lists'
+                      ? 'Master Dropdown Lists'
+                      : 'Custom Form Fields'
+                }
+                description="Creating or editing application forms, custom fields, and master dropdown taxonomies is restricted to workspace Administrators."
                 currentRole={normalizedUserRole}
                 requiredRoles={['Administrator']}
                 onBackToDashboard={() => handleNavigateView('dashboard')}

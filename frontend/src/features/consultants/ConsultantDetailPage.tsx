@@ -603,7 +603,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Contact &amp; Relocation
             </div>
-            <div className="font-semibold text-slate-900 truncate">
+            <div className="font-semibold text-slate-900 leading-snug break-all">
               {candidate.email ? (
                 <a href={`mailto:${candidate.email}`} className="hover:text-brand-600">
                   {candidate.email}
@@ -612,7 +612,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                 'Email not recorded'
               )}
             </div>
-            <div className="text-[11px] text-slate-500 truncate">
+            <div className="text-[11px] text-slate-500 leading-snug break-words">
               {candidate.phone ? (
                 <a href={`tel:${candidate.phone}`} className="hover:text-brand-600">
                   {candidate.phone}
@@ -633,17 +633,17 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Work Auth &amp; Sourcing
             </div>
-            <div className="font-semibold text-slate-900 truncate flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span className="truncate">{candidate.workAuth || 'Work auth not specified'}</span>
+            <div className="font-semibold text-slate-900 leading-snug flex items-start gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+              <span className="break-words">{candidate.workAuth || 'Work auth not specified'}</span>
             </div>
-            <div className="text-[11px] text-slate-500 truncate">
+            <div className="text-[11px] text-slate-500 leading-snug break-words">
               {vendorLabel ? (
                 matchedVendor && onOpenVendor ? (
                   <button
                     type="button"
                     onClick={() => onOpenVendor(matchedVendor)}
-                    className="text-brand-700 font-semibold hover:underline cursor-pointer"
+                    className="text-brand-700 font-semibold hover:underline cursor-pointer text-left"
                   >
                     via {vendorLabel}
                   </button>
@@ -668,10 +668,10 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
               </>
             ) : (
               <>
-                <div className="font-mono font-bold text-slate-900 truncate">
+                <div className="font-mono font-bold text-slate-900 leading-snug break-words">
                   {formattedRate || 'Rate on request'}
                 </div>
-                <div className="text-[11px] text-slate-500 truncate" title={resolvedEducation}>
+                <div className="text-[11px] text-slate-500 leading-snug break-words">
                   {resolvedEducation}
                 </div>
               </>
@@ -683,11 +683,11 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Pipeline &amp; Owner
             </div>
-            <div className="font-semibold text-slate-900 truncate">
+            <div className="font-semibold text-slate-900 leading-snug">
               {linkedSubmissions.length} Submissions &middot;{' '}
               <span className="text-emerald-700">{activeLinkedPlacements.length} Active</span>
             </div>
-            <div className="text-[11px] text-slate-500 truncate">
+            <div className="text-[11px] text-slate-500 leading-snug break-words">
               Owner:{' '}
               <strong className="font-medium text-slate-700">
                 {candidate.assignedRecruiter || 'Unassigned'}

@@ -160,6 +160,36 @@ export interface RecruiterPerformanceRow {
   placements: number;
 }
 
+export interface ApplicationFormCustomField {
+  key: string;
+  name: string;
+  type: 'TEXT' | 'NUMBER' | 'DATE' | 'BOOLEAN' | 'DROPDOWN';
+  required: boolean;
+  options?: string[];
+}
+
+export interface ApplicationFormTemplate {
+  id: string;
+  name: string;
+  description: string;
+  heading: string;
+  subheading: string;
+  isDefault: boolean;
+  includeCurrentTitle: boolean;
+  requireCurrentTitle: boolean;
+  includeExpectedRate: boolean;
+  requireExpectedRate: boolean;
+  includeVendorName: boolean;
+  requireVendorName: boolean;
+  includeNoticePeriod: boolean;
+  requireNoticePeriod: boolean;
+  includeLinkedinUrl: boolean;
+  requireLinkedinUrl: boolean;
+  customFieldKeys: string[];
+  customFields?: ApplicationFormCustomField[];
+  updatedAt?: string;
+}
+
 export interface Requirement {
   id: string;
   code: string;
@@ -189,6 +219,8 @@ export interface Requirement {
   publicFormEnabled?: boolean;
   publicFormToken?: string | null;
   publicDescription?: string | null;
+  rawEmailText?: string | null;
+  publicFormTemplateId?: string | null;
   customFields?: Record<string, any>;
   createdAt?: string;
   updatedAt?: string;

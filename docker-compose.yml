@@ -5,7 +5,7 @@ services:
   # 1. In-House PostgreSQL (Spun up conditionally if DB_LOCATION=in_house)
   # ============================================================================
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: squadpipe-postgres
     restart: unless-stopped
     profiles:
@@ -121,6 +121,8 @@ services:
       - AI_MAX_INPUT_CHARS=${AI_MAX_INPUT_CHARS:-16000}
       - AI_MODEL_FAST=${AI_MODEL_FAST:-}
       - AI_MODEL_SMART=${AI_MODEL_SMART:-}
+      - AI_EMBEDDING_MODEL=${AI_EMBEDDING_MODEL:-}
+      - VECTOR_PROVIDER=${VECTOR_PROVIDER:-pgvector}
       - AI_GATEWAY_BASE_URL=${AI_GATEWAY_BASE_URL:-}
       - AI_ACTION_CENTER_AGENT=${AI_ACTION_CENTER_AGENT:-false}
       - AI_MONTHLY_ACTION_LIMIT=${AI_MONTHLY_ACTION_LIMIT:-0}

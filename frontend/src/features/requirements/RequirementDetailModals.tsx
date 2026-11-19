@@ -26,6 +26,8 @@ import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { DateTimePicker } from '../../components/shared/DateTimePicker';
 import { CustomSelect } from '../../components/shared/CustomSelect';
+import { RoleSummaryField } from '../../components/shared/RichTextEditor';
+import { buildClientSafeSummaryHtml } from '../../utils/richText';
 import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 
 const QUICK_REJECTION_REASONS = [
@@ -621,6 +623,28 @@ export const EditRequirementModal: React.FC<EditRequirementModalProps> = ({
               onChange={(nextCsv) => onChangeForm({ ...editForm, skillsRequired: nextCsv })}
             />
           </div>
+
+          <RoleSummaryField
+            label="Role Scope & Public Summary"
+            value={editForm.publicDescription || ''}
+            onChange={(nextHtml) => onChangeForm({ ...editForm, publicDescription: nextHtml })}
+            onAutoFill={() =>
+              onChangeForm({
+                ...editForm,
+                publicDescription: buildClientSafeSummaryHtml({
+                  opportunityTitle: editForm.opportunityTitle,
+                  openPositions: Number(editOpenPositions) || editForm.openPositions || 1,
+                  workModel: editForm.workModel,
+                  location: editForm.location,
+                  skillsRequired: editForm.skillsRequired,
+                  companyName: editForm.companyName,
+                  rawEmailText: editForm.rawEmailText,
+                }),
+              })
+            }
+            minHeight={105}
+            maxHeight={260}
+          />
         </div>
 
         <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
@@ -682,12 +706,19 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
   }, [modalOpen, isEvaluating, onClose]);
 
   const { displayName, initials } = formatSubmissionPersonName(submission?.fullName);
-  const score =
-    typeof submission?.capabilityScore === 'number'
-      ? Math.max(0, Math.min(100, Math.round(submission.capabilityScore)))
-      : 0;
+  const hasScore = typeof submission?.capabilityScore === 'number';
+  const score = hasScore
+    ? Math.max(0, Math.min(100, Math.round(submission!.capabilityScore!)))
+    : null;
   const summary = submission?.capabilitySummary;
-  const badgeMeta = getCapabilityBadgeStyle(score, summary);
+  const badgeMeta = hasScore
+    ? getCapabilityBadgeStyle(score!, summary)
+    : {
+        label: 'Not Checked',
+        badgeClass: 'bg-slate-100 text-slate-600 border-slate-200',
+        barClass: 'bg-slate-300',
+        scoreTextClass: 'text-slate-500',
+      };
   const usedAi = Boolean(summary?.evaluatedWithAi && aiEnabled);
   const evaluatedAtLabel = summary?.evaluatedAt ? formatDateTimeBadge(summary.evaluatedAt) : '';
   const strengths = summary?.strengths ?? [];
@@ -740,7 +771,7 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-baseline gap-2.5">
                 <span className={`text-2xl font-bold tabular-nums ${badgeMeta.scoreTextClass}`}>
-                  {score}%
+                  {hasScore ? `${score}%` : '—'}
                 </span>
                 <span
                   className={`inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full border font-semibold ${badgeMeta.badgeClass}`}
@@ -751,7 +782,11 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
               </div>
               <div className="flex items-center gap-2 text-[11px] text-slate-500">
                 <span className="font-medium text-slate-600">
-                  {usedAi ? 'AI Evaluated' : 'Skill Match Check'}
+                  {!hasScore
+                    ? 'Awaiting Evaluation'
+                    : usedAi
+                      ? 'AI Evaluated'
+                      : 'Skill Match Check'}
                 </span>
                 {evaluatedAtLabel && (
                   <>
@@ -764,7 +799,7 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
             <div className="w-full h-2 rounded-full bg-slate-200/80 overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-300 ${badgeMeta.barClass}`}
-                style={{ width: `${score}%` }}
+                style={{ width: `${score ?? 0}%` }}
               />
             </div>
           </div>
@@ -780,7 +815,9 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
               </p>
             ) : (
               <p className="p-3.5 rounded-xl bg-slate-50/70 border border-dashed border-slate-200 text-xs text-slate-500 leading-relaxed">
-                No detailed verdict is available yet for this applicant.
+                {hasScore
+                  ? 'No detailed verdict is available yet for this applicant.'
+                  : 'No fit evaluation has been run yet. Click below to compare this applicant against required skills.'}
               </p>
             )}
           </div>
@@ -858,9 +895,13 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
               <span>
                 {isEvaluating
                   ? 'Evaluating...'
-                  : usedAi
-                    ? 'Re-run AI Check'
-                    : 'Run AI Check'}
+                  : aiEnabled
+                    ? usedAi
+                      ? 'Re-run AI Check'
+                      : 'Run AI Check'
+                    : hasScore
+                      ? 'Re-run Fit Check'
+                      : 'Run Fit Check'}
               </span>
             </button>
           ) : (

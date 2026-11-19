@@ -141,49 +141,65 @@ def extract_skills(text: str) -> List[str]:
         normalized = SYNONYM_MAP.get(item.lower(), item)
         add_skill(normalized)
 
-    return found[:25]
+    return found[:45]
+
+
+NON_TITLE_PROSE_STARTERS = (
+    "summary", "experience", "education", "skills", "prepared by", "welcome to",
+    "what is", "what you", "how to", "when a", "when an", "from the", "from adding",
+    "follow one", "a guide", "the administrator", "administrators can", "recruiters can",
+    "recruiters add", "once selected", "active placements", "role access", "section ",
+    "contents", "good to know", "need help", "for teams",
+)
 
 
 def _looks_like_title(line: str) -> bool:
-    line_clean = line.lower()
-    if "@" in line_clean or "http" in line_clean:
+    raw_stripped = line.strip()
+    if not raw_stripped or raw_stripped.startswith(("•", "-", "*", "1", "2", "3", "4", "5", "6", "7", "8", "9")):
         return False
-    if len(line.split()) > 8:
+    line_clean = raw_stripped.lower().strip(" |•-:")
+    if "@" in line_clean or "http" in line_clean or "." in line_clean:
         return False
-    if line_clean.startswith(("summary", "experience", "education", "skills")):
+    words = line_clean.split()
+    if not (2 <= len(words) <= 7):
+        return False
+    if line_clean.startswith(NON_TITLE_PROSE_STARTERS):
+        return False
+    # Reject conversational/prose lines containing verbs or pronouns
+    if any(w in words for w in ("is", "are", "can", "will", "that", "this", "your", "our", "their", "every", "into", "across", "while", "before", "after")):
         return False
     return any(re.search(rf"\b{kw}s?\b", line_clean) for kw in TITLE_KEYWORDS)
 
 
 def extract_current_title(text: str, default_skills: List[str]) -> str:
-    """Determines current candidate job title from header, latest Experience role, or skills fallback."""
+    """Determines current candidate job title from header, latest Experience role, or strong domain skills fallback."""
     sections = split_resume_sections(text)
-    header_lines = sections["header"][:10] if sections["header"] else [
+    header_lines = sections["header"][:20] if sections["header"] else [
         line.strip() for line in text.splitlines() if line.strip()
-    ][:10]
+    ][:20]
 
     for line in header_lines:
         if _looks_like_title(line):
             return line.strip(" |•-")
 
-    # Check the top lines of Experience section (first/most recent role)
-    for line in sections["experience"][:8]:
+    # Check the top lines of Experience section (first/most recent role, extended for bulky CVs)
+    for line in sections["experience"][:20]:
         # Strip trailing date ranges like " | 2021 - Present" or " (2022–2025)"
         candidate = re.split(r"\s*[|•]\s*(?:\d{4}|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)", line, flags=re.IGNORECASE)[0]
         candidate = re.sub(r"\s*\(?\b(?:19|20)\d{2}\s*[-–—]\s*(?:Present|Current|(?:19|20)\d{2})\)?$", "", candidate, flags=re.IGNORECASE).strip()
         if _looks_like_title(candidate):
             return candidate.strip(" |•-")
 
-    # Fallback based on top skills
+    # Only use skill-based fallback when actual technical/domain specialization skills are present
     if "Snowflake" in default_skills or "Databricks" in default_skills:
         return "Senior Data Platform Engineer"
     if "Kubernetes" in default_skills or "Terraform" in default_skills or "AWS" in default_skills:
         return "Lead Cloud DevOps Architect"
     if "Java" in default_skills or "Spring Boot" in default_skills:
         return "Senior Full-Stack Java Engineer"
-    if any(s in default_skills for s in ("GAAP", "FP&A", "QuickBooks", "Audit")):
+    if any(s in default_skills for s in ("GAAP", "FP&A", "QuickBooks", "Financial Modeling")):
         return "Senior Financial Analyst"
     if any(s in default_skills for s in ("HIPAA", "Epic", "Cerner", "Patient Care")):
         return "Healthcare Clinical Specialist"
 
-    return "Professional Consultant"
+    return ""

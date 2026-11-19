@@ -482,21 +482,21 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Client &amp; Model
             </div>
-            <div className="font-semibold text-slate-900 truncate flex items-center gap-1.5">
-              <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <div className="font-semibold text-slate-900 leading-snug flex items-start gap-1.5">
+              <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
               {linkedClient && onOpenClient ? (
                 <button
                   type="button"
                   onClick={() => onOpenClient(linkedClient)}
-                  className="truncate hover:text-brand-600 cursor-pointer text-left"
+                  className="break-words hover:text-brand-600 cursor-pointer text-left"
                 >
                   {placement.customer}
                 </button>
               ) : (
-                <span className="truncate">{placement.customer}</span>
+                <span className="break-words">{placement.customer}</span>
               )}
             </div>
-            <div className="text-[11px] text-slate-500 truncate">
+            <div className="text-[11px] text-slate-500 leading-snug break-words">
               {placement.placementType || 'C2C Subcontractor'} &middot;{' '}
               {placement.deployment || 'Onshore'}
             </div>

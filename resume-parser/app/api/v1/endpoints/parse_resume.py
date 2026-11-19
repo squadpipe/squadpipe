@@ -97,8 +97,14 @@ async def parse_resume(
     title = extract_current_title(text, skills)
     education = extract_education(text)
 
-    # Dynamic hourly rate heuristic
-    rate = "$90/hr (W2)" if "US Citizen" in work_auth or "Green Card" in work_auth else "$85/hr (C2C)"
+    # Extract explicit hourly rate only when actually mentioned in the document
+    import re
+    rate_match = re.search(
+        r'(\$\s*\d{2,4}(?:\.\d{1,2})?\s*(?:/\s*hr|/\s*hour|per\s+hour|hr)\b(?:\s*\((?:W2|W-2|C2C|1099)\))?)',
+        text,
+        flags=re.IGNORECASE,
+    )
+    rate = re.sub(r'\s+', ' ', rate_match.group(1)).strip() if rate_match else ""
 
     profile = ParsedProfile(
         fullName=full_name or "",
@@ -112,7 +118,7 @@ async def parse_resume(
         relocation="Yes",
         recruiter=None,
         fileName=filename,
-        rawSnippet=text[:8000]
+        rawSnippet=text[:35000]
     )
 
     return ResumeParseResponse(success=True, data=profile)

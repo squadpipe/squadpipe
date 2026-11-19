@@ -338,3 +338,48 @@ export function hasJobRoleKeyword(text: string): boolean {
     text
   );
 }
+
+const NON_PERSON_NAME_RE =
+  /\b(?:technologies|technology|private|limited|pvt|ltd|inc|llc|corp|corporation|company|enterprise|enterprises|solutions|services|systems|platform|knowledge\s*base|guide|workflow|manual|handbook|brochure|overview|complete\s+features|welcome\s+to|table\s+of\s+contents|contents|curriculum\s+vitae|resume|cv|candidate\s+profile|uploaded\s+candidate|professional\s+consultant|squadpipe|softiox|invoice|agreement|requisition|requirement|description)\b/i;
+
+/**
+ * Ensures an extracted candidate fullName is an actual human personal name and never a job title
+ * (e.g. "Senior Financial Analyst"), company name ("Softiox Technologies"), or document header ("Knowledge Base").
+ */
+export function sanitizeCandidatePersonName(rawName?: unknown, currentTitle?: unknown): string {
+  const cleaned = sanitizeExtractedText(rawName);
+  if (!cleaned) return '';
+
+  const titleClean = sanitizeExtractedText(currentTitle);
+  if (titleClean && cleaned.toLowerCase() === titleClean.toLowerCase()) {
+    return '';
+  }
+
+  if (hasJobRoleKeyword(cleaned) || NON_PERSON_NAME_RE.test(cleaned)) {
+    return '';
+  }
+
+  // Reject strings with digits or email/URL markers
+  if (/[@0-9/\\]/.test(cleaned)) {
+    return '';
+  }
+
+  const words = cleaned
+    .split(/\s+/)
+    .map((w) => w.replace(/^[.'"-]+|[.'"-]+$/g, ''))
+    .filter(Boolean);
+  if (words.length === 0 || words.length > 5) {
+    return '';
+  }
+
+  // Reject spaced single-letter headers like "S O" or "K N O W"
+  const longestWord = Math.max(...words.map((w) => w.length));
+  if (longestWord < 3) {
+    return '';
+  }
+  if (words.length >= 2 && words.filter((w) => w.length >= 2).length < 2) {
+    return '';
+  }
+
+  return cleaned;
+}

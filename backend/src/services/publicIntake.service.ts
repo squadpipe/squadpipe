@@ -1,11 +1,24 @@
 import crypto from 'node:crypto';
 import { AutomationCategory, CandidatePipelineStage, SlaCategory } from '@prisma/client';
 import { prisma } from '../config/prisma.config';
-import { getTenantSettings } from '../config/smtp.config';
+import {
+  ApplicationFormTemplate,
+  DEFAULT_APPLICATION_FORMS,
+  getApplicationForms,
+  getTenantSettings,
+} from '../config/smtp.config';
 import { parseRateNumber } from '../utils/rateParser';
 import { automationEngineService } from './automationEngine.service';
 import { capabilityService } from './capability.service';
-import { cvStorageService, type UploadedCvFile } from './cvStorage.service';
+import {
+  cvStorageService,
+  resolveCvExtension,
+  type UploadedCvFile,
+} from './cvStorage.service';
+import {
+  purifyJobTitle,
+  sanitizeCandidatePersonName,
+} from './ai/extractionSanitizer';
 import {
   buildEnhancedResumeParseResponse,
   buildNodeResumeFallback,
@@ -14,16 +27,58 @@ import {
 import { REQUIREMENT_INCLUDE, RequirementStatus } from './requirement.service';
 import { resumeParserClientService } from './resumeParserClient.service';
 import { slaEngineService } from './slaEngine.service';
+import { candidateIndexingService } from './vector/candidateIndexing.service';
+import {
+  buildClientSafePublicSummaryHtml,
+  formatWorkModelLabel,
+  sanitizePublicSummaryHtml,
+} from '../utils/publicSummary';
+
+export interface PublicFormCustomFieldView {
+  key: string;
+  name: string;
+  type: 'TEXT' | 'DROPDOWN' | 'DATE' | 'NUMBER' | 'BOOLEAN';
+  required: boolean;
+  options: string[];
+}
+
+export interface PublicFormTemplateView {
+  id: string;
+  name: string;
+  heading: string;
+  subheading: string;
+  includeCurrentTitle: boolean;
+  requireCurrentTitle: boolean;
+  includeExpectedRate: boolean;
+  requireExpectedRate: boolean;
+  includeVendorName: boolean;
+  requireVendorName: boolean;
+  includeNoticePeriod: boolean;
+  requireNoticePeriod: boolean;
+  includeLinkedinUrl: boolean;
+  requireLinkedinUrl: boolean;
+  customFields: PublicFormCustomFieldView[];
+}
 
 export interface PublicRequirementView {
   agencyName: string;
-  code: string;
   opportunityTitle: string;
   location: string;
   workModel: 'Remote' | 'Hybrid' | 'Onsite';
   skillsRequired: string;
   openPositions: number;
   publicDescription: string | null;
+  highlights: string[];
+  engagementSummary: string | null;
+  formTemplate?: PublicFormTemplateView;
+}
+
+export interface PublicBasicResumeParseResult {
+  fullName: string;
+  email: string;
+  phone: string;
+  workAuth: string;
+  currentTitle: string;
 }
 
 export interface ValidatedPublicApplication {
@@ -34,6 +89,9 @@ export interface ValidatedPublicApplication {
   submittedRate: string | null;
   submittedVendorName: string | null;
   currentTitleInput: string | null;
+  noticePeriod: string | null;
+  linkedinUrl: string | null;
+  customFieldValues: Record<string, string>;
 }
 
 export type PublicSubmissionHook = (context: {
@@ -66,38 +124,62 @@ export function generatePublicFormToken(): string {
   return crypto.randomBytes(18).toString('base64url');
 }
 
-export function formatWorkModelLabel(raw?: string | null): 'Remote' | 'Hybrid' | 'Onsite' {
-  const upper = String(raw || '').trim().toUpperCase();
-  if (upper === 'HYBRID') return 'Hybrid';
-  if (upper === 'ONSITE' || upper === 'ON_SITE') return 'Onsite';
-  return 'Remote';
+export { formatWorkModelLabel };
+
+export function extractSafePublicJobDetails(reqRecord: {
+  code?: string | null;
+  companyName?: string | null;
+  clientContact?: { fullName?: string | null } | null;
+  opportunityTitle: string;
+  location: string;
+  workModel?: string | null;
+  skillsRequired: string;
+  openPositions: number;
+  publicDescription?: string | null;
+  rawEmailText?: string | null;
+}): {
+  publicDescription: string | null;
+  highlights: string[];
+  engagementSummary: string | null;
+} {
+  return buildClientSafePublicSummaryHtml(reqRecord);
 }
 
 /**
- * Strict allowlist serializer for public intake pages. Never exposes client names,
- * internal bill/pay rates, client contact emails, or raw forwarded emails.
+ * Strict allowlist serializer for public intake pages. Never exposes internal tracking codes,
+ * client names, internal bill/pay rates, client contact emails, or raw forwarded emails.
  */
 export function serializePublicRequirementPayload(
   reqRecord: {
-    code: string;
+    code?: string | null;
+    companyName?: string | null;
+    clientContact?: { fullName?: string | null } | null;
     opportunityTitle: string;
     location: string;
     workModel?: string | null;
     skillsRequired: string;
     openPositions: number;
     publicDescription?: string | null;
+    rawEmailText?: string | null;
   },
-  agencyName: string
+  agencyName: string,
+  formTemplate?: PublicFormTemplateView
 ): PublicRequirementView {
+  const safeDetails = extractSafePublicJobDetails(reqRecord);
   return {
     agencyName: String(agencyName || '').trim() || 'SquadPipe Staffing',
-    code: reqRecord.code,
     opportunityTitle: reqRecord.opportunityTitle,
     location: reqRecord.location,
     workModel: formatWorkModelLabel(reqRecord.workModel),
     skillsRequired: reqRecord.skillsRequired || '',
-    openPositions: Number.isInteger(reqRecord.openPositions) && reqRecord.openPositions > 0 ? reqRecord.openPositions : 1,
-    publicDescription: reqRecord.publicDescription ? String(reqRecord.publicDescription).trim() : null,
+    openPositions:
+      Number.isInteger(reqRecord.openPositions) && reqRecord.openPositions > 0
+        ? reqRecord.openPositions
+        : 1,
+    publicDescription: safeDetails.publicDescription,
+    highlights: safeDetails.highlights,
+    engagementSummary: safeDetails.engagementSummary,
+    ...(formTemplate ? { formTemplate } : {}),
   };
 }
 
@@ -106,7 +188,8 @@ export function serializePublicRequirementPayload(
  */
 export function validatePublicApplicationInput(
   body: Record<string, any> | undefined,
-  file?: UploadedCvFile | null
+  file?: UploadedCvFile | null,
+  formTemplate?: PublicFormTemplateView
 ): ValidatedPublicApplication {
   const input = body || {};
 
@@ -149,6 +232,54 @@ export function validatePublicApplicationInput(
   const rawTitle = String(input.currentTitle || '').trim();
   const currentTitleInput = rawTitle ? rawTitle.slice(0, 120) : null;
 
+  const rawNotice = String(input.noticePeriod || '').trim();
+  const noticePeriod = rawNotice ? rawNotice.slice(0, 80) : null;
+
+  const rawLinkedin = String(input.linkedinUrl || '').trim();
+  const linkedinUrl = rawLinkedin ? rawLinkedin.slice(0, 200) : null;
+
+  if (formTemplate) {
+    if (formTemplate.includeCurrentTitle && formTemplate.requireCurrentTitle && !currentTitleInput) {
+      throw createHttpError('Current Title / Role is required.', 400);
+    }
+    if (formTemplate.includeExpectedRate && formTemplate.requireExpectedRate && !submittedRate) {
+      throw createHttpError('Expected Hourly Rate is required.', 400);
+    }
+    if (formTemplate.includeVendorName && formTemplate.requireVendorName && !submittedVendorName) {
+      throw createHttpError('Partner / Vendor Agency Name is required.', 400);
+    }
+    if (formTemplate.includeNoticePeriod && formTemplate.requireNoticePeriod && !noticePeriod) {
+      throw createHttpError('Availability / Notice Period is required.', 400);
+    }
+    if (formTemplate.includeLinkedinUrl && formTemplate.requireLinkedinUrl && !linkedinUrl) {
+      throw createHttpError('LinkedIn Profile URL is required.', 400);
+    }
+  }
+
+  let parsedCustomFields: Record<string, any> = {};
+  if (typeof input.customFields === 'string' && input.customFields.trim()) {
+    try {
+      parsedCustomFields = JSON.parse(input.customFields);
+    } catch {
+      parsedCustomFields = {};
+    }
+  } else if (input.customFields && typeof input.customFields === 'object') {
+    parsedCustomFields = input.customFields;
+  }
+
+  const customFieldValues: Record<string, string> = {};
+  if (formTemplate?.customFields) {
+    for (const cf of formTemplate.customFields) {
+      const val = String(parsedCustomFields[cf.key] ?? parsedCustomFields[cf.name] ?? '').trim();
+      if (cf.required && !val) {
+        throw createHttpError(`${cf.name} is required.`, 400);
+      }
+      if (val) {
+        customFieldValues[cf.name] = val.slice(0, 300);
+      }
+    }
+  }
+
   return {
     fullName,
     email,
@@ -157,6 +288,9 @@ export function validatePublicApplicationInput(
     submittedRate,
     submittedVendorName,
     currentTitleInput,
+    noticePeriod,
+    linkedinUrl,
+    customFieldValues,
   };
 }
 
@@ -175,9 +309,9 @@ async function parseSubmittedCvSafely(file: UploadedCvFile, tenantId: string) {
 
   const rawTextForAi = String(
     upstreamPayload?.data?.rawSnippet ||
-      upstreamPayload?.raw_text_snippet ||
-      upstreamPayload?.rawSnippet ||
-      ''
+    upstreamPayload?.raw_text_snippet ||
+    upstreamPayload?.rawSnippet ||
+    ''
   );
 
   try {
@@ -197,7 +331,7 @@ async function parseSubmittedCvSafely(file: UploadedCvFile, tenantId: string) {
       skillset: skillsCsv || 'Software Engineering',
       hourlyRate: cleanParseField(payload.hourlyRate || payload.hourly_rate) || null,
       relocation: cleanParseField(payload.relocation) || 'Yes',
-      rawSnippet: String(payload.rawSnippet || payload.raw_text_snippet || rawTextForAi || '').slice(0, 8000) || null,
+      rawSnippet: String(payload.rawSnippet || payload.raw_text_snippet || rawTextForAi || '').slice(0, 32000) || null,
     };
   } catch {
     const fallback = buildNodeResumeFallback(file.buffer, file.originalname);
@@ -207,20 +341,109 @@ async function parseSubmittedCvSafely(file: UploadedCvFile, tenantId: string) {
       skillset: Array.isArray(fallback.skills) ? fallback.skills.join(', ') : 'Software Engineering',
       hourlyRate: cleanParseField(fallback.hourly_rate) || null,
       relocation: cleanParseField(fallback.relocation) || 'Yes',
-      rawSnippet: String(fallback.raw_text_snippet || '').slice(0, 8000) || null,
+      rawSnippet: String(fallback.raw_text_snippet || '').slice(0, 32000) || null,
     };
   }
 }
 
 export class PublicIntakeService {
+  private async resolveRequirementFormTemplateView(
+    tenantId: string,
+    reqCustomFields?: unknown
+  ): Promise<PublicFormTemplateView> {
+    const forms = await getApplicationForms(tenantId);
+    const cfObj =
+      reqCustomFields && typeof reqCustomFields === 'object' && !Array.isArray(reqCustomFields)
+        ? (reqCustomFields as Record<string, any>)
+        : {};
+    const requestedTemplateId = String(cfObj._publicFormTemplateId || '').trim();
+    const matchedTemplate: ApplicationFormTemplate =
+      (requestedTemplateId ? forms.find((f) => f.id === requestedTemplateId) : undefined) ||
+      forms.find((f) => f.isDefault) ||
+      forms[0] ||
+      DEFAULT_APPLICATION_FORMS[0];
+
+    const customFields: PublicFormCustomFieldView[] = Array.isArray(matchedTemplate.customFields)
+      ? matchedTemplate.customFields.map((cf) => ({
+        key: cf.key,
+        name: cf.name,
+        type: cf.type,
+        required: Boolean(cf.required),
+        options: Array.isArray(cf.options) ? cf.options : [],
+      }))
+      : [];
+    if (matchedTemplate.customFieldKeys.length > 0) {
+      try {
+        const dbFields = await prisma.customFieldDefinition.findMany({
+          where: {
+            tenantId,
+            active: true,
+            key: { in: matchedTemplate.customFieldKeys },
+          },
+        });
+        const byKey = new Map(dbFields.map((f) => [f.key, f]));
+        const seenKeys = new Set(customFields.map((cf) => cf.key));
+        for (const key of matchedTemplate.customFieldKeys) {
+          const f = byKey.get(key);
+          if (!f || seenKeys.has(f.key)) continue;
+          const rawOpts = (f.options as any)?.values;
+          const options = Array.isArray(rawOpts)
+            ? rawOpts.map((v: any) => String(v).trim()).filter(Boolean)
+            : typeof rawOpts === 'string'
+              ? rawOpts
+                .split(',')
+                .map((v) => v.trim())
+                .filter(Boolean)
+              : [];
+          customFields.push({
+            key: f.key,
+            name: f.name,
+            type: f.type,
+            required: Boolean(f.required),
+            options,
+          });
+          seenKeys.add(f.key);
+        }
+      } catch {
+        // Keep form-level customFields if DB lookup is unavailable
+      }
+    }
+
+    return {
+      id: matchedTemplate.id,
+      name: matchedTemplate.name,
+      heading: matchedTemplate.heading,
+      subheading: matchedTemplate.subheading,
+      includeCurrentTitle: matchedTemplate.includeCurrentTitle,
+      requireCurrentTitle: matchedTemplate.requireCurrentTitle,
+      includeExpectedRate: matchedTemplate.includeExpectedRate,
+      requireExpectedRate: matchedTemplate.requireExpectedRate,
+      includeVendorName: matchedTemplate.includeVendorName,
+      requireVendorName: matchedTemplate.requireVendorName,
+      includeNoticePeriod: matchedTemplate.includeNoticePeriod,
+      requireNoticePeriod: matchedTemplate.requireNoticePeriod,
+      includeLinkedinUrl: matchedTemplate.includeLinkedinUrl,
+      requireLinkedinUrl: matchedTemplate.requireLinkedinUrl,
+      customFields,
+    };
+  }
+
   async toggleRequirementPublicForm(params: {
     requirementId: string;
     tenantId: string;
     enabled?: boolean;
     regenerateToken?: boolean;
     publicDescription?: string | null;
+    publicFormTemplateId?: string | null;
   }) {
-    const { requirementId, tenantId, enabled, regenerateToken, publicDescription } = params;
+    const {
+      requirementId,
+      tenantId,
+      enabled,
+      regenerateToken,
+      publicDescription,
+      publicFormTemplateId,
+    } = params;
 
     const existing = await prisma.requirement.findFirst({
       where: { id: requirementId, tenantId },
@@ -237,8 +460,24 @@ export class PublicIntakeService {
 
     const nextDescription =
       publicDescription !== undefined
-        ? String(publicDescription || '').trim() || null
+        ? sanitizePublicSummaryHtml(String(publicDescription || '')) || null
         : existing.publicDescription;
+
+    const currentCf =
+      existing.customFields &&
+        typeof existing.customFields === 'object' &&
+        !Array.isArray(existing.customFields)
+        ? { ...(existing.customFields as Record<string, any>) }
+        : {};
+
+    if (publicFormTemplateId !== undefined) {
+      const cleanTemplateId = String(publicFormTemplateId || '').trim();
+      if (cleanTemplateId) {
+        currentCf._publicFormTemplateId = cleanTemplateId;
+      } else {
+        delete currentCf._publicFormTemplateId;
+      }
+    }
 
     return prisma.requirement.update({
       where: { id: existing.id },
@@ -246,6 +485,7 @@ export class PublicIntakeService {
         publicFormEnabled: nextEnabled,
         publicFormToken: nextToken,
         publicDescription: nextDescription,
+        ...(publicFormTemplateId !== undefined ? { customFields: currentCf } : {}),
       },
       include: REQUIREMENT_INCLUDE,
     });
@@ -267,12 +507,16 @@ export class PublicIntakeService {
         id: true,
         tenantId: true,
         code: true,
+        companyName: true,
+        clientContact: { select: { fullName: true } },
         opportunityTitle: true,
         location: true,
         workModel: true,
         skillsRequired: true,
         openPositions: true,
         publicDescription: true,
+        rawEmailText: true,
+        customFields: true,
       },
     });
 
@@ -280,8 +524,94 @@ export class PublicIntakeService {
       throw createHttpError('This position is no longer accepting applications.', 404);
     }
 
-    const tenantSettings = await getTenantSettings(reqRecord.tenantId);
-    return serializePublicRequirementPayload(reqRecord, tenantSettings.general.agencyName);
+    const [tenantSettings, formTemplate] = await Promise.all([
+      getTenantSettings(reqRecord.tenantId),
+      this.resolveRequirementFormTemplateView(reqRecord.tenantId, (reqRecord as any).customFields),
+    ]);
+    return serializePublicRequirementPayload(
+      reqRecord,
+      tenantSettings.general.agencyName,
+      formTemplate
+    );
+  }
+
+  /**
+   * Basic deterministic resume pre-fill parser for public applicants.
+   * Deliberately bypasses AI/LLM calls so unauthenticated public form traffic never consumes AI quota.
+   */
+  async parsePublicResumeBasic(params: {
+    token: string;
+    file?: UploadedCvFile;
+  }): Promise<PublicBasicResumeParseResult> {
+    const cleanToken = String(params.token || '').trim();
+    if (!cleanToken || !/^[a-zA-Z0-9_-]{8,128}$/.test(cleanToken)) {
+      throw createHttpError('This position is no longer accepting applications.', 404);
+    }
+    if (!params.file || !params.file.buffer || params.file.buffer.length === 0) {
+      throw createHttpError('Resume file is required for parsing.', 400);
+    }
+    resolveCvExtension(params.file.originalname, params.file.mimetype);
+
+    const requirement = await prisma.requirement.findFirst({
+      where: {
+        publicFormToken: cleanToken,
+        publicFormEnabled: true,
+        status: { not: RequirementStatus.CLOSED },
+      },
+      select: { id: true },
+    });
+    if (!requirement) {
+      throw createHttpError('This position is no longer accepting applications.', 404);
+    }
+
+    let upstreamPayload: Record<string, any>;
+    try {
+      const formData = new FormData();
+      const blob = new Blob([new Uint8Array(params.file.buffer)], {
+        type: params.file.mimetype || 'application/octet-stream',
+      });
+      formData.append('file', blob, params.file.originalname);
+      upstreamPayload = await resumeParserClientService.parseResume(formData);
+    } catch {
+      upstreamPayload = buildNodeResumeFallback(params.file.buffer, params.file.originalname);
+    }
+
+    const rawObj =
+      upstreamPayload?.data && typeof upstreamPayload.data === 'object'
+        ? upstreamPayload.data
+        : upstreamPayload || {};
+
+    const parsedTitle =
+      purifyJobTitle(rawObj.currentTitle ?? rawObj.current_title) ||
+      cleanParseField(rawObj.currentTitle ?? rawObj.current_title);
+    const parsedName = sanitizeCandidatePersonName(
+      rawObj.fullName ?? rawObj.full_name,
+      parsedTitle
+    );
+    const parsedEmail = cleanParseField(rawObj.email);
+    const parsedPhone = cleanParseField(rawObj.phone);
+    const rawAuth = cleanParseField(rawObj.workAuth ?? rawObj.work_auth).toLowerCase();
+    const parsedWorkAuth = rawAuth.includes('green')
+      ? 'Green Card'
+      : rawAuth.includes('h-1b') || rawAuth.includes('h1b')
+        ? 'H-1B'
+        : rawAuth.includes('tn')
+          ? 'TN Visa'
+          : rawAuth.includes('opt') || rawAuth.includes('cpt') || rawAuth.includes('ead')
+            ? 'OPT EAD'
+            : rawAuth.includes('citizen')
+              ? 'US Citizen'
+              : rawAuth.includes('authorized')
+                ? 'Authorized to Work'
+                : '';
+
+    return {
+      fullName: parsedName,
+      email: /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(parsedEmail) ? parsedEmail : '',
+      phone: parsedPhone && !/000-0000|555\)? 010-0200/.test(parsedPhone) ? parsedPhone : '',
+      workAuth: parsedWorkAuth,
+      currentTitle: parsedTitle,
+    };
   }
 
   async submitPublicApplication(params: {
@@ -305,7 +635,11 @@ export class PublicIntakeService {
       throw createHttpError('This position is no longer accepting applications.', 404);
     }
 
-    const valid = validatePublicApplicationInput(params.body, params.file);
+    const formTemplate = await this.resolveRequirementFormTemplateView(
+      requirement.tenantId,
+      (requirement as any).customFields
+    );
+    const valid = validatePublicApplicationInput(params.body, params.file, formTemplate);
 
     // Pre-check duplicate application on this requirement before writing CV bytes to disk/bucket.
     const preMatchedCand = await prisma.candidate.findUnique({
@@ -364,6 +698,11 @@ export class PublicIntakeService {
 
         let candidateId: string;
         let candidateName: string;
+        const extraCandidateAttributes: Record<string, string> = {
+          ...(valid.noticePeriod ? { 'Notice Period': valid.noticePeriod } : {}),
+          ...(valid.linkedinUrl ? { 'LinkedIn Profile': valid.linkedinUrl } : {}),
+          ...valid.customFieldValues,
+        };
 
         if (existingCandidate) {
           const existingSub = await tx.submission.findUnique({
@@ -384,6 +723,12 @@ export class PublicIntakeService {
 
           const shouldAdvanceToSubmitted =
             existingCandidate.pipelineStage === CandidatePipelineStage.AVAILABLE_BENCH;
+          const existingCf =
+            existingCandidate.customFields &&
+              typeof existingCandidate.customFields === 'object' &&
+              !Array.isArray(existingCandidate.customFields)
+              ? (existingCandidate.customFields as Record<string, any>)
+              : {};
 
           const updatedCand = await tx.candidate.update({
             where: { id: existingCandidate.id },
@@ -393,10 +738,13 @@ export class PublicIntakeService {
               resumeFileName: storedCv.originalFileName,
               resumeFormat: storedCv.resumeFormat,
               resumeFileUrl: storedCv.storageUri,
+              ...(Object.keys(extraCandidateAttributes).length > 0
+                ? { customFields: { ...existingCf, ...extraCandidateAttributes } }
+                : {}),
               ...(parsedCv.rawSnippet ? { rawSnippet: parsedCv.rawSnippet } : {}),
               ...(parsedCv.skillset &&
-              parsedCv.skillset !== 'Software Engineering' &&
-              parsedCv.skillset.length > existingCandidate.skillset.length
+                parsedCv.skillset !== 'Software Engineering' &&
+                parsedCv.skillset.length > existingCandidate.skillset.length
                 ? { skillset: parsedCv.skillset }
                 : {}),
               ...(shouldAdvanceToSubmitted
@@ -428,6 +776,9 @@ export class PublicIntakeService {
               rawSnippet: parsedCv.rawSnippet,
               pipelineStage: CandidatePipelineStage.SUBMITTED,
               assignedRecruiterId: requirement.assignedRecruiterId || null,
+              ...(Object.keys(extraCandidateAttributes).length > 0
+                ? { customFields: extraCandidateAttributes }
+                : {}),
             },
             select: { id: true, fullName: true },
           });
@@ -464,7 +815,7 @@ export class PublicIntakeService {
         };
       });
     } catch (err) {
-      await cvStorageService.deleteCv(storedCv.storageUri).catch(() => {});
+      await cvStorageService.deleteCv(storedCv.storageUri).catch(() => { });
       throw err;
     }
 
@@ -488,13 +839,18 @@ export class PublicIntakeService {
       // Non-critical audit / SLA update
     }
 
-    // Automatically evaluate submitted resume capability (AI or deterministic offline fallback).
-    try {
-      await capabilityService.evaluateSubmission(createdResult.submissionId, requirement.tenantId, {
-        rateMasked: true,
-      });
-    } catch {
-      // Non-critical capability check
+    // Index uploaded candidate chunks + embeddings asynchronously for hybrid pgvector search
+    candidateIndexingService.scheduleCandidateSync(createdResult.candidateId, requirement.tenantId);
+
+    // Automatically evaluate submitted resume capability when readable resume text or skills exist.
+    if (parsedCv.skillset?.trim() || parsedCv.rawSnippet?.trim()) {
+      try {
+        await capabilityService.evaluateSubmission(createdResult.submissionId, requirement.tenantId, {
+          rateMasked: true,
+        });
+      } catch {
+        // Non-critical capability check
+      }
     }
 
     if (registeredSubmissionHook) {
@@ -516,7 +872,6 @@ export class PublicIntakeService {
       agencyName: tenantSettings.general.agencyName || 'SquadPipe Staffing',
       submissionId: createdResult.submissionId,
       candidateName: createdResult.candidateName,
-      requirementCode: requirement.code,
       opportunityTitle: requirement.opportunityTitle,
       submittedAt: createdResult.submittedAt,
     };

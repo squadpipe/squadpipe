@@ -12,6 +12,7 @@ import { runPitchDraftTests } from './unit/pitchDraft.test';
 import { runAiUsageTests } from './unit/aiUsage.test';
 import { runSlaAgentTests } from './unit/slaAgent.test';
 import { runTableSortTests } from './unit/tableSort.test';
+import { runPgvectorRagTests } from './unit/pgvectorRag.test';
 
 async function runAllBackendTests() {
   console.log('========================================================');
@@ -33,6 +34,7 @@ async function runAllBackendTests() {
     await runAiUsageTests();
     await runSlaAgentTests();
     runTableSortTests();
+    await runPgvectorRagTests();
 
     console.log('\n========================================================');
     console.log('🎉 ALL BACKEND TESTS PASSED (100% Success)');

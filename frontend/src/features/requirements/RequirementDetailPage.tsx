@@ -29,12 +29,17 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import {
+  ApplicationFormTemplate,
   BillablePlacement,
   Requirement,
   Candidate,
   RequirementSubmission,
   SubmissionNote,
 } from '../../types';
+import {
+  DEFAULT_APPLICATION_FORMS,
+  summarizeFormTemplateFields,
+} from '../../utils/applicationForms';
 import { useCurrency } from '../../utils/currency';
 import { useAiCapabilities } from '../../utils/workspaceBrand';
 import { useClientPagination } from '../../utils/usePagination';
@@ -61,6 +66,9 @@ import { ConfirmDeleteModal } from '../../components/shared/ConfirmDeleteModal';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { CustomSelect } from '../../components/shared/CustomSelect';
+import { RichTextEditor } from '../../components/shared/RichTextEditor';
+import { RichTextDisplay } from '../../components/shared/RichTextDisplay';
+import { buildClientSafeSummaryHtml } from '../../utils/richText';
 import { AttachBenchDrawer } from '../../components/modals/AttachBenchDrawer';
 import { PreparePitchModal } from '../../components/modals/PreparePitchModal';
 import {
@@ -251,6 +259,8 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   const [draftPublicDesc, setDraftPublicDesc] = useState('');
   const [copiedPublicLink, setCopiedPublicLink] = useState(false);
   const [publicFormError, setPublicFormError] = useState('');
+  const [applicationForms, setApplicationForms] =
+    useState<ApplicationFormTemplate[]>(DEFAULT_APPLICATION_FORMS);
   const knownCandidatesRef = useRef<Map<string, Candidate>>(new Map());
   const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -331,10 +341,29 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   const effectiveRequirement =
     hydratedReq && requirement && hydratedReq.id === requirement.id ? hydratedReq : requirement;
 
+  useEffect(() => {
+    let active = true;
+    apiClient
+      .get('/application-forms')
+      .then((res) => {
+        if (!active) return;
+        if (res.data?.success && Array.isArray(res.data.data) && res.data.data.length > 0) {
+          setApplicationForms(res.data.data);
+        }
+      })
+      .catch(() => {
+        // Fallback to default templates
+      });
+    return () => {
+      active = false;
+    };
+  }, [workspaceTab]);
+
   const updatePublicFormConfig = async (payload: {
     enabled?: boolean;
     regenerateToken?: boolean;
     publicDescription?: string | null;
+    publicFormTemplateId?: string | null;
   }) => {
     if (!effectiveRequirement || isUpdatingPublicForm) return;
     setIsUpdatingPublicForm(true);
@@ -696,8 +725,39 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
       : reqView.assignedRecruiter || 'Desk Sourcing Specialist';
 
   const customFieldEntries = Object.entries(reqView.customFields || {}).filter(
-    ([, v]) => v !== null && v !== undefined && String(v).trim() !== ''
+    ([k, v]) => !k.startsWith('_') && v !== null && v !== undefined && String(v).trim() !== ''
   );
+
+  const defaultApplicationForm =
+    applicationForms.find((f) => f.isDefault) || applicationForms[0] || DEFAULT_APPLICATION_FORMS[0];
+  const explicitFormId =
+    reqView.publicFormTemplateId ||
+    (reqView.customFields && typeof reqView.customFields === 'object'
+      ? reqView.customFields._publicFormTemplateId || ''
+      : '');
+  const activeApplicationForm =
+    (explicitFormId ? applicationForms.find((f) => f.id === explicitFormId) : undefined) ||
+    defaultApplicationForm;
+  const activeFormFieldChips = summarizeFormTemplateFields(activeApplicationForm);
+  const onlineSubmissions = submissions.filter((s) => s.intakeSource === 'PUBLIC_FORM');
+  const onlineActiveCount = onlineSubmissions.filter(
+    (s) => s.stage.trim().toLowerCase() !== 'closed'
+  ).length;
+
+  const generateDefaultPublicSummary = () =>
+    buildClientSafeSummaryHtml({
+      opportunityTitle: reqView.opportunityTitle,
+      openPositions: reqView.openPositions,
+      workModel: workModelLabel || 'Remote',
+      location: locationLabel,
+      skillsRequired: reqView.skillsRequired,
+      companyName: reqView.companyName,
+      rawEmailText: reqView.rawEmailText,
+    });
+
+  const effectivePublicSummary =
+    (reqView.publicDescription && reqView.publicDescription.trim()) ||
+    generateDefaultPublicSummary();
 
   const liveEditingSub = editingNotesSub
     ? submissions.find((s) => s.id === editingNotesSub.id) || editingNotesSub
@@ -868,8 +928,31 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   );
 
   const renderFitScoreButton = (sub: RequirementSubmission) => {
+    const isChecking = evaluatingSubId === sub.id;
     if (typeof sub.capabilityScore !== 'number') {
-      return <span className="text-[11px] text-slate-400">&mdash;</span>;
+      if (sub.id.startsWith('legacy_')) {
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[11px] font-medium whitespace-nowrap">
+            Not Checked
+          </span>
+        );
+      }
+      return (
+        <button
+          type="button"
+          disabled={isChecking}
+          onClick={() => handleEvaluateSubmission(sub)}
+          title={aiCapabilities.enabled ? 'Run AI Capability Check' : 'Run Skill Fit Check'}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-brand-50 hover:border-brand-200 text-slate-600 hover:text-brand-700 text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-60 whitespace-nowrap"
+        >
+          {isChecking ? (
+            <Loader2 className="w-3 h-3 animate-spin text-brand-600" />
+          ) : (
+            <Sparkles className="w-3 h-3 text-brand-600 shrink-0" />
+          )}
+          <span>{isChecking ? 'Checking...' : 'Check Fit'}</span>
+        </button>
+      );
     }
     const badgeMeta = getCapabilityBadgeStyle(sub.capabilityScore, sub.capabilitySummary);
     const usedAi = Boolean(sub.capabilitySummary?.evaluatedWithAi && aiCapabilities.enabled);
@@ -878,7 +961,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
       <button
         type="button"
         onClick={() => setFitModalSubId(sub.id)}
-        title="Click to inspect strengths, gaps & verdict"
+        title="Click to inspect strengths, gaps, or re-run fit check"
         className="group inline-flex flex-col items-start gap-1 text-left px-1.5 py-1 -mx-1.5 rounded-md hover:bg-slate-100/80 transition-colors cursor-pointer whitespace-nowrap"
       >
         <span className="inline-flex items-center gap-1.5 text-[11.5px] leading-none">
@@ -888,7 +971,11 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
           <span className="text-slate-600 font-medium group-hover:text-slate-900">
             {badgeMeta.label}
           </span>
-          {usedAi && <Sparkles className={`w-2.5 h-2.5 shrink-0 ${badgeMeta.scoreTextClass}`} />}
+          {isChecking ? (
+            <Loader2 className="w-2.5 h-2.5 animate-spin shrink-0 text-brand-600" />
+          ) : (
+            usedAi && <Sparkles className={`w-2.5 h-2.5 shrink-0 ${badgeMeta.scoreTextClass}`} />
+          )}
         </span>
         <span className="w-24 h-1 rounded-full bg-slate-200/80 overflow-hidden block">
           <span
@@ -1005,12 +1092,10 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     displayName,
     subNotes,
   }: PreparedApplicantRow) => {
-    const showAiBtn = !isLegacy && aiCapabilities.enabled;
     const showNotesBtn = !isLegacy && Boolean(onUpdateSubmissionNotes);
     const showDetachBtn = !isLegacy && Boolean(onDetachSubmission);
     const showPitchBtn = !isLegacy;
-    const hasToolbarGroup = showPitchBtn || showAiBtn || showNotesBtn || showDetachBtn;
-    const hasAiEval = Boolean(sub.capabilitySummary?.evaluatedWithAi);
+    const hasToolbarGroup = showPitchBtn || showNotesBtn || showDetachBtn;
 
     return (
       <div className="inline-flex items-center justify-start lg:justify-end gap-1.5 flex-wrap lg:flex-nowrap">
@@ -1037,37 +1122,6 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
               >
                 <Mail className="w-3.5 h-3.5 text-brand-600 shrink-0" />
                 <span>Prepare Pitch</span>
-              </button>
-            )}
-
-            {showAiBtn && (
-              <button
-                type="button"
-                disabled={evaluatingSubId === sub.id}
-                onClick={() => handleEvaluateSubmission(sub)}
-                title={
-                  evaluatingSubId === sub.id
-                    ? 'Running AI Capability Check...'
-                    : hasAiEval
-                      ? 'Re-run AI Capability Check'
-                      : 'Run AI Capability Check'
-                }
-                aria-label={
-                  hasAiEval
-                    ? `Re-run AI check for ${displayName}`
-                    : `Run AI check for ${displayName}`
-                }
-                className={`px-2 h-full inline-flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 ${
-                  hasAiEval
-                    ? 'text-indigo-600 bg-indigo-50/50 hover:bg-indigo-100/70'
-                    : 'text-slate-500 hover:text-indigo-600 hover:bg-indigo-50/60'
-                }`}
-              >
-                {evaluatingSubId === sub.id ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
-                ) : (
-                  <Sparkles className="w-3.5 h-3.5" />
-                )}
               </button>
             )}
 
@@ -1216,12 +1270,9 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Client &amp; Location
             </div>
-            <div
-              title={reqView.companyName}
-              className="font-semibold text-slate-900 truncate flex items-center gap-1.5"
-            >
-              <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <span className="truncate">{reqView.companyName}</span>
+            <div className="font-semibold text-slate-900 leading-snug break-words flex items-start gap-1.5">
+              <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+              <span className="break-words">{reqView.companyName}</span>
             </div>
             <div className="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap">
               <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
@@ -1239,22 +1290,19 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Hiring Lead &amp; Owner
             </div>
-            <div
-              title={clientContactTitle ? `${clientContactLabel} — ${clientContactTitle}` : clientContactLabel}
-              className="font-semibold text-slate-900 truncate"
-            >
+            <div className="font-semibold text-slate-900 leading-snug break-words">
               {clientContactLabel}
             </div>
-            <div className="text-[11px] text-slate-500 truncate">
-              {clientContactTitle ? (
-                <span>
-                  {clientContactTitle} &middot; <strong className="text-slate-700 font-medium">Owner: {assignedRecruiterLabel}</strong>
-                </span>
-              ) : (
-                <span>
-                  Owner: <strong className="text-slate-700 font-medium">{assignedRecruiterLabel}</strong>
-                </span>
+            <div className="text-[11px] text-slate-500 leading-snug flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+              {clientContactTitle && (
+                <>
+                  <span className="break-words">{clientContactTitle}</span>
+                  <span className="text-slate-300">&middot;</span>
+                </>
               )}
+              <span className="whitespace-nowrap">
+                Owner: <strong className="text-slate-700 font-medium">{assignedRecruiterLabel}</strong>
+              </span>
             </div>
           </div>
 
@@ -1933,16 +1981,35 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
       {workspaceTab === 'details' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           <div className="lg:col-span-8 space-y-4">
-            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-4 text-xs">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
+            {/* Card 1: Public Job Application Link & Attached Form Template */}
+            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
+              <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-9 h-9 rounded-lg bg-brand-50 border border-brand-200/70 text-brand-600 flex items-center justify-center shrink-0">
                     <Link2 className="w-4 h-4" />
                   </div>
-                  <div>
-                    <h2 className="font-bold text-slate-900 text-sm">Public Job Application Link</h2>
-                    <p className="text-[11px] text-slate-500">
-                      Let candidates or partner vendors submit CVs directly into {reqView.code}.
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="font-bold text-slate-900 text-sm">
+                        Public Job Application Link
+                      </h2>
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                          publicFormEnabled
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-slate-100 text-slate-500 border-slate-200'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            publicFormEnabled ? 'bg-emerald-500' : 'bg-slate-400'
+                          }`}
+                        />
+                        <span>{publicFormEnabled ? 'Live & Accepting CVs' : 'Link Disabled'}</span>
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Share a client-safe application link for candidates or partner vendors to submit resumes directly into {reqView.code}.
                     </p>
                   </div>
                 </div>
@@ -1954,7 +2021,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                   aria-label="Toggle public CV form"
                   disabled={isUpdatingPublicForm}
                   onClick={() => updatePublicFormConfig({ enabled: !publicFormEnabled })}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer disabled:opacity-50 shrink-0 ${
                     publicFormEnabled ? 'bg-emerald-600' : 'bg-slate-300'
                   }`}
                 >
@@ -1966,80 +2033,134 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                 </button>
               </div>
 
-              {publicFormEnabled && publicShareUrl ? (
-                <div className="space-y-3 pt-1">
-                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                    <input
-                      type="text"
-                      readOnly
-                      value={publicShareUrl}
-                      aria-label="Shareable public application link"
-                      onClick={(e) => (e.target as HTMLInputElement).select()}
-                      className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-700 font-mono focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleCopyPublicLink}
-                      title="Copy Form Link"
-                      className="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 font-semibold text-xs inline-flex items-center gap-1.5 cursor-pointer flex-shrink-0"
-                    >
-                      {copiedPublicLink ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 text-emerald-600" />
-                          <span className="text-emerald-700">Copied Link</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          <span>Copy Link</span>
-                        </>
-                      )}
-                    </button>
-                    <a
-                      href={`/apply/${publicFormToken}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs inline-flex items-center gap-1.5 flex-shrink-0"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>Open Form</span>
-                    </a>
-                  </div>
+              <div className="p-5 space-y-4">
+                {publicFormEnabled && publicShareUrl ? (
+                  <div className="space-y-2.5">
+                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                      <input
+                        type="text"
+                        readOnly
+                        value={publicShareUrl}
+                        aria-label="Shareable public application link"
+                        onClick={(e) => (e.target as HTMLInputElement).select()}
+                        className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-700 font-mono focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleCopyPublicLink}
+                        title="Copy Form Link"
+                        className="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 font-semibold text-xs inline-flex items-center gap-1.5 cursor-pointer flex-shrink-0"
+                      >
+                        {copiedPublicLink ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <span className="text-emerald-700">Copied</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copy Link</span>
+                          </>
+                        )}
+                      </button>
+                      <a
+                        href={`/apply/${publicFormToken}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs inline-flex items-center gap-1.5 flex-shrink-0"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Open Form</span>
+                      </a>
+                    </div>
 
-                  <div className="flex items-center justify-between gap-2 text-[11px] pt-1">
-                    <span className="inline-flex items-center gap-1.5 text-slate-500">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Internal rates and client contacts are never exposed on the public form.</span>
-                    </span>
+                    <div className="flex items-center justify-between gap-2 text-[11px]">
+                      <span className="inline-flex items-center gap-1.5 text-slate-500">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Client company name, contact emails, and internal rates are never exposed.</span>
+                      </span>
+                      <button
+                        type="button"
+                        disabled={isUpdatingPublicForm}
+                        onClick={() =>
+                          updatePublicFormConfig({ enabled: true, regenerateToken: true })
+                        }
+                        className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-800 font-semibold cursor-pointer disabled:opacity-50 shrink-0"
+                      >
+                        <RefreshCw
+                          className={`w-3 h-3 ${isUpdatingPublicForm ? 'animate-spin' : ''}`}
+                        />
+                        <span>Regenerate Link</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="text-slate-600 leading-relaxed">
+                      Turn on the link above to create a shareable application page for candidates and partner vendors.
+                    </div>
                     <button
                       type="button"
                       disabled={isUpdatingPublicForm}
-                      onClick={() =>
-                        updatePublicFormConfig({ enabled: true, regenerateToken: true })
-                      }
-                      className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-800 font-semibold cursor-pointer disabled:opacity-50 shrink-0"
+                      onClick={() => updatePublicFormConfig({ enabled: true })}
+                      className="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs shrink-0 cursor-pointer disabled:opacity-50"
                     >
-                      <RefreshCw
-                        className={`w-3 h-3 ${isUpdatingPublicForm ? 'animate-spin' : ''}`}
-                      />
-                      <span>Regenerate Link</span>
+                      Enable Link Now
                     </button>
                   </div>
-                </div>
-              ) : (
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 text-slate-500 leading-relaxed">
-                  Turn on the switch above to create a shareable application link for candidates. Internal rates and client contact emails always stay hidden.
-                </div>
-              )}
+                )}
 
-              {publicFormError && (
-                <div className="text-xs text-rose-600 font-medium">{publicFormError}</div>
-              )}
+                {/* Attached Application Form Template Selector (Compact Single Row) */}
+                <div className="pt-3.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-slate-900">Attached Application Form</span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                          explicitFormId
+                            ? 'bg-brand-50 text-brand-700 border-brand-200'
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        }`}
+                      >
+                        {explicitFormId ? 'Custom Template' : 'Default Form'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {activeApplicationForm.name} &middot; {activeFormFieldChips.length} fields ({activeFormFieldChips.filter((c) => c.required).length} required)
+                    </p>
+                  </div>
+
+                  <div className="w-full sm:w-64 shrink-0">
+                    <CustomSelect
+                      value={explicitFormId || ''}
+                      onChange={(val) =>
+                        updatePublicFormConfig({ publicFormTemplateId: val || null })
+                      }
+                      ariaLabel="Select attached application form template"
+                      size="sm"
+                      options={[
+                        {
+                          value: '',
+                          label: `Default: ${defaultApplicationForm.name}`,
+                        },
+                        ...applicationForms.map((f) => ({
+                          value: f.id,
+                          label: `${f.name}${f.isDefault ? ' (Default)' : ''}`,
+                        })),
+                      ]}
+                    />
+                  </div>
+                </div>
+
+                {publicFormError && (
+                  <div className="text-xs text-rose-600 font-medium">{publicFormError}</div>
+                )}
+              </div>
             </div>
 
-            {/* Public Description / Role Scope Editor */}
-            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-3 text-xs">
-              <div className="flex items-center justify-between gap-2">
+            {/* Card 2: Role Scope & Public Summary (Clean Requirement Summary, No Redundant Header Box) */}
+            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
+              <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
                     <FileText className="w-4 h-4" />
@@ -2047,83 +2168,172 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                   <div>
                     <h3 className="font-bold text-slate-900">Role Scope &amp; Public Summary</h3>
                     <p className="text-[11px] text-slate-400">
-                      Client-safe summary shown at the top of the public application page.
+                      Client-safe requirement summary shown on the left side of the public application page.
                     </p>
                   </div>
                 </div>
-                {!isEditingPublicDesc && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDraftPublicDesc(reqView.publicDescription || '');
-                      setIsEditingPublicDesc(true);
-                    }}
-                    className="text-brand-600 font-semibold hover:underline text-xs cursor-pointer"
-                  >
-                    {reqView.publicDescription ? 'Edit' : 'Add Summary'}
-                  </button>
-                )}
+
+                <div className="flex items-center gap-2">
+                  {!isEditingPublicDesc && (
+                    <button
+                      type="button"
+                      disabled={isUpdatingPublicForm}
+                      onClick={() => {
+                        const generated = generateDefaultPublicSummary();
+                        setDraftPublicDesc(generated);
+                        updatePublicFormConfig({ publicDescription: generated });
+                      }}
+                      className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-[11px] inline-flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50"
+                    >
+                      <Sparkles className="w-3 h-3 text-brand-600" />
+                      <span>Auto-Fill Summary</span>
+                    </button>
+                  )}
+                  {!isEditingPublicDesc && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDraftPublicDesc(effectivePublicSummary);
+                        setIsEditingPublicDesc(true);
+                      }}
+                      className="px-2.5 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100/80 text-brand-700 font-semibold text-[11px] inline-flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      <span>Edit Summary</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {isEditingPublicDesc ? (
-                <div className="space-y-3">
-                  <textarea
-                    rows={5}
-                    value={draftPublicDesc}
-                    onChange={(e) => setDraftPublicDesc(e.target.value)}
-                    placeholder="Brief role scope shown on the public application page (never includes internal rates or client contact emails)."
-                    className="w-full p-3 rounded-xl border border-slate-200 text-xs text-slate-700 leading-relaxed focus:border-brand-500 focus:outline-none"
-                  />
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      type="button"
+              <div className="p-5">
+                {isEditingPublicDesc ? (
+                  <div className="space-y-3">
+                    <RichTextEditor
+                      value={draftPublicDesc}
+                      onChange={setDraftPublicDesc}
+                      minHeight={140}
+                      maxHeight={360}
                       disabled={isUpdatingPublicForm}
-                      onClick={() => setIsEditingPublicDesc(false)}
-                      className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-600 hover:bg-slate-50 cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isUpdatingPublicForm}
-                      onClick={() => updatePublicFormConfig({ publicDescription: draftPublicDesc })}
-                      className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold cursor-pointer disabled:opacity-50"
-                    >
-                      {isUpdatingPublicForm ? 'Saving...' : 'Save Summary'}
-                    </button>
+                      ariaLabel="Role Scope & Public Summary Editor"
+                      placeholder="Brief client-safe role scope shown on the public application page (never includes internal rates or client contact details)..."
+                    />
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        disabled={isUpdatingPublicForm}
+                        onClick={() => setDraftPublicDesc(generateDefaultPublicSummary())}
+                        className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-[11px] inline-flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50"
+                      >
+                        <Sparkles className="w-3 h-3 text-brand-600" />
+                        <span>Auto-Fill Summary</span>
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={isUpdatingPublicForm}
+                          onClick={() => setIsEditingPublicDesc(false)}
+                          className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-600 hover:bg-slate-50 cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isUpdatingPublicForm}
+                          onClick={() => updatePublicFormConfig({ publicDescription: draftPublicDesc })}
+                          className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold cursor-pointer disabled:opacity-50"
+                        >
+                          {isUpdatingPublicForm ? 'Saving...' : 'Save Summary'}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <p className="text-slate-600 leading-relaxed whitespace-pre-line bg-slate-50/70 border border-slate-200/70 rounded-xl p-3.5">
-                  {reqView.publicDescription ||
-                    'No public summary set. Only role title, work model, location, and required skills are shown.'}
-                </p>
-              )}
+                ) : (
+                  <div className="bg-slate-50/70 border border-slate-200/70 rounded-xl p-4">
+                    <RichTextDisplay content={effectivePublicSummary} />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          <aside className="lg:col-span-4 space-y-5">
-            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-3.5 text-xs">
-              <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                Online Applications
-              </h3>
-              <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
-                <span className="text-slate-600 font-medium">Public Form Submissions</span>
-                <span className="text-base font-bold font-mono text-slate-900">
-                  {publicIntakeCount}
+          <aside className="lg:col-span-4 space-y-4">
+            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
+              <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Globe className="w-3.5 h-3.5 text-brand-600" />
+                  <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                    Submitted Applications
+                  </h3>
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-slate-100 text-slate-700 border border-slate-200">
+                  {publicIntakeCount} Total &middot; {onlineActiveCount} Active
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                Resumes submitted through this link are automatically parsed, duplicate-checked, and tagged{' '}
-                <strong className="font-semibold text-slate-700">Applied Online</strong> inside Applicants Pipeline.
-              </p>
-              <button
-                type="button"
-                onClick={() => setWorkspaceTab('applicants')}
-                className="w-full py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs cursor-pointer transition-colors"
-              >
-                View Applicants Pipeline &rarr;
-              </button>
+
+              <div className="p-4 space-y-3.5">
+                {onlineSubmissions.length > 0 ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      <span>Latest 5 Submissions</span>
+                      <span>
+                        {Math.min(5, onlineSubmissions.length)} of {onlineSubmissions.length}
+                      </span>
+                    </div>
+                    <div className="divide-y divide-slate-100 rounded-xl border border-slate-200/80 overflow-hidden">
+                      {onlineSubmissions.slice(0, 5).map((sub) => {
+                        const matchedCand = resolveCandidateForSubmission(sub);
+                        return (
+                          <div
+                            key={sub.id}
+                            onClick={() => {
+                              if (matchedCand) {
+                                onOpenResumePreview(matchedCand);
+                              } else {
+                                setWorkspaceTab('applicants');
+                              }
+                            }}
+                            className="px-3 py-2.5 bg-white hover:bg-slate-50 flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                          >
+                            <div className="min-w-0">
+                              <div className="font-semibold text-slate-900 leading-snug break-words">
+                                {formatDisplayName(sub.fullName)}
+                              </div>
+                              <div className="text-[10.5px] text-slate-500 leading-snug">
+                                {[
+                                  sub.workAuth || matchedCand?.workAuth,
+                                  sub.submittedVendorName ? `via ${sub.submittedVendorName}` : 'Direct',
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                              </div>
+                            </div>
+                            <StatusBadge
+                              stage={sub.stage}
+                              dotClass={getStageDotClass(
+                                sub.stage,
+                                getStageIndex(sub.stage, taxonomies.stages)
+                              )}
+                              size="xs"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-4 px-3 rounded-xl bg-slate-50/70 border border-dashed border-slate-200 text-center text-[11px] text-slate-500 leading-relaxed">
+                    No public link applications yet. Resumes submitted through the public link will appear here (latest 5 shown).
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setWorkspaceTab('applicants')}
+                  className="w-full py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs cursor-pointer transition-colors"
+                >
+                  View All in Applicants Pipeline &rarr;
+                </button>
+              </div>
             </div>
 
             {customFieldEntries.length > 0 && (
@@ -2174,7 +2384,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
         aiEnabled={aiCapabilities.enabled}
         isEvaluating={Boolean(liveFitSub && evaluatingSubId === liveFitSub.id)}
         onRunAiCheck={
-          liveFitSub && !liveFitSub.id.startsWith('legacy_') && aiCapabilities.enabled
+          liveFitSub && !liveFitSub.id.startsWith('legacy_')
             ? () => handleEvaluateSubmission(liveFitSub)
             : undefined
         }

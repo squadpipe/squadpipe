@@ -4,10 +4,16 @@ import {
   cleanRawField,
   hasJobRoleKeyword,
   purifyJobTitle,
+  sanitizeCandidatePersonName,
   sanitizeExtractedText,
   sanitizeMissingNotes,
 } from './extractionSanitizer';
 import type { EmailIntakeBaseline, ResumeParseBaseline } from './ai.types';
+import {
+  buildClientSafePublicSummaryHtml,
+  sanitizePublicSummaryHtml,
+  scrubConfidentialText,
+} from '../../utils/publicSummary';
 
 const COMMON_RESUME_SKILLS = [
   'React',
@@ -270,7 +276,7 @@ export function buildNodeResumeFallback(
     relocation: /\brelocate|open\b/i.test(rawText) ? 'Open' : 'Remote / Negotiable',
     page_count: 2,
     confidence_score: 0.78,
-    raw_text_snippet: rawText.slice(0, 8000) || `Extracted from uploaded file: ${originalName}`,
+    raw_text_snippet: rawText.slice(0, 35000) || `Extracted from uploaded file: ${originalName}`,
   };
 }
 
@@ -310,14 +316,20 @@ export async function buildEnhancedResumeParseResponse(
     ? upstreamPayload.data
     : upstreamPayload || {};
 
+  const baselineTitle =
+    purifyJobTitle(profileObj.currentTitle ?? profileObj.current_title) ||
+    sanitizeExtractedText(profileObj.currentTitle ?? profileObj.current_title);
+  const baselineFullName = sanitizeCandidatePersonName(
+    profileObj.fullName ?? profileObj.full_name,
+    baselineTitle
+  );
+
   const baselineFields: ResumeParseBaseline = {
-    fullName: sanitizeExtractedText(profileObj.fullName ?? profileObj.full_name),
+    fullName: baselineFullName,
     email: sanitizeExtractedText(profileObj.email),
     phone: sanitizeExtractedText(profileObj.phone),
     workAuth: sanitizeExtractedText(profileObj.workAuth ?? profileObj.work_auth),
-    currentTitle:
-      purifyJobTitle(profileObj.currentTitle ?? profileObj.current_title) ||
-      sanitizeExtractedText(profileObj.currentTitle ?? profileObj.current_title),
+    currentTitle: baselineTitle,
     education: sanitizeExtractedText(profileObj.education),
     skills: splitSkillValues(profileObj.skills ?? profileObj.skillset),
     hourlyRate: rateMasked ? '' : sanitizeExtractedText(profileObj.hourlyRate ?? profileObj.hourly_rate),
@@ -331,8 +343,12 @@ export async function buildEnhancedResumeParseResponse(
 
   if (!safeAiText.trim()) {
     return isWrappedEnvelope
-      ? { ...upstreamPayload, aiUsed: false, data: { ...profileObj, aiUsed: false } }
-      : { ...upstreamPayload, aiUsed: false };
+      ? {
+          ...upstreamPayload,
+          aiUsed: false,
+          data: { ...profileObj, fullName: baselineFullName, aiUsed: false },
+        }
+      : { ...upstreamPayload, full_name: baselineFullName, aiUsed: false };
   }
 
   const aiResult = await aiSvc.enhanceResumeParse(safeAiText, baselineFields, {
@@ -347,10 +363,11 @@ export async function buildEnhancedResumeParseResponse(
           ...upstreamPayload,
           aiUsed: false,
           ...(quotaNotice ? { quotaNotice } : {}),
-          data: { ...profileObj, aiUsed: false },
+          data: { ...profileObj, fullName: baselineFullName, aiUsed: false },
         }
       : {
           ...upstreamPayload,
+          full_name: baselineFullName,
           aiUsed: false,
           ...(quotaNotice ? { quotaNotice } : {}),
         };
@@ -361,6 +378,10 @@ export async function buildEnhancedResumeParseResponse(
   const mergedRate = rateMasked
     ? profileObj.hourlyRate ?? profileObj.hourly_rate
     : aiResult.data.hourlyRate || profileObj.hourlyRate || profileObj.hourly_rate || '';
+  const mergedTitle = aiResult.data.currentTitle || baselineTitle || '';
+  const mergedFullName =
+    sanitizeCandidatePersonName(aiResult.data.fullName, mergedTitle) ||
+    sanitizeCandidatePersonName(baselineFullName, mergedTitle);
 
   if (isWrappedEnvelope) {
     return {
@@ -368,11 +389,11 @@ export async function buildEnhancedResumeParseResponse(
       aiUsed: true,
       data: {
         ...profileObj,
-        fullName: aiResult.data.fullName || profileObj.fullName || '',
+        fullName: mergedFullName,
         email: aiResult.data.email || profileObj.email || null,
         phone: aiResult.data.phone || profileObj.phone || null,
         workAuth: aiResult.data.workAuth || profileObj.workAuth || '',
-        currentTitle: aiResult.data.currentTitle || profileObj.currentTitle || '',
+        currentTitle: mergedTitle,
         education: aiResult.data.education || profileObj.education || null,
         skillset: mergedSkills.length > 0 ? mergedSkills.join(', ') : profileObj.skillset || '',
         hourlyRate: mergedRate,
@@ -385,11 +406,11 @@ export async function buildEnhancedResumeParseResponse(
 
   return {
     ...upstreamPayload,
-    full_name: aiResult.data.fullName || profileObj.full_name,
+    full_name: mergedFullName,
     email: aiResult.data.email || profileObj.email,
     phone: aiResult.data.phone || profileObj.phone,
     work_auth: aiResult.data.workAuth || profileObj.work_auth,
-    current_title: aiResult.data.currentTitle || profileObj.current_title,
+    current_title: mergedTitle,
     education: aiResult.data.education || profileObj.education,
     skills: mergedSkills.length > 0 ? mergedSkills : profileObj.skills,
     hourly_rate: mergedRate,
@@ -829,6 +850,17 @@ export async function buildEnhancedEmailParseResponse(
     missingNotes: fallback.missingNotes || sanitizeMissingNotes(parsed.missingNotes) || '',
   };
 
+  const baselineSummary = buildClientSafePublicSummaryHtml({
+    companyName: enriched.companyName,
+    clientContactName: enriched.clientContact,
+    opportunityTitle: enriched.opportunityTitle || 'Technical Specialist',
+    location: enriched.location,
+    workModel: enriched.workModel,
+    skillsRequired: enriched.skillsRequired,
+    openPositions: enriched.openPositions,
+    rawEmailText,
+  });
+
   const baselineForAi: EmailIntakeBaseline = {
     companyName: enriched.companyName,
     opportunityTitle: enriched.opportunityTitle,
@@ -845,6 +877,7 @@ export async function buildEnhancedEmailParseResponse(
     targetPayRate: rateMasked ? 0 : enriched.targetPayRate,
     skills: splitSkillValues(enriched.skillsRequired),
     missingNotes: rateMasked ? redactRatesFromText(enriched.missingNotes) : enriched.missingNotes,
+    publicDescription: baselineSummary.publicDescription || '',
   };
 
   const aiEmailInput = rateMasked ? redactRatesFromText(rawEmailText) : rawEmailText;
@@ -857,6 +890,7 @@ export async function buildEnhancedEmailParseResponse(
     const quotaNotice = (aiResult as any).quotaNotice;
     return {
       ...enriched,
+      publicDescription: baselineSummary.publicDescription || '',
       aiUsed: false,
       ...(quotaNotice ? { quotaNotice } : {}),
     };
@@ -876,12 +910,22 @@ export async function buildEnhancedEmailParseResponse(
   const mergedSkills =
     aiResult.data.skills.length > 0 ? aiResult.data.skills.join(', ') : enriched.skillsRequired;
 
+  const finalCompany = sanitizeExtractedText(aiResult.data.companyName) || enriched.companyName;
+  const finalContact =
+    sanitizeExtractedText(aiResult.data.clientContact) || enriched.clientContact;
+  const finalPublicSummary = sanitizePublicSummaryHtml(
+    scrubConfidentialText(
+      aiResult.data.publicDescription || baselineSummary.publicDescription || '',
+      { companyName: finalCompany, contactName: finalContact }
+    )
+  );
+
   return {
     ...enriched,
-    companyName: sanitizeExtractedText(aiResult.data.companyName) || enriched.companyName,
+    companyName: finalCompany,
     opportunityTitle: purifyJobTitle(aiResult.data.opportunityTitle) || enriched.opportunityTitle,
     openPositions: aiResult.data.openPositions ?? enriched.openPositions,
-    clientContact: sanitizeExtractedText(aiResult.data.clientContact) || enriched.clientContact,
+    clientContact: finalContact,
     clientContactEmail:
       sanitizeExtractedText(aiResult.data.clientContactEmail) || enriched.clientContactEmail,
     clientContactTitle:
@@ -892,6 +936,7 @@ export async function buildEnhancedEmailParseResponse(
     targetPayRate: resolvedPayRate,
     skillsRequired: mergedSkills,
     missingNotes: sanitizeMissingNotes(aiResult.data.missingNotes) || enriched.missingNotes,
+    publicDescription: finalPublicSummary || baselineSummary.publicDescription || '',
     aiUsed: true,
   };
 }

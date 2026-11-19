@@ -105,7 +105,7 @@ export function sanitizeTenantSegment(tenantId?: string): string {
   return cleaned || 'default-tenant';
 }
 
-function resolveCvExtension(originalName: string, mimetype?: string): string {
+export function resolveCvExtension(originalName: string, mimetype?: string): string {
   const extFromName = path.extname(originalName || '').toLowerCase();
   if (extFromName && EXT_TO_FORMAT[extFromName]) {
     return extFromName;

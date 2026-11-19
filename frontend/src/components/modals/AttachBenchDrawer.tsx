@@ -130,6 +130,8 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
     requirement?.id || requirements[0]?.id || ''
   );
   const [hydratedReqs, setHydratedReqs] = useState<Record<string, Requirement>>({});
+  const [showAllReqSkills, setShowAllReqSkills] = useState(false);
+  const [expandedCandSkillIds, setExpandedCandSkillIds] = useState<Record<string, boolean>>({});
   const [benchSearch, setBenchSearch] = useState('');
   const [benchWorkAuth, setBenchWorkAuth] = useState('All');
   const debouncedBenchSearch = useDebounce(benchSearch, 250);
@@ -138,6 +140,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   const [isAiRanking, setIsAiRanking] = useState(false);
   const [aiRankUsed, setAiRankUsed] = useState(false);
   const [aiRankError, setAiRankError] = useState('');
+  const [aiRankScopeNote, setAiRankScopeNote] = useState('');
   const [aiRankMap, setAiRankMap] = useState<
     Record<
       string,
@@ -174,6 +177,8 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     setSelectedReqId(requirement?.id || requirements[0]?.id || '');
+    setShowAllReqSkills(false);
+    setExpandedCandSkillIds({});
     setSelectedCandidateIds([]);
     setIsAttaching(false);
     setBenchSearch('');
@@ -182,6 +187,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
     setAiRankMap({});
     setAiRankUsed(false);
     setAiRankError('');
+    setAiRankScopeNote('');
     setIsAiRanking(false);
     setBenchPage(1);
     setPagedCandidates(candidates.slice(0, BENCH_PAGE_SIZE));
@@ -492,6 +498,8 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
       const rankings = res.data?.data?.rankings;
       const rawMatchedCandidates = res.data?.data?.candidates;
       const used = Boolean(res.data?.data?.aiUsed);
+      const retrievalMethod = String(res.data?.data?.retrievalMethod || '');
+      const poolCount = Number(res.data?.data?.totalTenantPool ?? totalBenchCount);
 
       if (Array.isArray(rawMatchedCandidates) && rawMatchedCandidates.length > 0) {
         const hydratedTop: Candidate[] = rawMatchedCandidates.map(mapCandidateFromApi);
@@ -523,6 +531,17 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
         }
         setAiRankMap(nextMap);
         setAiRankUsed(used);
+        if (poolCount > 0) {
+          const modeLabel =
+            retrievalMethod === 'pgvector_hybrid'
+              ? used
+                ? 'pgvector + AI'
+                : 'pgvector semantic search'
+              : used
+                ? 'full-text + AI'
+                : 'full-text search';
+          setAiRankScopeNote(`Searched ${poolCount} consultants (${modeLabel})`);
+        }
         benchListRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       }
     } catch (err: any) {
@@ -606,7 +625,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                   </span>
                 </div>
               </div>
-              <p className="text-[11px] text-slate-500 truncate mt-0.5">
+              <p className="text-[11px] text-slate-500 leading-snug break-words mt-1">
                 <span className="font-mono font-semibold text-slate-700">{currentReq.code}</span>
                 {' \u2022 '}
                 <span className="font-medium text-slate-700">{currentReq.opportunityTitle}</span>
@@ -663,49 +682,31 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
             </div>
           </div>
 
-          {/* Target Requisition Switcher & Required Skills Summary */}
-          {(allowRequirementSwitch || reqSkillList.length > 0) && (
-            <div className="px-5 py-2.5 bg-slate-50/50 border-b border-slate-200/70 space-y-2">
-              {allowRequirementSwitch && requirements.length > 0 && (
-                <CustomSelect
-                  value={currentReq.id}
-                  onChange={(val) => {
-                    setSelectedReqId(val);
-                    setSelectedCandidateIds([]);
-                    setClientDuplicateMap({});
-                    setAiRankMap({});
-                    setAiRankUsed(false);
-                    setAiRankError('');
-                  }}
-                  ariaLabel="Select target requirement"
-                  size="xs"
-                  options={requirements.map((r) => ({
-                    value: r.id,
-                    label: `${r.code} — ${r.opportunityTitle} (${r.companyName})`,
-                  }))}
-                />
-              )}
-
-              {reqSkillList.length > 0 && (
-                <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-0.5">
-                    Required Skills:
+          {/* Required Skills Summary */}
+          {reqSkillList.length > 0 && (
+            <div className="px-5 py-2.5 bg-slate-50/50 border-b border-slate-200/70">
+              <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-0.5">
+                  Required Skills:
+                </span>
+                {(showAllReqSkills ? reqSkillList : reqSkillList.slice(0, 6)).map((skill, idx) => (
+                  <span
+                    key={idx}
+                    className="px-2 py-0.5 rounded-md bg-white border border-slate-200/90 text-slate-700 text-[10.5px] font-medium"
+                  >
+                    {skill}
                   </span>
-                  {reqSkillList.slice(0, 6).map((skill, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2 py-0.5 rounded-md bg-white border border-slate-200/90 text-slate-700 text-[10.5px] font-medium"
-                    >
-                      {skill}
-                    </span>
-                  ))}
-                  {reqSkillList.length > 6 && (
-                    <span className="text-[10.5px] text-slate-400 font-medium">
-                      +{reqSkillList.length - 6} more
-                    </span>
-                  )}
-                </div>
-              )}
+                ))}
+                {reqSkillList.length > 6 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllReqSkills((prev) => !prev)}
+                    className="ml-0.5 text-[10.5px] font-semibold text-brand-600 hover:text-brand-700 underline underline-offset-2 cursor-pointer transition-colors"
+                  >
+                    {showAllReqSkills ? 'Show less' : `+${reqSkillList.length - 6} more`}
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
@@ -747,14 +748,21 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                     <strong className="font-semibold text-slate-700">{totalBenchCount}</strong> bench consultants
                   </>
                 ) : (
-                  <>
-                    <strong className="font-semibold text-slate-700">{totalBenchCount}</strong> bench consultant
-                    {totalBenchCount === 1 ? '' : 's'}
-                  </>
+                  <span className="inline-flex items-center gap-1.5 flex-wrap">
+                    <span>
+                      <strong className="font-semibold text-slate-700">{totalBenchCount}</strong> bench consultant
+                      {totalBenchCount === 1 ? '' : 's'}
+                    </span>
+                    {aiRankScopeNote && (
+                      <span className="text-[10.5px] font-medium text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-full">
+                        {aiRankScopeNote}
+                      </span>
+                    )}
+                  </span>
                 )}
               </div>
 
-              {aiCapabilities.enabled && pagedCandidates.length > 0 && (
+              {pagedCandidates.length > 0 && (
                 <button
                   type="button"
                   disabled={isAiRanking || isLoadingBench}
@@ -766,7 +774,13 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                   ) : (
                     <Sparkles className="w-3 h-3" />
                   )}
-                  <span>{isAiRanking ? 'Ranking Best Fits...' : 'AI Rank Top Matches'}</span>
+                  <span>
+                    {isAiRanking
+                      ? 'Ranking Best Fits...'
+                      : aiCapabilities.enabled
+                        ? 'AI Rank Top Matches'
+                        : 'Rank Top Matches'}
+                  </span>
                 </button>
               )}
             </div>
@@ -857,7 +871,11 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                               }
                             >
                               {isAiRanked && aiRankUsed && <Sparkles className="w-2.5 h-2.5" />}
-                              <span>{match.score}% Match</span>
+                              <span>
+                                {match.score === 0 && !isAiRanked
+                                  ? 'No Skill Overlap'
+                                  : `${match.score}% Match`}
+                              </span>
                             </span>
                           )}
                           {alreadyAttached ? (
@@ -882,51 +900,101 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
 
                       {showMatch && (
                         <div className="pl-6 space-y-1">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {match.matched.length > 0 && (
-                              <>
-                                <span className="text-[10px] font-semibold text-emerald-700">
-                                  Matched:
-                                </span>
-                                {match.matched.slice(0, 4).map((skill, idx) => (
-                                  <span
-                                    key={idx}
-                                    className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/[0.08] text-emerald-800 font-medium"
-                                  >
-                                    {skill}
-                                  </span>
-                                ))}
-                                {match.matched.length > 4 && (
-                                  <span className="text-[10px] text-emerald-700 font-medium">
-                                    +{match.matched.length - 4}
-                                  </span>
+                          {(() => {
+                            const isSkillsExpanded = Boolean(expandedCandSkillIds[con.id]);
+                            const visibleMatched = isSkillsExpanded
+                              ? match.matched
+                              : match.matched.slice(0, 4);
+                            const visibleMissing = isSkillsExpanded
+                              ? match.missing
+                              : match.missing.slice(0, 3);
+                            const hasHiddenCandSkills =
+                              match.matched.length > 4 || match.missing.length > 3;
+
+                            return (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {match.matched.length > 0 && (
+                                  <>
+                                    <span className="text-[10px] font-semibold text-emerald-700">
+                                      Matched:
+                                    </span>
+                                    {visibleMatched.map((skill, idx) => (
+                                      <span
+                                        key={idx}
+                                        className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/[0.08] text-emerald-800 font-medium"
+                                      >
+                                        {skill}
+                                      </span>
+                                    ))}
+                                    {!isSkillsExpanded && match.matched.length > 4 && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setExpandedCandSkillIds((prev) => ({
+                                            ...prev,
+                                            [con.id]: true,
+                                          }));
+                                        }}
+                                        className="text-[10px] font-semibold text-emerald-700 hover:underline cursor-pointer"
+                                      >
+                                        +{match.matched.length - 4} more
+                                      </button>
+                                    )}
+                                  </>
                                 )}
-                              </>
-                            )}
-                            {match.missing.length > 0 && (
-                              <>
-                                <span
-                                  className={`text-[10px] font-medium text-slate-400 ${match.matched.length > 0 ? 'ml-1.5' : ''
-                                    }`}
-                                >
-                                  Missing:
-                                </span>
-                                {match.missing.slice(0, 3).map((skill, idx) => (
-                                  <span
-                                    key={idx}
-                                    className="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-500"
-                                  >
-                                    {skill}
-                                  </span>
-                                ))}
-                                {match.missing.length > 3 && (
-                                  <span className="text-[10px] text-slate-400">
-                                    +{match.missing.length - 3}
-                                  </span>
+                                {match.missing.length > 0 && (
+                                  <>
+                                    <span
+                                      className={`text-[10px] font-medium text-slate-400 ${
+                                        match.matched.length > 0 ? 'ml-1.5' : ''
+                                      }`}
+                                    >
+                                      Missing:
+                                    </span>
+                                    {visibleMissing.map((skill, idx) => (
+                                      <span
+                                        key={idx}
+                                        className="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-500"
+                                      >
+                                        {skill}
+                                      </span>
+                                    ))}
+                                    {!isSkillsExpanded && match.missing.length > 3 && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setExpandedCandSkillIds((prev) => ({
+                                            ...prev,
+                                            [con.id]: true,
+                                          }));
+                                        }}
+                                        className="text-[10px] font-semibold text-brand-600 hover:underline cursor-pointer"
+                                      >
+                                        +{match.missing.length - 3} more
+                                      </button>
+                                    )}
+                                  </>
                                 )}
-                              </>
-                            )}
-                          </div>
+                                {isSkillsExpanded && hasHiddenCandSkills && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setExpandedCandSkillIds((prev) => ({
+                                        ...prev,
+                                        [con.id]: false,
+                                      }));
+                                    }}
+                                    className="text-[10px] font-semibold text-brand-600 hover:underline cursor-pointer ml-1"
+                                  >
+                                    Show less
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })()}
                           {isAiRanked && oneLineSummary && (
                             <div className="text-[10.5px] text-indigo-700 font-medium">
                               {oneLineSummary}
