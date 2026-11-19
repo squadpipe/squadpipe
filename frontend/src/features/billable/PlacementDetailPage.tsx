@@ -1,6 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ArrowLeft,
   ArrowRight,
   ArrowUpRight,
   Briefcase,
@@ -28,6 +27,11 @@ import {
 } from '../../types';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { MaskedValue } from '../../components/shared/MaskedValue';
+import {
+  DetailBreadcrumb,
+  DetailTabItem,
+  DetailUnderlineTabs,
+} from '../../components/shared/DetailPageShell';
 import { useCurrency } from '../../utils/currency';
 import { PlacementModals } from './PlacementModals';
 import {
@@ -85,6 +89,11 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
   const [editingPlacement, setEditingPlacement] = useState<BillablePlacement | null>(null);
   const [endingPlacement, setEndingPlacement] = useState<BillablePlacement | null>(null);
   const [deletingPlacement, setDeletingPlacement] = useState<BillablePlacement | null>(null);
+  const [workspaceTab, setWorkspaceTab] = useState<'billing' | 'records' | 'details'>('billing');
+
+  useEffect(() => {
+    setWorkspaceTab('billing');
+  }, [placement?.id]);
 
   const linkedCandidate = useMemo(() => {
     if (!placement) return undefined;
@@ -177,111 +186,260 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
 
   const contactEmail = placement.email || linkedCandidate?.email || '';
   const contactPhone = placement.phone || linkedCandidate?.phone || '';
+  const connectedRecordsCount = [
+    linkedCandidate,
+    linkedClient,
+    linkedVendor,
+    linkedRequirement,
+  ].filter(Boolean).length;
+
+  const progressBarClass = ended
+    ? 'bg-slate-400'
+    : daysLeft !== null && daysLeft < 0
+      ? 'bg-rose-500'
+      : daysLeft !== null && daysLeft <= 30
+        ? 'bg-amber-500'
+        : 'bg-emerald-500';
+
+  const placementTabs: Array<DetailTabItem<'billing' | 'records' | 'details'>> = [
+    { id: 'billing', label: 'Billing & Contract', icon: DollarSign },
+    {
+      id: 'records',
+      label: 'Connected Records',
+      icon: Layers,
+      badge: connectedRecordsCount,
+    },
+    { id: 'details', label: 'Agreement & Details', icon: ShieldCheck },
+  ];
 
   return (
     <section className="max-w-7xl mx-auto space-y-5 animate-fade-in">
-      {/* Slim Breadcrumb */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2 text-xs text-slate-500 min-w-0">
-          <button
-            type="button"
-            onClick={onBack}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold transition-colors cursor-pointer shrink-0"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>{backLabel}</span>
-          </button>
-          <span className="text-slate-300">/</span>
-          <span className="truncate font-medium text-slate-700">{placement.customer}</span>
-          {placement.purchaseOrderNumber && (
-            <>
-              <span className="text-slate-300">/</span>
-              <span className="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded shrink-0">
-                <FileText className="w-3 h-3 text-slate-500" />
-                {placement.purchaseOrderNumber}
-              </span>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Main Header Card */}
-      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow px-6 py-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex items-start gap-4 min-w-0">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-200/70 flex items-center justify-center text-emerald-700 font-bold text-base shrink-0">
-            {initials || <Briefcase className="w-5 h-5" />}
+      <DetailBreadcrumb
+        backLabel={backLabel}
+        onBack={onBack}
+        codePill={placement.purchaseOrderNumber || undefined}
+        title={placement.resourceName}
+        rightSlot={
+          <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600">
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                ended
+                  ? 'bg-slate-400'
+                  : daysLeft !== null && daysLeft <= 30
+                    ? 'bg-amber-500'
+                    : 'bg-emerald-500'
+              }`}
+            />
+            <span>
+              {ended
+                ? `Contract Ended (${effectiveStatus})`
+                : daysLeft !== null
+                  ? daysLeft < 0
+                    ? `Past end date by ${Math.abs(daysLeft)}d`
+                    : daysLeft === 0
+                      ? 'Contract ends today'
+                      : `${daysLeft} days remaining`
+                  : placement.deployment || 'Active Contract'}
+            </span>
           </div>
-          <div className="min-w-0 space-y-1.5">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-lg font-extrabold text-slate-900 truncate">
-                {placement.resourceName}
-              </h1>
-              <StatusBadge label={statusMeta.label} tone={statusMeta.tone} size="sm" />
-              <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-                {placement.placementType || 'C2C Subcontractor'}
-              </span>
-              <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-600">
-                {placement.deployment || 'Onshore'}
-              </span>
+        }
+      />
+
+      {/* Unified Placement Hero + 4-Col Metadata Bar + Tabs */}
+      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
+        {/* Title & Action Bar */}
+        <div className="px-6 py-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200/70 text-emerald-700 font-bold text-sm flex items-center justify-center flex-shrink-0">
+              {initials || <Briefcase className="w-5 h-5" />}
             </div>
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
-              <span className="font-semibold text-slate-700">{placement.skillRole}</span>
-              <span className="text-slate-300">&bull;</span>
-              <span>
-                Placed at <strong className="text-slate-800">{placement.customer}</strong>
-              </span>
-              {placement.vendorName && (
-                <>
-                  <span className="text-slate-300">&bull;</span>
-                  <span className="text-amber-700 font-medium">via {placement.vendorName}</span>
-                </>
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <div>
+                <h1 className="text-[17px] sm:text-[18px] font-bold text-slate-900 tracking-tight leading-snug inline align-middle mr-2.5">
+                  {placement.resourceName}
+                </h1>
+                <StatusBadge
+                  label={statusMeta.label}
+                  tone={statusMeta.tone}
+                  size="xs"
+                  className="align-middle"
+                />
+              </div>
+              <p className="text-xs text-slate-500 truncate">
+                <span className="font-medium text-slate-700">{placement.skillRole}</span>
+                {placement.vendorName && (
+                  <span> &middot; via {placement.vendorName}</span>
+                )}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+            {onUpdatePlacement && (
+              <button
+                type="button"
+                onClick={() => setEditingPlacement({ ...placement })}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>Edit Placement</span>
+              </button>
+            )}
+            {!ended && onUpdatePlacement && (
+              <button
+                type="button"
+                onClick={() => setEndingPlacement(placement)}
+                title="End consultant placement"
+                className="px-3 py-1.5 rounded-lg border border-rose-200 bg-white hover:bg-rose-50 text-rose-700 font-semibold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <CalendarX className="w-3.5 h-3.5" />
+                <span>End Placement</span>
+              </button>
+            )}
+            {onExtendContract && (
+              <button
+                type="button"
+                onClick={() => setExtendingPlacement(placement)}
+                className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <CalendarPlus className="w-3.5 h-3.5" />
+                <span>{ended ? 'Renew SOW' : 'Extend SOW'}</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Structured 4-Column Metadata Bar */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 border-t border-slate-100 bg-slate-50/45 text-xs">
+          {/* 1. Client & Engagement Model */}
+          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Client &amp; Model
+            </div>
+            <div className="font-semibold text-slate-900 truncate flex items-center gap-1.5">
+              <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              {linkedClient && onOpenClient ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenClient(linkedClient)}
+                  className="truncate hover:text-brand-600 cursor-pointer text-left"
+                >
+                  {placement.customer}
+                </button>
+              ) : (
+                <span className="truncate">{placement.customer}</span>
               )}
             </div>
+            <div className="text-[11px] text-slate-500 truncate">
+              {placement.placementType || 'C2C Subcontractor'} &middot;{' '}
+              {placement.deployment || 'Onshore'}
+            </div>
+          </div>
+
+          {/* 2. Commercial Rates */}
+          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+              <DollarSign className="w-3 h-3 text-emerald-600" />
+              <span>Commercial Rates</span>
+            </div>
+            {rateMasked ? (
+              <>
+                <MaskedValue value="" isMasked={true} className="text-sm font-bold block" />
+                <div className="text-[11px] text-slate-400">Rate protected for your role</div>
+              </>
+            ) : (
+              <>
+                <div className="font-mono font-bold text-slate-900 flex items-center gap-2 flex-wrap">
+                  <span>Bill {formatRate(placement.billing) || '—'}</span>
+                  <span
+                    className={`text-[11px] font-semibold ${
+                      spreadNum < 0 ? 'text-rose-600' : 'text-emerald-700'
+                    }`}
+                  >
+                    ({formatSpread(placement.hourlySpread, currencySymbol)})
+                  </span>
+                </div>
+                <div className="text-[11px] font-mono text-slate-500">
+                  Pay {formatRate(placement.payRate) || '—'} &middot; Margin{' '}
+                  {placement.marginPct !== undefined && placement.marginPct !== null
+                    ? `${Number(placement.marginPct).toFixed(1)}%`
+                    : formatMargin(placement.marginPct)}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* 3. Agreement & Recruiter */}
+          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              PO &amp; Owner
+            </div>
+            <div className="font-semibold text-slate-900 truncate font-mono">
+              {placement.purchaseOrderNumber || 'No PO / SOW #'}
+            </div>
+            <div className="text-[11px] text-slate-500 truncate">
+              Recruiter:{' '}
+              <strong className="font-medium text-slate-700">{placement.recruiter || '—'}</strong>
+            </div>
+          </div>
+
+          {/* 4. Contract Timeline Progress */}
+          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Timeline
+              </span>
+              <span className="text-[11px] font-mono font-bold text-slate-800">
+                {timeline ? `${ended ? 100 : timeline.progressPct}%` : '—'}
+              </span>
+            </div>
+            <div className="w-full h-1.5 rounded-full bg-slate-200/80 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${progressBarClass}`}
+                style={{ width: `${timeline ? (ended ? 100 : timeline.progressPct) : 0}%` }}
+              />
+            </div>
+            <div className="text-[11px] text-slate-500 truncate">
+              {placement.startDate || '—'} &rarr; {placement.endDate || '—'}
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 flex-wrap">
-          {onExtendContract && (
-            <button
-              type="button"
-              onClick={() => setExtendingPlacement(placement)}
-              className="px-3.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <CalendarPlus className="w-3.5 h-3.5" />
-              <span>{ended ? 'Renew SOW' : 'Extend SOW'}</span>
-            </button>
-          )}
-          {!ended && onUpdatePlacement && (
-            <button
-              type="button"
-              onClick={() => setEndingPlacement(placement)}
-              title="End consultant placement"
-              className="px-3 py-2 rounded-lg border border-rose-200 bg-white hover:bg-rose-50 text-rose-700 font-semibold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <CalendarX className="w-3.5 h-3.5" />
-              <span>End Placement</span>
-            </button>
-          )}
-          {onUpdatePlacement && (
-            <button
-              type="button"
-              onClick={() => setEditingPlacement({ ...placement })}
-              className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Pencil className="w-3.5 h-3.5" />
-              <span>Edit Placement</span>
-            </button>
-          )}
-        </div>
+        <DetailUnderlineTabs
+          ariaLabel="Placement workspace sections"
+          tabs={placementTabs}
+          activeTab={workspaceTab}
+          onChange={setWorkspaceTab}
+        />
       </div>
 
-      {/* Main 2-Column Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
-        {/* Left Column: Financials + Contract Timeline + Linked Entities */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* Commercial & Rate Breakdown */}
+      {/* TAB 1: Billing & Contract */}
+      {workspaceTab === 'billing' && (
+        <div className="space-y-5">
+          {!ended && daysLeft !== null && daysLeft <= 30 && onExtendContract && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="text-xs font-bold text-amber-900">
+                  {daysLeft < 0 ? 'Contract end date has passed' : 'Contract renewal review due soon'}
+                </div>
+                <p className="text-[11px] text-amber-800/90 mt-0.5">
+                  Extend the end date and confirm billing or pay rates before closing out.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExtendingPlacement(placement)}
+                className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 shrink-0 cursor-pointer transition-colors"
+              >
+                <CalendarPlus className="w-3.5 h-3.5" />
+                <span>Extend Contract</span>
+              </button>
+            </div>
+          )}
+
+          {/* Billing & Rate Breakdown */}
           <section className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-            <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between gap-2">
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
                 <h2 className="font-bold text-slate-900">Billing &amp; Rate Summary</h2>
@@ -291,98 +449,78 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
               </span>
             </div>
 
-            <div className="p-5 space-y-4">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3.5 rounded-xl bg-slate-50/90 border border-slate-200/70">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Pay Rate
-                  </div>
-                  <div className="text-base font-extrabold text-slate-800 mt-1">
-                    <MaskedValue
-                      value={formatRate(placement.payRate) || '—'}
-                      isMasked={rateMasked}
-                    />
-                  </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+              <div className="p-6 space-y-1">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Pay Rate
                 </div>
-
-                <div className="p-3.5 rounded-xl bg-slate-50/90 border border-slate-200/70">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Bill Rate
-                  </div>
-                  <div className="text-base font-extrabold text-slate-900 mt-1">
-                    <MaskedValue
-                      value={formatRate(placement.billing) || '—'}
-                      isMasked={rateMasked}
-                    />
-                  </div>
+                <div className="text-lg font-extrabold font-mono text-slate-800">
+                  <MaskedValue value={formatRate(placement.payRate) || '—'} isMasked={rateMasked} />
                 </div>
-
-                <div className="p-3.5 rounded-xl bg-emerald-50/50 border border-emerald-200/70">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700/80">
-                    Hourly Spread
-                  </div>
-                  <div
-                    className={`text-base font-extrabold mt-1 ${
-                      spreadNum < 0 ? 'text-rose-600' : 'text-emerald-700'
-                    }`}
-                  >
-                    <MaskedValue
-                      value={formatSpread(placement.hourlySpread, currencySymbol)}
-                      isMasked={rateMasked}
-                    />
-                  </div>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-slate-50/90 border border-slate-200/70">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Profit Margin
-                  </div>
-                  <div className="text-base font-extrabold text-slate-900 mt-1">
-                    <MaskedValue
-                      value={
-                        placement.marginPct !== undefined && placement.marginPct !== null
-                          ? `${Number(placement.marginPct).toFixed(1)}%`
-                          : formatMargin(placement.marginPct)
-                      }
-                      isMasked={rateMasked}
-                    />
-                  </div>
+                <div className="text-[11px] text-slate-500">
+                  Est. Monthly:{' '}
+                  <MaskedValue value={payNum > 0 ? monthlyPay : '—'} isMasked={rateMasked} />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                <div className="flex items-center justify-between px-3.5 py-2.5 rounded-lg border border-slate-200/70 bg-white">
-                  <span className="text-[11px] font-medium text-slate-500">Est. Monthly Pay</span>
-                  <span className="font-bold text-slate-800">
-                    <MaskedValue value={payNum > 0 ? monthlyPay : '—'} isMasked={rateMasked} />
-                  </span>
+              <div className="p-6 space-y-1">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Bill Rate
                 </div>
-                <div className="flex items-center justify-between px-3.5 py-2.5 rounded-lg border border-slate-200/70 bg-white">
-                  <span className="text-[11px] font-medium text-slate-500">Est. Monthly Billing</span>
-                  <span className="font-bold text-slate-900">
-                    <MaskedValue value={billNum > 0 ? monthlyBilling : '—'} isMasked={rateMasked} />
-                  </span>
+                <div className="text-lg font-extrabold font-mono text-slate-900">
+                  <MaskedValue value={formatRate(placement.billing) || '—'} isMasked={rateMasked} />
                 </div>
-                <div className="flex items-center justify-between px-3.5 py-2.5 rounded-lg border border-emerald-200/80 bg-emerald-50/30">
-                  <span className="text-[11px] font-semibold text-emerald-800">Est. Monthly Profit</span>
-                  <span
-                    className={`font-extrabold ${
-                      spreadNum < 0 ? 'text-rose-600' : 'text-emerald-700'
-                    }`}
-                  >
-                    <MaskedValue
-                      value={billNum > 0 || payNum > 0 ? monthlyProfit : '—'}
-                      isMasked={rateMasked}
-                    />
-                  </span>
+                <div className="text-[11px] text-slate-500">
+                  Est. Monthly:{' '}
+                  <MaskedValue value={billNum > 0 ? monthlyBilling : '—'} isMasked={rateMasked} />
                 </div>
+              </div>
+
+              <div className="p-6 space-y-1 bg-emerald-50/30">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700/80">
+                  Hourly Spread
+                </div>
+                <div
+                  className={`text-lg font-extrabold font-mono ${
+                    spreadNum < 0 ? 'text-rose-600' : 'text-emerald-700'
+                  }`}
+                >
+                  <MaskedValue
+                    value={formatSpread(placement.hourlySpread, currencySymbol)}
+                    isMasked={rateMasked}
+                  />
+                </div>
+                <div className="text-[11px] text-emerald-700/90 font-medium">
+                  Est. Monthly Profit:{' '}
+                  <MaskedValue
+                    value={billNum > 0 || payNum > 0 ? monthlyProfit : '—'}
+                    isMasked={rateMasked}
+                  />
+                </div>
+              </div>
+
+              <div className="p-6 space-y-1">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Profit Margin
+                </div>
+                <div className="text-lg font-extrabold font-mono text-slate-900">
+                  <MaskedValue
+                    value={
+                      placement.marginPct !== undefined && placement.marginPct !== null
+                        ? `${Number(placement.marginPct).toFixed(1)}%`
+                        : formatMargin(placement.marginPct)
+                    }
+                    isMasked={rateMasked}
+                  />
+                </div>
+                <div className="text-[11px] text-slate-500">Gross margin on billing</div>
               </div>
             </div>
           </section>
 
           {/* Contract Timeline */}
           <section className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-            <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between gap-2">
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <CalendarClock className="w-3.5 h-3.5 text-brand-600" />
                 <h2 className="font-bold text-slate-900">Contract Period &amp; Timeline</h2>
@@ -397,46 +535,46 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
                     daysLeft < 0
                       ? 'text-rose-600'
                       : daysLeft <= 30
-                      ? 'text-amber-700'
-                      : 'text-emerald-700'
+                        ? 'text-amber-700'
+                        : 'text-emerald-700'
                   }`}
                 >
                   {daysLeft < 0
                     ? `Past end date by ${Math.abs(daysLeft)} day${Math.abs(daysLeft) === 1 ? '' : 's'}`
                     : daysLeft === 0
-                    ? 'Ends today'
-                    : daysLeft <= 30
-                    ? `Expiring in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`
-                    : `${daysLeft} days remaining`}
+                      ? 'Ends today'
+                      : daysLeft <= 30
+                        ? `Expiring in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`
+                        : `${daysLeft} days remaining`}
                 </span>
               ) : null}
             </div>
 
-            <div className="p-5 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/70">
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 rounded-xl border border-slate-200/80 bg-slate-50/40">
+                <div className="p-4">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Start Date
                   </div>
-                  <div className="text-sm font-bold text-slate-900 mt-1">
+                  <div className="text-sm font-bold text-slate-900 mt-1 font-mono">
                     {placement.startDate || '—'}
                   </div>
                 </div>
 
-                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/70">
+                <div className="p-4">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     End Date
                   </div>
-                  <div className="text-sm font-bold text-slate-900 mt-1">
+                  <div className="text-sm font-bold text-slate-900 mt-1 font-mono">
                     {placement.endDate || '—'}
                   </div>
                 </div>
 
-                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/70">
+                <div className="p-4">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Contract Length
                   </div>
-                  <div className="text-sm font-bold text-slate-900 mt-1">
+                  <div className="text-sm font-bold text-slate-900 mt-1 font-mono">
                     {timeline ? `${timeline.totalDays} days` : '—'}
                   </div>
                 </div>
@@ -445,206 +583,174 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
               {timeline && (
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-[11px] text-slate-500">
-                    <span>{placement.startDate}</span>
+                    <span className="font-mono">{placement.startDate}</span>
                     <span className="font-medium text-slate-700 inline-flex items-center gap-1">
                       <span>{timeline.elapsedDays} of {timeline.totalDays} days elapsed</span>
                       <span className="text-slate-400">({timeline.progressPct}%)</span>
                     </span>
-                    <span>{placement.endDate}</span>
+                    <span className="font-mono">{placement.endDate}</span>
                   </div>
                   <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-all ${
-                        ended
-                          ? 'bg-slate-400'
-                          : daysLeft !== null && daysLeft < 0
-                          ? 'bg-rose-500'
-                          : daysLeft !== null && daysLeft <= 30
-                          ? 'bg-amber-500'
-                          : 'bg-emerald-500'
-                      }`}
+                      className={`h-full rounded-full transition-all ${progressBarClass}`}
                       style={{ width: `${ended ? 100 : timeline.progressPct}%` }}
                     />
                   </div>
                 </div>
               )}
-
-              {!ended && daysLeft !== null && daysLeft <= 30 && onExtendContract && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <div className="text-xs font-bold text-amber-900">
-                      {daysLeft < 0 ? 'Contract end date has passed' : 'Contract renewal review due soon'}
-                    </div>
-                    <p className="text-[11px] text-amber-800/90 mt-0.5">
-                      Extend the end date and confirm billing or pay rates before closing out.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setExtendingPlacement(placement)}
-                    className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 shrink-0 cursor-pointer transition-colors"
-                  >
-                    <CalendarPlus className="w-3.5 h-3.5" />
-                    <span>Extend Contract</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* Linked Records & Stakeholders */}
-          <section className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-            <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
-              <Layers className="w-3.5 h-3.5 text-brand-600" />
-              <h2 className="font-bold text-slate-900">Connected Records</h2>
-            </div>
-
-            <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              {/* Consultant Card */}
-              <div className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/40 flex flex-col justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 inline-flex items-center gap-1">
-                    <UserCheck className="w-3 h-3 text-emerald-600" />
-                    <span>Consultant</span>
-                  </div>
-                  <div className="text-sm font-bold text-slate-900">{placement.resourceName}</div>
-                  <div className="text-[11px] text-slate-500">{placement.skillRole}</div>
-                </div>
-                {linkedCandidate && onOpenConsultant ? (
-                  <button
-                    type="button"
-                    onClick={() => onOpenConsultant(linkedCandidate)}
-                    className="self-start inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 hover:text-brand-800 hover:underline cursor-pointer"
-                  >
-                    <span>Open Consultant Profile</span>
-                    <ArrowUpRight className="w-3 h-3" />
-                  </button>
-                ) : (
-                  <span className="text-[11px] text-slate-400">
-                    Recorded on placement sheet
-                  </span>
-                )}
-              </div>
-
-              {/* Client Account Card */}
-              <div className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/40 flex flex-col justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 inline-flex items-center gap-1">
-                    <Building2 className="w-3 h-3 text-brand-600" />
-                    <span>Client Account</span>
-                  </div>
-                  <div className="text-sm font-bold text-slate-900">{placement.customer}</div>
-                  <div className="text-[11px] text-slate-500">
-                    Contact: {placement.customerContact || 'Hiring Manager'}
-                  </div>
-                </div>
-                {linkedClient && onOpenClient ? (
-                  <button
-                    type="button"
-                    onClick={() => onOpenClient(linkedClient)}
-                    className="self-start inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 hover:text-brand-800 hover:underline cursor-pointer"
-                  >
-                    <span>Open Client Details</span>
-                    <ArrowUpRight className="w-3 h-3" />
-                  </button>
-                ) : (
-                  <span className="text-[11px] text-slate-400">
-                    No matching client record
-                  </span>
-                )}
-              </div>
-
-              {/* Staffing Vendor Card */}
-              <div className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/40 flex flex-col justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 inline-flex items-center gap-1">
-                    <Handshake className="w-3 h-3 text-amber-600" />
-                    <span>Staffing Vendor</span>
-                  </div>
-                  <div className="text-sm font-bold text-slate-900">
-                    {placement.vendorName || 'Direct Placement'}
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    {placement.vendorName
-                      ? 'Subcontractor / partner agency'
-                      : 'No third-party vendor attached'}
-                  </div>
-                </div>
-                {linkedVendor && onOpenVendor ? (
-                  <button
-                    type="button"
-                    onClick={() => onOpenVendor(linkedVendor)}
-                    className="self-start inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 hover:text-brand-800 hover:underline cursor-pointer"
-                  >
-                    <span>Open Vendor Details</span>
-                    <ArrowUpRight className="w-3 h-3" />
-                  </button>
-                ) : (
-                  <span className="text-[11px] text-slate-400">
-                    {placement.vendorName ? 'Partner vendor' : 'Direct engagement'}
-                  </span>
-                )}
-              </div>
-
-              {/* Linked Requirement Card */}
-              <div className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/40 flex flex-col justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 inline-flex items-center gap-1">
-                    <Briefcase className="w-3 h-3 text-slate-500" />
-                    <span>Job Opening</span>
-                  </div>
-                  {linkedRequirement ? (
-                    <>
-                      <div className="text-sm font-bold text-slate-900 truncate">
-                        {linkedRequirement.code} &bull; {linkedRequirement.opportunityTitle}
-                      </div>
-                      <div className="text-[11px] text-slate-500 truncate">
-                        {linkedRequirement.skillsRequired
-                          ? `${linkedRequirement.skillsRequired} (${linkedRequirement.status})`
-                          : linkedRequirement.status}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-sm font-bold text-slate-900">Direct Entry</div>
-                      <div className="text-[11px] text-slate-500">
-                        Not linked to a pipeline opening
-                      </div>
-                    </>
-                  )}
-                </div>
-                {linkedRequirement && onOpenRequirement ? (
-                  <button
-                    type="button"
-                    onClick={() => onOpenRequirement(linkedRequirement)}
-                    className="self-start inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 hover:text-brand-800 hover:underline cursor-pointer"
-                  >
-                    <span>Open Job Opening</span>
-                    <ArrowUpRight className="w-3 h-3" />
-                  </button>
-                ) : (
-                  <span className="text-[11px] text-slate-400">
-                    Standalone placement record
-                  </span>
-                )}
-              </div>
             </div>
           </section>
         </div>
+      )}
 
-        {/* Right Sidebar: Agreement Details, Contacts, Custom Attributes & Delete */}
-        <aside className="space-y-4">
-          <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-4 space-y-3 text-xs">
-            <div className="flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                Agreement &amp; Contact Info
-              </h3>
+      {/* TAB 2: Connected Records */}
+      {workspaceTab === 'records' && (
+        <section className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Layers className="w-3.5 h-3.5 text-brand-600" />
+              <h2 className="font-bold text-slate-900">Connected Records</h2>
             </div>
-            <dl className="space-y-2.5">
+            <span className="text-[11px] text-slate-400">
+              {connectedRecordsCount} linked entity record{connectedRecordsCount === 1 ? '' : 's'}
+            </span>
+          </div>
+
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/40 flex flex-col justify-between gap-3">
+              <div className="space-y-1">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 inline-flex items-center gap-1">
+                  <UserCheck className="w-3 h-3 text-emerald-600" />
+                  <span>Consultant</span>
+                </div>
+                <div className="text-sm font-bold text-slate-900">{placement.resourceName}</div>
+                <div className="text-[11px] text-slate-500">{placement.skillRole}</div>
+              </div>
+              {linkedCandidate && onOpenConsultant ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenConsultant(linkedCandidate)}
+                  className="self-start inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 hover:text-brand-800 hover:underline cursor-pointer"
+                >
+                  <span>Open Consultant Profile</span>
+                  <ArrowUpRight className="w-3 h-3" />
+                </button>
+              ) : (
+                <span className="text-[11px] text-slate-400">Recorded on placement sheet</span>
+              )}
+            </div>
+
+            <div className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/40 flex flex-col justify-between gap-3">
+              <div className="space-y-1">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 inline-flex items-center gap-1">
+                  <Building2 className="w-3 h-3 text-brand-600" />
+                  <span>Client Account</span>
+                </div>
+                <div className="text-sm font-bold text-slate-900">{placement.customer}</div>
+                <div className="text-[11px] text-slate-500">
+                  Contact: {placement.customerContact || 'Hiring Manager'}
+                </div>
+              </div>
+              {linkedClient && onOpenClient ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenClient(linkedClient)}
+                  className="self-start inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 hover:text-brand-800 hover:underline cursor-pointer"
+                >
+                  <span>Open Client Details</span>
+                  <ArrowUpRight className="w-3 h-3" />
+                </button>
+              ) : (
+                <span className="text-[11px] text-slate-400">No matching client record</span>
+              )}
+            </div>
+
+            <div className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/40 flex flex-col justify-between gap-3">
+              <div className="space-y-1">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 inline-flex items-center gap-1">
+                  <Handshake className="w-3 h-3 text-amber-600" />
+                  <span>Staffing Vendor</span>
+                </div>
+                <div className="text-sm font-bold text-slate-900">
+                  {placement.vendorName || 'Direct Placement'}
+                </div>
+                <div className="text-[11px] text-slate-500">
+                  {placement.vendorName
+                    ? 'Subcontractor / partner agency'
+                    : 'No third-party vendor attached'}
+                </div>
+              </div>
+              {linkedVendor && onOpenVendor ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenVendor(linkedVendor)}
+                  className="self-start inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 hover:text-brand-800 hover:underline cursor-pointer"
+                >
+                  <span>Open Vendor Details</span>
+                  <ArrowUpRight className="w-3 h-3" />
+                </button>
+              ) : (
+                <span className="text-[11px] text-slate-400">
+                  {placement.vendorName ? 'Partner vendor' : 'Direct engagement'}
+                </span>
+              )}
+            </div>
+
+            <div className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/40 flex flex-col justify-between gap-3">
+              <div className="space-y-1">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 inline-flex items-center gap-1">
+                  <Briefcase className="w-3 h-3 text-slate-500" />
+                  <span>Job Opening</span>
+                </div>
+                {linkedRequirement ? (
+                  <>
+                    <div className="text-sm font-bold text-slate-900 truncate">
+                      {linkedRequirement.code} &bull; {linkedRequirement.opportunityTitle}
+                    </div>
+                    <div className="text-[11px] text-slate-500 truncate">
+                      {linkedRequirement.skillsRequired
+                        ? `${linkedRequirement.skillsRequired} (${linkedRequirement.status})`
+                        : linkedRequirement.status}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-sm font-bold text-slate-900">Direct Entry</div>
+                    <div className="text-[11px] text-slate-500">
+                      Not linked to a pipeline opening
+                    </div>
+                  </>
+                )}
+              </div>
+              {linkedRequirement && onOpenRequirement ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenRequirement(linkedRequirement)}
+                  className="self-start inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 hover:text-brand-800 hover:underline cursor-pointer"
+                >
+                  <span>Open Job Opening</span>
+                  <ArrowUpRight className="w-3 h-3" />
+                </button>
+              ) : (
+                <span className="text-[11px] text-slate-400">Standalone placement record</span>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* TAB 3: Agreement & Details */}
+      {workspaceTab === 'details' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+          <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <h3 className="font-bold text-slate-900">Agreement &amp; Contact Info</h3>
+            </div>
+            <dl className="p-6 space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <dt className="text-slate-400 font-medium shrink-0">PO / SOW #</dt>
-                <dd className="text-slate-800 font-semibold text-right min-w-0 [overflow-wrap:anywhere]">
+                <dd className="text-slate-800 font-semibold font-mono text-right min-w-0 [overflow-wrap:anywhere]">
                   {placement.purchaseOrderNumber || '—'}
                 </dd>
               </div>
@@ -680,17 +786,14 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
                   {placement.customerContact || '—'}
                 </dd>
               </div>
-              <div className="flex items-start justify-between gap-2 pt-2 border-t border-slate-100">
+              <div className="flex items-start justify-between gap-2 pt-3 border-t border-slate-100">
                 <dt className="text-slate-400 font-medium shrink-0 inline-flex items-center gap-1">
                   <Mail className="w-3 h-3" />
                   <span>Work Email</span>
                 </dt>
                 <dd className="text-slate-800 font-medium text-right min-w-0 [overflow-wrap:anywhere]">
                   {contactEmail ? (
-                    <a
-                      href={`mailto:${contactEmail}`}
-                      className="text-brand-700 hover:underline"
-                    >
+                    <a href={`mailto:${contactEmail}`} className="text-brand-700 hover:underline">
                       {contactEmail}
                     </a>
                   ) : (
@@ -705,10 +808,7 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
                 </dt>
                 <dd className="text-slate-800 font-medium text-right whitespace-nowrap">
                   {contactPhone ? (
-                    <a
-                      href={`tel:${contactPhone}`}
-                      className="text-brand-700 hover:underline"
-                    >
+                    <a href={`tel:${contactPhone}`} className="text-brand-700 hover:underline">
                       {contactPhone}
                     </a>
                   ) : (
@@ -719,58 +819,56 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
             </dl>
           </div>
 
-          {customFieldEntries.length > 0 && (
-            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-4 space-y-2.5 text-xs">
-              <div className="flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-brand-600" />
-                <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Custom Attributes
-                </h3>
+          <div className="space-y-4">
+            {customFieldEntries.length > 0 && (
+              <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
+                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+                  <Layers className="w-3.5 h-3.5 text-brand-600" />
+                  <h3 className="font-bold text-slate-900">Custom Attributes</h3>
+                </div>
+                <dl className="p-6 space-y-2.5">
+                  {customFieldEntries.map(([k, v]) => (
+                    <div key={k} className="flex items-start justify-between gap-2">
+                      <dt className="text-slate-400 font-medium capitalize shrink-0">
+                        {k.replace(/_/g, ' ')}
+                      </dt>
+                      <dd className="text-slate-800 font-medium text-right min-w-0 [overflow-wrap:anywhere]">
+                        {String(v)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
-              <dl className="space-y-1.5">
-                {customFieldEntries.map(([k, v]) => (
-                  <div key={k} className="flex items-start justify-between gap-2">
-                    <dt className="text-slate-400 font-medium capitalize shrink-0">
-                      {k.replace(/_/g, ' ')}
-                    </dt>
-                    <dd className="text-slate-800 font-medium text-right min-w-0 [overflow-wrap:anywhere]">
-                      {String(v)}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          )}
+            )}
 
-          {onDeletePlacement && (
-            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-4 space-y-2 text-xs">
-              <button
-                type="button"
-                disabled={!ended}
-                onClick={() => ended && setDeletingPlacement(placement)}
-                title={
-                  ended
-                    ? 'Remove this ended placement'
-                    : 'To delete this placement, end the contract first'
-                }
-                className={`w-full px-3 py-2 rounded-lg border font-semibold text-xs inline-flex items-center justify-center gap-1.5 transition-colors ${
-                  ended
-                    ? 'border-rose-200 text-rose-600 hover:bg-rose-50 cursor-pointer'
-                    : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-75'
-                }`}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Remove Placement</span>
-              </button>
-              {!ended && (
-                <p className="text-[11px] text-slate-500 text-center leading-snug">
-                  To delete this placement, you need to end the contract first.
-                </p>
-              )}
-            </div>
-          )}
-        </aside>
-      </div>
+            {onDeletePlacement && (
+              <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-6 space-y-3 text-xs">
+                <div>
+                  <h3 className="font-bold text-slate-900">Placement Lifecycle</h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {ended
+                      ? 'This placement has ended and can now be removed from active billing.'
+                      : 'Active placements cannot be deleted until the contract is ended first.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={!ended}
+                  onClick={() => ended && setDeletingPlacement(placement)}
+                  className={`px-3.5 py-2 rounded-lg border font-semibold text-xs inline-flex items-center gap-1.5 transition-colors ${
+                    ended
+                      ? 'border-rose-200 text-rose-600 hover:bg-rose-50 cursor-pointer'
+                      : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-75'
+                  }`}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Remove Placement</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <PlacementModals
         vendors={vendors}

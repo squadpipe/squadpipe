@@ -104,7 +104,23 @@ export const runPitchDraftTests = async () => {
     rateMasked: false,
     aiSvc: offlineAi,
   });
-  assert.ok(unmaskedOfflinePitch.bodyText.includes('98'));
+  assert.ok(unmaskedOfflinePitch.bodyText.includes('$98/hr') || unmaskedOfflinePitch.bodyText.includes('98'));
+  // Req code appears in subject, NEVER in bodyText
+  assert.ok(unmaskedOfflinePitch.subject.includes('REQ-301'));
+  assert.equal(unmaskedOfflinePitch.bodyText.includes('REQ-301'), false);
+  assert.equal(followUpOffline.bodyText.includes('REQ-301'), false);
+  // Bare numeric rate formats as $56/hr and duplicate (Onsite) • ONSITE is avoided
+  const bareRateReqOffline = await generatePitchDraftPure({
+    submissionId: 'sub-bare',
+    candidate: { ...candidate, hourlyRateDisplay: '56' },
+    requirement: { ...requirement, location: 'Phoenix, AZ (Onsite)', workModel: 'ONSITE' },
+    agencyName: 'Softiox Partners',
+    rateMasked: false,
+    aiSvc: offlineAi,
+  });
+  assert.ok(bareRateReqOffline.bodyText.includes('Target Rate: $56/hr'));
+  assert.equal(bareRateReqOffline.bodyText.includes('• ONSITE'), false);
+  assert.equal(bareRateReqOffline.bodyText.includes('REQ-301'), false);
 
   // 4. Active AI draft + defense-in-depth scrubbing when rateMasked=true
   let seenPromptBody = '';
@@ -276,6 +292,27 @@ export const runPitchDraftTests = async () => {
     },
   });
 
+  // Cache-only probe on uncached submission never calls AI and reports hasDraft: false
+  const probeEmpty = await selectOrGeneratePitchDraftPure({
+    submissionId: 'sub-cache-1',
+    cacheOnly: true,
+    candidate,
+    requirement,
+    agencyName: 'Softiox Partners',
+    senderName: 'Nakul Das',
+    recipientEmail: 'maya@apexhealth.com',
+    recipientName: 'Maya Lin',
+    purpose: 'client_pitch',
+    pitchTone: 'PROFESSIONAL',
+    rateMasked: true,
+    aiSvc: countingAi,
+  });
+  assert.equal(draftCalls, 0);
+  assert.equal(probeEmpty.didGenerate, false);
+  assert.equal(probeEmpty.draft.hasDraft, false);
+  assert.deepEqual(probeEmpty.draft.savedDraftKeys, []);
+  assert.equal(probeEmpty.draft.recipientEmail, 'maya@apexhealth.com');
+
   const firstRun = await selectOrGeneratePitchDraftPure({
     submissionId: 'sub-cache-1',
     candidate,
@@ -292,6 +329,26 @@ export const runPitchDraftTests = async () => {
   assert.equal(firstRun.didGenerate, true);
   assert.equal(firstRun.draft.cached, false);
   assert.ok(firstRun.nextCache[buildPitchCacheKey('client_pitch', 'PROFESSIONAL', true)]);
+
+  // Switching Type & Tone with cacheOnly=true does not generate if slot is uncached
+  const probeUncachedSwitch = await selectOrGeneratePitchDraftPure({
+    submissionId: 'sub-cache-1',
+    existingCache: firstRun.nextCache,
+    cacheOnly: true,
+    candidate,
+    requirement,
+    agencyName: 'Softiox Partners',
+    senderName: 'Nakul Das',
+    recipientName: 'Maya Lin',
+    purpose: 'interview_followup',
+    pitchTone: 'HIGH_IMPACT',
+    rateMasked: true,
+    aiSvc: countingAi,
+  });
+  assert.equal(draftCalls, 1);
+  assert.equal(probeUncachedSwitch.didGenerate, false);
+  assert.equal(probeUncachedSwitch.draft.hasDraft, false);
+  assert.deepEqual(probeUncachedSwitch.draft.savedDraftKeys, ['client_pitch:PROFESSIONAL']);
 
   // Re-opening or switching back hits saved draft with 0 LLM calls
   const secondRun = await selectOrGeneratePitchDraftPure({

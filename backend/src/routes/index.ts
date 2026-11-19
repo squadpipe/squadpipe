@@ -638,7 +638,7 @@ router.post('/submissions/:id/evaluate', async (req: Request, res: Response) => 
 router.post('/submissions/:id/pitch-draft', async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
-    const { pitchTone, tone, purpose, regenerate, forceRegenerate } = req.body || {};
+    const { pitchTone, tone, purpose, regenerate, forceRegenerate, cacheOnly } = req.body || {};
     const draft = await pitchDraftService.draftForSubmission({
       submissionId: req.params.id,
       tenantId,
@@ -648,6 +648,7 @@ router.post('/submissions/:id/pitch-draft', async (req: Request, res: Response) 
       purpose,
       rateMasked: Boolean(req.user?.rateMasked),
       forceRegenerate: Boolean(regenerate ?? forceRegenerate),
+      cacheOnly: Boolean(cacheOnly),
     });
     res.json({ success: true, data: draft });
   } catch (error: any) {

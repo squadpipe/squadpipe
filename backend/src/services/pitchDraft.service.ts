@@ -31,6 +31,8 @@ export interface PitchDraftResponsePayload {
   bodyText: string;
   aiUsed: boolean;
   cached?: boolean;
+  hasDraft?: boolean;
+  savedDraftKeys?: string[];
   generatedAt?: string;
   quotaNotice?: string;
   purpose: PitchPurpose;
@@ -170,11 +172,14 @@ export async function generatePitchDraftPure(params: {
 /**
  * Pure cache-first pitch resolver: returns the saved draft for `(purpose, tone, maskState)`
  * without calling AI unless `forceRegenerate` is true or no saved draft exists yet.
+ * When `cacheOnly` is true and no cached draft exists for that slot, returns `didGenerate: false`
+ * with `hasDraft: false` so the UI can let users adjust multiple selectors before generating.
  */
 export async function selectOrGeneratePitchDraftPure(params: {
   submissionId: string;
   existingCache?: unknown;
   forceRegenerate?: boolean;
+  cacheOnly?: boolean;
   candidate: CapabilityCandidateInput;
   requirement: CapabilityRequirementInput;
   agencyName: string;
@@ -197,10 +202,29 @@ export async function selectOrGeneratePitchDraftPure(params: {
   const purpose = normalizePitchPurpose(params.purpose);
   const agencyName = String(params.agencyName || '').trim() || 'SquadPipe Staffing';
   const cacheMap = normalizePitchCacheMap(params.existingCache);
+  const maskSuffix = rateMasked ? ':masked' : ':unmasked';
+  const savedDraftKeys = Object.keys(cacheMap)
+    .filter((k) => k.endsWith(maskSuffix))
+    .map((k) => k.slice(0, -maskSuffix.length));
   const cacheKey = buildPitchCacheKey(purpose, tone, rateMasked);
   const cachedEntry = cacheMap[cacheKey];
+  const reqCodeTrimmed = String(params.requirement.code || '').trim();
+  const hasStaleOfflineArtifacts =
+    cachedEntry &&
+    !cachedEntry.aiUsed &&
+    !cachedEntry.manuallyEdited &&
+    ((reqCodeTrimmed && cachedEntry.bodyText.includes(`(${reqCodeTrimmed})`)) ||
+      /\((?:Onsite|Hybrid|Remote)\)\s*\u2022\s*(?:ONSITE|HYBRID|REMOTE)/i.test(
+        cachedEntry.bodyText
+      ) ||
+      /^- Target Rate:\s*\d+(?:\.\d+)?$/m.test(cachedEntry.bodyText));
 
-  if (!params.forceRegenerate && cachedEntry && (cachedEntry.subject || cachedEntry.bodyText)) {
+  if (
+    !params.forceRegenerate &&
+    cachedEntry &&
+    !hasStaleOfflineArtifacts &&
+    (cachedEntry.subject || cachedEntry.bodyText)
+  ) {
     const cleanSubject = rateMasked ? redactRatesFromText(cachedEntry.subject) : cachedEntry.subject;
     const rawBody = cachedEntry.manuallyEdited
       ? cachedEntry.bodyText
@@ -216,7 +240,30 @@ export async function selectOrGeneratePitchDraftPure(params: {
         bodyText: cleanBody,
         aiUsed: Boolean(cachedEntry.aiUsed),
         cached: true,
+        hasDraft: true,
+        savedDraftKeys,
         generatedAt: cachedEntry.generatedAt,
+        purpose,
+        pitchTone: tone,
+        agencyName,
+        recipientEmail: String(params.recipientEmail || '').trim(),
+        recipientName: String(params.recipientName || '').trim(),
+      },
+    };
+  }
+
+  if (params.cacheOnly && !params.forceRegenerate) {
+    return {
+      didGenerate: false,
+      nextCache: cacheMap,
+      draft: {
+        submissionId: params.submissionId,
+        subject: '',
+        bodyText: '',
+        aiUsed: false,
+        cached: false,
+        hasDraft: false,
+        savedDraftKeys,
         purpose,
         pitchTone: tone,
         agencyName,
@@ -254,10 +301,16 @@ export async function selectOrGeneratePitchDraftPure(params: {
     },
   };
 
+  const nextSavedKeys = Array.from(new Set([...savedDraftKeys, `${purpose}:${tone}`]));
+
   return {
     didGenerate: true,
     nextCache,
-    draft: generated,
+    draft: {
+      ...generated,
+      hasDraft: true,
+      savedDraftKeys: nextSavedKeys,
+    },
   };
 }
 
@@ -271,6 +324,7 @@ export class PitchDraftService {
     purpose?: unknown;
     rateMasked?: boolean;
     forceRegenerate?: boolean;
+    cacheOnly?: boolean;
     aiSvc?: Pick<typeof aiService, 'draftClientPitch'>;
   }): Promise<PitchDraftResponsePayload> {
     const submission = await prisma.submission.findFirst({
@@ -299,6 +353,7 @@ export class PitchDraftService {
       submissionId: submission.id,
       existingCache: submission.pitchDrafts,
       forceRegenerate: Boolean(params.forceRegenerate),
+      cacheOnly: Boolean(params.cacheOnly),
       candidate: {
         id: submission.candidate.id,
         fullName: submission.candidate.fullName,

@@ -888,7 +888,15 @@ export class AiService {
       ? `${senderName}\n${agencyName}`
       : `${agencyName} Recruiting Team`;
 
-    const reqContextTag = [requirement.location, requirement.workModel].filter(Boolean).join(' • ');
+    const rawLocation = String(requirement.location || '').trim();
+    const rawWorkModel = String(requirement.workModel || '').trim();
+    const formattedWorkModel = rawWorkModel
+      ? rawWorkModel.charAt(0).toUpperCase() + rawWorkModel.slice(1).toLowerCase()
+      : '';
+    const locationHasModel = /\b(?:onsite|on-site|hybrid|remote)\b/i.test(rawLocation);
+    const reqContextTag = locationHasModel
+      ? rawLocation
+      : [rawLocation, formattedWorkModel].filter(Boolean).join(' \u2022 ');
     const clientClause = requirement.companyName ? ` at ${requirement.companyName}` : '';
     const reqRefClause = requirement.code ? ` (${requirement.code})` : '';
 
@@ -897,10 +905,13 @@ export class AiService {
         ? `Follow-Up: ${candidateName} — ${roleTitle}${reqRefClause}`
         : `Candidate Submittal: ${candidateName} — ${roleTitle}${reqRefClause}`;
 
-    const rateBullet =
-      !rateMasked && candidate.hourlyRateDisplay
-        ? `- Target Rate: ${candidate.hourlyRateDisplay}`
-        : '';
+    const rawRateDisplay = String(candidate.hourlyRateDisplay || '').trim();
+    const formattedRateDisplay = rawRateDisplay
+      ? /^\d+(?:\.\d+)?$/.test(rawRateDisplay)
+        ? `$${rawRateDisplay}/hr`
+        : rawRateDisplay
+      : '';
+    const rateBullet = !rateMasked && formattedRateDisplay ? `- Target Rate: ${formattedRateDisplay}` : '';
 
     const authRelocParts = [
       candidate.workAuth ? `Work Auth: ${candidate.workAuth}` : '',
@@ -912,7 +923,7 @@ export class AiService {
         ? [
             greeting,
             '',
-            `Following up from ${agencyName} on our submitted consultant, ${candidateName}, for the ${roleTitle}${reqRefClause} opening${clientClause}.`,
+            `Following up from ${agencyName} on our submitted consultant, ${candidateName}, for the ${roleTitle} opening${clientClause}.`,
             '',
             'Quick Recap:',
             `- Candidate: ${candidateName} (${candidateTitle})`,
@@ -928,7 +939,7 @@ export class AiService {
         : [
             greeting,
             '',
-            `Please find ${candidateName}'s profile attached for your ${roleTitle}${reqRefClause} opening${clientClause}${reqContextTag ? ` (${reqContextTag})` : ''}.`,
+            `Please find ${candidateName}'s profile attached for your ${roleTitle} opening${clientClause}${reqContextTag ? ` (${reqContextTag})` : ''}.`,
             '',
             'Candidate Snapshot:',
             `- Current Role: ${candidateTitle}`,
@@ -962,6 +973,7 @@ export class AiService {
         rateMasked,
         Math.min(config.maxInputChars, 4000)
       );
+      const { code: _omitInternalCode, ...clientFacingReq } = safeReq as Record<string, any>;
       const safeCand = buildPiiSafeCandidatePromptData(candidate, {
         rateMasked,
         maxSnippetChars: 3000,
@@ -971,7 +983,7 @@ export class AiService {
       const emailGoal =
         purpose === 'interview_followup'
           ? `Recruiter ${senderName || agencyName} following up with ${recipientCleanName || 'the client hiring team'} regarding interview feedback or next scheduling steps for submitted consultant ${candidateName}.`
-          : `Recruiter ${senderName || agencyName} pitching submitted consultant ${candidateName} to ${recipientCleanName || 'the client hiring team'} for the ${roleTitle}${reqRefClause} role.`;
+          : `Recruiter ${senderName || agencyName} pitching submitted consultant ${candidateName} to ${recipientCleanName || 'the client hiring team'} for the ${roleTitle} role.`;
 
       const result = await completeValidatedJson({
         adapter,
@@ -988,6 +1000,7 @@ export class AiService {
               '3. Scannable spacing & format: ALWAYS separate every section with a blank line (\\n\\n): greeting ("Hi <FirstName>,"), opening paragraph, "Candidate Snapshot:" (or "Quick Recap:"), relevance paragraph, 1-line CTA, and closing signature. Keep NO blank line between "Candidate Snapshot:" and its "- " bullet points, NO blank line between consecutive bullets, and NO blank line between the closing phrase ("Best regards,") and the exact provided signOffName (NEVER use "[Your Name]" or placeholders).',
               '4. Tone: PROFESSIONAL (balanced executive), HIGH_IMPACT (punchy results & speed-to-value), TECHNICAL_FOCUS (concrete stack & engineering depth).',
               '5. Rate privacy: NEVER mention bill rates, margins, or hourly rates unless hourlyRate is explicitly provided in input.',
+              '6. Client-facing confidentiality: NEVER include internal requisition/tracking codes (e.g. REQ-1002) inside bodyText.',
               'Return ONLY JSON: { "subject": string, "bodyText": string }.',
             ].join('\n'),
           },
@@ -1005,7 +1018,7 @@ export class AiService {
               agencyName,
               recipientName: recipientCleanName || undefined,
               candidateName,
-              requirement: safeReq,
+              requirement: clientFacingReq,
               candidate: safeCand,
             }),
           },
@@ -1018,9 +1031,19 @@ export class AiService {
         options
       );
 
-      const rawCleanedBody = result.data.bodyText
+      let rawCleanedBody = result.data.bodyText
         .replace(/\[(?:Your Name|Recruiter Name|Sender Name)\]/gi, senderName || agencyName)
         .trim();
+      if (requirement.code && String(requirement.code).trim()) {
+        const escapedReqCode = String(requirement.code)
+          .trim()
+          .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        rawCleanedBody = rawCleanedBody
+          .replace(new RegExp(`\\s*\\(\\s*${escapedReqCode}\\s*\\)`, 'gi'), '')
+          .replace(new RegExp(`\\b${escapedReqCode}\\b`, 'gi'), '')
+          .replace(/[ \t]{2,}/g, ' ')
+          .trim();
+      }
       const cleanedBody = normalizePitchEmailSpacing(rawCleanedBody);
 
       return {
