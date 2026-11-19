@@ -94,11 +94,12 @@ const AI_FEATURE_LABELS: Record<string, string> = {
   agent_prep: 'Action Center',
 };
 
-const STORAGE_PROVIDER_LABELS: Record<string, string> = {
-  local: 'Local Disk Storage',
-  s3: 'AWS S3 Object Storage',
-  cloudflare: 'Cloudflare R2 Storage',
-};
+function formatModelLabel(model: string, usingByoKey: boolean): string {
+  if (!usingByoKey && model.startsWith('@cf/')) {
+    return model.split('/').pop() || model;
+  }
+  return model;
+}
 
 function formatBytes(bytes: number | null | undefined): string {
   if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) return '—';
@@ -230,22 +231,9 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
               <HardDrive className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className="text-[17px] sm:text-[18px] font-bold text-slate-900 tracking-tight">
-                  Workspace Usage &amp; Storage
-                </h1>
-                {storage && (
-                  <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                    {STORAGE_PROVIDER_LABELS[storage.provider] || storage.provider}
-                  </span>
-                )}
-                {isAiActive && aiUsage && (
-                  <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    AI Active ({aiUsage.activeProvider.toUpperCase()}
-                    {aiUsage.usingByoKey ? ' · BYO Key' : ''})
-                  </span>
-                )}
-              </div>
+              <h1 className="text-[17px] sm:text-[18px] font-bold text-slate-900 tracking-tight">
+                Workspace Usage &amp; Storage
+              </h1>
               <p className="text-xs text-slate-500 mt-0.5">
                 {isAiActive
                   ? 'Monitor document storage footprint alongside active AI token and action consumption.'
@@ -295,9 +283,7 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
               </div>
             ) : (
               <div className="text-[11px] text-slate-500">
-                {storage?.provider === 'local'
-                  ? 'Measured on tenant local disk volume'
-                  : 'Hosted in external object bucket'}
+                Uploaded candidate CV &amp; resume documents
               </div>
             )}
           </div>
@@ -336,21 +322,62 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
             </div>
             <div className="text-lg font-extrabold text-slate-900 tabular-nums">
               {storage
-                ? `${storage.recordCounts.clients + storage.recordCounts.vendors} Partners`
-                : '0'}
+                ? `${storage.recordCounts.clients} ${
+                    storage.recordCounts.clients === 1 ? 'Client' : 'Clients'
+                  } · ${storage.recordCounts.vendors} ${
+                    storage.recordCounts.vendors === 1 ? 'Vendor' : 'Vendors'
+                  }`
+                : '0 Clients · 0 Vendors'}
             </div>
             <div className="text-[11px] text-slate-500">
               {storage
-                ? `${storage.recordCounts.placements} Placements · ${storage.recordCounts.emailLogs} Emails`
+                ? `${storage.recordCounts.placements} ${
+                    storage.recordCounts.placements === 1 ? 'Placement' : 'Placements'
+                  } · ${storage.recordCounts.emailLogs} ${
+                    storage.recordCounts.emailLogs === 1 ? 'Email' : 'Emails'
+                  }`
                 : 'Directory & notifications'}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Storage Breakdown Grid: By File Format + CRM Record Distribution */}
+      {/* Storage Breakdown Grid: CRM Record Distribution (left) + By File Format (right) */}
       {storage && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+          {/* Database Record Footprint */}
+          <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Database className="w-3.5 h-3.5 text-brand-600" />
+                <h2 className="font-bold text-slate-900">Workspace Record Distribution</h2>
+              </div>
+              <span className="text-[11px] text-slate-400">
+                {totalDbRecords.toLocaleString()} rows
+              </span>
+            </div>
+            <dl className="divide-y divide-slate-100">
+              {(
+                [
+                  ['Consultants Directory', storage.recordCounts.candidates],
+                  ['Job Requirements', storage.recordCounts.requirements],
+                  ['Candidate Submissions', storage.recordCounts.submissions],
+                  ['Billable Placements', storage.recordCounts.placements],
+                  ['Client Accounts', storage.recordCounts.clients],
+                  ['Staffing Vendors', storage.recordCounts.vendors],
+                  ['Outbound Email Logs', storage.recordCounts.emailLogs],
+                ] as const
+              ).map(([label, count]) => (
+                <div key={label} className="px-6 py-2.5 flex items-center justify-between">
+                  <dt className="text-slate-600 font-medium">{label}</dt>
+                  <dd className="font-mono font-bold text-slate-900 tabular-nums">
+                    {count.toLocaleString()}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+
           {/* Format Breakdown */}
           <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
@@ -403,39 +430,6 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
               </div>
             )}
           </div>
-
-          {/* Database Record Footprint */}
-          <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Database className="w-3.5 h-3.5 text-brand-600" />
-                <h2 className="font-bold text-slate-900">Workspace Record Distribution</h2>
-              </div>
-              <span className="text-[11px] text-slate-400">
-                {totalDbRecords.toLocaleString()} rows
-              </span>
-            </div>
-            <dl className="divide-y divide-slate-100">
-              {(
-                [
-                  ['Consultants Directory', storage.recordCounts.candidates],
-                  ['Job Requirements', storage.recordCounts.requirements],
-                  ['Candidate Submissions', storage.recordCounts.submissions],
-                  ['Billable Placements', storage.recordCounts.placements],
-                  ['Client Accounts', storage.recordCounts.clients],
-                  ['Staffing Vendors', storage.recordCounts.vendors],
-                  ['Outbound Email Logs', storage.recordCounts.emailLogs],
-                ] as const
-              ).map(([label, count]) => (
-                <div key={label} className="px-6 py-2.5 flex items-center justify-between">
-                  <dt className="text-slate-600 font-medium">{label}</dt>
-                  <dd className="font-mono font-bold text-slate-900 tabular-nums">
-                    {count.toLocaleString()}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </div>
         </div>
       )}
 
@@ -455,7 +449,7 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
                   <th className="pl-6 pr-4 py-3">Consultant</th>
                   <th className="px-4 py-3">Document File</th>
                   <th className="px-4 py-3">Format</th>
-                  <th className="px-4 py-3">Storage</th>
+                  <th className="px-4 py-3">Updated</th>
                   <th className="pl-4 pr-6 py-3 text-right">Size</th>
                 </tr>
               </thead>
@@ -471,8 +465,8 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
                         {file.format}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-500 capitalize whitespace-nowrap">
-                      {file.provider}
+                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                      {file.updatedAt ? new Date(file.updatedAt).toLocaleDateString() : '—'}
                     </td>
                     <td className="pl-4 pr-6 py-3 text-right font-mono font-semibold text-slate-800 whitespace-nowrap tabular-nums">
                       {formatBytes(file.bytes)}
@@ -526,10 +520,10 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
                 }`}
               >
                 {aiUsage.quotaExceeded
-                  ? 'Monthly Limit Reached (Offline Fallback)'
-                  : `Active (${aiUsage.activeProvider.toUpperCase()}${
-                      aiUsage.usingByoKey ? ' · BYO Key' : ''
-                    })`}
+                  ? 'Monthly Limit Reached'
+                  : aiUsage.usingByoKey
+                    ? 'Active · BYO Key'
+                    : 'Active'}
               </span>
             </div>
           </div>
@@ -624,7 +618,7 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
                   <table className="w-full text-left text-xs">
                     <thead className="bg-slate-50/50 border-b border-slate-100 text-[10.5px] font-semibold text-slate-400 uppercase">
                       <tr>
-                        <th className="px-4 py-2.5">Provider</th>
+                        {aiUsage.usingByoKey && <th className="px-4 py-2.5">Provider</th>}
                         <th className="px-4 py-2.5">Model</th>
                         <th className="px-4 py-2.5 text-right">Requests</th>
                         <th className="px-4 py-2.5 text-right">Tokens (In / Out)</th>
@@ -634,11 +628,13 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
                     <tbody className="divide-y divide-slate-100">
                       {aiUsage.byModel.map((m) => (
                         <tr key={`${m.provider}_${m.model}`} className="hover:bg-slate-50/60">
-                          <td className="px-4 py-2.5 font-semibold text-slate-700 uppercase">
-                            {m.provider}
-                          </td>
+                          {aiUsage.usingByoKey && (
+                            <td className="px-4 py-2.5 font-semibold text-slate-700 uppercase">
+                              {m.provider}
+                            </td>
+                          )}
                           <td className="px-4 py-2.5 font-mono text-[11px] text-slate-900">
-                            {m.model}
+                            {formatModelLabel(m.model, aiUsage.usingByoKey)}
                           </td>
                           <td className="px-4 py-2.5 text-right font-semibold text-slate-800 tabular-nums">
                             {m.actions.toLocaleString()}
