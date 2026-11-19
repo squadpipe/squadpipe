@@ -1081,7 +1081,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             ) : (
               <MailOpen className="w-3.5 h-3.5 text-brand-600" />
             )}
-            <span>Intake Email Parser</span>
+            <span>Import from Email</span>
             {aiCapabilities.enabled && (
               <span className="px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-200/80 text-[9.5px] font-bold text-indigo-700 leading-none">
                 AI

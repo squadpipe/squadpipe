@@ -476,11 +476,11 @@ export class PublicIntakeService {
       await automationEngineService.recordLifecycleEvent({
         tenantId: requirement.tenantId,
         preferredCategories: [AutomationCategory.FEEDBACK, AutomationCategory.STALE_REQ],
-        ruleName: 'Public CV Form Intake',
+        ruleName: 'Online Job Application',
         target: `${createdResult.candidateName} -> ${requirement.code} (${requirement.opportunityTitle})`,
         conditionsMet: valid.submittedVendorName
           ? `Applied via shareable form by vendor "${valid.submittedVendorName}"`
-          : 'Applied directly via shareable CV intake form',
+          : 'Applied directly through the public application link',
         actionDispatched: 'Saved CV, linked applicant to requirement & notified recruiter',
       });
       await slaEngineService.evaluateSlaRadar(requirement.tenantId);

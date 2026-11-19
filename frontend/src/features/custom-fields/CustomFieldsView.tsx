@@ -395,7 +395,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
             <span>Form Fields &amp; Dropdown Lists</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Add custom questions to intake forms or customize standard dropdown options.
+            Add custom fields to your forms or customize standard dropdown options.
           </p>
         </div>
 
@@ -950,7 +950,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                   className="w-4 h-4 text-brand-600 rounded cursor-pointer"
                 />
                 <label htmlFor="req_field" className="text-xs text-slate-700 cursor-pointer">
-                  Mark this field as mandatory across intake forms
+                  Make this a required field on forms
                 </label>
               </div>
 
@@ -1120,7 +1120,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                   onChange={(e) => setEditingField({ ...editingField, required: e.target.checked })}
                   className="w-4 h-4 text-brand-600 rounded"
                 />
-                <span className="text-xs text-slate-700">Mandatory across intake forms</span>
+                <span className="text-xs text-slate-700">Required on forms</span>
               </label>
 
               <div className="pt-2 flex items-center justify-end gap-2">
@@ -1169,7 +1169,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                     Are you sure you want to delete{' '}
                     <span className="font-semibold text-slate-800">&ldquo;{confirmDelete.label}&rdquo;</span>?{' '}
                     {confirmDelete.type === 'field'
-                      ? 'This custom field will be removed from intake forms.'
+                      ? 'This custom field will be removed from your forms.'
                       : 'This option will no longer appear in the dropdown list.'}
                   </p>
                 </div>

@@ -239,7 +239,7 @@ export class UserService {
         desk: data.desk?.trim() || 'US IT Contract (C2C & W2)',
         rateMasked: data.rateMasked !== undefined ? Boolean(data.rateMasked) : true,
         status: UserStatus.INVITED,
-        workload: 'Intake Queue Pending'
+        workload: '0 Reqs • 0 Subs • 0 Placements'
       },
       select: {
         id: true,

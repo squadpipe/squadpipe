@@ -808,7 +808,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
               </span>
               <span className="inline-flex items-center gap-1 text-indigo-600 font-medium whitespace-nowrap">
                 <Globe className="w-3 h-3 shrink-0" />
-                <span>Form Intake</span>
+                <span>Applied Online</span>
               </span>
             </>
           )}
@@ -1377,7 +1377,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
               },
               {
                 id: 'details' as const,
-                label: 'Scope & Public Intake',
+                label: 'Job Scope & Apply Link',
                 icon: Globe,
                 badge: publicFormEnabled ? 'Live' : undefined,
               },
@@ -1929,7 +1929,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
         </div>
       )}
 
-      {/* TAB 3: Scope & Public Intake */}
+      {/* TAB 3: Job Scope & Apply Link */}
       {workspaceTab === 'details' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           <div className="lg:col-span-8 space-y-4">
@@ -1940,7 +1940,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                     <Link2 className="w-4 h-4" />
                   </div>
                   <div>
-                    <h2 className="font-bold text-slate-900 text-sm">Shareable Public CV Intake Form</h2>
+                    <h2 className="font-bold text-slate-900 text-sm">Public Job Application Link</h2>
                     <p className="text-[11px] text-slate-500">
                       Let candidates or partner vendors submit CVs directly into {reqView.code}.
                     </p>
@@ -2028,7 +2028,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                 </div>
               ) : (
                 <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 text-slate-500 leading-relaxed">
-                  Turn on the switch above to generate a client-safe public intake link. Internal rates and client contact emails always stay hidden.
+                  Turn on the switch above to create a shareable application link for candidates. Internal rates and client contact emails always stay hidden.
                 </div>
               )}
 
@@ -2105,7 +2105,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
           <aside className="lg:col-span-4 space-y-5">
             <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-3.5 text-xs">
               <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                Intake Activity
+                Online Applications
               </h3>
               <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
                 <span className="text-slate-600 font-medium">Public Form Submissions</span>
@@ -2115,7 +2115,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
               </div>
               <p className="text-[11px] text-slate-500 leading-relaxed">
                 Resumes submitted through this link are automatically parsed, duplicate-checked, and tagged{' '}
-                <strong className="font-semibold text-slate-700">Form Intake</strong> inside Applicants Pipeline.
+                <strong className="font-semibold text-slate-700">Applied Online</strong> inside Applicants Pipeline.
               </p>
               <button
                 type="button"

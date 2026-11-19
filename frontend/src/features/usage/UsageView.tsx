@@ -87,7 +87,7 @@ interface UsageViewProps {
 
 const AI_FEATURE_LABELS: Record<string, string> = {
   resume_parse: 'Resume Parse',
-  email_parse: 'Email Intake',
+  email_parse: 'Email to Job',
   capability_check: 'Capability Check',
   match_rank: 'Match Rank',
   pitch_draft: 'Pitch Draft',

@@ -256,7 +256,7 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
             </div>
             <div className="min-w-0">
               <div className="text-sm font-bold text-white truncate">{roleDetails.agencyName}</div>
-              <div className="text-[11px] text-slate-400">Candidate &amp; Partner CV Intake</div>
+              <div className="text-[11px] text-slate-400">Job Application &amp; Resume Upload</div>
             </div>
           </div>
           <span className="px-2.5 py-1 rounded-md bg-white/10 border border-white/10 text-[11px] font-semibold text-slate-200 whitespace-nowrap">

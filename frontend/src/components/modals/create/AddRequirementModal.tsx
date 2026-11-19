@@ -142,7 +142,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
                 Create New Job Requirement
               </h2>
               <div className="text-[11px] text-slate-400 mt-0.5">
-                Intake new client requisition, bill rate, location, and required technical skills.
+                Add a new job opening with client details, rates, location, and required skills.
               </div>
             </div>
           </div>

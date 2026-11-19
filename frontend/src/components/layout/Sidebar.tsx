@@ -12,8 +12,6 @@ import {
   Lock,
   LogOut,
   MoreVertical,
-  PanelLeftClose,
-  PanelLeftOpen,
   PieChart,
   SlidersHorizontal,
   Tags,
@@ -72,6 +70,63 @@ const RestrictedBadge: React.FC = () => (
     <Lock className="w-2.5 h-2.5" />
     <span>Restricted</span>
   </span>
+);
+
+const SidebarToggleIcon: React.FC<{ collapsed?: boolean; className?: string }> = ({
+  collapsed = false,
+  className = 'w-4 h-4',
+}) => (
+  <svg
+    viewBox="0 0 20 20"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    aria-hidden="true"
+  >
+    <rect
+      x="2.25"
+      y="3.25"
+      width="15.5"
+      height="13.5"
+      rx="2.75"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    />
+    <rect
+      x="3.75"
+      y="4.75"
+      width="3.75"
+      height="10.5"
+      rx="1.25"
+      fill="currentColor"
+      fillOpacity="0.32"
+    />
+    <line
+      x1="8.75"
+      y1="3.75"
+      x2="8.75"
+      y2="16.25"
+      stroke="currentColor"
+      strokeWidth="1.4"
+    />
+    {collapsed ? (
+      <path
+        d="M11.75 7.75L14 10L11.75 12.25"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    ) : (
+      <path
+        d="M14 7.75L11.75 10L14 12.25"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    )}
+  </svg>
 );
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -278,17 +333,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <>
       {/* Header with App Logo + Collapse/Close Control */}
       <div
-        className={`h-14 flex items-center border-b border-white/[0.08] bg-[#101211] flex-shrink-0 ${
-          compact ? 'px-2.5 justify-between gap-1' : 'px-4 justify-between gap-2'
+        className={`h-14 flex items-center border-b border-white/[0.08] bg-gradient-to-b from-[#191C1A] to-[#121514] flex-shrink-0 ${
+          compact ? 'px-2 justify-center' : 'px-4 justify-between gap-2'
         }`}
       >
         <div
-          className="flex items-center cursor-pointer group min-w-0 hover:opacity-90 transition-opacity"
+          className="flex items-center cursor-pointer group min-w-0 hover:opacity-95 transition-opacity"
           onClick={() => handleSelectNav('dashboard')}
           title="SquadPipe Dashboard"
         >
           {compact ? (
-            <BrandMark className="w-[24px] h-[24px] flex-shrink-0" surface="dark" />
+            <div className="p-1 rounded-lg bg-white/[0.04] border border-white/[0.08] shadow-xs">
+              <BrandMark className="w-[22px] h-[22px] flex-shrink-0" surface="dark" />
+            </div>
           ) : (
             <BrandLogo size="md" surface="dark" />
           )}
@@ -299,28 +356,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
             type="button"
             onClick={onCloseMobile}
             aria-label="Close navigation menu"
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            className="h-7 w-7 rounded-lg bg-white/[0.06] border border-white/[0.12] text-slate-300 hover:text-white hover:bg-white/[0.12] inline-flex items-center justify-center transition-all cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         ) : (
+          !compact &&
           onToggleCollapse && (
             <button
               type="button"
               onClick={onToggleCollapse}
-              title={compact ? 'Expand sidebar' : 'Collapse sidebar'}
-              aria-label={compact ? 'Expand sidebar' : 'Collapse sidebar'}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.07] transition-colors cursor-pointer flex-shrink-0"
+              title="Collapse sidebar"
+              aria-label="Collapse sidebar"
+              className="relative w-7 h-7 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.12] hover:border-white/[0.22] text-slate-300 hover:text-white inline-flex items-center justify-center shadow-xs transition-all cursor-pointer flex-shrink-0 group/toggle"
             >
-              {compact ? (
-                <PanelLeftOpen className="w-4 h-4" />
-              ) : (
-                <PanelLeftClose className="w-4 h-4" />
-              )}
+              <SidebarToggleIcon collapsed={false} className="w-4 h-4 transition-transform group-hover/toggle:scale-105" />
+              <span className="pointer-events-none opacity-0 group-hover/toggle:opacity-100 transition-opacity duration-150 absolute right-0 top-full mt-1.5 px-2 py-1 rounded-md bg-[#1F2422] border border-white/15 text-[10px] font-medium text-slate-200 whitespace-nowrap shadow-lg z-50">
+                Collapse sidebar
+              </span>
             </button>
           )
         )}
       </div>
+
+      {/* Prominent Expand Trigger in Collapsed Icon-Rail Mode */}
+      {compact && !mobileDrawer && onToggleCollapse && (
+        <div className="px-2.5 pt-2.5 flex justify-center">
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            title="Expand sidebar"
+            aria-label="Expand sidebar"
+            className="w-9 h-8 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.12] hover:border-white/[0.22] text-slate-300 hover:text-white flex items-center justify-center shadow-xs transition-all cursor-pointer group/toggle"
+          >
+            <SidebarToggleIcon collapsed={true} className="w-4 h-4 transition-transform group-hover/toggle:scale-105" />
+          </button>
+        </div>
+      )}
 
       {/* Navigation Sections */}
       <div className="flex-1 py-3 overflow-y-auto no-scrollbar space-y-4">
