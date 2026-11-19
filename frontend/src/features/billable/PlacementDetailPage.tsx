@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  AlertTriangle,
   ArrowRight,
   ArrowUpRight,
   Briefcase,
@@ -7,6 +8,7 @@ import {
   CalendarClock,
   CalendarPlus,
   CalendarX,
+  CheckCircle2,
   DollarSign,
   FileText,
   Handshake,
@@ -42,6 +44,7 @@ import {
   getDaysRemaining,
   getEffectiveStatus,
   getPlacementStatusMeta,
+  getVendorComplianceWarning,
   parseRate,
 } from './placementUtils';
 
@@ -186,12 +189,175 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
 
   const contactEmail = placement.email || linkedCandidate?.email || '';
   const contactPhone = placement.phone || linkedCandidate?.phone || '';
+  const vendorComplianceWarning = getVendorComplianceWarning(linkedVendor);
+  const coiDaysLeft = linkedVendor?.coiExpiryDate
+    ? getDaysRemaining(linkedVendor.coiExpiryDate)
+    : null;
   const connectedRecordsCount = [
     linkedCandidate,
     linkedClient,
     linkedVendor,
     linkedRequirement,
   ].filter(Boolean).length;
+
+  const agreementChecks: Array<{
+    key: string;
+    label: string;
+    detail: string;
+    status: 'ok' | 'warn' | 'danger';
+    actionLabel?: string;
+    onAction?: () => void;
+  }> = [
+    {
+      key: 'po',
+      label: 'PO / SOW Reference',
+      detail: placement.purchaseOrderNumber?.trim()
+        ? `${placement.purchaseOrderNumber.trim()} on file`
+        : 'Add PO or SOW reference for invoicing',
+      status: placement.purchaseOrderNumber?.trim() ? 'ok' : 'warn',
+      actionLabel:
+        !placement.purchaseOrderNumber?.trim() && onUpdatePlacement ? 'Add PO #' : undefined,
+      onAction: !placement.purchaseOrderNumber?.trim()
+        ? () => setEditingPlacement({ ...placement })
+        : undefined,
+    },
+    {
+      key: 'window',
+      label: 'Contract Window',
+      detail: ended
+        ? `Ended (${effectiveStatus})`
+        : daysLeft === null
+          ? 'Confirm contract start & end dates'
+          : daysLeft < 0
+            ? `Past end date by ${Math.abs(daysLeft)} day${Math.abs(daysLeft) === 1 ? '' : 's'}`
+            : daysLeft <= 30
+              ? `Expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`
+              : `${daysLeft} days remaining through ${placement.endDate}`,
+      status: ended
+        ? 'ok'
+        : daysLeft === null
+          ? 'warn'
+          : daysLeft < 0
+            ? 'danger'
+            : daysLeft <= 30
+              ? 'warn'
+              : 'ok',
+      actionLabel:
+        !ended && daysLeft !== null && daysLeft <= 30 && onExtendContract
+          ? 'Extend'
+          : undefined,
+      onAction:
+        !ended && daysLeft !== null && daysLeft <= 30 && onExtendContract
+          ? () => setExtendingPlacement(placement)
+          : undefined,
+    },
+    {
+      key: 'vendor',
+      label: linkedVendor || placement.vendorName ? 'Vendor MSA & COI' : 'Engagement Model',
+      detail: linkedVendor
+        ? `${linkedVendor.msa === 'Yes' || linkedVendor.msa === 'Active' ? 'MSA Signed' : 'MSA Pending Review'}${
+            linkedVendor.paymentTerms ? ` · ${linkedVendor.paymentTerms}` : ''
+          }${
+            linkedVendor.coiExpiryDate
+              ? coiDaysLeft !== null && coiDaysLeft < 0
+                ? ` · COI expired ${linkedVendor.coiExpiryDate}`
+                : ` · COI ${linkedVendor.coiExpiryDate}`
+              : ' · COI not set'
+          }`
+        : placement.vendorName
+          ? `${placement.vendorName} — link vendor record for MSA/COI`
+          : `${placement.placementType || 'Direct W2'} — no vendor MSA needed`,
+      status: linkedVendor
+        ? vendorComplianceWarning
+          ? coiDaysLeft !== null && coiDaysLeft < 0
+            ? 'danger'
+            : 'warn'
+          : 'ok'
+        : placement.vendorName
+          ? 'warn'
+          : 'ok',
+      actionLabel: linkedVendor && onOpenVendor ? 'Review' : undefined,
+      onAction: linkedVendor && onOpenVendor ? () => onOpenVendor(linkedVendor) : undefined,
+    },
+    {
+      key: 'contact',
+      label: 'Stakeholder Contacts',
+      detail:
+        contactEmail || contactPhone
+          ? [contactEmail, contactPhone].filter(Boolean).join(' · ')
+          : 'Missing consultant email and phone',
+      status: contactEmail || contactPhone ? 'ok' : 'warn',
+      actionLabel:
+        !(contactEmail || contactPhone) && onUpdatePlacement ? 'Edit' : undefined,
+      onAction: !(contactEmail || contactPhone)
+        ? () => setEditingPlacement({ ...placement })
+        : undefined,
+    },
+  ];
+
+  const readyCheckCount = agreementChecks.filter((item) => item.status === 'ok').length;
+
+  const quickLinkedEntities: Array<{
+    key: string;
+    role: string;
+    name: string;
+    meta: string;
+    icon: React.ComponentType<{ className?: string }>;
+    iconClass: string;
+    onOpen?: () => void;
+  }> = [
+    {
+      key: 'consultant',
+      role: 'Consultant',
+      name: placement.resourceName,
+      meta: linkedCandidate?.currentTitle || placement.skillRole,
+      icon: UserCheck,
+      iconClass: 'text-emerald-600 bg-emerald-50 border-emerald-200/70',
+      onOpen:
+        linkedCandidate && onOpenConsultant
+          ? () => onOpenConsultant(linkedCandidate)
+          : undefined,
+    },
+    {
+      key: 'client',
+      role: 'Client',
+      name: placement.customer,
+      meta: placement.customerContact || linkedClient?.location || 'Client account',
+      icon: Building2,
+      iconClass: 'text-brand-600 bg-brand-50 border-brand-200/70',
+      onOpen: linkedClient && onOpenClient ? () => onOpenClient(linkedClient) : undefined,
+    },
+    ...(linkedVendor || placement.vendorName
+      ? [
+          {
+            key: 'vendor',
+            role: 'Vendor',
+            name: linkedVendor?.name || placement.vendorName || 'Partner Vendor',
+            meta:
+              linkedVendor?.invoicingTerms ||
+              linkedVendor?.paymentTerms ||
+              'Subcontractor partner',
+            icon: Handshake,
+            iconClass: 'text-amber-600 bg-amber-50 border-amber-200/70',
+            onOpen:
+              linkedVendor && onOpenVendor ? () => onOpenVendor(linkedVendor) : undefined,
+          },
+        ]
+      : []),
+    ...(linkedRequirement
+      ? [
+          {
+            key: 'requirement',
+            role: 'Job Opening',
+            name: `${linkedRequirement.code} · ${linkedRequirement.opportunityTitle}`,
+            meta: linkedRequirement.status,
+            icon: Briefcase,
+            iconClass: 'text-slate-600 bg-slate-100 border-slate-200/80',
+            onOpen: onOpenRequirement ? () => onOpenRequirement(linkedRequirement) : undefined,
+          },
+        ]
+      : []),
+  ];
 
   const progressBarClass = ended
     ? 'bg-slate-400'
@@ -857,21 +1023,120 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
           </div>
 
           <aside className="lg:col-span-4 space-y-4">
-            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-3 text-xs">
-              <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                Linked Entities
-              </h3>
-              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
-                <span className="text-slate-600 font-medium">Connected Records</span>
-                <span className="font-bold font-mono text-slate-900">{connectedRecordsCount}</span>
+            {/* Agreement Readiness & Compliance Summary */}
+            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
+              <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-3.5 h-3.5 text-brand-600" />
+                  <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                    Agreement Readiness
+                  </h3>
+                </div>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono border ${
+                    readyCheckCount === agreementChecks.length
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-amber-50 text-amber-700 border-amber-200'
+                  }`}
+                >
+                  {readyCheckCount}/{agreementChecks.length} Verified
+                </span>
               </div>
-              <button
-                type="button"
-                onClick={() => setWorkspaceTab('records')}
-                className="w-full py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs cursor-pointer transition-colors"
-              >
-                View Connected Records &rarr;
-              </button>
+
+              <div className="divide-y divide-slate-100">
+                {agreementChecks.map((item) => (
+                  <div key={item.key} className="px-5 py-3 flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      {item.status === 'ok' ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertTriangle
+                          className={`w-4 h-4 shrink-0 mt-0.5 ${
+                            item.status === 'danger' ? 'text-rose-500' : 'text-amber-500'
+                          }`}
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <div className="font-semibold text-slate-900">{item.label}</div>
+                        <div className="text-[11px] text-slate-500 mt-0.5 [overflow-wrap:anywhere]">
+                          {item.detail}
+                        </div>
+                      </div>
+                    </div>
+                    {item.actionLabel && item.onAction && (
+                      <button
+                        type="button"
+                        onClick={item.onAction}
+                        className="text-[11px] font-semibold text-brand-600 hover:text-brand-700 hover:underline shrink-0 cursor-pointer"
+                      >
+                        {item.actionLabel}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Direct Quick-Jump Links for Connected Stakeholders & Opening */}
+            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
+              <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Layers className="w-3.5 h-3.5 text-brand-600" />
+                  <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                    Connected Records
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setWorkspaceTab('records')}
+                  className="text-[11px] font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
+                >
+                  Full Grid &rarr;
+                </button>
+              </div>
+
+              <div className="p-3 space-y-1.5">
+                {quickLinkedEntities.map((entity) => {
+                  const Icon = entity.icon;
+                  const rowInner = (
+                    <>
+                      <div
+                        className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${entity.iconClass}`}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="min-w-0 flex-1 text-left">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          {entity.role}
+                        </div>
+                        <div className="font-semibold text-slate-900 truncate">{entity.name}</div>
+                        <div className="text-[11px] text-slate-500 truncate">{entity.meta}</div>
+                      </div>
+                      {entity.onOpen && (
+                        <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-brand-600 shrink-0 transition-colors" />
+                      )}
+                    </>
+                  );
+
+                  return entity.onOpen ? (
+                    <button
+                      key={entity.key}
+                      type="button"
+                      onClick={entity.onOpen}
+                      className="w-full p-2.5 rounded-lg border border-transparent hover:border-slate-200 hover:bg-slate-50 flex items-center gap-2.5 transition-colors cursor-pointer group"
+                    >
+                      {rowInner}
+                    </button>
+                  ) : (
+                    <div
+                      key={entity.key}
+                      className="w-full p-2.5 rounded-lg bg-slate-50/70 flex items-center gap-2.5"
+                    >
+                      {rowInner}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {customFieldEntries.length > 0 && (

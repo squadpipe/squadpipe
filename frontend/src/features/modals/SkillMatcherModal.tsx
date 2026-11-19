@@ -12,6 +12,7 @@ interface SkillMatcherModalProps {
   onSubmitCandidate: (candidate: Candidate, requirement: Requirement) => Promise<void> | void;
   onAttachCandidates?: (requirement: Requirement, candidateIds: string[]) => Promise<void> | void;
   onOpenCsvImport?: (requirement: Requirement) => void;
+  onOpenResumeParser?: (requirement: Requirement) => void;
   showToast: (title: string, message: string, icon?: string) => void;
 }
 
@@ -25,6 +26,7 @@ export const SkillMatcherModal: React.FC<SkillMatcherModalProps> = ({
   onSubmitCandidate,
   onAttachCandidates,
   onOpenCsvImport,
+  onOpenResumeParser,
 }) => {
   return (
     <AttachBenchDrawer
@@ -38,6 +40,7 @@ export const SkillMatcherModal: React.FC<SkillMatcherModalProps> = ({
       onAttachCandidates={onAttachCandidates}
       onAssignCandidate={(req, cand) => onSubmitCandidate(cand, req)}
       onOpenCsvImport={onOpenCsvImport}
+      onOpenResumeParser={onOpenResumeParser}
     />
   );
 };

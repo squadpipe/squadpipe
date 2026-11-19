@@ -7,8 +7,6 @@ import {
   Calendar,
   Check,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   Copy,
   DollarSign,
   ExternalLink,
@@ -56,7 +54,7 @@ import {
   getStageIndex,
 } from '../../utils/stageStyles';
 import { useMasterTaxonomies } from '../../components/shared/DynamicCustomFieldsSection';
-import { SkillTag } from '../../components/shared/SkillTag';
+import { DetailExpandableSkillsBar } from '../../components/shared/DetailPageShell';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { ActionButton } from '../../components/shared/ActionButton';
@@ -105,6 +103,7 @@ interface RequirementDetailPageProps {
   onUpdateReq?: (req: Requirement) => Promise<void> | void;
   onRequirementUpdated?: (req: Requirement) => void;
   onOpenCsvImport?: (req: Requirement) => void;
+  onOpenResumeParser?: (req: Requirement) => void;
 }
 
 type ApplicantFilterTab = 'All' | 'Active' | 'Interview' | 'Selected' | 'Placed' | 'Closed';
@@ -213,6 +212,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   onUpdateReq,
   onRequirementUpdated,
   onOpenCsvImport,
+  onOpenResumeParser,
 }) => {
   const { formatRate, symbol: currencySymbol } = useCurrency();
   const aiCapabilities = useAiCapabilities();
@@ -248,7 +248,6 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   const [draftPublicDesc, setDraftPublicDesc] = useState('');
   const [copiedPublicLink, setCopiedPublicLink] = useState(false);
   const [publicFormError, setPublicFormError] = useState('');
-  const [showAllSkills, setShowAllSkills] = useState(false);
   const knownCandidatesRef = useRef<Map<string, Candidate>>(new Map());
   const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -283,7 +282,6 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     setDraftPublicDesc(requirement?.publicDescription || '');
     setCopiedPublicLink(false);
     setPublicFormError('');
-    setShowAllSkills(false);
   }, [requirement?.id]);
 
   useEffect(() => {
@@ -1457,57 +1455,21 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
       {workspaceTab === 'applicants' && (
         <div className="space-y-5">
           {skills.length > 0 && (
-            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow px-6 py-3.5 flex items-start justify-between gap-4 text-xs">
-              <div className="flex items-start gap-2.5 flex-wrap sm:flex-nowrap flex-1 min-w-0">
-                <span className="h-6 inline-flex items-center text-[10.5px] font-bold uppercase tracking-wider text-slate-400 shrink-0 whitespace-nowrap">
-                  Required Skills:
-                </span>
-                <div className="flex items-center flex-wrap gap-1.5 flex-1 min-w-0">
-                  {(showAllSkills ? skills : skills.slice(0, 10)).map((s, idx) => (
-                    <SkillTag key={idx} skill={s} className="!mr-0 !mb-0" />
-                  ))}
-                  {skills.length > 10 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowAllSkills((prev) => !prev)}
-                      className={`inline-flex items-center gap-1 text-[10.5px] px-2.5 py-0.5 rounded-full border font-semibold whitespace-nowrap cursor-pointer transition-colors ${
-                        showAllSkills
-                          ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100/80'
-                          : 'bg-brand-50 text-brand-700 border-brand-200 hover:bg-brand-100/80'
-                      }`}
-                    >
-                      {showAllSkills ? (
-                        <>
-                          <ChevronUp className="w-2.5 h-2.5 shrink-0" />
-                          <span>Show less</span>
-                        </>
-                      ) : (
-                        <>
-                          <ChevronDown className="w-2.5 h-2.5 shrink-0" />
-                          <span>+{skills.length - 10} more</span>
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {onUpdateReq && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditForm(reqView);
-                    setEditOpenPositions(String(reqView.openPositions || 1));
-                    setEditOpenPosError('');
-                    setIsEditing(true);
-                  }}
-                  className="h-6 inline-flex items-center gap-1 text-[11px] font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer shrink-0 whitespace-nowrap"
-                >
-                  <Pencil className="w-3 h-3" />
-                  <span>Edit skills</span>
-                </button>
-              )}
-            </div>
+            <DetailExpandableSkillsBar
+              label="Required Skills:"
+              skills={skills}
+              initialVisibleCount={10}
+              onEdit={
+                onUpdateReq
+                  ? () => {
+                      setEditForm(reqView);
+                      setEditOpenPositions(String(reqView.openPositions || 1));
+                      setEditOpenPosError('');
+                      setIsEditing(true);
+                    }
+                  : undefined
+              }
+            />
           )}
 
           {/* Full-Width Submitted Applicants Card */}
@@ -2229,6 +2191,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
         onAttachCandidates={onAttachCandidates}
         onAssignCandidate={(req, cand) => onAssignCandidate(req, cand)}
         onOpenCsvImport={onOpenCsvImport}
+        onOpenResumeParser={onOpenResumeParser}
         onCandidatesSeen={(loaded) => {
           for (const c of loaded) {
             if (c?.id) knownCandidatesRef.current.set(c.id, c);

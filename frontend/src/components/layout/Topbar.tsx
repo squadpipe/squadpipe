@@ -6,6 +6,7 @@ import {
   ChevronDown,
   FileSpreadsheet,
   Handshake,
+  Menu,
   Plus,
   UserPlus,
 } from 'lucide-react';
@@ -14,12 +15,14 @@ import { AnimatedPopover } from '../shared/MotionPrimitives';
 interface TopbarProps {
   currentView: string;
   canCreatePlacement?: boolean;
+  onOpenMobileMenu?: () => void;
   onOpenCreateModal: (type: 'consultant' | 'requirement' | 'client' | 'vendor' | 'placement') => void;
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
   currentView,
   canCreatePlacement = true,
+  onOpenMobileMenu,
   onOpenCreateModal,
 }) => {
   const [showQuickAddDropdown, setShowQuickAddDropdown] = useState(false);
@@ -68,10 +71,20 @@ export const Topbar: React.FC<TopbarProps> = ({
   };
 
   return (
-    <header className="h-14 bg-white border-b border-slate-200/80 flex items-center justify-between px-6 flex-shrink-0 z-40 select-none">
-      {/* View Title */}
-      <div className="flex items-center gap-3">
-        <h1 className="text-sm font-semibold text-slate-900 tracking-tight">
+    <header className="h-14 bg-white border-b border-slate-200/80 flex items-center justify-between px-4 sm:px-6 flex-shrink-0 z-40 select-none">
+      {/* View Title + Mobile Nav Trigger */}
+      <div className="flex items-center gap-2.5 min-w-0">
+        {onOpenMobileMenu && (
+          <button
+            type="button"
+            onClick={onOpenMobileMenu}
+            aria-label="Open navigation menu"
+            className="md:hidden p-1.5 -ml-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer flex-shrink-0"
+          >
+            <Menu className="w-4 h-4" />
+          </button>
+        )}
+        <h1 className="text-sm font-semibold text-slate-900 tracking-tight truncate">
           {getViewTitle(currentView)}
         </h1>
       </div>

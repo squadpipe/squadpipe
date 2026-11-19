@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
+import { ArrowLeft, Pencil } from 'lucide-react';
 import { SkillTag } from './SkillTag';
 
 export interface DetailBreadcrumbProps {
@@ -122,7 +122,7 @@ interface DetailExpandableSkillsBarProps {
 }
 
 /**
- * Expandable skill tags bar with subtle non-red expand/collapse control and top-right edit trigger.
+ * Expandable skill tags bar with an underlined text toggle and top-right edit trigger.
  */
 export const DetailExpandableSkillsBar: React.FC<DetailExpandableSkillsBarProps> = ({
   label = 'Skills:',
@@ -157,19 +157,9 @@ export const DetailExpandableSkillsBar: React.FC<DetailExpandableSkillsBarProps>
               <button
                 type="button"
                 onClick={() => setExpanded((prev) => !prev)}
-                className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200/80 text-slate-600 border border-slate-200/80 font-medium whitespace-nowrap cursor-pointer transition-colors"
+                className="ml-1 inline-flex items-center text-[11px] font-semibold text-brand-600 hover:text-brand-700 underline underline-offset-2 whitespace-nowrap cursor-pointer transition-colors"
               >
-                {expanded ? (
-                  <>
-                    <ChevronUp className="w-2.5 h-2.5 shrink-0" />
-                    <span>Show less</span>
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="w-2.5 h-2.5 shrink-0" />
-                    <span>+{hiddenCount} more</span>
-                  </>
-                )}
+                {expanded ? 'Show less' : `+${hiddenCount} more`}
               </button>
             )}
           </div>

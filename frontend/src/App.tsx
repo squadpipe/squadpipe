@@ -20,6 +20,12 @@ import {
   setWorkspaceBrand,
 } from './utils/workspaceBrand';
 import { mapCandidateFromApi, mapClientFromApi, mapRequirementFromApi, mapVendorFromApi } from './utils/entityMappers';
+import {
+  BrowserHistoryRouteState,
+  buildAppPath,
+  buildDocumentTitle,
+  parseAppRoute,
+} from './utils/appRoutes';
 import { buildCandidateFormData } from './utils/cvFiles';
 import { normalizeSlaBadgeClass } from './utils/stageStyles';
 
@@ -316,7 +322,26 @@ export const App: React.FC = () => {
     return match ? match[1] : null;
   }, []);
 
-  const [currentView, setCurrentView] = useState<string>('dashboard');
+  const initialRoute = React.useMemo(
+    () => (publicApplyToken ? { view: 'dashboard' } : parseAppRoute(window.location.pathname)),
+    [publicApplyToken]
+  );
+
+  const [currentView, setCurrentView] = useState<string>(() => initialRoute.view);
+  const [routeTarget, setRouteTarget] = useState<{ view: string; entityId?: string }>(
+    () => initialRoute
+  );
+  const [resolvingRouteId, setResolvingRouteId] = useState<string | null>(
+    () => initialRoute.entityId || null
+  );
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem('squadpipe_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
   const [globalSearch, setGlobalSearch] = useState<string>('');
   const [rateMasked, setRateMasked] = useState<boolean>(() => currentUser?.rateMasked ?? false);
   const [isSlaOpen, setIsSlaOpen] = useState<boolean>(false);
@@ -353,38 +378,89 @@ export const App: React.FC = () => {
     useState<BillablePlacement | null>(null);
   const [placementDetailReturnView, setPlacementDetailReturnView] = useState<string>('billable');
 
-  const handleOpenRequirementDetail = (req: Requirement, fromView?: string) => {
-    setReqDetailReturnView(
-      fromView || (currentView !== 'requirement_detail' ? currentView : reqDetailReturnView)
-    );
+  const handleToggleSidebarCollapse = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem('squadpipe_sidebar_collapsed', String(next));
+      } catch {
+        // Ignore storage errors in restricted environments
+      }
+      return next;
+    });
+  };
+
+  const pushRouteUrl = (
+    nextView: string,
+    options?: { entityId?: string; returnView?: string; replace?: boolean }
+  ) => {
+    if (publicApplyToken || (!authToken && !currentUserRef.current)) return;
+    const nextPath = buildAppPath(nextView, options?.entityId);
+    const historyState: BrowserHistoryRouteState = {
+      view: nextView,
+      entityId: options?.entityId,
+      returnView: options?.returnView,
+    };
+    if (options?.replace || window.location.pathname === nextPath) {
+      window.history.replaceState(historyState, '', nextPath);
+    } else {
+      window.history.pushState(historyState, '', nextPath);
+    }
+  };
+
+  const handleOpenRequirementDetail = (
+    req: Requirement,
+    fromView?: string,
+    options?: { skipHistory?: boolean }
+  ) => {
+    const returnView =
+      fromView || (currentView !== 'requirement_detail' ? currentView : reqDetailReturnView);
+    setReqDetailReturnView(returnView);
     setSelectedReqForDetail(req);
+    setResolvingRouteId(null);
+    setRouteTarget({ view: 'requirement_detail', entityId: req.id });
     setCurrentView('requirement_detail');
+    if (!options?.skipHistory) {
+      pushRouteUrl('requirement_detail', { entityId: req.id, returnView });
+    }
   };
 
   const handleOpenConsultantDetail = (
     cand: Candidate,
     startEditing = false,
-    fromView?: string
+    fromView?: string,
+    options?: { skipHistory?: boolean }
   ) => {
-    setCandDetailReturnView(
-      fromView || (currentView !== 'consultant_detail' ? currentView : candDetailReturnView)
-    );
+    const returnView =
+      fromView || (currentView !== 'consultant_detail' ? currentView : candDetailReturnView);
+    setCandDetailReturnView(returnView);
     setSelectedCandForDetail(cand);
     setCandDetailInitialEdit(Boolean(startEditing));
+    setResolvingRouteId(null);
+    setRouteTarget({ view: 'consultant_detail', entityId: cand.id });
     setCurrentView('consultant_detail');
+    if (!options?.skipHistory) {
+      pushRouteUrl('consultant_detail', { entityId: cand.id, returnView });
+    }
   };
 
   const handleOpenClientDetail = (
     client: Client,
     startEditing = false,
-    fromView?: string
+    fromView?: string,
+    options?: { skipHistory?: boolean }
   ) => {
-    setClientDetailReturnView(
-      fromView || (currentView !== 'client_detail' ? currentView : clientDetailReturnView)
-    );
+    const returnView =
+      fromView || (currentView !== 'client_detail' ? currentView : clientDetailReturnView);
+    setClientDetailReturnView(returnView);
     setSelectedClientForDetail(client);
     setClientDetailInitialEdit(Boolean(startEditing));
+    setResolvingRouteId(null);
+    setRouteTarget({ view: 'client_detail', entityId: client.id });
     setCurrentView('client_detail');
+    if (!options?.skipHistory) {
+      pushRouteUrl('client_detail', { entityId: client.id, returnView });
+    }
   };
 
   const handleOpenVendorDetail = (
@@ -394,27 +470,42 @@ export const App: React.FC = () => {
     options?: {
       initialTab?: 'consultants' | 'contacts' | 'placements' | 'terms';
       auditTask?: SlaTask | null;
+      skipHistory?: boolean;
     }
   ) => {
-    setVendorDetailReturnView(
-      fromView || (currentView !== 'vendor_detail' ? currentView : vendorDetailReturnView)
-    );
+    const returnView =
+      fromView || (currentView !== 'vendor_detail' ? currentView : vendorDetailReturnView);
+    setVendorDetailReturnView(returnView);
     setSelectedVendorForDetail(vendor);
     setVendorDetailInitialEdit(Boolean(startEditing));
     setVendorDetailInitialTab(options?.initialTab || (options?.auditTask ? 'terms' : 'consultants'));
     setVendorDetailAuditTask(options?.auditTask || null);
+    setResolvingRouteId(null);
+    setRouteTarget({ view: 'vendor_detail', entityId: vendor.id });
     setCurrentView('vendor_detail');
+    if (!options?.skipHistory) {
+      pushRouteUrl('vendor_detail', { entityId: vendor.id, returnView });
+    }
   };
 
-  const handleOpenPlacementDetail = (placement: BillablePlacement, fromView?: string) => {
-    setPlacementDetailReturnView(
-      fromView || (currentView !== 'placement_detail' ? currentView : placementDetailReturnView)
-    );
+  const handleOpenPlacementDetail = (
+    placement: BillablePlacement,
+    fromView?: string,
+    options?: { skipHistory?: boolean }
+  ) => {
+    const returnView =
+      fromView || (currentView !== 'placement_detail' ? currentView : placementDetailReturnView);
+    setPlacementDetailReturnView(returnView);
     setSelectedPlacementForDetail(placement);
+    setResolvingRouteId(null);
+    setRouteTarget({ view: 'placement_detail', entityId: placement.id });
     setCurrentView('placement_detail');
+    if (!options?.skipHistory) {
+      pushRouteUrl('placement_detail', { entityId: placement.id, returnView });
+    }
   };
 
-  const handleNavigateView = (nextView: string) => {
+  const handleNavigateView = (nextView: string, options?: { skipHistory?: boolean }) => {
     if (!['requirement_detail', 'consultant_detail', 'placement_detail'].includes(nextView)) {
       setSelectedReqForDetail(null);
     }
@@ -443,7 +534,12 @@ export const App: React.FC = () => {
     ) {
       setSelectedPlacementForDetail(null);
     }
+    setResolvingRouteId(null);
+    setRouteTarget({ view: nextView });
     setCurrentView(nextView);
+    if (!options?.skipHistory) {
+      pushRouteUrl(nextView);
+    }
   };
 
   // Selected items for context modals
@@ -621,7 +717,7 @@ export const App: React.FC = () => {
     }
   };
 
-  const fetchClients = async () => {
+  const fetchClients = async (): Promise<Client[]> => {
     try {
       const res = await apiClient.get('/clients');
       if (res.data?.data) {
@@ -629,10 +725,12 @@ export const App: React.FC = () => {
         setClients(mapped);
         setSidebarCounts((prev) => ({ ...prev, clients: mapped.length }));
         loadedEntities.current.add('clients');
+        return mapped;
       }
     } catch (e) {
       console.warn('API fetch clients:', e);
     }
+    return [];
   };
 
   const fetchVendors = async (): Promise<Vendor[]> => {
@@ -651,7 +749,7 @@ export const App: React.FC = () => {
     return [];
   };
 
-  const fetchPlacements = async () => {
+  const fetchPlacements = async (): Promise<BillablePlacement[]> => {
     try {
       const res = await apiClient.get('/placements');
       if (res.data?.data) {
@@ -659,10 +757,12 @@ export const App: React.FC = () => {
         setPlacements(mapped);
         setSidebarCounts((prev) => ({ ...prev, billable: mapped.length }));
         loadedEntities.current.add('placements');
+        return mapped;
       }
     } catch (e) {
       console.warn('API fetch placements:', e);
     }
+    return [];
   };
 
   const fetchUsers = async () => {
@@ -1090,6 +1190,311 @@ export const App: React.FC = () => {
     if (!authToken && !currentUser) return;
     loadEntitiesForView(currentView, isAdmin);
   }, [currentView, authToken]);
+
+  const routeStateRef = React.useRef({
+    requirements,
+    candidates,
+    clients,
+    vendors,
+    placements,
+    selectedReqForDetail,
+    selectedCandForDetail,
+    selectedClientForDetail,
+    selectedVendorForDetail,
+    selectedPlacementForDetail,
+  });
+  routeStateRef.current = {
+    requirements,
+    candidates,
+    clients,
+    vendors,
+    placements,
+    selectedReqForDetail,
+    selectedCandForDetail,
+    selectedClientForDetail,
+    selectedVendorForDetail,
+    selectedPlacementForDetail,
+  };
+
+  const routeHandlersRef = React.useRef({
+    handleNavigateView,
+    handleOpenRequirementDetail,
+    handleOpenConsultantDetail,
+    handleOpenClientDetail,
+    handleOpenVendorDetail,
+    handleOpenPlacementDetail,
+  });
+  routeHandlersRef.current = {
+    handleNavigateView,
+    handleOpenRequirementDetail,
+    handleOpenConsultantDetail,
+    handleOpenClientDetail,
+    handleOpenVendorDetail,
+    handleOpenPlacementDetail,
+  };
+
+  // Sync `/` -> `/dashboard` once authenticated (preserving query tokens like ?inviteToken=)
+  useEffect(() => {
+    if (publicApplyToken || (!authToken && !currentUser)) return;
+    if (window.location.pathname === '/' && !window.location.search) {
+      pushRouteUrl('dashboard', { replace: true });
+    }
+  }, [publicApplyToken, authToken, currentUser]);
+
+  // Keep browser document title aligned with active view or detail record
+  useEffect(() => {
+    if (publicApplyToken || (!authToken && !currentUser)) {
+      document.title = 'SquadPipe — Staffing Workflow Platform';
+      return;
+    }
+    let recordLabel: string | undefined;
+    if (currentView === 'requirement_detail' && selectedReqForDetail) {
+      recordLabel = selectedReqForDetail.code
+        ? `${selectedReqForDetail.code} · ${selectedReqForDetail.opportunityTitle}`
+        : selectedReqForDetail.opportunityTitle;
+    } else if (currentView === 'consultant_detail' && selectedCandForDetail) {
+      recordLabel = selectedCandForDetail.fullName;
+    } else if (currentView === 'client_detail' && selectedClientForDetail) {
+      recordLabel = selectedClientForDetail.name;
+    } else if (currentView === 'vendor_detail' && selectedVendorForDetail) {
+      recordLabel = selectedVendorForDetail.name;
+    } else if (currentView === 'placement_detail' && selectedPlacementForDetail) {
+      recordLabel =
+        selectedPlacementForDetail.resourceName || selectedPlacementForDetail.deployment;
+    }
+    document.title = buildDocumentTitle(currentView, recordLabel);
+  }, [
+    publicApplyToken,
+    authToken,
+    currentUser,
+    currentView,
+    selectedReqForDetail,
+    selectedCandForDetail,
+    selectedClientForDetail,
+    selectedVendorForDetail,
+    selectedPlacementForDetail,
+  ]);
+
+  // Support browser Back / Forward navigation via popstate
+  useEffect(() => {
+    if (publicApplyToken) return;
+    const handlePopState = () => {
+      if (!currentUserRef.current && !authToken) return;
+      const parsed = parseAppRoute(window.location.pathname);
+      const historyState = window.history.state as BrowserHistoryRouteState | null;
+      const returnView = historyState?.returnView;
+
+      if (!parsed.entityId) {
+        routeHandlersRef.current.handleNavigateView(parsed.view, { skipHistory: true });
+        return;
+      }
+
+      const stateSnapshot = routeStateRef.current;
+      const entityId = parsed.entityId;
+
+      if (parsed.view === 'requirement_detail') {
+        const matched = stateSnapshot.requirements.find((r) => r.id === entityId);
+        if (matched) {
+          routeHandlersRef.current.handleOpenRequirementDetail(matched, returnView, {
+            skipHistory: true,
+          });
+          return;
+        }
+        if (returnView) setReqDetailReturnView(returnView);
+        setSelectedReqForDetail(null);
+      } else if (parsed.view === 'consultant_detail') {
+        const matched = stateSnapshot.candidates.find((c) => c.id === entityId);
+        if (matched) {
+          routeHandlersRef.current.handleOpenConsultantDetail(matched, false, returnView, {
+            skipHistory: true,
+          });
+          return;
+        }
+        if (returnView) setCandDetailReturnView(returnView);
+        setSelectedCandForDetail(null);
+      } else if (parsed.view === 'client_detail') {
+        const matched = stateSnapshot.clients.find((c) => c.id === entityId);
+        if (matched) {
+          routeHandlersRef.current.handleOpenClientDetail(matched, false, returnView, {
+            skipHistory: true,
+          });
+          return;
+        }
+        if (returnView) setClientDetailReturnView(returnView);
+        setSelectedClientForDetail(null);
+      } else if (parsed.view === 'vendor_detail') {
+        const matched = stateSnapshot.vendors.find((v) => v.id === entityId);
+        if (matched) {
+          routeHandlersRef.current.handleOpenVendorDetail(matched, false, returnView, {
+            skipHistory: true,
+          });
+          return;
+        }
+        if (returnView) setVendorDetailReturnView(returnView);
+        setSelectedVendorForDetail(null);
+      } else if (parsed.view === 'placement_detail') {
+        const matched = stateSnapshot.placements.find((p) => p.id === entityId);
+        if (matched) {
+          routeHandlersRef.current.handleOpenPlacementDetail(matched, returnView, {
+            skipHistory: true,
+          });
+          return;
+        }
+        if (returnView) setPlacementDetailReturnView(returnView);
+        setSelectedPlacementForDetail(null);
+      }
+
+      setResolvingRouteId(entityId);
+      setRouteTarget(parsed);
+      setCurrentView(parsed.view);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [publicApplyToken, authToken]);
+
+  // Hydrate detail record on direct URL load, Cmd+R refresh, or uncached Back/Forward navigation
+  useEffect(() => {
+    if (publicApplyToken || (!authToken && !currentUser)) return;
+    const targetId = routeTarget.entityId;
+    if (!targetId) {
+      setResolvingRouteId(null);
+      return;
+    }
+
+    const snapshot = routeStateRef.current;
+    if (
+      (routeTarget.view === 'requirement_detail' &&
+        (snapshot.selectedReqForDetail?.id === targetId ||
+          snapshot.requirements.some((r) => r.id === targetId))) ||
+      (routeTarget.view === 'consultant_detail' &&
+        (snapshot.selectedCandForDetail?.id === targetId ||
+          snapshot.candidates.some((c) => c.id === targetId))) ||
+      (routeTarget.view === 'client_detail' &&
+        (snapshot.selectedClientForDetail?.id === targetId ||
+          snapshot.clients.some((c) => c.id === targetId))) ||
+      (routeTarget.view === 'vendor_detail' &&
+        (snapshot.selectedVendorForDetail?.id === targetId ||
+          snapshot.vendors.some((v) => v.id === targetId))) ||
+      (routeTarget.view === 'placement_detail' &&
+        (snapshot.selectedPlacementForDetail?.id === targetId ||
+          snapshot.placements.some((p) => p.id === targetId)))
+    ) {
+      if (routeTarget.view === 'requirement_detail' && !snapshot.selectedReqForDetail) {
+        const cached = snapshot.requirements.find((r) => r.id === targetId);
+        if (cached) {
+          routeHandlersRef.current.handleOpenRequirementDetail(cached, undefined, {
+            skipHistory: true,
+          });
+          return;
+        }
+      } else if (routeTarget.view === 'consultant_detail' && !snapshot.selectedCandForDetail) {
+        const cached = snapshot.candidates.find((c) => c.id === targetId);
+        if (cached) {
+          routeHandlersRef.current.handleOpenConsultantDetail(cached, false, undefined, {
+            skipHistory: true,
+          });
+          return;
+        }
+      } else if (routeTarget.view === 'client_detail' && !snapshot.selectedClientForDetail) {
+        const cached = snapshot.clients.find((c) => c.id === targetId);
+        if (cached) {
+          routeHandlersRef.current.handleOpenClientDetail(cached, false, undefined, {
+            skipHistory: true,
+          });
+          return;
+        }
+      } else if (routeTarget.view === 'vendor_detail' && !snapshot.selectedVendorForDetail) {
+        const cached = snapshot.vendors.find((v) => v.id === targetId);
+        if (cached) {
+          routeHandlersRef.current.handleOpenVendorDetail(cached, false, undefined, {
+            skipHistory: true,
+          });
+          return;
+        }
+      } else if (routeTarget.view === 'placement_detail' && !snapshot.selectedPlacementForDetail) {
+        const cached = snapshot.placements.find((p) => p.id === targetId);
+        if (cached) {
+          routeHandlersRef.current.handleOpenPlacementDetail(cached, undefined, {
+            skipHistory: true,
+          });
+          return;
+        }
+      }
+      setResolvingRouteId((prev) => (prev === targetId ? null : prev));
+      return;
+    }
+
+    let cancelled = false;
+    setResolvingRouteId(targetId);
+
+    const resolveDetailRoute = async () => {
+      try {
+        if (routeTarget.view === 'requirement_detail') {
+          const res = await apiClient.get(`/requirements/${encodeURIComponent(targetId)}`);
+          if (!cancelled && res.data?.data) {
+            const mapped = mapRequirementFromApi(res.data.data);
+            setRequirements((prev) =>
+              prev.some((r) => r.id === mapped.id)
+                ? prev.map((r) => (r.id === mapped.id ? mapped : r))
+                : [mapped, ...prev]
+            );
+            routeHandlersRef.current.handleOpenRequirementDetail(mapped, undefined, {
+              skipHistory: true,
+            });
+          }
+        } else if (routeTarget.view === 'consultant_detail') {
+          const res = await apiClient.get(`/candidates/${encodeURIComponent(targetId)}`);
+          if (!cancelled && res.data?.data) {
+            const mapped = mapCandidateFromApi(res.data.data);
+            setCandidates((prev) =>
+              prev.some((c) => c.id === mapped.id)
+                ? prev.map((c) => (c.id === mapped.id ? mapped : c))
+                : [mapped, ...prev]
+            );
+            routeHandlersRef.current.handleOpenConsultantDetail(mapped, false, undefined, {
+              skipHistory: true,
+            });
+          }
+        } else if (routeTarget.view === 'client_detail') {
+          const loaded = await fetchClients();
+          const matched = loaded.find((c) => c.id === targetId);
+          if (!cancelled && matched) {
+            routeHandlersRef.current.handleOpenClientDetail(matched, false, undefined, {
+              skipHistory: true,
+            });
+          }
+        } else if (routeTarget.view === 'vendor_detail') {
+          const loaded = await fetchVendors();
+          const matched = loaded.find((v) => v.id === targetId);
+          if (!cancelled && matched) {
+            routeHandlersRef.current.handleOpenVendorDetail(matched, false, undefined, {
+              skipHistory: true,
+            });
+          }
+        } else if (routeTarget.view === 'placement_detail') {
+          const loaded = await fetchPlacements();
+          const matched = loaded.find((p) => p.id === targetId);
+          if (!cancelled && matched) {
+            routeHandlersRef.current.handleOpenPlacementDetail(matched, undefined, {
+              skipHistory: true,
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('Deep-link route hydration:', e);
+      } finally {
+        if (!cancelled) {
+          setResolvingRouteId((prev) => (prev === targetId ? null : prev));
+        }
+      }
+    };
+
+    resolveDetailRoute();
+    return () => {
+      cancelled = true;
+    };
+  }, [routeTarget, authToken, currentUser]);
 
   // Ensure clients, users, and candidates are available when opening create or wizard modals
   useEffect(() => {
@@ -1778,7 +2183,7 @@ export const App: React.FC = () => {
       setActiveReq(matchedReq || requirements[0] || null);
       setIsMatcherModalOpen(true);
     } else if (action === 'billable') {
-      setCurrentView('billable');
+      handleNavigateView('billable');
     } else if (action === 'checklist' || task.relatedEntityType === 'vendor') {
       let vendorList = vendors;
       if (vendorList.length === 0 || !loadedEntities.current.has('vendors')) {
@@ -1955,6 +2360,25 @@ export const App: React.FC = () => {
       : sidebarCounts.activeRules,
   };
 
+  const isResolvingCurrentDetail =
+    Boolean(resolvingRouteId) &&
+    routeTarget.view === currentView &&
+    ((currentView === 'requirement_detail' &&
+      !requirements.some((r) => r.id === resolvingRouteId) &&
+      selectedReqForDetail?.id !== resolvingRouteId) ||
+      (currentView === 'consultant_detail' &&
+        !candidates.some((c) => c.id === resolvingRouteId) &&
+        selectedCandForDetail?.id !== resolvingRouteId) ||
+      (currentView === 'client_detail' &&
+        !clients.some((c) => c.id === resolvingRouteId) &&
+        selectedClientForDetail?.id !== resolvingRouteId) ||
+      (currentView === 'vendor_detail' &&
+        !vendors.some((v) => v.id === resolvingRouteId) &&
+        selectedVendorForDetail?.id !== resolvingRouteId) ||
+      (currentView === 'placement_detail' &&
+        !placements.some((p) => p.id === resolvingRouteId) &&
+        selectedPlacementForDetail?.id !== resolvingRouteId));
+
   return (
     <div className="h-screen w-full flex overflow-hidden text-slate-800 bg-[#FAFAFA]">
       {/* Toast Banner */}
@@ -2031,6 +2455,10 @@ export const App: React.FC = () => {
         canImportData={canManageDataOperations}
         onOpenProfile={() => setShowProfileModal(true)}
         onOpenSignOut={() => setShowSignOutModal(true)}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={handleToggleSidebarCollapse}
+        isMobileOpen={mobileSidebarOpen}
+        onCloseMobile={() => setMobileSidebarOpen(false)}
       />
 
       {/* Main Container */}
@@ -2040,6 +2468,7 @@ export const App: React.FC = () => {
           currentView={currentView}
           canCreatePlacement={!rateMasked}
           onOpenCreateModal={(type) => setActiveCreateModal(type)}
+          onOpenMobileMenu={() => setMobileSidebarOpen(true)}
         />
 
         {/* Dynamic View Body */}
@@ -2051,6 +2480,13 @@ export const App: React.FC = () => {
               </div>
             }
           >
+            {isResolvingCurrentDetail && (
+              <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-400">
+                <div className="w-6 h-6 rounded-full border-2 border-brand-600 border-t-transparent animate-spin" />
+                <p className="text-xs font-medium">Loading record details...</p>
+              </div>
+            )}
+
             {currentView === 'dashboard' && (
             <DashboardView
               requirements={requirements}
@@ -2104,7 +2540,7 @@ export const App: React.FC = () => {
             />
           )}
 
-          {currentView === 'requirement_detail' && (
+          {currentView === 'requirement_detail' && !isResolvingCurrentDetail && (
             <RequirementDetailPage
               requirement={
                 requirements.find((r) => r.id === selectedReqForDetail?.id) ||
@@ -2149,6 +2585,9 @@ export const App: React.FC = () => {
                     }
                   : undefined
               }
+              onOpenResumeParser={
+                canManageDataOperations ? () => setIsResumeModalOpen(true) : undefined
+              }
             />
           )}
 
@@ -2171,14 +2610,14 @@ export const App: React.FC = () => {
                     }
                   : undefined
               }
-              onNavigateToBillable={() => setCurrentView('billable')}
+              onNavigateToBillable={() => handleNavigateView('billable')}
               canEditCandidate={canManageDataOperations}
               onUpdateCandidate={canManageDataOperations ? handleUpdateCandidate : undefined}
               onDeleteCandidate={canManageDataOperations ? handleDeleteCandidate : undefined}
             />
           )}
 
-          {currentView === 'consultant_detail' && (
+          {currentView === 'consultant_detail' && !isResolvingCurrentDetail && (
             <ConsultantDetailPage
               candidate={
                 candidates.find((c) => c.id === selectedCandForDetail?.id) ||
@@ -2234,7 +2673,7 @@ export const App: React.FC = () => {
             />
           )}
 
-          {currentView === 'client_detail' && (
+          {currentView === 'client_detail' && !isResolvingCurrentDetail && (
             <ClientDetailPage
               client={
                 clients.find((c) => c.id === selectedClientForDetail?.id) ||
@@ -2278,7 +2717,7 @@ export const App: React.FC = () => {
             />
           )}
 
-          {currentView === 'vendor_detail' && (
+          {currentView === 'vendor_detail' && !isResolvingCurrentDetail && (
             <VendorDetailPage
               vendor={
                 vendors.find((v) => v.id === selectedVendorForDetail?.id) ||
@@ -2322,7 +2761,7 @@ export const App: React.FC = () => {
             />
           )}
 
-          {currentView === 'placement_detail' && (
+          {currentView === 'placement_detail' && !isResolvingCurrentDetail && (
             <PlacementDetailPage
               placement={
                 placements.find((p) => p.id === selectedPlacementForDetail?.id) ||
@@ -2556,7 +2995,7 @@ export const App: React.FC = () => {
               (isAdmin ? (
                 <SettingsView
                   activeTab="general"
-                  onTabChange={() => setCurrentView('settings_general')}
+                  onTabChange={() => handleNavigateView('settings_general')}
                   showToast={showToast}
                 />
               ) : (
@@ -2634,7 +3073,7 @@ export const App: React.FC = () => {
             : null
         }
         onImportComplete={handleCsvImportCompleted}
-        onNavigate={setCurrentView}
+        onNavigate={handleNavigateView}
         showToast={showToast}
       />
 
@@ -2672,6 +3111,14 @@ export const App: React.FC = () => {
                 setIsMatcherModalOpen(false);
                 setCsvImportTargetReq(req);
                 setIsCsvImportModalOpen(true);
+              }
+            : undefined
+        }
+        onOpenResumeParser={
+          canManageDataOperations
+            ? () => {
+                setIsMatcherModalOpen(false);
+                setIsResumeModalOpen(true);
               }
             : undefined
         }
