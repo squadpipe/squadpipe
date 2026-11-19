@@ -24,6 +24,7 @@ import {
 import { BillablePlacement, Candidate, SlaTask, Vendor } from '../../types';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
+import { ConfirmDeleteModal } from '../../components/shared/ConfirmDeleteModal';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
@@ -96,8 +97,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
     paymentTerms: vendor?.paymentTerms || 'Net 30',
     invoicingTerms: vendor?.invoicingTerms || 'Bi-weekly',
   });
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [workspaceTab, setWorkspaceTab] = useState<'consultants' | 'contacts' | 'placements' | 'terms'>(
     initialAuditTask ? 'terms' : initialTab
   );
@@ -109,8 +109,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
   useEffect(() => {
     setIsEditing(Boolean(initialEditing));
     setShowAuditModal(Boolean(initialAuditTask));
-    setShowDeleteConfirm(false);
-    setIsDeleting(false);
+    setShowDeleteModal(false);
     setWorkspaceTab(initialAuditTask ? 'terms' : initialTab);
     setCandidateSearch('');
     contactsSort.resetSort();
@@ -965,60 +964,39 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
                       Remove from Staffing Vendors.
                     </p>
                   </div>
-                  {!showDeleteConfirm && (
-                    <button
-                      type="button"
-                      onClick={() => setShowDeleteConfirm(true)}
-                      className="px-3 py-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 font-semibold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Delete</span>
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteModal(true)}
+                    className="px-3 py-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 font-semibold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
+                  </button>
                 </div>
-                {showDeleteConfirm && (
-                  <div className="space-y-2.5 pt-2 border-t border-slate-100">
-                    <div className="flex items-start gap-2 text-rose-700 text-[11px]">
-                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                      <span>
-                        Permanently remove <strong>{vendor.name}</strong> from Staffing Vendors?
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        disabled={isDeleting}
-                        onClick={() => setShowDeleteConfirm(false)}
-                        className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-[11px] font-semibold cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                      <ActionButton
-                        type="button"
-                        loading={isDeleting}
-                        loadingText="Deleting..."
-                        onClick={async () => {
-                          setIsDeleting(true);
-                          try {
-                            await onDeleteVendor(vendor);
-                            onBack();
-                          } catch {
-                            // Error toast displayed by parent caller
-                          } finally {
-                            setIsDeleting(false);
-                          }
-                        }}
-                        className="flex-1 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-semibold cursor-pointer"
-                      >
-                        Confirm Delete
-                      </ActionButton>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
           </aside>
         </div>
+      )}
+
+      {onDeleteVendor && (
+        <ConfirmDeleteModal
+          isOpen={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          title="Delete Vendor?"
+          description={
+            <>
+              Permanently remove <strong className="text-slate-800">{vendor.name}</strong> from
+              Staffing Vendors?
+            </>
+          }
+          warningText="This cannot be undone."
+          confirmLabel="Delete Vendor"
+          onConfirm={async () => {
+            await onDeleteVendor(vendor);
+            onBack();
+          }}
+        />
       )}
 
       {onUpdateVendor && (

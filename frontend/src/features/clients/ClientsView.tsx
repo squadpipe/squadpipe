@@ -15,6 +15,7 @@ import { Client, Requirement, BillablePlacement } from '../../types';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { ConfirmDeleteModal } from '../../components/shared/ConfirmDeleteModal';
 import { EditClientModal } from '../../components/modals/edit/EditClientModal';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapClientFromApi } from '../../utils/entityMappers';
@@ -27,7 +28,7 @@ interface ClientsViewProps {
   onOpenAddClient: () => void;
   onSelectClient: (client: Client, startEditing?: boolean) => void;
   onClientUpdated?: (updatedClient: Client) => void;
-  onDeleteClient?: (client: Client) => void;
+  onDeleteClient?: (client: Client) => Promise<void> | void;
   showToast: (title: string, message: string, icon?: string) => void;
 }
 
@@ -49,6 +50,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   const [totalClients, setTotalClients] = useState(clients.length);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
 
   const debouncedSearch = useDebounce(search, 300);
 
@@ -325,7 +327,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                           {onDeleteClient && (
                             <button
                               type="button"
-                              onClick={() => onDeleteClient(client)}
+                              onClick={() => setClientToDelete(client)}
                               title="Delete client"
                               className="p-1.5 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                             >
@@ -366,6 +368,28 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
         }}
         showToast={showToast}
       />
+
+      {onDeleteClient && (
+        <ConfirmDeleteModal
+          isOpen={Boolean(clientToDelete)}
+          onClose={() => setClientToDelete(null)}
+          title="Delete Client?"
+          description={
+            clientToDelete ? (
+              <>
+                Permanently remove <strong className="text-slate-800">{clientToDelete.name}</strong>{' '}
+                from your Client Directory?
+              </>
+            ) : null
+          }
+          warningText="This cannot be undone."
+          confirmLabel="Delete Client"
+          onConfirm={async () => {
+            if (!clientToDelete) return;
+            await onDeleteClient(clientToDelete);
+          }}
+        />
+      )}
     </section>
   );
 };

@@ -308,18 +308,19 @@ function getStageColors(stage?: string): { bg: RgbColor; border: RgbColor; text:
   return { bg: PALETTE.pillBg, border: PALETTE.borderMedium, text: PALETTE.slateText };
 }
 
-function redactCandidateContacts(text: string): string {
+function maskCandidateContacts(text: string): string {
   return String(text || '')
-    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[Email Redacted]')
-    .replace(/(?:\+?\d{1,3}[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}/g, '[Phone Redacted]');
+    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[Email hidden]')
+    .replace(/(?:\+?\d{1,3}[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}/g, '[Phone hidden]');
 }
 
 export interface ResumePdfOptions {
+  masked?: boolean;
   blind?: boolean;
 }
 
 /**
- * Downloads the generated Consultant Profile Brief PDF cleanly in the browser.
+ * Downloads the generated Candidate Profile PDF cleanly in the browser.
  */
 export function downloadCandidateResumePdf(
   candidate: Candidate,
@@ -327,10 +328,11 @@ export function downloadCandidateResumePdf(
   brandOverride?: Partial<WorkspaceBrand>,
   options?: ResumePdfOptions
 ): string {
+  const isMasked = Boolean(options?.masked ?? options?.blind);
   const blob = generateCandidateResumePdf(candidate, formattedRate, brandOverride, options);
   const url = URL.createObjectURL(blob);
   const safeName = (candidate.fullName || 'Consultant').replace(/\s+/g, '_');
-  const fileName = `${safeName}${options?.blind ? '_Blind_Brief' : '_Profile_Brief'}.pdf`;
+  const fileName = `${safeName}${isMasked ? '_Masked_Profile' : '_Profile_Brief'}.pdf`;
   const link = document.createElement('a');
   link.href = url;
   link.download = fileName;
@@ -351,7 +353,7 @@ export function generateCandidateResumePdf(
   brandOverride?: Partial<WorkspaceBrand>,
   options?: ResumePdfOptions
 ): Blob {
-  const isBlind = Boolean(options?.blind);
+  const isMasked = Boolean(options?.masked ?? options?.blind);
   const brand: WorkspaceBrand = {
     ...getWorkspaceBrand(),
     ...(brandOverride || {}),
@@ -455,7 +457,7 @@ export function generateCandidateResumePdf(
 
   drawText(
     cmds,
-    isBlind ? 'BLIND CONSULTANT BRIEF' : 'CONSULTANT BRIEF',
+    isMasked ? 'MASKED CANDIDATE PROFILE' : 'CANDIDATE PROFILE',
     RIGHT_X,
     761,
     7.6,
@@ -549,15 +551,15 @@ export function generateCandidateResumePdf(
       x: MARGIN_X + c1W + contactGap,
       w: c2W,
       label: 'EMAIL ADDRESS',
-      value: isBlind
-        ? 'Redacted (Represented by Agency)'
+      value: isMasked
+        ? 'Hidden - Contact Staffing Team'
         : candidate.email || 'Available upon request',
     },
     {
       x: MARGIN_X + c1W + contactGap + c2W + contactGap,
       w: c3W,
       label: 'DIRECT PHONE',
-      value: isBlind ? 'Redacted' : candidate.phone || 'Available upon request',
+      value: isMasked ? 'Hidden' : candidate.phone || 'Available upon request',
     },
   ];
 
@@ -599,7 +601,7 @@ export function generateCandidateResumePdf(
     summarySection && summarySection.items.length > 0
       ? summarySection.items.map((l) => {
           const cleaned = cleanExtractedResumeText(l.replace(/^[•\-\s]+/, ''));
-          return isBlind ? redactCandidateContacts(cleaned) : cleaned;
+          return isMasked ? maskCandidateContacts(cleaned) : cleaned;
         })
       : [
           `${candidate.currentTitle || 'Technology Consultant'}${
@@ -734,7 +736,7 @@ export function generateCandidateResumePdf(
         const extractedLine = cleanExtractedResumeText(
           isBullet ? rawLine.slice(1).trim() : rawLine
         );
-        const cleanedLine = isBlind ? redactCandidateContacts(extractedLine) : extractedLine;
+        const cleanedLine = isMasked ? maskCandidateContacts(extractedLine) : extractedLine;
         const textMaxW = isBullet ? CONTENT_WIDTH - 16 : CONTENT_WIDTH - 4;
         const wrapped = wrapText(cleanedLine, textMaxW, 9.0, false);
 
@@ -802,7 +804,7 @@ export function generateCandidateResumePdf(
     drawText(
       pageCmds,
       truncateTextToWidth(
-        `Structured consultant brief prepared by ${brandName} (CRM summary - not original candidate CV)`,
+        `Candidate summary prepared by ${brandName} (formatted profile sheet - not the original CV)`,
         430,
         7.0,
         false

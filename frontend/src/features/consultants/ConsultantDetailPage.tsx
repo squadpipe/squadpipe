@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   BadgeCheck,
@@ -21,8 +20,6 @@ import {
   Phone,
   Search,
   Send,
-  Shield,
-  ShieldAlert,
   ShieldCheck,
   Trash2,
   UserCheck,
@@ -47,7 +44,8 @@ import {
   useTableSort,
 } from '../../utils/tableSort';
 import { StatusBadge } from '../../components/shared/StatusBadge';
-import { ActionButton } from '../../components/shared/ActionButton';
+import { ConfirmDeleteModal } from '../../components/shared/ConfirmDeleteModal';
+import { MaskedPdfToggle } from '../../components/shared/MaskedPdfControl';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { PreparePitchModal } from '../../components/modals/PreparePitchModal';
@@ -124,9 +122,8 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
   const [reqFilterQuery, setReqFilterQuery] = useState('');
   const [submittingReqId, setSubmittingReqId] = useState<string | null>(null);
 
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isBlindPdf, setIsBlindPdf] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isMaskedPdf, setIsMaskedPdf] = useState(false);
   const [pitchTarget, setPitchTarget] = useState<{
     requirement: Requirement;
     submission: RequirementSubmission;
@@ -141,9 +138,8 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
     setShowQuickSubmitDropdown(false);
     setReqFilterQuery('');
     setSubmittingReqId(null);
-    setShowDeleteConfirm(false);
-    setIsDeleting(false);
-    setIsBlindPdf(false);
+    setShowDeleteModal(false);
+    setIsMaskedPdf(false);
     setPitchTarget(null);
     setWorkspaceTab('resume');
     setSubSearch('');
@@ -344,12 +340,16 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
 
   const downloadProfileBriefPdf = () => {
     const fileName = downloadCandidateResumePdf(candidate, formattedRate, brand, {
-      blind: isBlindPdf,
+      masked: isMaskedPdf,
     });
 
     showToast(
-      isBlindPdf ? 'Blind Profile PDF Downloaded' : 'Profile Brief Downloaded',
-      `Exported ${brandName} ${isBlindPdf ? 'blind (contact-redacted) brief' : 'consultant brief'} (${fileName}) for ${candidate.fullName}.`,
+      isMaskedPdf ? 'Masked Profile PDF Downloaded' : 'Candidate Profile Downloaded',
+      `Downloaded ${candidate.fullName}'s ${
+        isMaskedPdf
+          ? 'masked profile sheet (personal email and phone hidden)'
+          : 'summary profile sheet'
+      } (${fileName}).`,
       'fa-solid fa-file-arrow-down text-emerald-500'
     );
   };
@@ -401,7 +401,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
               }`}
             />
             <span>
-              {hasStoredOriginalCv ? 'Original CV Stored' : 'CRM Profile Brief'}
+              {hasStoredOriginalCv ? 'Original CV Stored' : 'Profile Summary'}
             </span>
           </div>
         }
@@ -467,28 +467,22 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
               </button>
             )}
 
-            <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white overflow-hidden">
-              <label
-                title="Hide candidate email & phone on exported Profile PDF"
-                className="px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer select-none hover:bg-slate-50 border-r border-slate-200"
-              >
-                <input
-                  type="checkbox"
-                  checked={isBlindPdf}
-                  onChange={(e) => setIsBlindPdf(e.target.checked)}
-                  className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
-                />
-                <Shield className="w-3 h-3 text-slate-500" />
-                <span>Blind PDF</span>
-              </label>
+            <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white">
+              <MaskedPdfToggle
+                checked={isMaskedPdf}
+                onChange={setIsMaskedPdf}
+                compact
+                popoverPlacement="bottom"
+                popoverAlign="left"
+              />
               <button
                 type="button"
                 onClick={downloadProfileBriefPdf}
-                title={`Export branded ${brandName} consultant brief PDF (summary only — not the original CV)`}
-                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                title={`Download formatted ${brandName} candidate summary PDF for client sharing`}
+                className="px-3 py-1.5 rounded-r-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5 text-slate-300" />
-                <span>{isBlindPdf ? 'Blind Profile PDF' : 'Profile PDF'}</span>
+                <span>{isMaskedPdf ? 'Masked Profile PDF' : 'Profile PDF'}</span>
               </button>
             </div>
 
@@ -723,11 +717,10 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
           <div className="flex items-start gap-2.5 rounded-xl bg-white border border-slate-200/80 px-5 py-3 text-[11px] text-slate-600 card-shadow">
             <Info className="w-3.5 h-3.5 text-brand-600 mt-0.5 shrink-0" />
             <span>
-              This is a <strong className="font-semibold text-slate-900">{brandName}</strong>{' '}
-              summary profile brief generated from CRM records
+              This candidate summary was prepared from their profile details
               {hasStoredOriginalCv
-                ? ' — use Original CV above to download the stored file.'
-                : ' — not an original attached CV. Exporting downloads a branded client brief.'}
+                ? ' — click Original CV above anytime to download the resume file they uploaded.'
+                : ' — click Profile PDF above to download a clean summary sheet to share with clients.'}
             </span>
           </div>
 
@@ -1279,105 +1272,53 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
 
             {onDeleteCandidate && (
               <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-3 text-xs">
-                {!showDeleteConfirm ? (
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="font-bold text-slate-900">Profile Lifecycle</h3>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        Remove profile and submission records.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowDeleteConfirm(true)}
-                      className="shrink-0 px-3 py-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 font-semibold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Delete</span>
-                    </button>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-slate-900">Profile Lifecycle</h3>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Remove profile and submission records.
+                    </p>
                   </div>
-                ) : (
-                  <>
-                    <div>
-                      <h3 className="font-bold text-slate-900">Profile Lifecycle</h3>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        Remove this consultant profile and associated requirement submissions.
-                      </p>
-                    </div>
-                    {isBillable ? (
-                      <div className="space-y-2.5">
-                        <div className="flex items-start gap-2 text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3 text-[11px]">
-                          <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
-                          <span>
-                            Cannot delete a billable consultant. Remove their active placement under
-                            Billable Consultants first.
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setShowDeleteConfirm(false)}
-                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-[11px] font-semibold cursor-pointer"
-                          >
-                            Close
-                          </button>
-                          {onNavigateToBillable && (
-                            <button
-                              type="button"
-                              onClick={onNavigateToBillable}
-                              className="px-3 py-1.5 rounded-lg bg-brand-600 text-white text-[11px] font-semibold cursor-pointer"
-                            >
-                              Go to Billable
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-2.5 pt-1">
-                        <div className="flex items-start gap-2 text-rose-700 text-[11px]">
-                          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                          <span>
-                            Permanently delete <strong>{candidate.fullName}</strong>? This removes
-                            associated submission records.
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            disabled={isDeleting}
-                            onClick={() => setShowDeleteConfirm(false)}
-                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-[11px] font-semibold cursor-pointer"
-                          >
-                            Cancel
-                          </button>
-                          <ActionButton
-                            type="button"
-                            loading={isDeleting}
-                            loadingText="Deleting..."
-                            onClick={async () => {
-                              setIsDeleting(true);
-                              try {
-                                await onDeleteCandidate(candidate);
-                                onBack();
-                              } catch {
-                                // Error toast displayed by parent caller
-                              } finally {
-                                setIsDeleting(false);
-                              }
-                            }}
-                            className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-semibold cursor-pointer"
-                          >
-                            Confirm Delete
-                          </ActionButton>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteModal(true)}
+                    className="shrink-0 px-3 py-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 font-semibold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
         </div>
+      )}
+
+      {onDeleteCandidate && (
+        <ConfirmDeleteModal
+          isOpen={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          title={isBillable ? 'Active Placement Protected' : 'Delete Consultant?'}
+          description={
+            <>
+              Permanently remove <strong className="text-slate-800">{candidate.fullName}</strong> from
+              your roster?
+            </>
+          }
+          warningText="This cannot be undone and removes associated job submissions."
+          confirmLabel="Delete Consultant"
+          blockedMessage={
+            isBillable
+              ? 'This consultant currently has a placement record. End or remove their placement under Billable Consultants before deleting this profile.'
+              : undefined
+          }
+          blockedActionLabel="Go to Billable Consultants"
+          onBlockedAction={onNavigateToBillable}
+          onConfirm={async () => {
+            await onDeleteCandidate(candidate);
+            onBack();
+          }}
+        />
       )}
 
       {onUpdateCandidate && (

@@ -5,6 +5,7 @@ import { Vendor, VendorContact } from '../../types';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { ConfirmDeleteModal } from '../../components/shared/ConfirmDeleteModal';
 import { EditVendorModal } from '../../components/modals/edit/EditVendorModal';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapVendorFromApi } from '../../utils/entityMappers';
@@ -16,7 +17,7 @@ interface VendorsViewProps {
   onSelectVendor: (vendor: Vendor, startEditing?: boolean) => void;
   canEditVendor?: boolean;
   onUpdateVendor?: (vendor: Vendor) => Promise<void> | void;
-  onDeleteVendor?: (vendor: Vendor) => void;
+  onDeleteVendor?: (vendor: Vendor) => Promise<void> | void;
 }
 
 export const VendorsView: React.FC<VendorsViewProps> = ({
@@ -43,6 +44,7 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
   const [totalRows, setTotalRows] = useState(vendors.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
+  const [vendorToDelete, setVendorToDelete] = useState<Vendor | null>(null);
 
   const debouncedSearch = useDebounce(search, 150);
 
@@ -328,7 +330,7 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                         {onDeleteVendor && (
                           <button
                             type="button"
-                            onClick={() => onDeleteVendor(v)}
+                            onClick={() => setVendorToDelete(v)}
                             title="Delete vendor"
                             className="p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
                           >
@@ -364,6 +366,28 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
           isOpen={Boolean(editingVendor)}
           onClose={() => setEditingVendor(null)}
           onUpdateVendor={onUpdateVendor}
+        />
+      )}
+
+      {onDeleteVendor && (
+        <ConfirmDeleteModal
+          isOpen={Boolean(vendorToDelete)}
+          onClose={() => setVendorToDelete(null)}
+          title="Delete Vendor?"
+          description={
+            vendorToDelete ? (
+              <>
+                Permanently remove <strong className="text-slate-800">{vendorToDelete.name}</strong>{' '}
+                from Staffing Vendors?
+              </>
+            ) : null
+          }
+          warningText="This cannot be undone."
+          confirmLabel="Delete Vendor"
+          onConfirm={async () => {
+            if (!vendorToDelete) return;
+            await onDeleteVendor(vendorToDelete);
+          }}
         />
       )}
     </section>

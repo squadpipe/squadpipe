@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  AlertTriangle,
   ArrowLeft,
   Briefcase,
   Building2,
@@ -23,6 +22,7 @@ import { apiClient } from '../../config/api.config';
 import { BillablePlacement, Client, Requirement } from '../../types';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
+import { ConfirmDeleteModal } from '../../components/shared/ConfirmDeleteModal';
 import {
   formatMissingFieldsMessage,
   getMissingFieldLabels,
@@ -88,8 +88,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
     isPrimary: false,
   });
 
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isDeletingClient, setIsDeletingClient] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [workspaceTab, setWorkspaceTab] = useState<'requisitions' | 'contacts' | 'placements' | 'account'>('requisitions');
   const [reqFilter, setReqFilter] = useState<'All' | 'Open' | 'Closed'>('All');
   const [reqSearch, setReqSearch] = useState('');
@@ -100,8 +99,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
   useEffect(() => {
     setIsEditingClient(Boolean(initialEditing));
     setShowAddContact(false);
-    setShowDeleteConfirm(false);
-    setIsDeletingClient(false);
+    setShowDeleteModal(false);
     setWorkspaceTab('requisitions');
     setReqFilter('All');
     setReqSearch('');
@@ -1024,60 +1022,39 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                       Remove from Client Directory.
                     </p>
                   </div>
-                  {!showDeleteConfirm && (
-                    <button
-                      type="button"
-                      onClick={() => setShowDeleteConfirm(true)}
-                      className="px-3 py-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 font-semibold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Delete</span>
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteModal(true)}
+                    className="px-3 py-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 font-semibold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
+                  </button>
                 </div>
-                {showDeleteConfirm && (
-                  <div className="space-y-2.5 pt-2 border-t border-slate-100">
-                    <div className="flex items-start gap-2 text-rose-700 text-[11px]">
-                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                      <span>
-                        Permanently remove <strong>{client.name}</strong> from Client Directory?
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        disabled={isDeletingClient}
-                        onClick={() => setShowDeleteConfirm(false)}
-                        className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-[11px] font-semibold cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                      <ActionButton
-                        type="button"
-                        loading={isDeletingClient}
-                        loadingText="Deleting..."
-                        onClick={async () => {
-                          setIsDeletingClient(true);
-                          try {
-                            await onDeleteClient(client);
-                            onBack();
-                          } catch {
-                            // Error toast displayed by parent caller
-                          } finally {
-                            setIsDeletingClient(false);
-                          }
-                        }}
-                        className="flex-1 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-semibold cursor-pointer"
-                      >
-                        Confirm Delete
-                      </ActionButton>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
           </aside>
         </div>
+      )}
+
+      {onDeleteClient && (
+        <ConfirmDeleteModal
+          isOpen={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          title="Delete Client?"
+          description={
+            <>
+              Permanently remove <strong className="text-slate-800">{client.name}</strong> from your
+              Client Directory?
+            </>
+          }
+          warningText="This cannot be undone."
+          confirmLabel="Delete Client"
+          onConfirm={async () => {
+            await onDeleteClient(client);
+            onBack();
+          }}
+        />
       )}
 
       <EditClientModal

@@ -11,7 +11,6 @@ import {
   Mail,
   RefreshCw,
   Save,
-  Shield,
   Sparkles,
   X,
 } from 'lucide-react';
@@ -22,6 +21,7 @@ import { downloadOriginalCandidateCv } from '../../utils/cvFiles';
 import { downloadCandidateResumePdf } from '../../utils/pdfGenerator';
 import { useAiCapabilities, useWorkspaceBrand } from '../../utils/workspaceBrand';
 import { APPLE_EASE, AnimatedDrawer } from '../shared/MotionPrimitives';
+import { MaskedPdfToggle } from '../shared/MaskedPdfControl';
 
 export type PitchPurposeOption = 'client_pitch' | 'interview_followup';
 export type PitchToneOption = 'PROFESSIONAL' | 'HIGH_IMPACT' | 'TECHNICAL_FOCUS';
@@ -114,7 +114,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
   const [saveStatusText, setSaveStatusText] = useState<'Saved' | ''>('');
   const [draftError, setDraftError] = useState('');
   const [copiedTarget, setCopiedTarget] = useState<'subject' | 'body' | null>(null);
-  const [isBlindPdf, setIsBlindPdf] = useState(false);
+  const [isMaskedPdf, setIsMaskedPdf] = useState(false);
   const [isDownloadingCv, setIsDownloadingCv] = useState(false);
   const latestRequestIdRef = useRef(0);
 
@@ -234,7 +234,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
     setRecipientEmail('');
     setCopiedTarget(null);
     setDraftError('');
-    setIsBlindPdf(false);
+    setIsMaskedPdf(false);
     setAiUsed(false);
     setIsCached(false);
     setIsDirty(false);
@@ -361,11 +361,11 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
   const handleDownloadProfilePdf = () => {
     if (!candidate) return;
     const fileName = downloadCandidateResumePdf(candidate, formattedRate, brand, {
-      blind: isBlindPdf,
+      masked: isMaskedPdf,
     });
     showToast?.(
-      isBlindPdf ? 'Blind Profile PDF Downloaded' : 'Profile Brief Downloaded',
-      `Exported ${fileName} for attachment.`,
+      isMaskedPdf ? 'Masked PDF Downloaded' : 'Profile PDF Downloaded',
+      `Saved ${fileName} so you can attach it to your email.`,
       'fa-solid fa-file-arrow-down text-emerald-500'
     );
   };
@@ -781,7 +781,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                   </div>
                 </div>
 
-                {/* Attachment Shortcuts & Blind PDF Control */}
+                {/* Attachment Shortcuts & Masked PDF Control */}
                 <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-4 space-y-3">
                   <div className="flex items-start gap-2 text-[11px] text-slate-600">
                     <Info className="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" />
@@ -793,16 +793,14 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
 
                   {candidate && (
                     <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1 border-t border-slate-200/60">
-                      <label className="inline-flex items-center gap-2 text-[11px] font-semibold text-slate-700 cursor-pointer select-none pt-1">
-                        <input
-                          type="checkbox"
-                          checked={isBlindPdf}
-                          onChange={(e) => setIsBlindPdf(e.target.checked)}
-                          className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                      <div className="pt-1">
+                        <MaskedPdfToggle
+                          checked={isMaskedPdf}
+                          onChange={setIsMaskedPdf}
+                          popoverPlacement="top"
+                          popoverAlign="left"
                         />
-                        <Shield className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Blind / Redacted PDF (hide email &amp; phone)</span>
-                      </label>
+                      </div>
 
                       <div className="flex items-center gap-2 flex-wrap pt-1">
                         <button
@@ -811,7 +809,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                           className="h-7 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-800 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                         >
                           <FileText className="w-3.5 h-3.5 text-brand-600" />
-                          <span>{isBlindPdf ? 'Download Blind PDF' : 'Download Profile PDF'}</span>
+                          <span>{isMaskedPdf ? 'Download Masked PDF' : 'Download Profile PDF'}</span>
                         </button>
 
                         {hasStoredOriginalCv && (

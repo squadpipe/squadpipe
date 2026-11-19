@@ -2061,6 +2061,7 @@ export const App: React.FC = () => {
     } catch (e: any) {
       console.warn('API delete client:', e);
       showApiErrorToast(e, 'Delete Failed', `Could not delete ${client.name}.`);
+      throw e;
     }
   };
 
@@ -2074,6 +2075,7 @@ export const App: React.FC = () => {
     } catch (e: any) {
       console.warn('API delete vendor:', e);
       showApiErrorToast(e, 'Delete Failed', `Could not delete ${vendor.name}.`);
+      throw e;
     }
   };
 

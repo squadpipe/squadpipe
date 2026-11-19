@@ -57,7 +57,7 @@ import { useMasterTaxonomies } from '../../components/shared/DynamicCustomFields
 import { DetailExpandableSkillsBar } from '../../components/shared/DetailPageShell';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { MaskedValue } from '../../components/shared/MaskedValue';
-import { ActionButton } from '../../components/shared/ActionButton';
+import { ConfirmDeleteModal } from '../../components/shared/ConfirmDeleteModal';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { CustomSelect } from '../../components/shared/CustomSelect';
@@ -228,7 +228,10 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   const [pitchTargetSub, setPitchTargetSub] = useState<RequirementSubmission | null>(null);
   const [showBenchPicker, setShowBenchPicker] = useState(false);
   const [busySubId, setBusySubId] = useState<string | null>(null);
-  const [confirmDetachId, setConfirmDetachId] = useState<string | null>(null);
+  const [subToDetach, setSubToDetach] = useState<{
+    sub: RequirementSubmission;
+    displayName: string;
+  } | null>(null);
   const [editingNotesSub, setEditingNotesSub] = useState<RequirementSubmission | null>(null);
   const [notesModalMode, setNotesModalMode] = useState<'notes' | 'interview' | 'closed'>('notes');
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -271,7 +274,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     setEvaluatingSubId(null);
     setPitchTargetSub(null);
     setShowBenchPicker(false);
-    setConfirmDetachId(null);
+    setSubToDetach(null);
     setConfirmDeleteNoteId(null);
     setEditingNotesSub(null);
     setEditingNoteId(null);
@@ -1002,41 +1005,6 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     displayName,
     subNotes,
   }: PreparedApplicantRow) => {
-    if (confirmDetachId === sub.id && !isLegacy && onDetachSubmission) {
-      return (
-        <div className="inline-flex items-center gap-2 h-7 bg-rose-50 border border-rose-200 rounded-lg px-2.5 whitespace-nowrap">
-          <span className="text-[11px] font-medium text-rose-700">Detach?</span>
-          <ActionButton
-            type="button"
-            loading={busySubId === sub.id}
-            loadingText="Removing..."
-            spinnerClassName="w-2.5 h-2.5 animate-spin flex-shrink-0"
-            onClick={async () => {
-              if (busySubId === sub.id) return;
-              setBusySubId(sub.id);
-              try {
-                await onDetachSubmission(reqView, sub.id);
-                setConfirmDetachId(null);
-              } finally {
-                setBusySubId(null);
-              }
-            }}
-            className="text-[11px] font-bold text-rose-700 hover:underline cursor-pointer"
-          >
-            Remove
-          </ActionButton>
-          <span className="text-rose-200">|</span>
-          <button
-            type="button"
-            onClick={() => setConfirmDetachId(null)}
-            className="text-[11px] font-semibold text-slate-600 hover:text-slate-800 cursor-pointer"
-          >
-            Cancel
-          </button>
-        </div>
-      );
-    }
-
     const showAiBtn = !isLegacy && aiCapabilities.enabled;
     const showNotesBtn = !isLegacy && Boolean(onUpdateSubmissionNotes);
     const showDetachBtn = !isLegacy && Boolean(onDetachSubmission);
@@ -1127,9 +1095,9 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
             {showDetachBtn && (
               <button
                 type="button"
-                onClick={() => setConfirmDetachId(sub.id)}
-                title={`Detach ${displayName} from requirement`}
-                aria-label={`Detach ${displayName}`}
+                onClick={() => setSubToDetach({ sub, displayName })}
+                title={`Remove ${displayName} from requirement`}
+                aria-label={`Remove ${displayName}`}
                 className="px-2 h-full inline-flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -2301,6 +2269,29 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
         rateMasked={rateMasked}
         initialStage={pitchTargetSub?.stage}
       />
+
+      {onDetachSubmission && (
+        <ConfirmDeleteModal
+          isOpen={Boolean(subToDetach)}
+          onClose={() => setSubToDetach(null)}
+          title="Remove Candidate from Requirement?"
+          description={
+            subToDetach ? (
+              <>
+                Remove <strong className="text-slate-800">{subToDetach.displayName}</strong> from{' '}
+                <strong className="text-slate-800">{reqView.code}</strong> ({reqView.opportunityTitle})?
+              </>
+            ) : null
+          }
+          warningText="Their candidate profile stays saved in your roster."
+          confirmLabel="Remove Candidate"
+          loadingText="Removing..."
+          onConfirm={async () => {
+            if (!subToDetach) return;
+            await onDetachSubmission(reqView, subToDetach.sub.id);
+          }}
+        />
+      )}
     </section>
   );
 };
