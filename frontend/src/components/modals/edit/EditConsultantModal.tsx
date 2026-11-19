@@ -9,6 +9,7 @@ import {
   DynamicCustomFieldsSection,
   useMasterTaxonomies,
 } from '../../shared/DynamicCustomFieldsSection';
+import { AnimatedModal } from '../../shared/MotionPrimitives';
 
 const PIPELINE_STAGE_OPTIONS = [
   'Available / Bench',
@@ -53,12 +54,10 @@ export const EditConsultantModal: React.FC<EditConsultantModalProps> = ({
     }
   }, [candidate, isOpen]);
 
-  if (!isOpen || !candidate || !editForm) return null;
-
   const workAuthOptions = Array.from(
     new Set([
       ...(taxonomies.workAuth || ['US Citizen', 'Green Card', 'H-1B', 'TN Visa', 'OPT']),
-      ...(editForm.workAuth ? [editForm.workAuth] : []),
+      ...(editForm?.workAuth ? [editForm.workAuth] : []),
     ])
   ).filter(Boolean);
 
@@ -71,7 +70,7 @@ export const EditConsultantModal: React.FC<EditConsultantModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSaving) return;
+    if (isSaving || !editForm) return;
     setIsSaving(true);
     setEditCvError('');
     try {
@@ -86,14 +85,15 @@ export const EditConsultantModal: React.FC<EditConsultantModalProps> = ({
   };
 
   return (
-    <div
-      onClick={handleClose}
-      className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in"
+    <AnimatedModal
+      isOpen={Boolean(isOpen && candidate && editForm)}
+      onBackdropClick={handleClose}
+      zIndexClass="z-50"
+      panelClassName="bg-white rounded-xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
+      ariaLabel="Edit Consultant"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col animate-fade-in max-h-[92vh]"
-      >
+      {candidate && editForm && (
+        <>
         <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shrink-0">
@@ -390,7 +390,8 @@ export const EditConsultantModal: React.FC<EditConsultantModalProps> = ({
             </ActionButton>
           </div>
         </form>
-      </div>
-    </div>
+        </>
+      )}
+    </AnimatedModal>
   );
 };

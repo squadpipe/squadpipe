@@ -4,6 +4,7 @@ import { Vendor, VendorContact } from '../../../types';
 import { ActionButton } from '../../shared/ActionButton';
 import { CustomSelect } from '../../shared/CustomSelect';
 import { DynamicCustomFieldsSection } from '../../shared/DynamicCustomFieldsSection';
+import { AnimatedModal } from '../../shared/MotionPrimitives';
 
 export const buildInitialVendorContacts = (v: Vendor): VendorContact[] =>
   v.contacts && v.contacts.length > 0
@@ -58,11 +59,9 @@ export const EditVendorModal: React.FC<EditVendorModalProps> = ({
     }
   }, [vendor, isOpen]);
 
-  if (!isOpen || !vendor || !editForm) return null;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSaving) return;
+    if (isSaving || !editForm) return;
 
     const contacts = (editForm.contacts || []).filter(
       (c) => c.fullName.trim() || c.email.trim()
@@ -88,14 +87,15 @@ export const EditVendorModal: React.FC<EditVendorModalProps> = ({
   };
 
   return (
-    <div
-      onClick={() => !isSaving && onClose()}
-      className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in"
+    <AnimatedModal
+      isOpen={Boolean(isOpen && vendor && editForm)}
+      onBackdropClick={() => !isSaving && onClose()}
+      zIndexClass="z-50"
+      panelClassName="bg-white rounded-xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
+      ariaLabel="Edit Vendor Partner"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col animate-fade-in max-h-[92vh]"
-      >
+      {vendor && editForm && (
+        <>
         <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shrink-0">
@@ -382,7 +382,8 @@ export const EditVendorModal: React.FC<EditVendorModalProps> = ({
             </ActionButton>
           </div>
         </form>
-      </div>
-    </div>
+        </>
+      )}
+    </AnimatedModal>
   );
 };

@@ -16,7 +16,7 @@ import { useCurrency } from '../../utils/currency';
 import { getWorkspaceBrandSlug, useWorkspaceBrand } from '../../utils/workspaceBrand';
 import { downloadSampleCandidatesCsv, parseCandidateCsvText } from '../../utils/csvCandidates';
 import { mapCandidateFromApi, mapRequirementFromApi } from '../../utils/entityMappers';
-import { ModalPortal } from '../shared/ModalPortal';
+import { AnimatedModal } from '../shared/MotionPrimitives';
 
 export interface CsvImportResult {
   candidates: Candidate[];
@@ -77,8 +77,6 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
       attachedRequirement: null,
     });
   }, [isOpen, lockedRequirement?.id]);
-
-  if (!isOpen) return null;
 
   const targetRequirementId = lockedRequirement?.id || '';
 
@@ -208,17 +206,16 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   };
 
   return (
-    <ModalPortal>
-      <div
-        onClick={() => {
-          if (!isImporting) onClose();
-        }}
-        className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[60] flex items-center justify-center p-4 animate-fade-in select-none"
-      >
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="bg-white rounded-xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col animate-scale-up max-h-[90vh]"
-        >
+    <AnimatedModal
+      isOpen={isOpen}
+      onBackdropClick={() => {
+        if (!isImporting) onClose();
+      }}
+      zIndexClass="z-[60]"
+      backdropClassName="bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 select-none"
+      panelClassName="bg-white rounded-xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]"
+      ariaLabel="Import Candidates from Spreadsheet"
+    >
           <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
             <div className="flex items-center gap-2.5 min-w-0">
               <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -442,8 +439,6 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
               </div>
             )}
           </div>
-        </div>
-      </div>
-    </ModalPortal>
+    </AnimatedModal>
   );
 };

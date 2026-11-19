@@ -23,6 +23,7 @@ import { Candidate } from '../../types';
 import { formatRateDisplay, useCurrency } from '../../utils/currency';
 import { useAiCapabilities } from '../../utils/workspaceBrand';
 import { mapCandidateFromApi } from '../../utils/entityMappers';
+import { AnimatedModal } from '../shared/MotionPrimitives';
 import { CustomSelect } from '../shared/CustomSelect';
 import {
   ALLOWED_CV_ACCEPT,
@@ -210,8 +211,6 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
     resetModalState();
     onClose();
   };
-
-  if (!isOpen) return null;
 
   const updateBulkItem = (id: string, patch: Partial<BulkQueueItem>) => {
     setBulkItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
@@ -508,8 +507,14 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
   const bulkProgressPct = bulkTotal > 0 ? Math.round((bulkProcessedCount / bulkTotal) * 100) : 0;
 
   return (
-    <div onClick={handleClose} className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-fade-in select-none">
-      <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-xl shadow-2xl max-w-5xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-scale-up">
+    <AnimatedModal
+      isOpen={isOpen}
+      onBackdropClick={handleClose}
+      zIndexClass="z-50"
+      backdropClassName="bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto select-none"
+      panelClassName="bg-white rounded-xl shadow-2xl max-w-5xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
+      ariaLabel="Add Consultant from Resume"
+    >
         {/* Modal Header matching Prototype lines 760-776 */}
         <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between gap-3 bg-[#141615] text-white">
           <div className="flex items-center gap-3">
@@ -1071,8 +1076,6 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
               </>
             )}
           </div>
-        </div>
-      </div>
-    </div>
+    </AnimatedModal>
   );
 };

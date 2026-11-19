@@ -1393,21 +1393,19 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
         />
       )}
 
-      {pitchTarget && (
-        <PreparePitchModal
-          isOpen={Boolean(pitchTarget)}
-          onClose={() => setPitchTarget(null)}
-          submissionId={pitchTarget.submission.id}
-          requirementCode={pitchTarget.requirement.code}
-          requirementTitle={pitchTarget.requirement.opportunityTitle}
-          companyName={pitchTarget.requirement.companyName}
-          candidate={candidate}
-          fallbackCandidateName={candidate.fullName}
-          rateMasked={rateMasked}
-          initialStage={pitchTarget.submission.stage}
-          showToast={showToast}
-        />
-      )}
+      <PreparePitchModal
+        isOpen={Boolean(pitchTarget)}
+        onClose={() => setPitchTarget(null)}
+        submissionId={pitchTarget?.submission.id || ''}
+        requirementCode={pitchTarget?.requirement.code || ''}
+        requirementTitle={pitchTarget?.requirement.opportunityTitle || ''}
+        companyName={pitchTarget?.requirement.companyName}
+        candidate={candidate}
+        fallbackCandidateName={candidate.fullName}
+        rateMasked={rateMasked}
+        initialStage={pitchTarget?.submission.stage}
+        showToast={showToast}
+      />
     </section>
   );
 };

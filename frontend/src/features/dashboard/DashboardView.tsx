@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
+import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 import {
   Requirement,
   Candidate,
@@ -777,15 +778,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* Edit Requisition Modal */}
-      {editingReq && (
-        <div
-          onClick={() => setEditingReq(null)}
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up"
-          >
+      <AnimatedModal
+        isOpen={Boolean(editingReq)}
+        onBackdropClick={() => setEditingReq(null)}
+        zIndexClass="z-50"
+        panelClassName="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
+        ariaLabel="Edit Requisition"
+      >
+        {editingReq && (
+          <>
             <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-mono font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
@@ -898,20 +899,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </ActionButton>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </AnimatedModal>
 
       {/* Delete Requisition Confirmation Modal */}
-      {reqToDelete && (
-        <div
-          onClick={() => setReqToDelete(null)}
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up"
-          >
+      <AnimatedModal
+        isOpen={Boolean(reqToDelete)}
+        onBackdropClick={() => setReqToDelete(null)}
+        zIndexClass="z-50"
+        panelClassName="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden"
+        ariaLabel="Delete Requirement"
+      >
+        {reqToDelete && (
             <div className="p-6 space-y-4">
               <div className="flex items-start gap-3.5">
                 <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center flex-shrink-0">
@@ -963,9 +963,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </ActionButton>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+        )}
+      </AnimatedModal>
     </section>
   );
 };

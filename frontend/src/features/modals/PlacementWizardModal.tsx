@@ -7,6 +7,7 @@ import { getStageBadgeClass } from '../../utils/stageStyles';
 import { SearchableSelectInput } from '../../components/shared/SearchableSelectInput';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { getVendorComplianceWarning } from '../billable/placementUtils';
+import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 
 interface PlacementWizardModalProps {
   isOpen: boolean;
@@ -146,8 +147,6 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
     return () => document.removeEventListener('mousedown', onOutside);
   }, [consultantMenuOpen]);
 
-  if (!isOpen) return null;
-
   const bill = Number(formData.billRate) || 0;
   const pay = Number(formData.payRate) || 0;
   const spread = bill - pay;
@@ -246,14 +245,14 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
   };
 
   return (
-    <div
-      onClick={onClose}
-      className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+    <AnimatedModal
+      isOpen={isOpen}
+      onBackdropClick={onClose}
+      zIndexClass="z-[60]"
+      backdropClassName="bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+      panelClassName="bg-white rounded-2xl max-w-4xl w-full border border-slate-200 card-shadow overflow-hidden flex flex-col max-h-[90vh]"
+      ariaLabel="Placement Activation and Margin Lock Wizard"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl max-w-4xl w-full border border-slate-200 card-shadow overflow-hidden flex flex-col max-h-[90vh]"
-      >
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
           <div className="flex items-center gap-3">
@@ -671,8 +670,6 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
               </span>
             </button>
           </div>
-        </div>
-      </div>
-    </div>
+    </AnimatedModal>
   );
 };

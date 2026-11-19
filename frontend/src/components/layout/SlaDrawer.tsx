@@ -17,6 +17,7 @@ import { SlaTask } from '../../types';
 import { StatusBadge } from '../shared/StatusBadge';
 import { getSlaDotClass } from '../../utils/stageStyles';
 import { useAiCapabilities } from '../../utils/workspaceBrand';
+import { AnimatedDrawer } from '../shared/MotionPrimitives';
 
 interface SlaDrawerProps {
   isOpen: boolean;
@@ -51,7 +52,14 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
   const [copiedTaskId, setCopiedTaskId] = useState<string | null>(null);
   const [expandedDraftIds, setExpandedDraftIds] = useState<Record<string, boolean>>({});
 
-  if (!isOpen) return null;
+  const filteredTasks = tasks.filter((t) => {
+    const normalizedCat = String(t.category || '').toUpperCase();
+    if (activeTab === 'All') return !t.done;
+    if (activeTab === 'Completed') return t.done;
+    return !t.done && normalizedCat === activeTab;
+  });
+
+  const pendingCount = tasks.filter((t) => !t.done).length;
 
   const handleCopyDraftMessage = async (task: SlaTask) => {
     const payload = task.agentPayload;
@@ -68,15 +76,6 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
     }
   };
 
-  const filteredTasks = tasks.filter((t) => {
-    const normalizedCat = String(t.category || '').toUpperCase();
-    if (activeTab === 'All') return !t.done;
-    if (activeTab === 'Completed') return t.done;
-    return !t.done && normalizedCat === activeTab;
-  });
-
-  const pendingCount = tasks.filter((t) => !t.done).length;
-
   const handleRefresh = async () => {
     if (!onEvaluateSla || isEvaluating) return;
     setIsEvaluating(true);
@@ -88,15 +87,14 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
-      />
-
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-md bg-white border-l border-slate-200 card-shadow flex flex-col">
+    <AnimatedDrawer
+      isOpen={isOpen}
+      onBackdropClick={onClose}
+      zIndexClass="z-50"
+      backdropClassName="bg-slate-900/40 backdrop-blur-sm flex justify-end pl-10"
+      panelClassName="w-screen max-w-md bg-white h-full border-l border-slate-200 card-shadow flex flex-col overflow-hidden"
+      ariaLabel="Action Center"
+    >
           {/* Header */}
           <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
             <div className="flex items-center gap-3">
@@ -359,9 +357,7 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
               Auto-Checking
             </span>
           </div>
-        </div>
-      </div>
-    </div>
+    </AnimatedDrawer>
   );
 };
 

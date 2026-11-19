@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LogOut, ShieldCheck, X } from 'lucide-react';
 import { User } from '../../types';
 import { ActionButton } from '../shared/ActionButton';
+import { AnimatedModal } from '../shared/MotionPrimitives';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -40,10 +41,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     setIsSaving(false);
   }, [currentUser, isOpen]);
 
-  if (!isOpen || !currentUser) return null;
-
   const handleSave = async () => {
-    if (isSaving) return;
+    if (isSaving || !currentUser) return;
     if (!formData.name.trim() || !formData.email.trim()) {
       showToast('Validation Error', 'Full name and email address are required.', 'fa-solid fa-circle-exclamation text-rose-500');
       return;
@@ -73,14 +72,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     .slice(0, 2);
 
   return (
-    <div
-      onClick={onClose}
-      className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in select-none"
+    <AnimatedModal
+      isOpen={Boolean(isOpen && currentUser)}
+      onBackdropClick={onClose}
+      zIndexClass="z-50"
+      backdropClassName="bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 select-none"
+      panelClassName="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden flex flex-col"
+      ariaLabel="My Profile"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden flex flex-col"
-      >
         {/* Header */}
         <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white">
           <div className="flex items-center gap-2.5">
@@ -192,8 +191,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             Save Changes
           </ActionButton>
         </div>
-      </div>
-    </div>
+    </AnimatedModal>
   );
 };
 

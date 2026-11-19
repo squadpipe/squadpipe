@@ -203,28 +203,26 @@ export async function selectOrGeneratePitchDraftPure(params: {
   const agencyName = String(params.agencyName || '').trim() || 'SquadPipe Staffing';
   const cacheMap = normalizePitchCacheMap(params.existingCache);
   const maskSuffix = rateMasked ? ':masked' : ':unmasked';
-  const savedDraftKeys = Object.keys(cacheMap)
-    .filter((k) => k.endsWith(maskSuffix))
-    .map((k) => k.slice(0, -maskSuffix.length));
+  const reqCodeTrimmed = String(params.requirement.code || '').trim();
+  const isEntryFresh = (entry: SavedPitchDraftEntry | undefined): entry is SavedPitchDraftEntry => {
+    if (!entry || (!entry.subject && !entry.bodyText)) return false;
+    const hasStaleOfflineArtifacts =
+      !entry.aiUsed &&
+      !entry.manuallyEdited &&
+      ((reqCodeTrimmed && entry.bodyText.includes(`(${reqCodeTrimmed})`)) ||
+        /\((?:Onsite|Hybrid|Remote)\)\s*\u2022\s*(?:ONSITE|HYBRID|REMOTE)/i.test(
+          entry.bodyText
+        ) ||
+        /^- Target Rate:\s*\d+(?:\.\d+)?$/m.test(entry.bodyText));
+    return !hasStaleOfflineArtifacts;
+  };
+  const savedDraftKeys = Object.entries(cacheMap)
+    .filter(([k, entry]) => k.endsWith(maskSuffix) && isEntryFresh(entry))
+    .map(([k]) => k.slice(0, -maskSuffix.length));
   const cacheKey = buildPitchCacheKey(purpose, tone, rateMasked);
   const cachedEntry = cacheMap[cacheKey];
-  const reqCodeTrimmed = String(params.requirement.code || '').trim();
-  const hasStaleOfflineArtifacts =
-    cachedEntry &&
-    !cachedEntry.aiUsed &&
-    !cachedEntry.manuallyEdited &&
-    ((reqCodeTrimmed && cachedEntry.bodyText.includes(`(${reqCodeTrimmed})`)) ||
-      /\((?:Onsite|Hybrid|Remote)\)\s*\u2022\s*(?:ONSITE|HYBRID|REMOTE)/i.test(
-        cachedEntry.bodyText
-      ) ||
-      /^- Target Rate:\s*\d+(?:\.\d+)?$/m.test(cachedEntry.bodyText));
 
-  if (
-    !params.forceRegenerate &&
-    cachedEntry &&
-    !hasStaleOfflineArtifacts &&
-    (cachedEntry.subject || cachedEntry.bodyText)
-  ) {
+  if (!params.forceRegenerate && isEntryFresh(cachedEntry)) {
     const cleanSubject = rateMasked ? redactRatesFromText(cachedEntry.subject) : cachedEntry.subject;
     const rawBody = cachedEntry.manuallyEdited
       ? cachedEntry.bodyText

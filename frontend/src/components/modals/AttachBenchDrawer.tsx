@@ -11,6 +11,7 @@ import { useMasterTaxonomies } from '../shared/DynamicCustomFieldsSection';
 import { CustomSelect } from '../shared/CustomSelect';
 import { MaskedValue } from '../shared/MaskedValue';
 import { ActionButton } from '../shared/ActionButton';
+import { AnimatedDrawer } from '../shared/MotionPrimitives';
 
 const BENCH_PAGE_SIZE = 50;
 
@@ -475,8 +476,6 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
     hasAiRankResults,
   ]);
 
-  if (!isOpen || !currentReq) return null;
-
   const handleAiRankTopMatches = async () => {
     if (!currentReq?.id || isAiRanking || totalBenchCount === 0) return;
     setIsAiRanking(true);
@@ -581,14 +580,16 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   ).length;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-[1px] animate-fade-in"
-      onClick={() => !isAttaching && onClose()}
+    <AnimatedDrawer
+      isOpen={Boolean(isOpen && currentReq)}
+      onBackdropClick={() => !isAttaching && onClose()}
+      zIndexClass="z-50"
+      backdropClassName="bg-slate-900/40 backdrop-blur-[1px] flex justify-end"
+      panelClassName="w-full max-w-2xl bg-white h-full border-l border-slate-200 shadow-2xl flex flex-col overflow-hidden"
+      ariaLabel="Attach Bench Candidates"
     >
-      <div
-        className="w-full max-w-2xl bg-white h-full border-l border-slate-200 shadow-2xl flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
+      {currentReq && (
+        <>
         {/* Header */}
         <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -1016,7 +1017,8 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
             </div>
           </div>
         </div>
-      </div>
-    </div>
+        </>
+      )}
+    </AnimatedDrawer>
   );
 };

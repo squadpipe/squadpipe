@@ -7,6 +7,7 @@ import { SearchableSelectInput } from '../../components/shared/SearchableSelectI
 import { DynamicCustomFieldsSection } from '../../components/shared/DynamicCustomFieldsSection';
 import { useCurrency } from '../../utils/currency';
 import { initWorkspaceBrand, useWorkspacePolicies } from '../../utils/workspaceBrand';
+import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 import {
   addMonthsToDate,
   ExtensionData,
@@ -138,15 +139,15 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
   return (
     <>
       {/* Interactive Extend SOW Modal */}
-      {extendingPlacement && (
-        <div
-          onClick={() => !isExtending && onCloseExtend()}
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up"
-          >
+      <AnimatedModal
+        isOpen={Boolean(extendingPlacement)}
+        onBackdropClick={() => !isExtending && onCloseExtend()}
+        zIndexClass="z-50"
+        panelClassName="bg-white rounded-xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden"
+        ariaLabel="Extend Contract or SOW"
+      >
+        {extendingPlacement && (
+          <>
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-700 border border-brand-200 flex items-center justify-center">
@@ -308,20 +309,20 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
                 </ActionButton>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </AnimatedModal>
 
       {/* Edit Placement Modal */}
-      {editDraft && (
-        <div
-          onClick={() => !isSavingPlacement && onCloseEdit()}
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up max-h-[92vh] flex flex-col"
-          >
+      <AnimatedModal
+        isOpen={Boolean(editDraft)}
+        onBackdropClick={() => !isSavingPlacement && onCloseEdit()}
+        zIndexClass="z-50"
+        panelClassName="bg-white rounded-xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+        ariaLabel="Edit Billable Placement"
+      >
+        {editDraft && (
+          <>
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Edit Billable Placement</h3>
@@ -627,20 +628,20 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
                 </ActionButton>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </AnimatedModal>
 
       {/* Delete Placement Confirmation Modal */}
-      {deletingPlacement && (
-        <div
-          onClick={() => !isDeletingPlacement && onCloseDelete()}
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl max-w-sm w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up p-6 space-y-4"
-          >
+      <AnimatedModal
+        isOpen={Boolean(deletingPlacement)}
+        onBackdropClick={() => !isDeletingPlacement && onCloseDelete()}
+        zIndexClass="z-50"
+        panelClassName="bg-white rounded-xl max-w-sm w-full border border-slate-200 shadow-2xl overflow-hidden p-6 space-y-4"
+        ariaLabel="Remove Billable Placement"
+      >
+        {deletingPlacement && (
+          <>
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center flex-shrink-0">
                 <AlertTriangle className="w-5 h-5" />
@@ -685,20 +686,23 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
                 Remove Placement
               </ActionButton>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </AnimatedModal>
 
       {/* End Consultant Placement Modal */}
-      {endingPlacement && (
-        <div
-          onClick={() => !isEndingPlacement && onCloseEnd()}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fadeIn"
-        >
+      <AnimatedModal
+        isOpen={Boolean(endingPlacement)}
+        onBackdropClick={() => !isEndingPlacement && onCloseEnd()}
+        zIndexClass="z-50"
+        backdropClassName="bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4"
+        panelClassName="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden"
+        ariaLabel="End Consultant Placement"
+      >
+        {endingPlacement && (
           <form
-            onClick={(e) => e.stopPropagation()}
             onSubmit={handleConfirmEndPlacement}
-            className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden"
+            className="flex flex-col"
           >
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -802,8 +806,8 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
               </ActionButton>
             </div>
           </form>
-        </div>
-      )}
+        )}
+      </AnimatedModal>
     </>
   );
 };

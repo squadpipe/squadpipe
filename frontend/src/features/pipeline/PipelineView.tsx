@@ -1,5 +1,33 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
+  DndContext,
+  DragEndEvent,
+  DragOverEvent,
+  DragOverlay,
+  DragStartEvent,
+  DropAnimation,
+  KeyboardSensor,
+  PointerSensor,
+  CollisionDetection,
+  closestCenter,
+  defaultDropAnimationSideEffects,
+  getFirstCollision,
+  pointerWithin,
+  rectIntersection,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { motion } from 'framer-motion';
+import {
   AlertTriangle,
   Building2,
   Clock,
@@ -23,6 +51,7 @@ import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { ModalPortal } from '../../components/shared/ModalPortal';
+import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 import { SkillTagInput } from '../../components/shared/SkillTagInput';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapRequirementFromApi } from '../../utils/entityMappers';
@@ -31,6 +60,177 @@ import { getStageStyle } from '../../utils/stageStyles';
 import { sortArrayByColumn, useTableSort } from '../../utils/tableSort';
 import { getWorkspaceBrandSlug } from '../../utils/workspaceBrand';
 import { useMasterTaxonomies } from '../../components/shared/DynamicCustomFieldsSection';
+
+type KanbanColumnState = {
+  items: Requirement[];
+  total: number;
+  page: number;
+  hasMore: boolean;
+  loadingMore: boolean;
+};
+
+const kanbanDropAnimation: DropAnimation = {
+  duration: 220,
+  easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+  sideEffects: defaultDropAnimationSideEffects({
+    styles: {
+      active: {
+        opacity: '0.35',
+      },
+    },
+  }),
+};
+
+function loadSavedStageOrder(storageKey: string): Record<string, string[]> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const normalized: Record<string, string[]> = {};
+    for (const [stage, ids] of Object.entries(parsed as Record<string, unknown>)) {
+      if (Array.isArray(ids)) {
+        normalized[stage] = ids.map((id) => String(id));
+      }
+    }
+    return normalized;
+  } catch {
+    return {};
+  }
+}
+
+function saveStageOrder(storageKey: string, orderMap: Record<string, string[]>) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(orderMap));
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
+function applyStageOrderToItems(
+  stage: string,
+  items: Requirement[],
+  orderMap: Record<string, string[]>
+): Requirement[] {
+  const savedIds = orderMap[stage];
+  if (!savedIds || savedIds.length === 0 || items.length <= 1) return items;
+  const orderIndex = new Map<string, number>();
+  savedIds.forEach((id, idx) => orderIndex.set(id, idx));
+
+  const newItems: Requirement[] = [];
+  const orderedExisting: Array<{ req: Requirement; pos: number }> = [];
+  for (const item of items) {
+    const pos = orderIndex.get(item.id);
+    if (pos === undefined) {
+      newItems.push(item);
+    } else {
+      orderedExisting.push({ req: item, pos });
+    }
+  }
+  orderedExisting.sort((a, b) => a.pos - b.pos);
+  return [...newItems, ...orderedExisting.map((entry) => entry.req)];
+}
+
+interface DroppableKanbanColumnProps {
+  stage: string;
+  itemIds: string[];
+  dotClass: string;
+  totalCount: number;
+  isDropTarget: boolean;
+  isMovingIntoStage: boolean;
+  children: React.ReactNode;
+}
+
+const DroppableKanbanColumn: React.FC<DroppableKanbanColumnProps> = ({
+  stage,
+  itemIds,
+  dotClass,
+  totalCount,
+  isDropTarget,
+  isMovingIntoStage,
+  children,
+}) => {
+  const { setNodeRef } = useDroppable({ id: stage });
+
+  return (
+    <div
+      ref={setNodeRef}
+      data-kanban-stage={stage}
+      className={`p-3.5 rounded-xl border flex flex-col min-h-[600px] max-h-[calc(100vh-195px)] transition-all duration-200 ${
+        isMovingIntoStage
+          ? 'bg-brand-50/45 border-brand-300 ring-2 ring-brand-500/15'
+          : isDropTarget
+          ? 'border-slate-300 bg-slate-100/95'
+          : 'bg-slate-100/75 border-slate-200/80'
+      }`}
+    >
+      {/* Column Header */}
+      <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-slate-200/80 flex-shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotClass}`} />
+          <span className="font-bold text-xs text-slate-800 tracking-tight truncate">
+            {stage}
+          </span>
+        </div>
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white border border-slate-200/90 text-slate-600 flex-shrink-0 tabular-nums">
+          {totalCount}
+        </span>
+      </div>
+
+      <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
+        <div className="space-y-3 overflow-y-auto overflow-x-hidden min-h-0 flex-1 flex flex-col pr-0.5 custom-scrollbar">
+          {children}
+        </div>
+      </SortableContext>
+    </div>
+  );
+};
+
+interface SortableKanbanCardProps {
+  req: Requirement;
+  children: React.ReactNode;
+}
+
+const SortableKanbanCard: React.FC<SortableKanbanCardProps> = ({ req, children }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: req.id,
+    data: { req, stage: req.status },
+    transition: {
+      duration: 210,
+      easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+    },
+  });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={`flex-shrink-0 rounded-xl border overflow-hidden select-none touch-none transition-shadow duration-150 ${
+        isDragging
+          ? 'opacity-35 border-dashed border-brand-400 bg-brand-50/40 shadow-none ring-1 ring-brand-300/60'
+          : 'bg-white border-slate-200/90 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_4px_12px_rgba(15,23,42,0.07)] hover:border-slate-300/90 cursor-grab active:cursor-grabbing'
+      }`}
+    >
+      {children}
+    </div>
+  );
+};
 
 interface PipelineViewProps {
   requirements: Requirement[];
@@ -69,20 +269,10 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
   const [totalReqs, setTotalReqs] = useState(requirements.length);
   const [isLoadingReqs, setIsLoadingReqs] = useState(false);
   const KANBAN_PAGE_SIZE = 25;
-  const [kanbanColumns, setKanbanColumns] = useState<
-    Record<
-      string,
-      { items: Requirement[]; total: number; page: number; hasMore: boolean; loadingMore: boolean }
-    >
-  >({});
+  const [kanbanColumns, setKanbanColumns] = useState<Record<string, KanbanColumnState>>({});
   const [useServerKanban, setUseServerKanban] = useState(false);
-  const [activeDrag, setActiveDrag] = useState<{
-    req: Requirement;
-    width: number;
-    height: number;
-    initialX: number;
-    initialY: number;
-  } | null>(null);
+  const [activeDragReq, setActiveDragReq] = useState<Requirement | null>(null);
+  const [activeDragWidth, setActiveDragWidth] = useState<number | null>(null);
   const [dragOverStage, setDragOverStage] = useState<Requirement['status'] | null>(null);
   const [editingReq, setEditingReq] = useState<Requirement | null>(null);
   const [editOpenPositions, setEditOpenPositions] = useState<string>('1');
@@ -98,28 +288,35 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
     }
   }, [editingReq?.id]);
 
-  const boardScrollRef = useRef<HTMLDivElement | null>(null);
-  const columnRefs = useRef<Partial<Record<Requirement['status'], HTMLDivElement | null>>>({});
-  const floatingPreviewRef = useRef<HTMLDivElement | null>(null);
-  const dragOverStageRef = useRef<Requirement['status'] | null>(null);
+  const orderStorageKey = `squadpipe_kanban_order_${getWorkspaceBrandSlug()}`;
+  const [stageOrderMap, setStageOrderMap] = useState<Record<string, string[]>>(() =>
+    loadSavedStageOrder(orderStorageKey)
+  );
+  const stageOrderMapRef = useRef<Record<string, string[]>>(stageOrderMap);
+  useEffect(() => {
+    stageOrderMapRef.current = stageOrderMap;
+  }, [stageOrderMap]);
+
   const suppressClickRef = useRef(false);
-  const rafRef = useRef<number | null>(null);
-  const cleanupDragRef = useRef<(() => void) | null>(null);
-  const pendingStageMapRef = useRef<Map<string, { stage: Requirement['status']; until: number }>>(new Map());
-  const dragSessionRef = useRef<{
+  const lastOverIdRef = useRef<string | null>(null);
+  const dragOriginRef = useRef<{
     req: Requirement;
-    startX: number;
-    startY: number;
-    offsetX: number;
-    offsetY: number;
-    width: number;
-    height: number;
-    active: boolean;
-    latestX: number;
-    latestY: number;
-    clientX: number;
-    clientY: number;
+    originStage: string;
+    snapshotColumns: Record<string, KanbanColumnState>;
+    snapshotReqs: Requirement[];
   } | null>(null);
+  const pendingStageMapRef = useRef<Map<string, { stage: Requirement['status']; until: number }>>(new Map());
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 6,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const debouncedSearch = useDebounce(search, 300);
 
@@ -169,8 +366,10 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             > = {};
             const flatItems: Requirement[] = [];
             for (const col of res.data.data.columns) {
-              const mappedItems = applyPendingStages(
-                (col.items || []).map(mapRequirementFromApi)
+              const mappedItems = applyStageOrderToItems(
+                col.stage,
+                applyPendingStages((col.items || []).map(mapRequirementFromApi)),
+                stageOrderMapRef.current
               );
               nextCols[col.stage] = {
                 items: mappedItems,
@@ -292,7 +491,8 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             const current = prev[stage];
             if (!current) return prev;
             const existingIds = new Set(current.items.map((i) => i.id));
-            const merged = [...current.items, ...nextItems.filter((i) => !existingIds.has(i.id))];
+            const mergedRaw = [...current.items, ...nextItems.filter((i) => !existingIds.has(i.id))];
+            const merged = applyStageOrderToItems(stage, mergedRaw, stageOrderMapRef.current);
             const total = res.data.pagination?.total ?? current.total;
             return {
               ...prev,
@@ -378,202 +578,262 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const commitStageMove = useCallback(
-    (req: Requirement, nextStage: Requirement['status']) => {
-      if (req.status === nextStage) return;
-      const fromStage = req.status;
-      pendingStageMapRef.current.set(req.id, { stage: nextStage, until: Date.now() + 2500 });
-      setServerReqs((prev) => {
-        const existing = prev.find((r) => r.id === req.id);
-        const updatedReq = existing ? { ...existing, status: nextStage } : { ...req, status: nextStage };
-        return [updatedReq, ...prev.filter((r) => r.id !== req.id)];
-      });
+  const getItemsForStage = useCallback(
+    (stage: string): Requirement[] => {
+      if (useServerKanban && kanbanColumns[stage]) {
+        return kanbanColumns[stage].items;
+      }
+      return applyStageOrderToItems(
+        stage,
+        serverReqs.filter((r) => r.status === stage),
+        stageOrderMapRef.current
+      );
+    },
+    [useServerKanban, kanbanColumns, serverReqs]
+  );
+
+  const findStageContainer = useCallback(
+    (id: string): string | null => {
+      if (stageOrder.includes(id)) return id;
+      for (const st of stageOrder) {
+        if (getItemsForStage(st).some((r) => r.id === id)) {
+          return st;
+        }
+      }
+      return null;
+    },
+    [stageOrder, getItemsForStage]
+  );
+
+  const collisionDetectionStrategy: CollisionDetection = useCallback(
+    (args) => {
+      const pointerIntersections = pointerWithin(args);
+      const intersections =
+        pointerIntersections.length > 0 ? pointerIntersections : rectIntersection(args);
+      let overId = getFirstCollision(intersections, 'id');
+
+      if (overId != null) {
+        const overKey = String(overId);
+        if (stageOrder.includes(overKey)) {
+          const colItems = getItemsForStage(overKey);
+          if (colItems.length > 0) {
+            const colItemIds = new Set(colItems.map((r) => r.id));
+            const closest = closestCenter({
+              ...args,
+              droppableContainers: args.droppableContainers.filter((c) =>
+                colItemIds.has(String(c.id))
+              ),
+            });
+            overId = closest[0]?.id ?? overId;
+          }
+        }
+        lastOverIdRef.current = String(overId);
+        return [{ id: overId }];
+      }
+
+      return lastOverIdRef.current ? [{ id: lastOverIdRef.current }] : [];
+    },
+    [stageOrder, getItemsForStage]
+  );
+
+  const handleDragStart = useCallback(
+    (event: DragStartEvent) => {
+      const activeId = String(event.active.id);
+      const req =
+        (event.active.data.current?.req as Requirement | undefined) ||
+        serverReqs.find((r) => r.id === activeId);
+      if (!req) return;
+
+      suppressClickRef.current = true;
+      lastOverIdRef.current = activeId;
+      dragOriginRef.current = {
+        req,
+        originStage: req.status,
+        snapshotColumns: kanbanColumns,
+        snapshotReqs: serverReqs,
+      };
+      setActiveDragReq(req);
+      setActiveDragWidth(event.active.rect.current.initial?.width ?? null);
+      setDragOverStage(req.status);
+    },
+    [kanbanColumns, serverReqs]
+  );
+
+  const handleDragOver = useCallback(
+    (event: DragOverEvent) => {
+      const { active, over } = event;
+      if (!over) return;
+      const activeId = String(active.id);
+      const overId = String(over.id);
+      if (activeId === overId) return;
+
+      const activeContainer = findStageContainer(activeId);
+      const overContainer = findStageContainer(overId);
+      if (!activeContainer || !overContainer) return;
+
+      setDragOverStage(overContainer);
+      if (activeContainer === overContainer) return;
+
+      const fromItems = getItemsForStage(activeContainer);
+      const overItems = getItemsForStage(overContainer);
+      const movingCard = fromItems.find((r) => r.id === activeId);
+      if (!movingCard) return;
+
+      const updatedCard: Requirement = { ...movingCard, status: overContainer };
+      const overIndex = overItems.findIndex((r) => r.id === overId);
+
+      let newIndex: number;
+      if (stageOrder.includes(overId)) {
+        newIndex = overItems.length;
+      } else {
+        const activeTranslated = active.rect.current.translated;
+        const isBelowOverItem = Boolean(
+          activeTranslated && activeTranslated.top > over.rect.top + over.rect.height / 2
+        );
+        const modifier = isBelowOverItem ? 1 : 0;
+        newIndex = overIndex >= 0 ? overIndex + modifier : overItems.length;
+      }
+      newIndex = Math.max(0, Math.min(overItems.length, newIndex));
+
+      const nextFromItems = fromItems.filter((r) => r.id !== activeId);
+      const nextOverItems = [
+        ...overItems.slice(0, newIndex),
+        updatedCard,
+        ...overItems.slice(newIndex),
+      ];
+
       setKanbanColumns((prev) => {
-        if (!prev[fromStage] && !prev[nextStage]) return prev;
+        if (!prev[activeContainer] && !prev[overContainer]) return prev;
         const next = { ...prev };
-        const movedCard = { ...(prev[fromStage]?.items.find((r) => r.id === req.id) || req), status: nextStage };
-        if (next[fromStage]) {
-          next[fromStage] = {
-            ...next[fromStage],
-            items: next[fromStage].items.filter((r) => r.id !== req.id),
-            total: Math.max(0, next[fromStage].total - 1),
+        if (next[activeContainer]) {
+          next[activeContainer] = {
+            ...next[activeContainer],
+            items: nextFromItems,
+            total: Math.max(0, next[activeContainer].total - 1),
           };
         }
-        if (next[nextStage]) {
-          next[nextStage] = {
-            ...next[nextStage],
-            items: [movedCard, ...next[nextStage].items.filter((r) => r.id !== req.id)],
-            total: next[nextStage].total + 1,
+        if (next[overContainer]) {
+          next[overContainer] = {
+            ...next[overContainer],
+            items: nextOverItems,
+            total: next[overContainer].total + 1,
           };
         }
         return next;
       });
-      onStatusChange(req, nextStage);
+
+      setServerReqs((prev) => {
+        const without = prev.filter((r) => r.id !== activeId);
+        const stageSubset = nextOverItems;
+        const nextAnchorId = stageSubset[newIndex + 1]?.id;
+        if (nextAnchorId) {
+          const anchorIdx = without.findIndex((r) => r.id === nextAnchorId);
+          if (anchorIdx !== -1) {
+            return [...without.slice(0, anchorIdx), updatedCard, ...without.slice(anchorIdx)];
+          }
+        }
+        return [...without, updatedCard];
+      });
     },
-    [onStatusChange]
+    [findStageContainer, getItemsForStage, stageOrder]
   );
 
-  const hitTestStage = useCallback((clientX: number, clientY: number): Requirement['status'] | null => {
-    for (const st of stageOrder) {
-      const col = columnRefs.current[st];
-      if (!col) continue;
-      const rect = col.getBoundingClientRect();
-      if (
-        clientX >= rect.left - 7 &&
-        clientX <= rect.right + 7 &&
-        clientY >= rect.top - 40 &&
-        clientY <= rect.bottom + 40
-      ) {
-        return st;
-      }
+  const handleDragCancel = useCallback(() => {
+    const origin = dragOriginRef.current;
+    if (origin) {
+      setKanbanColumns(origin.snapshotColumns);
+      setServerReqs(origin.snapshotReqs);
     }
-    return null;
+    dragOriginRef.current = null;
+    lastOverIdRef.current = null;
+    setActiveDragReq(null);
+    setActiveDragWidth(null);
+    setDragOverStage(null);
+    setTimeout(() => {
+      suppressClickRef.current = false;
+    }, 0);
   }, []);
 
-  useEffect(() => {
-    return () => {
-      cleanupDragRef.current?.();
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-      document.body.style.userSelect = '';
-      document.body.style.cursor = '';
-    };
-  }, []);
-
-  const handleCardPointerDown = (e: React.PointerEvent<HTMLDivElement>, req: Requirement) => {
-    if (e.button !== 0) return;
-    const targetEl = e.target as HTMLElement;
-    if (targetEl.closest('button:not([data-allow-drag]), a, input, select, textarea, [data-no-drag="true"]')) return;
-
-    const cardRect = e.currentTarget.getBoundingClientRect();
-    const session = {
-      req,
-      startX: e.clientX,
-      startY: e.clientY,
-      offsetX: e.clientX - cardRect.left,
-      offsetY: e.clientY - cardRect.top,
-      width: cardRect.width,
-      height: cardRect.height,
-      active: false,
-      latestX: cardRect.left,
-      latestY: cardRect.top,
-      clientX: e.clientX,
-      clientY: e.clientY,
-    };
-    dragSessionRef.current = session;
-
-    const resetDragVisuals = () => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
-      document.body.style.userSelect = '';
-      document.body.style.cursor = '';
-      dragOverStageRef.current = null;
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const origin = dragOriginRef.current;
+      dragOriginRef.current = null;
+      lastOverIdRef.current = null;
+      setActiveDragReq(null);
+      setActiveDragWidth(null);
       setDragOverStage(null);
-      setActiveDrag(null);
-      dragSessionRef.current = null;
-      cleanupDragRef.current?.();
-      cleanupDragRef.current = null;
-    };
+      setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 0);
 
-    const updateFrame = () => {
-      rafRef.current = null;
-      const cur = dragSessionRef.current;
-      if (!cur || !cur.active) return;
+      if (!origin) return;
 
-      if (floatingPreviewRef.current) {
-        floatingPreviewRef.current.style.transform = `translate3d(${cur.latestX}px, ${cur.latestY}px, 0) rotate(1.2deg)`;
+      const { active, over } = event;
+      if (!over) {
+        setKanbanColumns(origin.snapshotColumns);
+        setServerReqs(origin.snapshotReqs);
+        return;
       }
 
-      // Smooth horizontal auto-scroll when dragging near left/right edge of the board
-      const scroller = boardScrollRef.current;
-      if (scroller && scroller.scrollWidth > scroller.clientWidth) {
-        const sRect = scroller.getBoundingClientRect();
-        const edgeZone = 56;
-        if (cur.clientX < sRect.left + edgeZone) {
-          scroller.scrollLeft -= 12;
-        } else if (cur.clientX > sRect.right - edgeZone) {
-          scroller.scrollLeft += 12;
-        }
+      const activeId = String(active.id);
+      const overId = String(over.id);
+      const currentContainer = findStageContainer(activeId);
+      const overContainer = findStageContainer(overId) ?? currentContainer;
+
+      if (!currentContainer || !overContainer) {
+        setKanbanColumns(origin.snapshotColumns);
+        setServerReqs(origin.snapshotReqs);
+        return;
       }
 
-      const hovered = hitTestStage(cur.clientX, cur.clientY);
-      if (hovered !== dragOverStageRef.current) {
-        dragOverStageRef.current = hovered;
-        setDragOverStage(hovered);
-      }
-    };
+      const itemsInTarget = getItemsForStage(overContainer);
+      const activeIdx = itemsInTarget.findIndex((r) => r.id === activeId);
+      const overIdx = itemsInTarget.findIndex((r) => r.id === overId);
 
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const cur = dragSessionRef.current;
-      if (!cur) return;
-
-      cur.clientX = moveEvent.clientX;
-      cur.clientY = moveEvent.clientY;
-      cur.latestX = moveEvent.clientX - cur.offsetX;
-      cur.latestY = moveEvent.clientY - cur.offsetY;
-
-      if (!cur.active) {
-        const dist = Math.hypot(moveEvent.clientX - cur.startX, moveEvent.clientY - cur.startY);
-        if (dist <= 5) return;
-        cur.active = true;
-        suppressClickRef.current = true;
-        document.body.style.userSelect = 'none';
-        document.body.style.cursor = 'grabbing';
-        setActiveDrag({
-          req: cur.req,
-          width: cur.width,
-          height: cur.height,
-          initialX: cur.latestX,
-          initialY: cur.latestY,
+      let finalTargetItems = itemsInTarget;
+      if (activeIdx !== -1 && overIdx !== -1 && activeIdx !== overIdx) {
+        finalTargetItems = arrayMove(itemsInTarget, activeIdx, overIdx);
+        setKanbanColumns((prev) =>
+          prev[overContainer]
+            ? {
+                ...prev,
+                [overContainer]: {
+                  ...prev[overContainer],
+                  items: finalTargetItems,
+                },
+              }
+            : prev
+        );
+        setServerReqs((prev) => {
+          const withoutStage = prev.filter((r) => r.status !== overContainer);
+          return [...withoutStage, ...finalTargetItems];
         });
-        dragOverStageRef.current = cur.req.status;
-        setDragOverStage(cur.req.status);
       }
 
-      if (rafRef.current === null) {
-        rafRef.current = requestAnimationFrame(updateFrame);
+      const originStageItems =
+        origin.originStage === overContainer
+          ? finalTargetItems
+          : getItemsForStage(origin.originStage).filter((r) => r.id !== activeId);
+
+      const nextOrderMap: Record<string, string[]> = {
+        ...stageOrderMapRef.current,
+        [origin.originStage]: originStageItems.map((r) => r.id),
+        [overContainer]: finalTargetItems.map((r) => r.id),
+      };
+      stageOrderMapRef.current = nextOrderMap;
+      setStageOrderMap(nextOrderMap);
+      saveStageOrder(orderStorageKey, nextOrderMap);
+
+      if (overContainer !== origin.originStage) {
+        pendingStageMapRef.current.set(origin.req.id, {
+          stage: overContainer as Requirement['status'],
+          until: Date.now() + 3000,
+        });
+        onStatusChange(origin.req, overContainer as Requirement['status']);
       }
-    };
-
-    const handlePointerUp = (upEvent: PointerEvent) => {
-      const cur = dragSessionRef.current;
-      const wasActive = Boolean(cur?.active);
-      const targetStage = wasActive
-        ? hitTestStage(upEvent.clientX, upEvent.clientY) ?? dragOverStageRef.current
-        : null;
-      const movedReq = cur?.req;
-
-      resetDragVisuals();
-
-      if (wasActive) {
-        setTimeout(() => {
-          suppressClickRef.current = false;
-        }, 0);
-        if (movedReq && targetStage && targetStage !== movedReq.status) {
-          commitStageMove(movedReq, targetStage);
-        }
-      }
-    };
-
-    const handleKeyDown = (keyEvent: KeyboardEvent) => {
-      if (keyEvent.key === 'Escape' && dragSessionRef.current?.active) {
-        resetDragVisuals();
-      }
-    };
-
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp);
-    window.addEventListener('pointercancel', resetDragVisuals);
-    window.addEventListener('keydown', handleKeyDown);
-
-    cleanupDragRef.current = () => {
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-      window.removeEventListener('pointercancel', resetDragVisuals);
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  };
+    },
+    [findStageContainer, getItemsForStage, onStatusChange, orderStorageKey]
+  );
 
   const handleCardTitleClick = (req: Requirement) => {
     if (suppressClickRef.current) return;
@@ -746,6 +1006,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             <div className="pt-2 border-t border-slate-100">
               <button
                 type="button"
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => onOpenMatcher(req)}
                 className="w-full py-2 px-3 rounded-lg border border-dashed border-brand-200 bg-brand-50/40 hover:bg-brand-50 text-brand-700 text-[11.5px] font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
               >
@@ -757,7 +1018,10 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
         </div>
 
         {/* Row 5: Flush Bottom 3-Segment Action Bar */}
-        <div className={`grid ${footerColsClass} border-t border-slate-100 divide-x divide-slate-100 bg-slate-50/40 text-[11px]`}>
+        <div
+          onPointerDown={(e) => e.stopPropagation()}
+          className={`grid ${footerColsClass} border-t border-slate-100 divide-x divide-slate-100 bg-slate-50/40 text-[11px]`}
+        >
           <button
             type="button"
             onClick={() => onOpenMatcher(req)}
@@ -897,67 +1161,57 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
 
       {/* Kanban Mode */}
       {displayMode === 'kanban' ? (
-        <div ref={boardScrollRef} className="overflow-x-auto pb-2 -mx-1 px-1">
-          <div
-            style={{
-              gridTemplateColumns: `repeat(${Math.max(1, stageOrder.length)}, minmax(310px, 1fr))`,
-            }}
-            className="grid gap-4 items-stretch"
-          >
-            {stageOrder.map((stage) => {
-              const serverCol = useServerKanban ? kanbanColumns[stage] : undefined;
-              const reqsInStage = serverCol
-                ? serverCol.items
-                : filteredReqs.filter((r) => r.status === stage);
-              const colTotal = serverCol ? serverCol.total : reqsInStage.length;
-              const colHasMore = serverCol ? serverCol.hasMore : false;
-              const colLoadingMore = serverCol ? serverCol.loadingMore : false;
-              const isDropTarget = Boolean(activeDrag && dragOverStage === stage);
-              const isMovingIntoStage = Boolean(isDropTarget && activeDrag?.req.status !== stage);
-              const meta = getStageMeta(stage);
-              return (
-                <div
-                  key={stage}
-                  ref={(el) => {
-                    columnRefs.current[stage] = el;
-                  }}
-                  data-kanban-stage={stage}
-                  className={`p-3.5 rounded-xl border flex flex-col min-h-[600px] max-h-[calc(100vh-195px)] transition-colors duration-150 ${
-                    isMovingIntoStage
-                      ? 'bg-slate-200/70 border-slate-300'
-                      : isDropTarget
-                      ? 'border-slate-300 bg-slate-100/90'
-                      : 'bg-slate-100/75 border-slate-200/80'
-                  }`}
-                >
-                  {/* Column Header */}
-                  <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-slate-200/80 flex-shrink-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${meta.dotClass}`} />
-                      <span className="font-bold text-xs text-slate-800 tracking-tight truncate">
-                        {stage}
-                      </span>
-                    </div>
-                    <span
-                      className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white border border-slate-200/90 text-slate-600 flex-shrink-0 tabular-nums"
-                    >
-                      {colTotal}
-                    </span>
-                  </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={collisionDetectionStrategy}
+          autoScroll={{ threshold: { x: 0.12, y: 0.15 }, acceleration: 12 }}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
+          <div className="overflow-x-auto pb-2 -mx-1 px-1 custom-scrollbar">
+            <div
+              style={{
+                gridTemplateColumns: `repeat(${Math.max(1, stageOrder.length)}, minmax(310px, 1fr))`,
+              }}
+              className="grid gap-4 items-stretch"
+            >
+              {stageOrder.map((stage) => {
+                const serverCol = useServerKanban ? kanbanColumns[stage] : undefined;
+                const reqsInStage = getItemsForStage(stage);
+                const colTotal = serverCol ? serverCol.total : reqsInStage.length;
+                const colHasMore = serverCol ? serverCol.hasMore : false;
+                const colLoadingMore = serverCol ? serverCol.loadingMore : false;
+                const isDropTarget = Boolean(activeDragReq && dragOverStage === stage);
+                const isMovingIntoStage = Boolean(
+                  isDropTarget && dragOriginRef.current?.originStage !== stage
+                );
+                const meta = getStageMeta(stage);
 
-                  {/* Cards Container */}
-                  <div className="space-y-3 overflow-y-auto min-h-0 flex-1 flex flex-col pr-0.5">
+                return (
+                  <DroppableKanbanColumn
+                    key={stage}
+                    stage={stage}
+                    itemIds={reqsInStage.map((r) => r.id)}
+                    dotClass={meta.dotClass}
+                    totalCount={colTotal}
+                    isDropTarget={isDropTarget}
+                    isMovingIntoStage={isMovingIntoStage}
+                  >
                     {reqsInStage.length === 0 ? (
                       <div
                         className={`flex-1 flex flex-col items-center justify-center p-5 text-center text-[11px] rounded-xl transition-colors ${
                           isMovingIntoStage
-                            ? 'bg-white/75 text-slate-700 font-semibold'
+                            ? 'bg-white/80 text-brand-700 font-semibold border border-dashed border-brand-300'
                             : 'border border-dashed border-slate-200/90 bg-white/50 text-slate-400'
                         }`}
                       >
                         <Columns className="w-5 h-5 mb-2 text-slate-300" />
                         <p className="font-medium text-slate-500">
-                          {isMovingIntoStage ? `Release to move to ${stage}` : `No requisitions in ${stage}`}
+                          {isMovingIntoStage
+                            ? `Release to move to ${stage}`
+                            : `No requisitions in ${stage}`}
                         </p>
                         {stage === 'Requirement' && onOpenAddReq && !isMovingIntoStage && (
                           <button
@@ -971,22 +1225,11 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                         )}
                       </div>
                     ) : (
-                      reqsInStage.map((req) => {
-                        const isBeingDragged = activeDrag?.req.id === req.id;
-                        return (
-                          <div
-                            key={req.id}
-                            onPointerDown={(e) => handleCardPointerDown(e, req)}
-                            className={`flex-shrink-0 rounded-xl border overflow-hidden select-none transition-all duration-150 ${
-                              isBeingDragged
-                                ? 'opacity-30 border-dashed border-brand-300 bg-brand-50/30 shadow-none pointer-events-none'
-                                : 'bg-white border-slate-200/90 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_4px_12px_rgba(15,23,42,0.06)] hover:border-slate-300/90 cursor-grab active:cursor-grabbing'
-                            }`}
-                          >
-                            {renderCardBody(req)}
-                          </div>
-                        );
-                      })
+                      reqsInStage.map((req) => (
+                        <SortableKanbanCard key={req.id} req={req}>
+                          {renderCardBody(req)}
+                        </SortableKanbanCard>
+                      ))
                     )}
                     {colHasMore && (
                       <button
@@ -1000,12 +1243,28 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                           : `Load more (${Math.max(0, colTotal - reqsInStage.length)} remaining)`}
                       </button>
                     )}
-                  </div>
-                </div>
-              );
-            })}
+                  </DroppableKanbanColumn>
+                );
+              })}
+            </div>
           </div>
-        </div>
+
+          <ModalPortal>
+            <DragOverlay dropAnimation={kanbanDropAnimation} zIndex={9990}>
+              {activeDragReq ? (
+                <motion.div
+                  initial={{ scale: 1, rotate: 0 }}
+                  animate={{ scale: 1.025, rotate: 1.25 }}
+                  transition={{ type: 'spring', stiffness: 460, damping: 30 }}
+                  style={{ width: activeDragWidth ?? undefined }}
+                  className="pointer-events-none select-none bg-white rounded-xl border border-brand-300/80 ring-2 ring-brand-500/20 shadow-[0_24px_48px_rgba(15,23,42,0.18)] overflow-hidden"
+                >
+                  {renderCardBody(activeDragReq)}
+                </motion.div>
+              ) : null}
+            </DragOverlay>
+          </ModalPortal>
+        </DndContext>
       ) : (
         /* List Mode */
         <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
@@ -1194,15 +1453,14 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
       )}
 
       {/* Edit Requisition Modal */}
-      {editingReq && (
-        <div
-          onClick={() => setEditingReq(null)}
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up"
-          >
+      <AnimatedModal
+        isOpen={Boolean(editingReq)}
+        onBackdropClick={() => setEditingReq(null)}
+        zIndexClass="z-50"
+        panelClassName="bg-white rounded-xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
+      >
+        {editingReq && (
+          <>
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Edit Requirement</h3>
@@ -1238,7 +1496,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                   setIsUpdatingReq(false);
                 }
               }}
-              className="p-6 space-y-3.5 text-xs"
+              className="p-6 space-y-3.5 text-xs overflow-y-auto"
             >
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">Opportunity Title *</label>
@@ -1353,23 +1611,21 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                 </ActionButton>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </AnimatedModal>
 
       {/* Delete Requisition Confirmation Modal */}
-      {reqToDelete && (() => {
-        const activePlacedCount = reqToDelete.filledPositions ?? reqToDelete.activePlacements?.length ?? 0;
-        const hasBillable = activePlacedCount > 0;
-        return (
-        <div
-          onClick={() => setReqToDelete(null)}
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up"
-          >
+      <AnimatedModal
+        isOpen={Boolean(reqToDelete)}
+        onBackdropClick={() => setReqToDelete(null)}
+        zIndexClass="z-50"
+        panelClassName="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden"
+      >
+        {reqToDelete && (() => {
+          const activePlacedCount = reqToDelete.filledPositions ?? reqToDelete.activePlacements?.length ?? 0;
+          const hasBillable = activePlacedCount > 0;
+          return (
             <div className="p-6 space-y-4">
               <div className="flex items-start gap-3.5">
                 <div className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${hasBillable ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-rose-50 border-rose-200 text-rose-600'}`}>
@@ -1435,28 +1691,9 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                 )}
               </div>
             </div>
-          </div>
-        </div>
-        );
-      })()}
-
-      {/* Smooth 60fps Floating Drag Card Preview */}
-      {activeDrag && (
-        <ModalPortal>
-          <div
-            ref={floatingPreviewRef}
-            style={{
-              width: activeDrag.width,
-              height: activeDrag.height,
-              transform: `translate3d(${activeDrag.initialX}px, ${activeDrag.initialY}px, 0) rotate(1.2deg)`,
-              willChange: 'transform',
-            }}
-            className="fixed top-0 left-0 z-[9990] pointer-events-none select-none bg-white rounded-xl border border-slate-200/90 shadow-[0_20px_40px_rgba(15,23,42,0.16)] overflow-hidden"
-          >
-            {renderCardBody(activeDrag.req)}
-          </div>
-        </ModalPortal>
-      )}
+          );
+        })()}
+      </AnimatedModal>
     </div>
   );
 };

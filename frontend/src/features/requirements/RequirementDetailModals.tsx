@@ -26,6 +26,7 @@ import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { DateTimePicker } from '../../components/shared/DateTimePicker';
 import { CustomSelect } from '../../components/shared/CustomSelect';
+import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 
 const QUICK_REJECTION_REASONS = [
   'Rate Mismatch',
@@ -106,8 +107,9 @@ function formatSubmissionPersonName(rawName?: string | null): {
 type MasterTaxonomies = ReturnType<typeof useMasterTaxonomies>;
 
 interface RequirementNotesModalProps {
+  isOpen?: boolean;
   requirement: Requirement;
-  liveEditingSub: RequirementSubmission;
+  liveEditingSub: RequirementSubmission | null;
   mode: 'notes' | 'interview' | 'closed';
   taxonomies: MasterTaxonomies;
   editingNoteId: string | null;
@@ -132,6 +134,7 @@ interface RequirementNotesModalProps {
  * on an individual requirement submission.
  */
 export const RequirementNotesModal: React.FC<RequirementNotesModalProps> = ({
+  isOpen,
   requirement,
   liveEditingSub,
   mode,
@@ -152,16 +155,16 @@ export const RequirementNotesModal: React.FC<RequirementNotesModalProps> = ({
   onSubmit,
   onClose,
 }) => {
-  const liveNotes = liveEditingSub.notes || [];
+  const modalOpen = isOpen ?? Boolean(liveEditingSub);
+  const sub = liveEditingSub;
+  const liveNotes = sub?.notes || [];
   const isInterviewMode = mode === 'interview';
   const isClosedMode = mode === 'closed';
   const isNotesMode = mode === 'notes';
-  const isClosedModalStage = liveEditingSub.stage.trim().toLowerCase() === 'closed';
-  const modalStageIdx = getStageIndex(liveEditingSub.stage, taxonomies.stages);
-  const { displayName, initials: modalInitials } = formatSubmissionPersonName(
-    liveEditingSub.fullName
-  );
-  const prevDate = liveEditingSub.interviewDateTime || liveEditingSub.interviewDate || '';
+  const isClosedModalStage = (sub?.stage || '').trim().toLowerCase() === 'closed';
+  const modalStageIdx = sub ? getStageIndex(sub.stage, taxonomies.stages) : 0;
+  const { displayName, initials: modalInitials } = formatSubmissionPersonName(sub?.fullName);
+  const prevDate = sub?.interviewDateTime || sub?.interviewDate || '';
   const dateChanged = isInterviewMode && draftInterviewDate !== prevDate;
   const hasNoteText = Boolean(draftNotesText.trim());
   const submitDisabled =
@@ -179,19 +182,22 @@ export const RequirementNotesModal: React.FC<RequirementNotesModalProps> = ({
         : 'Add Note';
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
-      onClick={() => !isSavingNotes && onClose()}
+    <AnimatedModal
+      isOpen={Boolean(modalOpen && sub)}
+      onBackdropClick={() => !isSavingNotes && onClose()}
+      zIndexClass="z-50"
+      panelClassName={`w-full ${
+        isNotesMode ? 'max-w-xl' : 'max-w-lg'
+      } bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-visible flex flex-col`}
+      ariaLabel={`Notes and schedule for ${displayName}`}
     >
+      {sub && (
       <form
         onSubmit={(e) => {
           e.preventDefault();
           onSubmit();
         }}
-        onClick={(e) => e.stopPropagation()}
-        className={`w-full ${
-          isNotesMode ? 'max-w-xl' : 'max-w-lg'
-        } bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-visible flex flex-col animate-fade-in`}
+        className="flex flex-col"
       >
         <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 rounded-t-2xl flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
@@ -202,8 +208,8 @@ export const RequirementNotesModal: React.FC<RequirementNotesModalProps> = ({
               <div className="flex items-center gap-2 flex-wrap">
                 <h4 className="text-sm font-bold text-slate-900 truncate">{displayName}</h4>
                 <StatusBadge
-                  stage={liveEditingSub.stage}
-                  dotClass={getStageDotClass(liveEditingSub.stage, modalStageIdx)}
+                  stage={sub.stage}
+                  dotClass={getStageDotClass(sub.stage, modalStageIdx)}
                   size="xs"
                 />
               </div>
@@ -438,13 +444,15 @@ export const RequirementNotesModal: React.FC<RequirementNotesModalProps> = ({
           </ActionButton>
         </div>
       </form>
-    </div>
+      )}
+    </AnimatedModal>
   );
 };
 
 interface EditRequirementModalProps {
+  isOpen?: boolean;
   requirement: Requirement;
-  editForm: Requirement;
+  editForm: Requirement | null;
   editOpenPositions: string;
   editOpenPosError: string;
   isSavingEdit: boolean;
@@ -459,6 +467,7 @@ interface EditRequirementModalProps {
  * Modal for editing core requisition fields, stage, open positions, and required skills.
  */
 export const EditRequirementModal: React.FC<EditRequirementModalProps> = ({
+  isOpen,
   requirement,
   editForm,
   editOpenPositions,
@@ -470,14 +479,15 @@ export const EditRequirementModal: React.FC<EditRequirementModalProps> = ({
   onSave,
   onClose,
 }) => (
-  <div
-    onClick={() => !isSavingEdit && onClose()}
-    className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in"
+  <AnimatedModal
+    isOpen={Boolean((isOpen ?? true) && editForm)}
+    onBackdropClick={() => !isSavingEdit && onClose()}
+    zIndexClass="z-50"
+    panelClassName="bg-white rounded-xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
+    ariaLabel="Edit Requisition Details"
   >
-    <div
-      onClick={(e) => e.stopPropagation()}
-      className="bg-white rounded-xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden flex flex-col animate-fade-in max-h-[92vh]"
-    >
+    {editForm && (
+      <>
       <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shrink-0">
@@ -632,13 +642,15 @@ export const EditRequirementModal: React.FC<EditRequirementModalProps> = ({
           </ActionButton>
         </div>
       </form>
-    </div>
-  </div>
+      </>
+    )}
+  </AnimatedModal>
 );
 
 interface CapabilityFitModalProps {
+  isOpen?: boolean;
   requirement: Requirement;
-  submission: RequirementSubmission;
+  submission: RequirementSubmission | null;
   aiEnabled: boolean;
   isEvaluating?: boolean;
   onRunAiCheck?: () => void;
@@ -650,6 +662,7 @@ interface CapabilityFitModalProps {
  * matched strengths, and identified skill gaps against the requirement.
  */
 export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
+  isOpen,
   requirement,
   submission,
   aiEnabled,
@@ -657,20 +670,23 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
   onRunAiCheck,
   onClose,
 }) => {
+  const modalOpen = isOpen ?? Boolean(submission);
+
   useEffect(() => {
+    if (!modalOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !isEvaluating) onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isEvaluating, onClose]);
+  }, [modalOpen, isEvaluating, onClose]);
 
-  const { displayName, initials } = formatSubmissionPersonName(submission.fullName);
+  const { displayName, initials } = formatSubmissionPersonName(submission?.fullName);
   const score =
-    typeof submission.capabilityScore === 'number'
+    typeof submission?.capabilityScore === 'number'
       ? Math.max(0, Math.min(100, Math.round(submission.capabilityScore)))
       : 0;
-  const summary = submission.capabilitySummary;
+  const summary = submission?.capabilitySummary;
   const badgeMeta = getCapabilityBadgeStyle(score, summary);
   const usedAi = Boolean(summary?.evaluatedWithAi && aiEnabled);
   const evaluatedAtLabel = summary?.evaluatedAt ? formatDateTimeBadge(summary.evaluatedAt) : '';
@@ -678,17 +694,15 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
   const gaps = summary?.gaps ?? [];
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Fit breakdown for ${displayName}`}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
-      onClick={() => !isEvaluating && onClose()}
+    <AnimatedModal
+      isOpen={Boolean(modalOpen && submission)}
+      onBackdropClick={() => !isEvaluating && onClose()}
+      zIndexClass="z-50"
+      panelClassName="w-full max-w-xl bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+      ariaLabel={`Fit breakdown for ${displayName}`}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-xl bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-fade-in"
-      >
+      {submission && (
+        <>
         <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
@@ -863,7 +877,8 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
             Close
           </button>
         </div>
-      </div>
-    </div>
+        </>
+      )}
+    </AnimatedModal>
   );
 };

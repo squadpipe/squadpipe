@@ -23,6 +23,7 @@ import { apiClient } from '../../config/api.config';
 import { BillablePlacement, Client, Requirement } from '../../types';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
+import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { MaskedValue } from '../../components/shared/MaskedValue';
@@ -1073,15 +1074,13 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
       />
 
       {/* Add Client Contact Modal */}
-      {showAddContact && (
-        <div
-          onClick={() => !isSavingContact && setShowAddContact(false)}
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl shadow-2xl max-w-xl w-full border border-slate-200 overflow-hidden flex flex-col animate-fade-in max-h-[92vh]"
-          >
+      <AnimatedModal
+        isOpen={showAddContact}
+        onBackdropClick={() => !isSavingContact && setShowAddContact(false)}
+        zIndexClass="z-50"
+        panelClassName="bg-white rounded-xl shadow-2xl max-w-xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
+        ariaLabel="Add Client Contact"
+      >
             <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shrink-0">
@@ -1193,9 +1192,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                 </ActionButton>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </AnimatedModal>
     </section>
   );
 };

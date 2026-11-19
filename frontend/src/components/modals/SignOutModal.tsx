@@ -1,6 +1,7 @@
 import React from 'react';
 import { LogOut } from 'lucide-react';
 import { User } from '../../types';
+import { AnimatedModal } from '../shared/MotionPrimitives';
 
 interface SignOutModalProps {
   isOpen: boolean;
@@ -15,17 +16,17 @@ export const SignOutModal: React.FC<SignOutModalProps> = ({
   currentUser,
   onConfirm,
 }) => {
-  if (!isOpen || !currentUser) return null;
-
   return (
-    <div
-      onClick={onClose}
-      className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in select-none"
+    <AnimatedModal
+      isOpen={Boolean(isOpen && currentUser)}
+      onBackdropClick={onClose}
+      zIndexClass="z-50"
+      backdropClassName="bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 select-none"
+      panelClassName="bg-white rounded-2xl shadow-2xl max-w-sm w-full border border-slate-200 overflow-hidden flex flex-col"
+      ariaLabel="Sign Out Confirmation"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl shadow-2xl max-w-sm w-full border border-slate-200 overflow-hidden flex flex-col"
-      >
+      {currentUser && (
+        <>
         <div className="p-6 text-center space-y-4">
           <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center mx-auto shadow-xs">
             <LogOut className="w-5 h-5" />
@@ -64,8 +65,9 @@ export const SignOutModal: React.FC<SignOutModalProps> = ({
             <span>Yes, Sign Out</span>
           </button>
         </div>
-      </div>
-    </div>
+        </>
+      )}
+    </AnimatedModal>
   );
 };
 

@@ -4,6 +4,7 @@ import { Client } from '../../../types';
 import { DynamicCustomFieldsSection } from '../../shared/DynamicCustomFieldsSection';
 
 import { ActionButton } from '../../shared/ActionButton';
+import { AnimatedModal } from '../../shared/MotionPrimitives';
 
 interface AddClientModalProps {
   isOpen: boolean;
@@ -39,8 +40,6 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
       setCustomValues({});
     }
   }, [isOpen]);
-
-  if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,14 +82,14 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
   };
 
   return (
-    <div
-      onClick={onClose}
-      className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in select-none"
+    <AnimatedModal
+      isOpen={isOpen}
+      onBackdropClick={onClose}
+      zIndexClass="z-50"
+      backdropClassName="bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 select-none"
+      panelClassName="bg-white rounded-xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
+      ariaLabel="Register Client Account"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col animate-fade-in max-h-[92vh]"
-      >
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white">
           <div className="flex items-center gap-3">
@@ -240,8 +239,7 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
             </ActionButton>
           </div>
         </form>
-      </div>
-    </div>
+    </AnimatedModal>
   );
 };
 

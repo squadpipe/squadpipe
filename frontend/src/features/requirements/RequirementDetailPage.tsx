@@ -2236,113 +2236,108 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
         }}
       />
 
-      {liveFitSub && (
-        <CapabilityFitModal
-          requirement={reqView}
-          submission={liveFitSub}
-          aiEnabled={aiCapabilities.enabled}
-          isEvaluating={evaluatingSubId === liveFitSub.id}
-          onRunAiCheck={
-            !liveFitSub.id.startsWith('legacy_') && aiCapabilities.enabled
-              ? () => handleEvaluateSubmission(liveFitSub)
-              : undefined
+      <CapabilityFitModal
+        isOpen={Boolean(liveFitSub)}
+        requirement={reqView}
+        submission={liveFitSub}
+        aiEnabled={aiCapabilities.enabled}
+        isEvaluating={Boolean(liveFitSub && evaluatingSubId === liveFitSub.id)}
+        onRunAiCheck={
+          liveFitSub && !liveFitSub.id.startsWith('legacy_') && aiCapabilities.enabled
+            ? () => handleEvaluateSubmission(liveFitSub)
+            : undefined
+        }
+        onClose={() => setFitModalSubId(null)}
+      />
+
+      <RequirementNotesModal
+        isOpen={Boolean(liveEditingSub)}
+        requirement={reqView}
+        liveEditingSub={liveEditingSub}
+        mode={notesModalMode}
+        taxonomies={taxonomies}
+        editingNoteId={editingNoteId}
+        confirmDeleteNoteId={confirmDeleteNoteId}
+        busyNoteId={busyNoteId}
+        draftInterviewDate={draftInterviewDate}
+        draftNotesText={draftNotesText}
+        isSavingNotes={isSavingNotes}
+        notesTextareaRef={notesTextareaRef}
+        onChangeInterviewDate={setDraftInterviewDate}
+        onChangeNotesText={setDraftNotesText}
+        onSelectEditNote={(note) => {
+          setConfirmDeleteNoteId(null);
+          setEditingNoteId(note.id);
+          setDraftNotesText(note.text);
+          notesTextareaRef.current?.focus();
+        }}
+        onSwitchToNewNote={() => {
+          setEditingNoteId(null);
+          setDraftNotesText('');
+          notesTextareaRef.current?.focus();
+        }}
+        onConfirmDeleteChange={setConfirmDeleteNoteId}
+        onDeleteNote={handleDeleteSubmissionNote}
+        onSubmit={handleSaveSubmissionNotes}
+        onClose={() => {
+          setConfirmDeleteNoteId(null);
+          setEditingNotesSub(null);
+        }}
+      />
+
+      <EditRequirementModal
+        isOpen={Boolean(isEditing && editForm)}
+        requirement={reqView}
+        editForm={editForm}
+        editOpenPositions={editOpenPositions}
+        editOpenPosError={editOpenPosError}
+        isSavingEdit={isSavingEdit}
+        taxonomies={taxonomies}
+        onChangeForm={setEditForm}
+        onChangeOpenPositions={(val) => {
+          setEditOpenPositions(val);
+          if (editOpenPosError) setEditOpenPosError('');
+        }}
+        onSave={async () => {
+          if (isSavingEdit || !editForm) return;
+          const trimmed = editOpenPositions.trim();
+          const parsed = Number(trimmed);
+          if (
+            !trimmed ||
+            !/^\d+$/.test(trimmed) ||
+            !Number.isInteger(parsed) ||
+            parsed < 1 ||
+            parsed > 1000
+          ) {
+            setEditOpenPosError('Please enter at least 1 open position.');
+            return;
           }
-          onClose={() => setFitModalSubId(null)}
-        />
-      )}
+          setIsSavingEdit(true);
+          try {
+            if (onUpdateReq) await onUpdateReq({ ...editForm, openPositions: parsed });
+            setEditOpenPosError('');
+            setIsEditing(false);
+          } catch {
+            // Error toast handled by parent
+          } finally {
+            setIsSavingEdit(false);
+          }
+        }}
+        onClose={() => setIsEditing(false)}
+      />
 
-      {liveEditingSub && (
-        <RequirementNotesModal
-          requirement={reqView}
-          liveEditingSub={liveEditingSub}
-          mode={notesModalMode}
-          taxonomies={taxonomies}
-          editingNoteId={editingNoteId}
-          confirmDeleteNoteId={confirmDeleteNoteId}
-          busyNoteId={busyNoteId}
-          draftInterviewDate={draftInterviewDate}
-          draftNotesText={draftNotesText}
-          isSavingNotes={isSavingNotes}
-          notesTextareaRef={notesTextareaRef}
-          onChangeInterviewDate={setDraftInterviewDate}
-          onChangeNotesText={setDraftNotesText}
-          onSelectEditNote={(note) => {
-            setConfirmDeleteNoteId(null);
-            setEditingNoteId(note.id);
-            setDraftNotesText(note.text);
-            notesTextareaRef.current?.focus();
-          }}
-          onSwitchToNewNote={() => {
-            setEditingNoteId(null);
-            setDraftNotesText('');
-            notesTextareaRef.current?.focus();
-          }}
-          onConfirmDeleteChange={setConfirmDeleteNoteId}
-          onDeleteNote={handleDeleteSubmissionNote}
-          onSubmit={handleSaveSubmissionNotes}
-          onClose={() => {
-            setConfirmDeleteNoteId(null);
-            setEditingNotesSub(null);
-          }}
-        />
-      )}
-
-      {isEditing && editForm && (
-        <EditRequirementModal
-          requirement={reqView}
-          editForm={editForm}
-          editOpenPositions={editOpenPositions}
-          editOpenPosError={editOpenPosError}
-          isSavingEdit={isSavingEdit}
-          taxonomies={taxonomies}
-          onChangeForm={setEditForm}
-          onChangeOpenPositions={(val) => {
-            setEditOpenPositions(val);
-            if (editOpenPosError) setEditOpenPosError('');
-          }}
-          onSave={async () => {
-            if (isSavingEdit) return;
-            const trimmed = editOpenPositions.trim();
-            const parsed = Number(trimmed);
-            if (
-              !trimmed ||
-              !/^\d+$/.test(trimmed) ||
-              !Number.isInteger(parsed) ||
-              parsed < 1 ||
-              parsed > 1000
-            ) {
-              setEditOpenPosError('Please enter at least 1 open position.');
-              return;
-            }
-            setIsSavingEdit(true);
-            try {
-              if (onUpdateReq) await onUpdateReq({ ...editForm, openPositions: parsed });
-              setEditOpenPosError('');
-              setIsEditing(false);
-            } catch {
-              // Error toast handled by parent
-            } finally {
-              setIsSavingEdit(false);
-            }
-          }}
-          onClose={() => setIsEditing(false)}
-        />
-      )}
-
-      {pitchTargetSub && (
-        <PreparePitchModal
-          isOpen={Boolean(pitchTargetSub)}
-          onClose={() => setPitchTargetSub(null)}
-          submissionId={pitchTargetSub.id}
-          requirementCode={reqView.code}
-          requirementTitle={reqView.opportunityTitle}
-          companyName={reqView.companyName}
-          candidate={resolveCandidateForSubmission(pitchTargetSub)}
-          fallbackCandidateName={pitchTargetSub.fullName}
-          rateMasked={rateMasked}
-          initialStage={pitchTargetSub.stage}
-        />
-      )}
+      <PreparePitchModal
+        isOpen={Boolean(pitchTargetSub)}
+        onClose={() => setPitchTargetSub(null)}
+        submissionId={pitchTargetSub?.id || ''}
+        requirementCode={reqView.code}
+        requirementTitle={reqView.opportunityTitle}
+        companyName={reqView.companyName}
+        candidate={pitchTargetSub ? resolveCandidateForSubmission(pitchTargetSub) : null}
+        fallbackCandidateName={pitchTargetSub?.fullName}
+        rateMasked={rateMasked}
+        initialStage={pitchTargetSub?.stage}
+      />
     </section>
   );
 };

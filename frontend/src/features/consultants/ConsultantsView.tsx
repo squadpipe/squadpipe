@@ -19,8 +19,8 @@ import { SortableTableHeader } from '../../components/shared/SortableTableHeader
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { CustomSelect } from '../../components/shared/CustomSelect';
-import { ModalPortal } from '../../components/shared/ModalPortal';
 import { EditConsultantModal } from '../../components/modals/edit/EditConsultantModal';
+import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapCandidateFromApi } from '../../utils/entityMappers';
 import { useCurrency } from '../../utils/currency';
@@ -624,129 +624,123 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
       </div>
 
       {/* Delete Consultant Confirmation / Billable Block Modal */}
-      {candidateToDelete && (
-        <ModalPortal>
-          {(() => {
-            const linkedPlacements = getLinkedPlacements(candidateToDelete);
-            const isBillable = isConsultantBillable(candidateToDelete);
-            return (
-              <div
-                onClick={() => {
-                  if (!isDeleting) setCandidateToDelete(null);
-                }}
-                className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
-              >
+      <AnimatedModal
+        isOpen={Boolean(candidateToDelete)}
+        onBackdropClick={() => {
+          if (!isDeleting) setCandidateToDelete(null);
+        }}
+        zIndexClass="z-50"
+        panelClassName="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden"
+        ariaLabel="Delete Consultant Confirmation"
+      >
+        {candidateToDelete && (() => {
+          const linkedPlacements = getLinkedPlacements(candidateToDelete);
+          const isBillable = isConsultantBillable(candidateToDelete);
+          return (
+            <div className="p-6 space-y-4">
+              <div className="flex items-start gap-3.5">
                 <div
-                  onClick={(e) => e.stopPropagation()}
-                  className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-scale-up"
+                  className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${
+                    isBillable
+                      ? 'bg-amber-50 border-amber-200 text-amber-600'
+                      : 'bg-rose-50 border-rose-200 text-rose-600'
+                  }`}
                 >
-                  <div className="p-6 space-y-4">
-                    <div className="flex items-start gap-3.5">
-                      <div
-                        className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${
-                          isBillable
-                            ? 'bg-amber-50 border-amber-200 text-amber-600'
-                            : 'bg-rose-50 border-rose-200 text-rose-600'
-                        }`}
-                      >
-                        {isBillable ? (
-                          <ShieldAlert className="w-5 h-5" />
-                        ) : (
-                          <AlertTriangle className="w-4 h-4" />
-                        )}
-                      </div>
-                      <div className="space-y-1.5 min-w-0">
-                        <h3 className="text-sm font-bold text-slate-900">
-                          {isBillable ? 'Cannot Delete Billable Consultant' : 'Delete Consultant?'}
-                        </h3>
-                        {isBillable ? (
-                          <>
-                            <p className="text-xs text-slate-600 leading-relaxed">
-                              <span className="font-semibold text-slate-900">
-                                {candidateToDelete.fullName}
-                              </span>{' '}
-                              is currently listed under{' '}
-                              <span className="font-semibold text-slate-800">Billable Consultants</span>
-                              {linkedPlacements.length > 0
-                                ? ` (${linkedPlacements.map((p) => p.customer).join(', ')})`
-                                : ''}
-                              .
-                            </p>
-                            <p className="text-[11px] text-amber-700 bg-amber-50/80 border border-amber-200/80 rounded-lg px-2.5 py-2 leading-relaxed font-medium">
-                              You cannot delete a billable consultant directly. Please remove their record from Billable Consultants first.
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <p className="text-xs text-slate-500 leading-relaxed">
-                              Are you sure you want to permanently delete{' '}
-                              <span className="font-semibold text-slate-900">
-                                {candidateToDelete.fullName}
-                              </span>{' '}
-                              ({candidateToDelete.currentTitle}) from your consultant roster?
-                            </p>
-                            <p className="text-[11px] text-rose-600 font-medium pt-0.5">
-                              This action cannot be undone and removes associated candidate submission records.
-                            </p>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
-                      <button
-                        type="button"
-                        disabled={isDeleting}
-                        onClick={() => setCandidateToDelete(null)}
-                        className="px-4 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 rounded-lg transition-colors cursor-pointer"
-                      >
-                        {isBillable ? 'Close' : 'Cancel'}
-                      </button>
-
-                      {isBillable ? (
-                        onNavigateToBillable && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCandidateToDelete(null);
-                              onNavigateToBillable();
-                            }}
-                            className="px-4 py-2 text-xs font-semibold bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5"
-                          >
-                            <span>Go to Billable Consultants</span>
-                            <ArrowRight className="w-3.5 h-3.5" />
-                          </button>
-                        )
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={isDeleting}
-                          onClick={async () => {
-                            if (!onDeleteCandidate) return;
-                            setIsDeleting(true);
-                            try {
-                              await onDeleteCandidate(candidateToDelete);
-                              setCandidateToDelete(null);
-                            } catch {
-                              // Error toast handled by parent; keep modal open cleanly or close if blocked
-                            } finally {
-                              setIsDeleting(false);
-                            }
-                          }}
-                          className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-lg shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>{isDeleting ? 'Deleting...' : 'Delete Consultant'}</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                  {isBillable ? (
+                    <ShieldAlert className="w-5 h-5" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4" />
+                  )}
+                </div>
+                <div className="space-y-1.5 min-w-0">
+                  <h3 className="text-sm font-bold text-slate-900">
+                    {isBillable ? 'Cannot Delete Billable Consultant' : 'Delete Consultant?'}
+                  </h3>
+                  {isBillable ? (
+                    <>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        <span className="font-semibold text-slate-900">
+                          {candidateToDelete.fullName}
+                        </span>{' '}
+                        is currently listed under{' '}
+                        <span className="font-semibold text-slate-800">Billable Consultants</span>
+                        {linkedPlacements.length > 0
+                          ? ` (${linkedPlacements.map((p) => p.customer).join(', ')})`
+                          : ''}
+                        .
+                      </p>
+                      <p className="text-[11px] text-amber-700 bg-amber-50/80 border border-amber-200/80 rounded-lg px-2.5 py-2 leading-relaxed font-medium">
+                        You cannot delete a billable consultant directly. Please remove their record from Billable Consultants first.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Are you sure you want to permanently delete{' '}
+                        <span className="font-semibold text-slate-900">
+                          {candidateToDelete.fullName}
+                        </span>{' '}
+                        ({candidateToDelete.currentTitle}) from your consultant roster?
+                      </p>
+                      <p className="text-[11px] text-rose-600 font-medium pt-0.5">
+                        This action cannot be undone and removes associated candidate submission records.
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
-            );
-          })()}
-        </ModalPortal>
-      )}
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() => setCandidateToDelete(null)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 rounded-lg transition-colors cursor-pointer"
+                >
+                  {isBillable ? 'Close' : 'Cancel'}
+                </button>
+
+                {isBillable ? (
+                  onNavigateToBillable && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCandidateToDelete(null);
+                        onNavigateToBillable();
+                      }}
+                      className="px-4 py-2 text-xs font-semibold bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                    >
+                      <span>Go to Billable Consultants</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  )
+                ) : (
+                  <button
+                    type="button"
+                    disabled={isDeleting}
+                    onClick={async () => {
+                      if (!onDeleteCandidate) return;
+                      setIsDeleting(true);
+                      try {
+                        await onDeleteCandidate(candidateToDelete);
+                        setCandidateToDelete(null);
+                      } catch {
+                        // Error toast handled by parent; keep modal open cleanly or close if blocked
+                      } finally {
+                        setIsDeleting(false);
+                      }
+                    }}
+                    className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-lg shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{isDeleting ? 'Deleting...' : 'Delete Consultant'}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+      </AnimatedModal>
 
       {onUpdateCandidate && (
         <EditConsultantModal

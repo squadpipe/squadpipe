@@ -18,6 +18,7 @@ import { mapRequirementFromApi } from '../../utils/entityMappers';
 import { SearchableSelectInput } from '../../components/shared/SearchableSelectInput';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { MULTI_INDUSTRY_SKILLS_TAXONOMY } from '../../utils/skillsTaxonomy';
+import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 
 const cleanField = (val?: any) =>
   String(val || '')
@@ -302,8 +303,6 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
     return [...startsWith, ...contains].slice(0, 12);
   }, [skillQuery, extractedReq.skillsRequired]);
 
-  if (!isOpen) return null;
-
   const mergeSkillTags = (existingCsv: string, rawToAdd: string): string => {
     const existing = existingCsv
       .split(',')
@@ -431,14 +430,14 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
   };
 
   return (
-    <div
-      onClick={handleClose}
-      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+    <AnimatedModal
+      isOpen={isOpen}
+      onBackdropClick={handleClose}
+      zIndexClass="z-50"
+      backdropClassName="bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+      panelClassName="bg-white rounded-2xl max-w-5xl w-full border border-slate-200 card-shadow overflow-hidden flex flex-col max-h-[92vh]"
+      ariaLabel="Create Job from Client Email"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl max-w-5xl w-full border border-slate-200 card-shadow overflow-hidden flex flex-col max-h-[92vh]"
-      >
         {/* Header */}
         <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white">
           <div className="flex items-center gap-3">
@@ -882,8 +881,6 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
               <span>{isSaving ? 'Creating Requisition...' : 'Approve & Create Requisition'}</span>
             </button>
           </div>
-        </div>
-      </div>
-    </div>
+    </AnimatedModal>
   );
 };

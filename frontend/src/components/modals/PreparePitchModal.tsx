@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   Check,
   Copy,
@@ -20,6 +21,7 @@ import { useCurrency } from '../../utils/currency';
 import { downloadOriginalCandidateCv } from '../../utils/cvFiles';
 import { downloadCandidateResumePdf } from '../../utils/pdfGenerator';
 import { useAiCapabilities, useWorkspaceBrand } from '../../utils/workspaceBrand';
+import { APPLE_EASE, AnimatedDrawer } from '../shared/MotionPrimitives';
 
 export type PitchPurposeOption = 'client_pitch' | 'interview_followup';
 export type PitchToneOption = 'PROFESSIONAL' | 'HIGH_IMPACT' | 'TECHNICAL_FOCUS';
@@ -104,6 +106,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
   const [aiUsed, setAiUsed] = useState(false);
   const [isCached, setIsCached] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingSaved, setIsLoadingSaved] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
@@ -275,8 +278,6 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isOpen, purpose, pitchTone, activeConfig, isDirty, subject, bodyText, submissionId]);
 
-  if (!isOpen) return null;
-
   const rawCandidateName = candidate?.fullName || fallbackCandidateName;
   const candidateName =
     String(rawCandidateName || '')
@@ -285,41 +286,63 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
       .trim() || 'Consultant';
   const hasStoredOriginalCv = Boolean(candidate?.resumeFileUrl);
   const formattedRate = rateMasked || !candidate ? '' : formatRate(candidate.hourlyRate);
-  const hasUnsyncedSelection = Boolean(
-    activeConfig && (activeConfig.purpose !== purpose || activeConfig.tone !== pitchTone)
+  const controlsDisabled = isLoading || isInitializing || isLoadingSaved;
+  const hasActiveDraft = Boolean(
+    activeConfig && activeConfig.purpose === purpose && activeConfig.tone === pitchTone
   );
-  const needsGeneration = !activeConfig || hasUnsyncedSelection;
-  const controlsDisabled = isLoading || isInitializing;
+  const savedCombos = savedDraftKeys
+    .map((key) => ({ key, parsed: parseSavedComboKey(key) }))
+    .filter(
+      (item): item is { key: string; parsed: { purpose: PitchPurposeOption; tone: PitchToneOption } } =>
+        Boolean(item.parsed)
+    );
 
   const handleClose = () => {
     void persistEditsIfDirty();
     onClose();
   };
 
-  const handleTypeSelect = async (nextPurpose: PitchPurposeOption) => {
-    if (controlsDisabled || nextPurpose === purpose) return;
-    await persistEditsIfDirty();
+  const switchSelection = async (nextPurpose: PitchPurposeOption, nextTone: PitchToneOption) => {
+    if (controlsDisabled) return;
+    if (nextPurpose === purpose && nextTone === pitchTone && hasActiveDraft) return;
+    await persistEditsIfDirty(activeConfig?.purpose ?? purpose, activeConfig?.tone ?? pitchTone);
     setPurpose(nextPurpose);
-    if (
-      (activeConfig?.purpose === nextPurpose && activeConfig?.tone === pitchTone) ||
-      (!activeConfig && savedDraftKeys.length === 0)
-    ) {
+    setPitchTone(nextTone);
+    setDraftError('');
+
+    const comboKey = getDraftComboKey(nextPurpose, nextTone);
+    if (!savedDraftKeys.includes(comboKey)) {
+      setActiveConfig(null);
+      setSubject('');
+      setBodyText('');
+      setAiUsed(false);
+      setIsCached(false);
+      setIsDirty(false);
+      setSaveStatusText('');
       return;
     }
-    void loadDraft(nextPurpose, pitchTone, { cacheOnly: true });
+
+    setIsLoadingSaved(true);
+    try {
+      const probe = await loadDraft(nextPurpose, nextTone, { cacheOnly: true });
+      if (probe && !probe.hasDraft) {
+        setActiveConfig(null);
+        setSubject('');
+        setBodyText('');
+      }
+    } finally {
+      setIsLoadingSaved(false);
+    }
   };
 
-  const handleToneSelect = async (nextTone: PitchToneOption) => {
-    if (controlsDisabled || nextTone === pitchTone) return;
-    await persistEditsIfDirty();
-    setPitchTone(nextTone);
-    if (
-      (activeConfig?.purpose === purpose && activeConfig?.tone === nextTone) ||
-      (!activeConfig && savedDraftKeys.length === 0)
-    ) {
-      return;
-    }
-    void loadDraft(purpose, nextTone, { cacheOnly: true });
+  const handleTypeSelect = (nextPurpose: PitchPurposeOption) => {
+    if (nextPurpose === purpose) return;
+    void switchSelection(nextPurpose, pitchTone);
+  };
+
+  const handleToneSelect = (nextTone: PitchToneOption) => {
+    if (nextTone === pitchTone) return;
+    void switchSelection(purpose, nextTone);
   };
 
   const handleCopy = async (target: 'subject' | 'body') => {
@@ -372,18 +395,15 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
   )}&body=${encodeURIComponent(bodyText)}`;
 
   return (
-    <div
-      onClick={handleClose}
-      className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-[1px] flex justify-end animate-fade-in"
+    <AnimatedDrawer
+      isOpen={isOpen}
+      onBackdropClick={handleClose}
+      zIndexClass="z-50"
+      backdropClassName="bg-slate-900/50 backdrop-blur-[1px] flex justify-end"
+      panelClassName="bg-white h-full w-full max-w-2xl border-l border-slate-200 shadow-2xl overflow-hidden flex flex-col"
+      ariaLabel={`Prepare Email Draft for ${candidateName}`}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Prepare Email Draft for ${candidateName}`}
-        onClick={(e) => e.stopPropagation()}
-        className="bg-white h-full w-full max-w-2xl border-l border-slate-200 shadow-2xl overflow-hidden flex flex-col"
-      >
-        {/* Clean Light Header matching modern workspace modals */}
+        {/* Clean Header */}
         <div className="flex-shrink-0 px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-full bg-white border border-slate-200 text-brand-700 flex items-center justify-center flex-shrink-0 shadow-2xs">
@@ -394,13 +414,13 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                 <h3 className="text-sm font-bold text-slate-900 truncate">
                   Prepare Email Draft &mdash; {candidateName}
                 </h3>
-                {!needsGeneration && activeConfig && !controlsDisabled && aiUsed && aiCapabilities.enabled && (
+                {hasActiveDraft && !controlsDisabled && aiUsed && aiCapabilities.enabled && (
                   <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-0.5 rounded-full">
                     <Sparkles className="w-2.5 h-2.5 shrink-0" />
                     <span>AI Drafted</span>
                   </span>
                 )}
-                {!needsGeneration && activeConfig && !controlsDisabled && isCached && (
+                {hasActiveDraft && !controlsDisabled && isCached && (
                   <span
                     title="Loaded from saved draft (no extra AI tokens used)"
                     className="inline-flex items-center gap-1 text-[10.5px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full"
@@ -427,7 +447,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
           </button>
         </div>
 
-        {/* Fixed Purpose, Tone & Generate/Regenerate Toolbar */}
+        {/* Selector Bar — only shows Regenerate when a draft is currently open */}
         <div className="flex-shrink-0 px-6 py-3 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between gap-4">
           <div className="space-y-1.5 min-w-0">
             <div className="flex items-center gap-2.5 flex-wrap">
@@ -443,7 +463,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                       key={item.id}
                       type="button"
                       disabled={controlsDisabled}
-                      onClick={() => void handleTypeSelect(item.id)}
+                      onClick={() => handleTypeSelect(item.id)}
                       className={`px-3 py-1 rounded-md text-[11px] font-semibold inline-flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-60 ${
                         isSelected
                           ? 'bg-slate-900 text-white shadow-2xs'
@@ -452,9 +472,9 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                     >
                       <span>{item.label}</span>
                       {!isSelected && isSavedCombo && (
-                        <span
-                          title="Saved draft available"
-                          className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"
+                        <Check
+                          aria-label="Saved draft ready"
+                          className="w-2.5 h-2.5 text-emerald-600 shrink-0"
                         />
                       )}
                     </button>
@@ -474,7 +494,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                       key={t.id}
                       type="button"
                       disabled={controlsDisabled}
-                      onClick={() => void handleToneSelect(t.id)}
+                      onClick={() => handleToneSelect(t.id)}
                       className={`px-2.5 py-1 rounded-md text-[11px] font-semibold inline-flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-60 ${
                         isSelected
                           ? 'bg-brand-600 text-white shadow-2xs'
@@ -483,9 +503,9 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                     >
                       <span>{t.label}</span>
                       {!isSelected && isSavedCombo && (
-                        <span
-                          title="Saved draft available"
-                          className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"
+                        <Check
+                          aria-label="Saved draft ready"
+                          className="w-2.5 h-2.5 text-emerald-600 shrink-0"
                         />
                       )}
                     </button>
@@ -495,302 +515,322 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
             </div>
           </div>
 
-          <div className="flex-shrink-0 flex items-center">
-            {needsGeneration ? (
-              <button
-                type="button"
-                disabled={controlsDisabled}
-                onClick={() => void loadDraft(purpose, pitchTone)}
-                title="Generate email draft for the selected Type and Tone"
-                className="h-8 px-3.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold inline-flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors disabled:opacity-50"
-              >
-                {isLoading ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Sparkles className="w-3.5 h-3.5" />
-                )}
-                <span>{isLoading ? 'Generating...' : 'Generate Draft'}</span>
-              </button>
-            ) : (
+          {hasActiveDraft && (
+            <div className="flex-shrink-0 flex items-center">
               <button
                 type="button"
                 disabled={controlsDisabled}
                 onClick={() => void loadDraft(purpose, pitchTone, { forceRegenerate: true })}
-                title="Generate a fresh draft (replaces saved draft for this option)"
+                title="Generate a fresh variation for this Type and Tone"
                 className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-semibold inline-flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors disabled:opacity-50"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`} />
                 <span>{isRegenerating ? 'Regenerating...' : 'Regenerate'}</span>
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Body */}
-        <div className="p-6 flex-1 min-h-0 overflow-y-auto space-y-4 text-xs bg-white">
-          {isInitializing ? (
-            <div className="rounded-xl border border-slate-200 bg-slate-50/60 h-56 flex items-center justify-center gap-2 text-xs font-medium text-slate-500">
-              <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
-              <span>Checking saved drafts...</span>
-            </div>
-          ) : !activeConfig && !isLoading ? (
-            <>
-              {draftError && (
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-medium">
-                  {draftError}
-                </div>
-              )}
-              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 px-6 py-10 text-center space-y-3">
-                <div className="w-10 h-10 rounded-full bg-brand-50 border border-brand-200 text-brand-700 flex items-center justify-center mx-auto">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div className="space-y-1 max-w-md mx-auto">
-                  <h4 className="text-[13px] font-bold text-slate-900">
-                    Choose Email Type &amp; Tone to Generate
-                  </h4>
-                  <p className="text-[11.5px] text-slate-500 leading-relaxed">
-                    Selected{' '}
-                    <strong className="font-semibold text-slate-800">
-                      {getPurposeLabel(purpose)} &middot; {getToneLabel(pitchTone)}
-                    </strong>
-                    {recipientEmail ? (
-                      <>
-                        {' '}
-                        for <span className="font-medium text-slate-700">{recipientEmail}</span>
-                      </>
-                    ) : null}
-                    . Adjust options above if needed, then click{' '}
-                    <strong className="font-semibold text-brand-700">Generate Draft</strong>.
-                  </p>
-                  {rateMasked && (
-                    <p className="text-[10.5px] text-slate-400 pt-0.5">
-                      Rate-safe mode enabled: bill/pay rates will be automatically omitted.
+        <div className="p-6 flex-1 min-h-0 overflow-y-auto flex flex-col text-xs bg-white">
+          <AnimatePresence mode="wait">
+            {isInitializing || isLoadingSaved ? (
+              <motion.div
+                key="pitch-loading"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.14 }}
+                className="flex-1 flex flex-col items-center justify-center py-16 gap-2 text-xs font-medium text-slate-500"
+              >
+                <Loader2 className="w-5 h-5 animate-spin text-brand-600" />
+                <span>{isInitializing ? 'Checking saved drafts...' : 'Loading saved draft...'}</span>
+              </motion.div>
+            ) : !hasActiveDraft ? (
+              <motion.div
+                key="pitch-configure"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.18, ease: APPLE_EASE }}
+                className="flex-1 flex flex-col justify-center space-y-4 my-auto py-4"
+              >
+                {draftError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-medium">
+                    {draftError}
+                  </div>
+                )}
+
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 px-6 py-10 text-center space-y-4">
+                  <div className="w-11 h-11 rounded-full bg-brand-50 border border-brand-200 text-brand-700 flex items-center justify-center mx-auto">
+                    {aiCapabilities.enabled ? (
+                      <Sparkles className="w-5 h-5" />
+                    ) : (
+                      <Mail className="w-5 h-5" />
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5 max-w-md mx-auto">
+                    <h4 className="text-sm font-bold text-slate-900">
+                      Prepare {getPurposeLabel(purpose)}
+                    </h4>
+                    <p className="text-[11.5px] text-slate-500 leading-relaxed">
+                      <strong className="font-semibold text-slate-800">
+                        {getToneLabel(pitchTone)}
+                      </strong>{' '}
+                      tone
+                      {recipientEmail ? (
+                        <>
+                          {' '}
+                          &bull; To <span className="font-medium text-slate-700">{recipientEmail}</span>
+                        </>
+                      ) : null}
                     </p>
-                  )}
-                </div>
-                <div className="pt-1">
-                  <button
-                    type="button"
-                    disabled={controlsDisabled}
-                    onClick={() => void loadDraft(purpose, pitchTone)}
-                    className="h-8 px-4 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold inline-flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors disabled:opacity-50"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Generate {getPurposeLabel(purpose)}</span>
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              {hasUnsyncedSelection && activeConfig && (
-                <div className="px-3.5 py-2.5 rounded-xl bg-brand-50/70 border border-brand-200/80 flex items-center justify-between gap-3 text-[11px] text-slate-700">
-                  <span>
-                    Selected{' '}
-                    <strong className="font-semibold text-slate-900">
-                      {getPurposeLabel(purpose)} &middot; {getToneLabel(pitchTone)}
-                    </strong>
-                    . Click <strong className="font-semibold text-brand-700">Generate Draft</strong>{' '}
-                    above when ready (showing {getPurposeLabel(activeConfig.purpose)} &middot;{' '}
-                    {getToneLabel(activeConfig.tone)}).
-                  </span>
-                  <button
-                    type="button"
-                    disabled={controlsDisabled}
-                    onClick={() => {
-                      setPurpose(activeConfig.purpose);
-                      setPitchTone(activeConfig.tone);
-                    }}
-                    className="text-[11px] font-semibold text-slate-600 hover:text-slate-900 hover:underline shrink-0 cursor-pointer"
-                  >
-                    Reset
-                  </button>
-                </div>
-              )}
+                    {rateMasked && (
+                      <p className="text-[10.5px] text-slate-400">
+                        Rate-safe mode enabled: bill &amp; pay rates are automatically omitted.
+                      </p>
+                    )}
+                  </div>
 
-              {draftError && (
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-medium">
-                  {draftError}
-                </div>
-              )}
-
-              {/* Unified Email Composer Sheet */}
-              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/10 transition-all">
-            {/* Recipient Row */}
-            <div className="px-4 py-2 border-b border-slate-100 bg-slate-50/40 flex items-center gap-2.5">
-              <label
-                htmlFor="pitch-recipient-input"
-                className="text-[11px] font-semibold text-slate-400 w-12 shrink-0"
-              >
-                To
-              </label>
-              <input
-                id="pitch-recipient-input"
-                type="email"
-                value={recipientEmail}
-                onChange={(e) => setRecipientEmail(e.target.value)}
-                placeholder="Hiring manager email (optional — filled in mail app)"
-                disabled={isLoading}
-                className="flex-1 min-w-0 bg-transparent text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none disabled:opacity-60"
-              />
-            </div>
-
-            {/* Subject Row */}
-            <div className="px-4 py-2.5 border-b border-slate-100 flex items-center gap-2.5">
-              <label
-                htmlFor="pitch-subject-input"
-                className="text-[11px] font-semibold text-slate-400 w-12 shrink-0"
-              >
-                Subject
-              </label>
-              <input
-                id="pitch-subject-input"
-                type="text"
-                value={subject}
-                onChange={(e) => {
-                  setSubject(e.target.value);
-                  setIsDirty(true);
-                  setSaveStatusText('');
-                }}
-                onBlur={() => void persistEditsIfDirty()}
-                disabled={isLoading}
-                className="flex-1 min-w-0 bg-transparent text-xs font-semibold text-slate-900 focus:outline-none disabled:opacity-60"
-              />
-              <button
-                type="button"
-                onClick={() => void handleCopy('subject')}
-                className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-slate-500 hover:text-brand-600 cursor-pointer shrink-0 px-2 py-0.5 rounded-md hover:bg-slate-100 transition-colors"
-              >
-                {copiedTarget === 'subject' ? (
-                  <>
-                    <Check className="w-3 h-3 text-emerald-600" />
-                    <span className="text-emerald-700">Copied</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3 h-3" />
-                    <span>Copy Subject</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            {/* Body Status Sub-header */}
-            <div className="px-4 py-1.5 border-b border-slate-100 bg-slate-50/40 flex items-center justify-between gap-2 min-h-[28px]">
-              <div className="flex items-center gap-2">
-                <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
-                  Message
-                </span>
-                {isSaving && (
-                  <span className="text-[10.5px] font-medium text-slate-400 inline-flex items-center gap-1">
-                    <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                    <span>Saving...</span>
-                  </span>
-                )}
-                {!isSaving && saveStatusText === 'Saved' && (
-                  <span className="text-[10.5px] font-medium text-emerald-600 inline-flex items-center gap-1">
-                    <Check className="w-2.5 h-2.5" />
-                    <span>Edits saved</span>
-                  </span>
-                )}
-                {!isSaving && isDirty && (
-                  <button
-                    type="button"
-                    onClick={() => void persistEditsIfDirty()}
-                    className="inline-flex items-center gap-1 text-[10px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 px-2 py-0.5 rounded-full cursor-pointer"
-                  >
-                    <Save className="w-2.5 h-2.5" />
-                    <span>Save Edits</span>
-                  </button>
-                )}
-              </div>
-              {rateMasked && (
-                <span className="text-[10.5px] font-medium text-slate-500">
-                  Rate-safe copy (bill/pay rates omitted)
-                </span>
-              )}
-            </div>
-
-            {/* Message Textarea */}
-            <div className="relative">
-              <textarea
-                rows={15}
-                aria-label="Email Body"
-                value={bodyText}
-                onChange={(e) => {
-                  setBodyText(e.target.value);
-                  setIsDirty(true);
-                  setSaveStatusText('');
-                }}
-                onBlur={() => void persistEditsIfDirty()}
-                disabled={isLoading}
-                className="w-full min-h-[290px] p-4 bg-white text-[12.5px] text-slate-800 leading-relaxed focus:outline-none disabled:opacity-60 resize-y"
-              />
-              {isLoading && (
-                <div className="absolute inset-0 bg-white/80 backdrop-blur-[1px] flex items-center justify-center gap-2 text-xs font-semibold text-brand-700">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>
-                    {isRegenerating ? 'Regenerating fresh email draft...' : 'Generating tailored email draft...'}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-            </>
-          )}
-
-          {/* Attachment Shortcuts & Blind PDF Control */}
-          <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-4 space-y-3">
-            <div className="flex items-start gap-2 text-[11px] text-slate-600">
-              <Info className="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" />
-              <span>
-                Remember to attach this candidate&apos;s Profile PDF or Original CV in Outlook / Gmail after clicking{' '}
-                <strong className="font-semibold text-slate-800">Open in Email</strong>.
-              </span>
-            </div>
-
-            {candidate && (
-              <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1 border-t border-slate-200/60">
-                <label className="inline-flex items-center gap-2 text-[11px] font-semibold text-slate-700 cursor-pointer select-none pt-1">
-                  <input
-                    type="checkbox"
-                    checked={isBlindPdf}
-                    onChange={(e) => setIsBlindPdf(e.target.checked)}
-                    className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
-                  />
-                  <Shield className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Blind / Redacted PDF (hide email &amp; phone)</span>
-                </label>
-
-                <div className="flex items-center gap-2 flex-wrap pt-1">
-                  <button
-                    type="button"
-                    onClick={handleDownloadProfilePdf}
-                    className="h-7 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-800 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
-                  >
-                    <FileText className="w-3.5 h-3.5 text-brand-600" />
-                    <span>{isBlindPdf ? 'Download Blind PDF' : 'Download Profile PDF'}</span>
-                  </button>
-
-                  {hasStoredOriginalCv && (
+                  <div>
                     <button
                       type="button"
-                      disabled={isDownloadingCv}
-                      onClick={handleDownloadOriginalCv}
-                      className="h-7 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-800 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
+                      disabled={controlsDisabled}
+                      onClick={() => void loadDraft(purpose, pitchTone)}
+                      className="h-9 px-5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold inline-flex items-center gap-2 shadow-sm cursor-pointer transition-colors disabled:opacity-60"
                     >
-                      {isDownloadingCv ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                      {isLoading ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       ) : (
-                        <Download className="w-3.5 h-3.5 text-emerald-600" />
+                        <Sparkles className="w-3.5 h-3.5" />
                       )}
-                      <span>Original CV</span>
+                      <span>
+                        {isLoading ? 'Generating Draft...' : `Generate ${getPurposeLabel(purpose)}`}
+                      </span>
                     </button>
+                  </div>
+
+                  {savedCombos.length > 0 && (
+                    <div className="pt-3 border-t border-slate-200/80 flex flex-col items-center gap-2">
+                      <span className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-400">
+                        Saved Drafts Ready
+                      </span>
+                      <div className="flex flex-wrap items-center justify-center gap-1.5">
+                        {savedCombos.map(({ key, parsed }) => (
+                          <button
+                            key={key}
+                            type="button"
+                            disabled={controlsDisabled}
+                            onClick={() => void switchSelection(parsed.purpose, parsed.tone)}
+                            className="px-2.5 py-1 rounded-full bg-white hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-[11px] font-medium text-slate-700 hover:text-emerald-800 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            <Check className="w-3 h-3 text-emerald-600" />
+                            <span>
+                              {getPurposeLabel(parsed.purpose)} &middot; {getToneLabel(parsed.tone)}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
-              </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key={`pitch-editor-${activeConfig?.purpose}-${activeConfig?.tone}`}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.18, ease: APPLE_EASE }}
+                className="space-y-4"
+              >
+                {draftError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-medium">
+                    {draftError}
+                  </div>
+                )}
+
+                {/* Unified Email Composer Sheet */}
+                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/10 transition-all">
+                  {/* Recipient Row */}
+                  <div className="px-4 py-2 border-b border-slate-100 bg-slate-50/40 flex items-center gap-2.5">
+                    <label
+                      htmlFor="pitch-recipient-input"
+                      className="text-[11px] font-semibold text-slate-400 w-12 shrink-0"
+                    >
+                      To
+                    </label>
+                    <input
+                      id="pitch-recipient-input"
+                      type="email"
+                      value={recipientEmail}
+                      onChange={(e) => setRecipientEmail(e.target.value)}
+                      placeholder="Hiring manager email (optional — filled in mail app)"
+                      disabled={isLoading}
+                      className="flex-1 min-w-0 bg-transparent text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none disabled:opacity-60"
+                    />
+                  </div>
+
+                  {/* Subject Row */}
+                  <div className="px-4 py-2.5 border-b border-slate-100 flex items-center gap-2.5">
+                    <label
+                      htmlFor="pitch-subject-input"
+                      className="text-[11px] font-semibold text-slate-400 w-12 shrink-0"
+                    >
+                      Subject
+                    </label>
+                    <input
+                      id="pitch-subject-input"
+                      type="text"
+                      value={subject}
+                      onChange={(e) => {
+                        setSubject(e.target.value);
+                        setIsDirty(true);
+                        setSaveStatusText('');
+                      }}
+                      onBlur={() => void persistEditsIfDirty()}
+                      disabled={isLoading}
+                      className="flex-1 min-w-0 bg-transparent text-xs font-semibold text-slate-900 focus:outline-none disabled:opacity-60"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void handleCopy('subject')}
+                      className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-slate-500 hover:text-brand-600 cursor-pointer shrink-0 px-2 py-0.5 rounded-md hover:bg-slate-100 transition-colors"
+                    >
+                      {copiedTarget === 'subject' ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-600" />
+                          <span className="text-emerald-700">Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3" />
+                          <span>Copy Subject</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Body Status Sub-header */}
+                  <div className="px-4 py-1.5 border-b border-slate-100 bg-slate-50/40 flex items-center justify-between gap-2 min-h-[28px]">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
+                        Message
+                      </span>
+                      {isSaving && (
+                        <span className="text-[10.5px] font-medium text-slate-400 inline-flex items-center gap-1">
+                          <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                          <span>Saving...</span>
+                        </span>
+                      )}
+                      {!isSaving && saveStatusText === 'Saved' && (
+                        <span className="text-[10.5px] font-medium text-emerald-600 inline-flex items-center gap-1">
+                          <Check className="w-2.5 h-2.5" />
+                          <span>Edits saved</span>
+                        </span>
+                      )}
+                      {!isSaving && isDirty && (
+                        <button
+                          type="button"
+                          onClick={() => void persistEditsIfDirty()}
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 px-2 py-0.5 rounded-full cursor-pointer"
+                        >
+                          <Save className="w-2.5 h-2.5" />
+                          <span>Save Edits</span>
+                        </button>
+                      )}
+                    </div>
+                    {rateMasked && (
+                      <span className="text-[10.5px] font-medium text-slate-500">
+                        Rate-safe copy (bill/pay rates omitted)
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Message Textarea */}
+                  <div className="relative">
+                    <textarea
+                      rows={15}
+                      aria-label="Email Body"
+                      value={bodyText}
+                      onChange={(e) => {
+                        setBodyText(e.target.value);
+                        setIsDirty(true);
+                        setSaveStatusText('');
+                      }}
+                      onBlur={() => void persistEditsIfDirty()}
+                      disabled={isLoading}
+                      className="w-full min-h-[290px] p-4 bg-white text-[12.5px] text-slate-800 leading-relaxed focus:outline-none disabled:opacity-60 resize-y"
+                    />
+                    {isLoading && (
+                      <div className="absolute inset-0 bg-white/80 backdrop-blur-[1px] flex items-center justify-center gap-2 text-xs font-semibold text-brand-700">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>
+                          {isRegenerating
+                            ? 'Regenerating fresh email draft...'
+                            : 'Generating tailored email draft...'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Attachment Shortcuts & Blind PDF Control */}
+                <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-4 space-y-3">
+                  <div className="flex items-start gap-2 text-[11px] text-slate-600">
+                    <Info className="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" />
+                    <span>
+                      Remember to attach this candidate&apos;s Profile PDF or Original CV in Outlook / Gmail after clicking{' '}
+                      <strong className="font-semibold text-slate-800">Open in Email</strong>.
+                    </span>
+                  </div>
+
+                  {candidate && (
+                    <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1 border-t border-slate-200/60">
+                      <label className="inline-flex items-center gap-2 text-[11px] font-semibold text-slate-700 cursor-pointer select-none pt-1">
+                        <input
+                          type="checkbox"
+                          checked={isBlindPdf}
+                          onChange={(e) => setIsBlindPdf(e.target.checked)}
+                          className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                        />
+                        <Shield className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Blind / Redacted PDF (hide email &amp; phone)</span>
+                      </label>
+
+                      <div className="flex items-center gap-2 flex-wrap pt-1">
+                        <button
+                          type="button"
+                          onClick={handleDownloadProfilePdf}
+                          className="h-7 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-800 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-brand-600" />
+                          <span>{isBlindPdf ? 'Download Blind PDF' : 'Download Profile PDF'}</span>
+                        </button>
+
+                        {hasStoredOriginalCv && (
+                          <button
+                            type="button"
+                            disabled={isDownloadingCv}
+                            onClick={handleDownloadOriginalCv}
+                            className="h-7 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-800 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
+                          >
+                            {isDownloadingCv ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                            ) : (
+                              <Download className="w-3.5 h-3.5 text-emerald-600" />
+                            )}
+                            <span>Original CV</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
             )}
-          </div>
+          </AnimatePresence>
         </div>
 
         {/* Footer Actions */}
@@ -803,45 +843,50 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
             Close
           </button>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              disabled={!activeConfig || controlsDisabled || !bodyText.trim()}
-              onClick={() => void handleCopy('body')}
-              className="h-8 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-800 font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
-            >
-              {copiedTarget === 'body' ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="text-emerald-700">Copied Text</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>Copy Text</span>
-                </>
-              )}
-            </button>
+          {hasActiveDraft ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                disabled={controlsDisabled || !bodyText.trim()}
+                onClick={() => void handleCopy('body')}
+                className="h-8 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-800 font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
+              >
+                {copiedTarget === 'body' ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-emerald-700">Copied Text</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy Text</span>
+                  </>
+                )}
+              </button>
 
-            <a
-              href={mailtoHref}
-              onClick={(e) => {
-                if (!activeConfig || controlsDisabled || !subject.trim()) {
-                  e.preventDefault();
-                  return;
-                }
-                void persistEditsIfDirty();
-              }}
-              className={`h-8 px-4 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-xs inline-flex items-center gap-1.5 transition-colors ${
-                !activeConfig || controlsDisabled ? 'opacity-60 pointer-events-none' : ''
-              }`}
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              <span>Open in Email</span>
-            </a>
-          </div>
+              <a
+                href={mailtoHref}
+                onClick={(e) => {
+                  if (controlsDisabled || !subject.trim()) {
+                    e.preventDefault();
+                    return;
+                  }
+                  void persistEditsIfDirty();
+                }}
+                className={`h-8 px-4 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-xs inline-flex items-center gap-1.5 transition-colors ${
+                  controlsDisabled ? 'opacity-60 pointer-events-none' : ''
+                }`}
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Open in Email</span>
+              </a>
+            </div>
+          ) : (
+            <span className="text-[11px] text-slate-400">
+              Select Type &amp; Tone above, then click Generate {getPurposeLabel(purpose)}.
+            </span>
+          )}
         </div>
-      </div>
-    </div>
+    </AnimatedDrawer>
   );
 };
