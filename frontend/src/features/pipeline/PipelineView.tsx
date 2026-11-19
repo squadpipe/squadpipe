@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Requirement, Candidate } from '../../types';
+import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
@@ -27,6 +28,7 @@ import { useDebounce } from '../../utils/useDebounce';
 import { mapRequirementFromApi } from '../../utils/entityMappers';
 import { useCurrency } from '../../utils/currency';
 import { getStageStyle } from '../../utils/stageStyles';
+import { sortArrayByColumn, useTableSort } from '../../utils/tableSort';
 import { getWorkspaceBrandSlug } from '../../utils/workspaceBrand';
 import { useMasterTaxonomies } from '../../components/shared/DynamicCustomFieldsSection';
 
@@ -62,6 +64,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const tableSort = useTableSort<'title' | 'companyName' | 'applicants' | 'status'>();
   const [serverReqs, setServerReqs] = useState<Requirement[]>(requirements);
   const [totalReqs, setTotalReqs] = useState(requirements.length);
   const [isLoadingReqs, setIsLoadingReqs] = useState(false);
@@ -135,7 +138,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, displayMode]);
+  }, [debouncedSearch, displayMode, tableSort.sort.sortBy, tableSort.sort.sortDir]);
 
   const taxonomies = useMasterTaxonomies(true);
 
@@ -212,6 +215,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
       search: debouncedSearch.trim() || undefined,
       page,
       limit,
+      ...tableSort.sortParams,
     };
 
     apiClient
@@ -227,13 +231,19 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
       .catch(() => {
         if (!active) return;
         const q = debouncedSearch.toLowerCase();
-        const fallback = applyPendingStages(requirements).filter(
+        const fallbackFiltered = applyPendingStages(requirements).filter(
           (r) =>
             !q ||
             r.opportunityTitle.toLowerCase().includes(q) ||
             r.companyName.toLowerCase().includes(q) ||
             r.skillsRequired.toLowerCase().includes(q)
         );
+        const fallback = sortArrayByColumn(fallbackFiltered, tableSort.sort, {
+          title: (r) => r.opportunityTitle,
+          companyName: (r) => r.companyName,
+          applicants: (r) => r.submissionCount ?? r.submissions?.length ?? 0,
+          status: (r) => r.status,
+        });
         setTotalReqs(fallback.length);
         setServerReqs(fallback.slice((page - 1) * limit, page * limit));
       })
@@ -244,7 +254,18 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
     return () => {
       active = false;
     };
-  }, [debouncedSearch, displayMode, page, limit, requirements, taxonomies.stages, applyPendingStages]);
+  }, [
+    debouncedSearch,
+    displayMode,
+    page,
+    limit,
+    requirements,
+    taxonomies.stages,
+    applyPendingStages,
+    tableSort.sort.sortBy,
+    tableSort.sort.sortDir,
+    tableSort.sortParams,
+  ]);
 
   const handleLoadMoreStage = useCallback(
     async (stage: string) => {
@@ -992,11 +1013,39 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             <table className="w-full text-left text-xs">
               <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)]">
                 <tr className="text-[10px] uppercase font-bold text-slate-400">
-                  <th className="py-2.5 px-4">Code &amp; Role</th>
-                  <th className="py-2.5 px-4">Client Company</th>
+                  <SortableTableHeader
+                    label="Code &amp; Role"
+                    column="title"
+                    sort={tableSort.sort}
+                    onSort={tableSort.handleSort}
+                    defaultDir="asc"
+                    className="py-2.5 px-4"
+                  />
+                  <SortableTableHeader
+                    label="Client Company"
+                    column="companyName"
+                    sort={tableSort.sort}
+                    onSort={tableSort.handleSort}
+                    defaultDir="asc"
+                    className="py-2.5 px-4"
+                  />
                   <th className="py-2.5 px-4">Required Skills</th>
-                  <th className="py-2.5 px-4">Openings &amp; Applicants</th>
-                  <th className="py-2.5 px-4">Stage</th>
+                  <SortableTableHeader
+                    label="Openings &amp; Applicants"
+                    column="applicants"
+                    sort={tableSort.sort}
+                    onSort={tableSort.handleSort}
+                    defaultDir="desc"
+                    className="py-2.5 px-4"
+                  />
+                  <SortableTableHeader
+                    label="Stage"
+                    column="status"
+                    sort={tableSort.sort}
+                    onSort={tableSort.handleSort}
+                    defaultDir="asc"
+                    className="py-2.5 px-4"
+                  />
                   <th className="py-2.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>

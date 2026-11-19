@@ -23,10 +23,12 @@ import { apiClient } from '../../config/api.config';
 import { CustomField } from '../../types';
 import { invalidateSchemaCaches } from '../../components/shared/DynamicCustomFieldsSection';
 import { useCurrency } from '../../utils/currency';
+import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { useDebounce } from '../../utils/useDebounce';
+import { sortArrayByColumn, useTableSort } from '../../utils/tableSort';
 
 interface CustomFieldsViewProps {
   customFields?: CustomField[];
@@ -91,6 +93,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const tableSort = useTableSort<'name' | 'entity' | 'type' | 'required' | 'active'>();
   const [tableFields, setTableFields] = useState<any[]>([]);
   const [totalFields, setTotalFields] = useState(propCustomFields?.length || 0);
   const [isLoadingFields, setIsLoadingFields] = useState(false);
@@ -106,7 +109,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, scope]);
+  }, [debouncedSearch, scope, tableSort.sort.sortBy, tableSort.sort.sortDir]);
 
   const [masterTaxonomies, setMasterTaxonomies] = useState<Record<TaxonomyKey, string[]>>(DEFAULT_TAXONOMIES);
   const [newTaxInput, setNewTaxInput] = useState<Record<TaxonomyKey, string>>({
@@ -185,6 +188,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
           scope: scope !== 'all' ? scope : undefined,
           page,
           limit,
+          ...tableSort.sortParams,
         },
       })
       .then((res) => {
@@ -198,11 +202,18 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
       .catch(() => {
         if (!active) return;
         const q = debouncedSearch.toLowerCase();
-        const fallback = fieldsList.filter(
+        const filteredFallback = fieldsList.filter(
           (f) => (scope === 'all' || f.entity === scope) && (!q || String(f.name || '').toLowerCase().includes(q))
         );
-        setTotalFields(fallback.length);
-        setTableFields(fallback.slice((page - 1) * limit, page * limit));
+        const sortedFallback = sortArrayByColumn(filteredFallback, tableSort.sort, {
+          name: (f) => f.name,
+          entity: (f) => f.entity,
+          type: (f) => f.type,
+          required: (f) => Boolean(f.required),
+          active: (f) => Boolean(f.active),
+        });
+        setTotalFields(sortedFallback.length);
+        setTableFields(sortedFallback.slice((page - 1) * limit, page * limit));
       })
       .finally(() => {
         if (active) setIsLoadingFields(false);
@@ -210,7 +221,16 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
     return () => {
       active = false;
     };
-  }, [debouncedSearch, scope, page, limit, fieldsList]);
+  }, [
+    debouncedSearch,
+    scope,
+    page,
+    limit,
+    fieldsList,
+    tableSort.sort.sortBy,
+    tableSort.sort.sortDir,
+    tableSort.sortParams,
+  ]);
 
   const [newField, setNewField] = useState({
     name: '',
@@ -459,12 +479,47 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
             <table className="w-full text-left text-xs">
               <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)]">
                 <tr className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  <th className="py-2.5 px-5">Field Name</th>
-                  <th className="py-2.5 px-4">Form</th>
-                  <th className="py-2.5 px-4">Input Type</th>
+                  <SortableTableHeader
+                    label="Field Name"
+                    column="name"
+                    sort={tableSort.sort}
+                    onSort={tableSort.handleSort}
+                    defaultDir="asc"
+                    className="py-2.5 px-5 whitespace-nowrap"
+                  />
+                  <SortableTableHeader
+                    label="Form"
+                    column="entity"
+                    sort={tableSort.sort}
+                    onSort={tableSort.handleSort}
+                    defaultDir="asc"
+                    className="py-2.5 px-4 whitespace-nowrap"
+                  />
+                  <SortableTableHeader
+                    label="Input Type"
+                    column="type"
+                    sort={tableSort.sort}
+                    onSort={tableSort.handleSort}
+                    defaultDir="asc"
+                    className="py-2.5 px-4 whitespace-nowrap"
+                  />
                   <th className="py-2.5 px-4">Dropdown Options</th>
-                  <th className="py-2.5 px-4">Required</th>
-                  <th className="py-2.5 px-4">Status</th>
+                  <SortableTableHeader
+                    label="Required"
+                    column="required"
+                    sort={tableSort.sort}
+                    onSort={tableSort.handleSort}
+                    defaultDir="desc"
+                    className="py-2.5 px-4 whitespace-nowrap"
+                  />
+                  <SortableTableHeader
+                    label="Status"
+                    column="active"
+                    sort={tableSort.sort}
+                    onSort={tableSort.handleSort}
+                    defaultDir="desc"
+                    className="py-2.5 px-4 whitespace-nowrap"
+                  />
                   <th className="py-2.5 px-5 text-right">Actions</th>
                 </tr>
               </thead>

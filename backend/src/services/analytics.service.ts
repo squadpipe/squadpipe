@@ -1,6 +1,17 @@
 import { PlacementStatus, UserRole } from '@prisma/client';
 import { prisma } from '../config/prisma.config';
 import { normalizeStageValue } from './requirement.service';
+import { SortDirection, sortRecordsByColumn } from '../utils/tableSort';
+
+export const PERFORMANCE_SORTABLE_FIELDS = [
+  'recruiterName',
+  'fullName',
+  'openReqs',
+  'submissions',
+  'interviews',
+  'placements',
+  'conversionPct',
+] as const;
 
 export type PerformancePeriod = 'week' | 'month' | 'all';
 
@@ -153,7 +164,11 @@ export function buildRecruiterPerformanceRows(params: {
 }
 
 export class AnalyticsService {
-  async getRecruiterPerformance(tenantId: string, periodInput?: string) {
+  async getRecruiterPerformance(
+    tenantId: string,
+    periodInput?: string,
+    sortOptions?: { sortBy?: string; sortDir?: SortDirection }
+  ) {
     const period: PerformancePeriod =
       periodInput === 'month' || periodInput === 'all' ? periodInput : 'week';
     const sinceDate = getPeriodStartDate(period);
@@ -209,10 +224,22 @@ export class AnalyticsService {
       sinceDate,
     });
 
+    const sortedTeam = sortOptions?.sortBy
+      ? sortRecordsByColumn(team, sortOptions.sortBy, sortOptions.sortDir || 'desc', {
+          recruiterName: (r) => r.fullName,
+          fullName: (r) => r.fullName,
+          openReqs: (r) => r.openReqs,
+          submissions: (r) => r.submissions,
+          interviews: (r) => r.interviews,
+          placements: (r) => r.placements,
+          conversionPct: (r) => (r.submissions > 0 ? r.placements / r.submissions : 0),
+        })
+      : team;
+
     return {
       period,
       sinceDate: sinceDate ? sinceDate.toISOString() : null,
-      team,
+      team: sortedTeam,
       totals,
     };
   }

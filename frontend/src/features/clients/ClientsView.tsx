@@ -12,11 +12,13 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Client, Requirement, BillablePlacement } from '../../types';
+import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { EditClientModal } from '../../components/modals/edit/EditClientModal';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapClientFromApi } from '../../utils/entityMappers';
+import { sortArrayByColumn, useTableSort } from '../../utils/tableSort';
 
 interface ClientsViewProps {
   clients: Client[];
@@ -42,6 +44,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const tableSort = useTableSort<'name' | 'location' | 'requirementsCount' | 'placementsCount'>();
   const [serverClients, setServerClients] = useState<Client[]>([]);
   const [totalClients, setTotalClients] = useState(clients.length);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
@@ -51,7 +54,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, tableSort.sort.sortBy, tableSort.sort.sortDir]);
 
   useEffect(() => {
     let active = true;
@@ -62,6 +65,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
           search: debouncedSearch.trim() || undefined,
           page,
           limit,
+          ...tableSort.sortParams,
         },
       })
       .then((res) => {
@@ -75,11 +79,24 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
       .catch(() => {
         if (!active) return;
         const q = debouncedSearch.toLowerCase();
-        const fallback = clients.filter(
+        const filteredFallback = clients.filter(
           (c) => !q || c.name.toLowerCase().includes(q) || c.location.toLowerCase().includes(q)
         );
-        setTotalClients(fallback.length);
-        setServerClients(fallback.slice((page - 1) * limit, page * limit));
+        const sortedFallback = sortArrayByColumn(filteredFallback, tableSort.sort, {
+          name: (c) => c.name,
+          location: (c) => c.location,
+          requirementsCount: (c) =>
+            requirements.filter((r) => r.companyName.toLowerCase() === c.name.toLowerCase()).length,
+          placementsCount: (c) =>
+            placements.filter(
+              (p) =>
+                p.customer.toLowerCase() === c.name.toLowerCase() &&
+                p.status !== 'Completed' &&
+                p.status !== 'Terminated'
+            ).length,
+        });
+        setTotalClients(sortedFallback.length);
+        setServerClients(sortedFallback.slice((page - 1) * limit, page * limit));
       })
       .finally(() => {
         if (active) setIsLoadingClients(false);
@@ -87,7 +104,15 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
     return () => {
       active = false;
     };
-  }, [debouncedSearch, page, limit, clients]);
+  }, [
+    debouncedSearch,
+    page,
+    limit,
+    clients,
+    tableSort.sort.sortBy,
+    tableSort.sort.sortDir,
+    tableSort.sortParams,
+  ]);
 
   const filtered = serverClients;
 
@@ -128,12 +153,40 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
           <table className="w-full text-left">
             <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)]">
               <tr className="text-[10px] font-bold uppercase text-slate-500 tracking-wider">
-                <th className="px-4 py-3">Client Company</th>
+                <SortableTableHeader
+                  label="Client Company"
+                  column="name"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  className="px-4 py-3"
+                />
                 <th className="px-4 py-3">Primary Contact</th>
                 <th className="px-4 py-3">Phone &amp; Email</th>
-                <th className="px-4 py-3">Location</th>
-                <th className="px-4 py-3">Requisitions</th>
-                <th className="px-4 py-3">Active Placements</th>
+                <SortableTableHeader
+                  label="Location"
+                  column="location"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  className="px-4 py-3"
+                />
+                <SortableTableHeader
+                  label="Requisitions"
+                  column="requirementsCount"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="desc"
+                  className="px-4 py-3"
+                />
+                <SortableTableHeader
+                  label="Active Placements"
+                  column="placementsCount"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="desc"
+                  className="px-4 py-3"
+                />
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>

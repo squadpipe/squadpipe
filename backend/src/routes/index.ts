@@ -2,7 +2,14 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { placementService } from '../services/placement.service';
 import { submissionService } from '../services/submission.service';
-import { analyticsService } from '../services/analytics.service';
+import {
+  PERFORMANCE_SORTABLE_FIELDS,
+  analyticsService,
+} from '../services/analytics.service';
+import {
+  buildPrismaOrderBy,
+  parseSortParams,
+} from '../utils/tableSort';
 import { csvImporterService } from '../services/csvImporter.service';
 import { resumeParserClientService } from '../services/resumeParserClient.service';
 import { smtpService } from '../services/smtp.service';
@@ -36,7 +43,7 @@ import { pitchDraftService } from '../services/pitchDraft.service';
 import { publicIntakeService } from '../services/publicIntake.service';
 import { slaEngineService } from '../services/slaEngine.service';
 import { automationEngineService } from '../services/automationEngine.service';
-import { AutomationCategory, PlacementStatus, SlaCategory, UserRole } from '@prisma/client';
+import { AutomationCategory, PlacementStatus, Prisma, SlaCategory, UserRole } from '@prisma/client';
 
 import * as authController from '../controllers/auth.controller';
 import * as candidateController from '../controllers/candidate.controller';
@@ -229,7 +236,14 @@ router.get('/dashboard/recruiter-performance', async (req: Request, res: Respons
   try {
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
     const period = req.query.period ? String(req.query.period).trim().toLowerCase() : 'week';
-    const report = await analyticsService.getRecruiterPerformance(tenantId, period);
+    const { sortBy, sortDir } = parseSortParams(
+      req.query as Record<string, any>,
+      PERFORMANCE_SORTABLE_FIELDS
+    );
+    const report = await analyticsService.getRecruiterPerformance(tenantId, period, {
+      sortBy,
+      sortDir,
+    });
     res.json({ success: true, data: report });
   } catch (error: any) {
     res.status(500).json({
@@ -936,13 +950,35 @@ router.get('/custom-fields', async (req: Request, res: Response) => {
       ];
     }
 
+    const { sortBy, sortDir } = parseSortParams(req.query as Record<string, any>, [
+      'name',
+      'entity',
+      'type',
+      'required',
+      'active',
+      'createdAt',
+    ]);
+    const orderBy = buildPrismaOrderBy<Prisma.CustomFieldDefinitionOrderByWithRelationInput>(
+      sortBy,
+      sortDir,
+      {
+        name: (d) => [{ name: d }, { id: d }],
+        entity: (d) => [{ entity: d }, { id: d }],
+        type: (d) => [{ type: d }, { id: d }],
+        required: (d) => [{ required: d }, { id: d }],
+        active: (d) => [{ active: d }, { id: d }],
+        createdAt: (d) => [{ createdAt: d }, { id: d }],
+      },
+      [{ createdAt: 'desc' }, { id: 'desc' }]
+    ) as Prisma.CustomFieldDefinitionOrderByWithRelationInput[];
+
     const parsedPage = page ? Math.max(1, parseInt(String(page), 10) || 1) : undefined;
     const parsedLimit = limit ? Math.max(1, Math.min(100, parseInt(String(limit), 10) || 10)) : undefined;
 
     if (parsedPage === undefined && parsedLimit === undefined) {
       const fields = await prisma.customFieldDefinition.findMany({
         where,
-        orderBy: { createdAt: 'desc' }
+        orderBy,
       });
       return res.json({
         success: true,
@@ -957,7 +993,7 @@ router.get('/custom-fields', async (req: Request, res: Response) => {
       prisma.customFieldDefinition.count({ where }),
       prisma.customFieldDefinition.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip: (currentPage - 1) * currentLimit,
         take: currentLimit
       })

@@ -11,6 +11,7 @@ import { runCapabilityTests } from './unit/capability.test';
 import { runPitchDraftTests } from './unit/pitchDraft.test';
 import { runAiUsageTests } from './unit/aiUsage.test';
 import { runSlaAgentTests } from './unit/slaAgent.test';
+import { runTableSortTests } from './unit/tableSort.test';
 
 async function runAllBackendTests() {
   console.log('========================================================');
@@ -31,6 +32,7 @@ async function runAllBackendTests() {
     await runPitchDraftTests();
     await runAiUsageTests();
     await runSlaAgentTests();
+    runTableSortTests();
 
     console.log('\n========================================================');
     console.log('🎉 ALL BACKEND TESTS PASSED (100% Success)');

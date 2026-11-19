@@ -2,12 +2,13 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
-  ArrowUpDown,
   Briefcase,
   Building2,
   Calendar,
   Check,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Copy,
   DollarSign,
   ExternalLink,
@@ -40,6 +41,11 @@ import { useCurrency } from '../../utils/currency';
 import { useAiCapabilities } from '../../utils/workspaceBrand';
 import { useClientPagination } from '../../utils/usePagination';
 import {
+  extractRateSortValue,
+  sortArrayByColumn,
+  useTableSort,
+} from '../../utils/tableSort';
+import {
   formatDateTimeBadge,
   mapRequirementFromApi,
   mapSubmissionFromApi,
@@ -54,6 +60,7 @@ import { SkillTag } from '../../components/shared/SkillTag';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { ActionButton } from '../../components/shared/ActionButton';
+import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { AttachBenchDrawer } from '../../components/modals/AttachBenchDrawer';
@@ -214,7 +221,8 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>('applicants');
   const [applicantTab, setApplicantTab] = useState<ApplicantFilterTab>('All');
   const [applicantSearch, setApplicantSearch] = useState('');
-  const [sortByFit, setSortByFit] = useState(true);
+  const applicantsSort = useTableSort<'applicant' | 'fitScore' | 'rate' | 'stage'>('fitScore', 'desc');
+  const placedSort = useTableSort<'resourceName' | 'customer' | 'startDate' | 'billRate' | 'status'>();
   const [fitModalSubId, setFitModalSubId] = useState<string | null>(null);
   const [evaluatingSubId, setEvaluatingSubId] = useState<string | null>(null);
   const [pitchTargetSub, setPitchTargetSub] = useState<RequirementSubmission | null>(null);
@@ -258,6 +266,8 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     setWorkspaceTab('applicants');
     setApplicantTab('All');
     setApplicantSearch('');
+    applicantsSort.resetSort();
+    placedSort.resetSort();
     setFitModalSubId(null);
     setEvaluatingSubId(null);
     setPitchTargetSub(null);
@@ -278,15 +288,21 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
 
   useEffect(() => {
     setHydratedReq(null);
+  }, [requirement?.id]);
+
+  useEffect(() => {
     if (!requirement?.id) return;
     const needsFullHydration =
       !Array.isArray(requirement.submissions) ||
       (requirement.submissions.length === 0 && (requirement.submissionCount ?? 0) > 0);
-    if (!needsFullHydration) return;
+    const hasCustomSort = Boolean(applicantsSort.sort.sortBy);
+    if (!needsFullHydration && !hasCustomSort) return;
 
     let active = true;
     apiClient
-      .get(`/requirements/${requirement.id}`)
+      .get(`/requirements/${requirement.id}`, {
+        params: applicantsSort.sortParams,
+      })
       .then((res) => {
         if (active && res.data?.success && res.data.data) {
           setHydratedReq(mapRequirementFromApi(res.data.data));
@@ -296,14 +312,18 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     return () => {
       active = false;
     };
-  }, [requirement?.id]);
+  }, [
+    requirement?.id,
+    applicantsSort.sort.sortBy,
+    applicantsSort.sort.sortDir,
+    applicantsSort.sortParams,
+    requirement?.submissions?.length,
+    requirement?.submissionCount,
+  ]);
 
   useEffect(() => {
     if (requirement) {
       setEditForm(requirement);
-      if (Array.isArray(requirement.submissions) && requirement.submissions.length > 0) {
-        setHydratedReq(null);
-      }
     }
   }, [requirement]);
 
@@ -559,7 +579,6 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   const placedApplicantsCount = submissions.filter(isPlacedApplicant).length;
   const closedApplicantsCount = submissions.length - activeApplicantsCount;
   const publicIntakeCount = submissions.filter((s) => s.intakeSource === 'PUBLIC_FORM').length;
-  const hasAnyCapabilityScore = submissions.some((s) => typeof s.capabilityScore === 'number');
 
   const filteredSubmissions = useMemo(() => {
     const filtered = submissions.filter((sub) => {
@@ -579,33 +598,46 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
       );
     });
 
-    if (sortByFit && hasAnyCapabilityScore) {
-      return [...filtered].sort((a, b) => {
-        const scoreA = typeof a.capabilityScore === 'number' ? a.capabilityScore : -1;
-        const scoreB = typeof b.capabilityScore === 'number' ? b.capabilityScore : -1;
-        return scoreB - scoreA;
-      });
+    if (!applicantsSort.sort.sortBy) {
+      return filtered;
     }
-    return filtered;
+
+    return sortArrayByColumn(filtered, applicantsSort.sort, {
+      applicant: (s) => formatDisplayName(s.fullName),
+      fitScore: (s) => (typeof s.capabilityScore === 'number' ? s.capabilityScore : null),
+      rate: (s) => (rateMasked ? null : extractRateSortValue(s.submittedRate || s.hourlyRate)),
+      stage: (s) => s.stage || '',
+    });
   }, [
     submissions,
     applicantTab,
     applicantSearch,
-    sortByFit,
-    hasAnyCapabilityScore,
+    applicantsSort.sort,
     linkedPlacements,
+    rateMasked,
   ]);
+
+  const sortedPlacements = useMemo(() => {
+    if (!placedSort.sort.sortBy) return linkedPlacements;
+    return sortArrayByColumn(linkedPlacements, placedSort.sort, {
+      resourceName: (p) => formatDisplayName(p.resourceName, 'Consultant'),
+      customer: (p) => p.customer || effectiveRequirement?.companyName || '',
+      startDate: (p) => (p.startDate ? new Date(p.startDate) : null),
+      billRate: (p) => (rateMasked ? null : extractRateSortValue(p.billing || p.payRate)),
+      status: (p) => p.status || 'Active',
+    });
+  }, [linkedPlacements, placedSort.sort, effectiveRequirement?.companyName, rateMasked]);
 
   const applicantsPg = useClientPagination(
     filteredSubmissions,
     10,
-    `${requirement?.id || ''}|${applicantTab}|${applicantSearch}|${sortByFit ? 'fit' : 'recent'}`
+    `${requirement?.id || ''}|${applicantTab}|${applicantSearch}|${applicantsSort.sort.sortBy || ''}|${applicantsSort.sort.sortDir}`
   );
 
   const placedPg = useClientPagination(
-    linkedPlacements,
+    sortedPlacements,
     10,
-    `${requirement?.id || ''}|placed`
+    `${requirement?.id || ''}|placed|${placedSort.sort.sortBy || ''}|${placedSort.sort.sortDir}`
   );
 
   if (!requirement) {
@@ -1401,9 +1433,24 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                     <button
                       type="button"
                       onClick={() => setShowAllSkills((prev) => !prev)}
-                      className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-semibold cursor-pointer"
+                      className={`inline-flex items-center gap-0.5 text-[11px] font-semibold cursor-pointer px-1 transition-colors ${
+                        showAllSkills
+                          ? 'text-rose-600 hover:text-rose-700'
+                          : 'text-brand-600 hover:text-brand-700'
+                      }`}
                     >
-                      {showAllSkills ? 'Show less' : `+${skills.length - 10} more`}
+                      <span
+                        className={`underline underline-offset-2 ${
+                          showAllSkills ? 'decoration-rose-400' : 'decoration-brand-400'
+                        }`}
+                      >
+                        {showAllSkills ? 'Show less' : `+${skills.length - 10} more`}
+                      </span>
+                      {showAllSkills ? (
+                        <ChevronUp className="w-3 h-3 shrink-0" />
+                      ) : (
+                        <ChevronDown className="w-3 h-3 shrink-0" />
+                      )}
                     </button>
                   )}
                 </div>
@@ -1467,20 +1514,6 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
 
               {submissions.length > 0 && (
                 <div className="flex items-center gap-2 flex-wrap">
-                  {hasAnyCapabilityScore && (
-                    <button
-                      type="button"
-                      onClick={() => setSortByFit((prev) => !prev)}
-                      className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors ${
-                        sortByFit
-                          ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                      <ArrowUpDown className="w-3 h-3" />
-                      <span>{sortByFit ? 'Highest Fit First' : 'Recent Order'}</span>
-                    </button>
-                  )}
                   <div className="relative flex-1 sm:flex-initial">
                     <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
@@ -1546,10 +1579,39 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                         <table className="w-full text-left text-xs">
                           <thead className="bg-slate-50/80 border-b border-slate-100 text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
                             <tr>
-                              <th className="pl-6 pr-4 py-3 min-w-[260px]">Applicant</th>
-                              <th className="px-4 py-3 whitespace-nowrap">Fit Score</th>
-                              <th className="px-4 py-3 whitespace-nowrap">Rate</th>
-                              <th className="px-4 py-3 whitespace-nowrap">Stage</th>
+                              <SortableTableHeader
+                                label="Applicant"
+                                column="applicant"
+                                sort={applicantsSort.sort}
+                                onSort={applicantsSort.handleSort}
+                                defaultDir="asc"
+                                className="pl-6 pr-4 py-3 min-w-[260px]"
+                              />
+                              <SortableTableHeader
+                                label="Fit Score"
+                                column="fitScore"
+                                sort={applicantsSort.sort}
+                                onSort={applicantsSort.handleSort}
+                                defaultDir="desc"
+                                className="px-4 py-3 whitespace-nowrap"
+                              />
+                              <SortableTableHeader
+                                label="Rate"
+                                column="rate"
+                                sort={applicantsSort.sort}
+                                onSort={applicantsSort.handleSort}
+                                defaultDir="desc"
+                                disabled={rateMasked}
+                                className="px-4 py-3 whitespace-nowrap"
+                              />
+                              <SortableTableHeader
+                                label="Stage"
+                                column="stage"
+                                sort={applicantsSort.sort}
+                                onSort={applicantsSort.handleSort}
+                                defaultDir="asc"
+                                className="px-4 py-3 whitespace-nowrap"
+                              />
                               <th className="pl-4 pr-6 py-3 text-right whitespace-nowrap">
                                 Actions
                               </th>
@@ -1686,11 +1748,47 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50/80 border-b border-slate-100 text-[10.5px] font-bold text-slate-400 uppercase tracking-wider">
                     <tr>
-                      <th className="px-6 py-3">Consultant &amp; Role</th>
-                      <th className="px-5 py-3 whitespace-nowrap">Client / Vendor</th>
-                      <th className="px-5 py-3 whitespace-nowrap">SOW Period</th>
-                      <th className="px-5 py-3 whitespace-nowrap">Commercials</th>
-                      <th className="px-5 py-3 whitespace-nowrap">Status</th>
+                      <SortableTableHeader
+                        label="Consultant &amp; Role"
+                        column="resourceName"
+                        sort={placedSort.sort}
+                        onSort={placedSort.handleSort}
+                        defaultDir="asc"
+                        className="px-6 py-3"
+                      />
+                      <SortableTableHeader
+                        label="Client / Vendor"
+                        column="customer"
+                        sort={placedSort.sort}
+                        onSort={placedSort.handleSort}
+                        defaultDir="asc"
+                        className="px-5 py-3 whitespace-nowrap"
+                      />
+                      <SortableTableHeader
+                        label="SOW Period"
+                        column="startDate"
+                        sort={placedSort.sort}
+                        onSort={placedSort.handleSort}
+                        defaultDir="desc"
+                        className="px-5 py-3 whitespace-nowrap"
+                      />
+                      <SortableTableHeader
+                        label="Commercials"
+                        column="billRate"
+                        sort={placedSort.sort}
+                        onSort={placedSort.handleSort}
+                        defaultDir="desc"
+                        disabled={rateMasked}
+                        className="px-5 py-3 whitespace-nowrap"
+                      />
+                      <SortableTableHeader
+                        label="Status"
+                        column="status"
+                        sort={placedSort.sort}
+                        onSort={placedSort.handleSort}
+                        defaultDir="asc"
+                        className="px-5 py-3 whitespace-nowrap"
+                      />
                       <th className="px-6 py-3 text-right whitespace-nowrap">Record</th>
                     </tr>
                   </thead>

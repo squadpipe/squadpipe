@@ -1,5 +1,14 @@
 import { prisma } from '../config/prisma.config';
 import { AuditStatus, AutomationCategory, Prisma, TriggerEvent } from '@prisma/client';
+import { SortDirection, buildPrismaOrderBy } from '../utils/tableSort';
+
+export const AUDIT_LOG_SORTABLE_FIELDS = [
+  'createdAt',
+  'time',
+  'ruleName',
+  'target',
+  'status',
+] as const;
 
 export const DEFAULT_TENANT_RULES: Array<{
   name: string;
@@ -92,7 +101,16 @@ export class AutomationEngineService {
     });
   }
 
-  async getAuditLogs(tenantId: string, params: { search?: string; page?: number; limit?: number } = {}) {
+  async getAuditLogs(
+    tenantId: string,
+    params: {
+      search?: string;
+      page?: number;
+      limit?: number;
+      sortBy?: string;
+      sortDir?: SortDirection;
+    } = {}
+  ) {
     const where: Prisma.AutomationAuditLogWhereInput = {
       rule: { tenantId },
     };
@@ -106,12 +124,25 @@ export class AutomationEngineService {
       ];
     }
 
+    const orderBy = buildPrismaOrderBy<Prisma.AutomationAuditLogOrderByWithRelationInput>(
+      params.sortBy,
+      params.sortDir || 'desc',
+      {
+        createdAt: (d) => [{ createdAt: d }, { id: d }],
+        time: (d) => [{ createdAt: d }, { id: d }],
+        ruleName: (d) => [{ ruleName: d }, { id: d }],
+        target: (d) => [{ target: d }, { id: d }],
+        status: (d) => [{ status: d }, { id: d }],
+      },
+      [{ createdAt: 'desc' }, { id: 'desc' }]
+    ) as Prisma.AutomationAuditLogOrderByWithRelationInput[];
+
     const hasPagination = params.page !== undefined || params.limit !== undefined;
     if (!hasPagination) {
       const data = await prisma.automationAuditLog.findMany({
         where,
         take: 50,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
       });
       return {
         data,
@@ -125,7 +156,7 @@ export class AutomationEngineService {
       prisma.automationAuditLog.count({ where }),
       prisma.automationAuditLog.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip: (page - 1) * limit,
         take: limit,
       }),

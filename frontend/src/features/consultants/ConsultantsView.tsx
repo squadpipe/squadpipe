@@ -15,6 +15,7 @@ import {
 import { apiClient } from '../../config/api.config';
 import { BillablePlacement, Candidate, Vendor } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
+import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { CustomSelect } from '../../components/shared/CustomSelect';
@@ -23,6 +24,11 @@ import { EditConsultantModal } from '../../components/modals/edit/EditConsultant
 import { useDebounce } from '../../utils/useDebounce';
 import { mapCandidateFromApi } from '../../utils/entityMappers';
 import { useCurrency } from '../../utils/currency';
+import {
+  extractRateSortValue,
+  sortArrayByColumn,
+  useTableSort,
+} from '../../utils/tableSort';
 import { useMasterTaxonomies } from '../../components/shared/DynamicCustomFieldsSection';
 import {
   extractResumeMatchExcerpt,
@@ -66,6 +72,9 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
   const [maxRate, setMaxRate] = useState('');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const tableSort = useTableSort<
+    'fullName' | 'workAuth' | 'currentTitle' | 'hourlyRate' | 'relocation' | 'pipelineStage'
+  >();
   const [tableRows, setTableRows] = useState<Candidate[]>(() => candidates.slice(0, 10));
   const [totalRows, setTotalRows] = useState(candidates.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
@@ -95,7 +104,15 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, workAuthFilter, stageFilter, debouncedMinRate, debouncedMaxRate]);
+  }, [
+    debouncedSearch,
+    workAuthFilter,
+    stageFilter,
+    debouncedMinRate,
+    debouncedMaxRate,
+    tableSort.sort.sortBy,
+    tableSort.sort.sortDir,
+  ]);
 
   useEffect(() => {
     let active = true;
@@ -125,13 +142,16 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
       return matchesSearch && matchesAuth && matchesStage && matchesRate;
     });
 
-    if (candidates.length > 0) {
+    if (candidates.length > 0 && !tableSort.sort.sortBy) {
       setTotalRows(localFiltered.length);
       setTableRows(localFiltered.slice((page - 1) * limit, page * limit));
       setIsLoadingRows(false);
     } else {
       setIsLoadingRows(true);
     }
+
+    const activeSortParams =
+      rateMasked && tableSort.sort.sortBy === 'hourlyRate' ? {} : tableSort.sortParams;
 
     apiClient
       .get('/candidates', {
@@ -143,6 +163,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
           maxRate: !rateMasked && Number.isFinite(maxNum) ? maxNum : undefined,
           page,
           limit,
+          ...activeSortParams,
         },
       })
       .then((res) => {
@@ -155,8 +176,16 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
       })
       .catch(() => {
         if (!active) return;
-        setTotalRows(localFiltered.length);
-        setTableRows(localFiltered.slice((page - 1) * limit, page * limit));
+        const sortedFallback = sortArrayByColumn(localFiltered, tableSort.sort, {
+          fullName: (c) => c.fullName,
+          workAuth: (c) => c.workAuth,
+          currentTitle: (c) => c.currentTitle,
+          hourlyRate: (c) => (rateMasked ? null : extractRateSortValue(c.hourlyRate)),
+          relocation: (c) => c.relocation,
+          pipelineStage: (c) => c.pipelineStage,
+        });
+        setTotalRows(sortedFallback.length);
+        setTableRows(sortedFallback.slice((page - 1) * limit, page * limit));
       })
       .finally(() => {
         if (active) setIsLoadingRows(false);
@@ -174,6 +203,9 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
     page,
     limit,
     candidates,
+    tableSort.sort.sortBy,
+    tableSort.sort.sortDir,
+    tableSort.sortParams,
   ]);
 
   const filtered = tableRows;
@@ -334,13 +366,56 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase">
               <tr>
-                <th className="px-4 py-3 whitespace-nowrap">Full Name</th>
-                <th className="px-4 py-3 whitespace-nowrap">Work Auth</th>
-                <th className="px-4 py-3 whitespace-nowrap">Current Title</th>
+                <SortableTableHeader
+                  label="Full Name"
+                  column="fullName"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  className="px-4 py-3 whitespace-nowrap"
+                />
+                <SortableTableHeader
+                  label="Work Auth"
+                  column="workAuth"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  className="px-4 py-3 whitespace-nowrap"
+                />
+                <SortableTableHeader
+                  label="Current Title"
+                  column="currentTitle"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  className="px-4 py-3 whitespace-nowrap"
+                />
                 <th className="px-4 py-3 whitespace-nowrap">Key Skillset</th>
-                <th className="px-4 py-3 whitespace-nowrap">Hourly Rate</th>
-                <th className="px-4 py-3 whitespace-nowrap">Relocation</th>
-                <th className="px-4 py-3 whitespace-nowrap">Stage</th>
+                <SortableTableHeader
+                  label="Hourly Rate"
+                  column="hourlyRate"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="desc"
+                  disabled={rateMasked}
+                  className="px-4 py-3 whitespace-nowrap"
+                />
+                <SortableTableHeader
+                  label="Relocation"
+                  column="relocation"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  className="px-4 py-3 whitespace-nowrap"
+                />
+                <SortableTableHeader
+                  label="Stage"
+                  column="pipelineStage"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  className="px-4 py-3 whitespace-nowrap"
+                />
                 <th className="px-4 py-3 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>

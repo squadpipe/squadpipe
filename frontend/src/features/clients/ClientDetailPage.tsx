@@ -21,11 +21,17 @@ import { apiClient } from '../../config/api.config';
 import { BillablePlacement, Client, Requirement } from '../../types';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
+import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { EditClientModal } from '../../components/modals/edit/EditClientModal';
 import { getStageDotClass } from '../../utils/stageStyles';
 import { useClientPagination } from '../../utils/usePagination';
+import {
+  extractRateSortValue,
+  sortArrayByColumn,
+  useTableSort,
+} from '../../utils/tableSort';
 
 interface ClientDetailPageProps {
   client: Client | null;
@@ -70,12 +76,18 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingClient, setIsDeletingClient] = useState(false);
+  const contactsSort = useTableSort<'name' | 'designation' | 'isPrimary'>();
+  const reqsSort = useTableSort<'code' | 'opportunityTitle' | 'assignedRecruiter' | 'location' | 'status'>();
+  const placementsSort = useTableSort<'resourceName' | 'skillRole' | 'startDate' | 'billing' | 'status'>();
 
   useEffect(() => {
     setIsEditingClient(Boolean(initialEditing));
     setShowAddContact(false);
     setShowDeleteConfirm(false);
     setIsDeletingClient(false);
+    contactsSort.resetSort();
+    reqsSort.resetSort();
+    placementsSort.resetSort();
   }, [client?.id, initialEditing]);
 
   const clientReqs = client
@@ -84,9 +96,45 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
   const clientPlacements = client
     ? placements.filter((p) => p.customer.toLowerCase() === client.name.toLowerCase())
     : [];
-  const contactsPg = useClientPagination(client?.contacts || [], 10, client?.id);
-  const reqsPg = useClientPagination(clientReqs, 10, client?.id);
-  const placementsPg = useClientPagination(clientPlacements, 10, client?.id);
+
+  const sortedContacts = sortArrayByColumn(client?.contacts || [], contactsSort.sort, {
+    name: (c) => c.name || (c as any).fullName || '',
+    designation: (c) => c.designation || '',
+    isPrimary: (c) => Boolean(c.isPrimary),
+  });
+  const sortedReqs = sortArrayByColumn(clientReqs, reqsSort.sort, {
+    code: (r) => r.code,
+    opportunityTitle: (r) => r.opportunityTitle,
+    assignedRecruiter: (r) =>
+      typeof r.assignedRecruiter === 'object' && r.assignedRecruiter !== null
+        ? (r.assignedRecruiter as any).fullName || ''
+        : r.assignedRecruiter || '',
+    location: (r) => r.location,
+    status: (r) => r.status,
+  });
+  const sortedPlacements = sortArrayByColumn(clientPlacements, placementsSort.sort, {
+    resourceName: (p) => p.resourceName,
+    skillRole: (p) => p.skillRole,
+    startDate: (p) => (p.startDate ? new Date(p.startDate) : null),
+    billing: (p) => (rateMasked ? null : extractRateSortValue(p.billing)),
+    status: (p) => p.status,
+  });
+
+  const contactsPg = useClientPagination(
+    sortedContacts,
+    10,
+    `${client?.id || ''}|contacts|${contactsSort.sort.sortBy || ''}|${contactsSort.sort.sortDir}`
+  );
+  const reqsPg = useClientPagination(
+    sortedReqs,
+    10,
+    `${client?.id || ''}|reqs|${reqsSort.sort.sortBy || ''}|${reqsSort.sort.sortDir}`
+  );
+  const placementsPg = useClientPagination(
+    sortedPlacements,
+    10,
+    `${client?.id || ''}|placements|${placementsSort.sort.sortBy || ''}|${placementsSort.sort.sortDir}`
+  );
 
   if (!client) {
     return (
@@ -304,11 +352,33 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                   <table className="w-full text-left text-xs">
                     <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase">
                       <tr>
-                        <th className="px-4 py-2.5">Contact</th>
-                        <th className="px-4 py-2.5">Designation</th>
+                        <SortableTableHeader
+                          label="Contact"
+                          column="name"
+                          sort={contactsSort.sort}
+                          onSort={contactsSort.handleSort}
+                          defaultDir="asc"
+                          className="px-4 py-2.5 whitespace-nowrap"
+                        />
+                        <SortableTableHeader
+                          label="Designation"
+                          column="designation"
+                          sort={contactsSort.sort}
+                          onSort={contactsSort.handleSort}
+                          defaultDir="asc"
+                          className="px-4 py-2.5 whitespace-nowrap"
+                        />
                         <th className="px-4 py-2.5">Email</th>
                         <th className="px-4 py-2.5">Phone</th>
-                        <th className="px-4 py-2.5 text-right">Role</th>
+                        <SortableTableHeader
+                          label="Role"
+                          column="isPrimary"
+                          sort={contactsSort.sort}
+                          onSort={contactsSort.handleSort}
+                          defaultDir="desc"
+                          align="right"
+                          className="px-4 py-2.5 whitespace-nowrap"
+                        />
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -389,11 +459,47 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                   <table className="w-full text-left text-xs">
                     <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase">
                       <tr>
-                        <th className="px-4 py-2.5">Req ID</th>
-                        <th className="px-4 py-2.5">Opportunity</th>
-                        <th className="px-4 py-2.5">Recruiter</th>
-                        <th className="px-4 py-2.5">Location</th>
-                        <th className="px-4 py-2.5 text-right">Stage</th>
+                        <SortableTableHeader
+                          label="Req ID"
+                          column="code"
+                          sort={reqsSort.sort}
+                          onSort={reqsSort.handleSort}
+                          defaultDir="asc"
+                          className="px-4 py-2.5 whitespace-nowrap"
+                        />
+                        <SortableTableHeader
+                          label="Opportunity"
+                          column="opportunityTitle"
+                          sort={reqsSort.sort}
+                          onSort={reqsSort.handleSort}
+                          defaultDir="asc"
+                          className="px-4 py-2.5 whitespace-nowrap"
+                        />
+                        <SortableTableHeader
+                          label="Recruiter"
+                          column="assignedRecruiter"
+                          sort={reqsSort.sort}
+                          onSort={reqsSort.handleSort}
+                          defaultDir="asc"
+                          className="px-4 py-2.5 whitespace-nowrap"
+                        />
+                        <SortableTableHeader
+                          label="Location"
+                          column="location"
+                          sort={reqsSort.sort}
+                          onSort={reqsSort.handleSort}
+                          defaultDir="asc"
+                          className="px-4 py-2.5 whitespace-nowrap"
+                        />
+                        <SortableTableHeader
+                          label="Stage"
+                          column="status"
+                          sort={reqsSort.sort}
+                          onSort={reqsSort.handleSort}
+                          defaultDir="asc"
+                          align="right"
+                          className="px-4 py-2.5 whitespace-nowrap"
+                        />
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -463,11 +569,48 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                   <table className="w-full text-left text-xs">
                     <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase">
                       <tr>
-                        <th className="px-4 py-2.5">Consultant</th>
-                        <th className="px-4 py-2.5">Role / Skill</th>
-                        <th className="px-4 py-2.5">Contract Period</th>
-                        <th className="px-4 py-2.5">Bill Rate</th>
-                        <th className="px-4 py-2.5 text-right">Status</th>
+                        <SortableTableHeader
+                          label="Consultant"
+                          column="resourceName"
+                          sort={placementsSort.sort}
+                          onSort={placementsSort.handleSort}
+                          defaultDir="asc"
+                          className="px-4 py-2.5 whitespace-nowrap"
+                        />
+                        <SortableTableHeader
+                          label="Role / Skill"
+                          column="skillRole"
+                          sort={placementsSort.sort}
+                          onSort={placementsSort.handleSort}
+                          defaultDir="asc"
+                          className="px-4 py-2.5 whitespace-nowrap"
+                        />
+                        <SortableTableHeader
+                          label="Contract Period"
+                          column="startDate"
+                          sort={placementsSort.sort}
+                          onSort={placementsSort.handleSort}
+                          defaultDir="desc"
+                          className="px-4 py-2.5 whitespace-nowrap"
+                        />
+                        <SortableTableHeader
+                          label="Bill Rate"
+                          column="billing"
+                          sort={placementsSort.sort}
+                          onSort={placementsSort.handleSort}
+                          defaultDir="desc"
+                          disabled={rateMasked}
+                          className="px-4 py-2.5 whitespace-nowrap"
+                        />
+                        <SortableTableHeader
+                          label="Status"
+                          column="status"
+                          sort={placementsSort.sort}
+                          onSort={placementsSort.handleSort}
+                          defaultDir="asc"
+                          align="right"
+                          className="px-4 py-2.5 whitespace-nowrap"
+                        />
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">

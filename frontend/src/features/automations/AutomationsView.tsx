@@ -15,10 +15,12 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { AutomationRule, AutomationAuditLog } from '../../types';
+import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { useDebounce } from '../../utils/useDebounce';
+import { sortArrayByColumn, useTableSort } from '../../utils/tableSort';
 
 interface AutomationsViewProps {
   rules: AutomationRule[];
@@ -155,6 +157,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
   const debouncedLogSearch = useDebounce(logSearch, 300);
   const [logsPage, setLogsPage] = useState(1);
   const [logsLimit, setLogsLimit] = useState(10);
+  const logsSort = useTableSort<'createdAt' | 'ruleName' | 'target' | 'status'>();
   const [logRows, setLogRows] = useState<AutomationAuditLog[]>(auditLogs);
   const [totalLogs, setTotalLogs] = useState(auditLogs.length);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
@@ -166,7 +169,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
 
   useEffect(() => {
     setLogsPage(1);
-  }, [debouncedLogSearch]);
+  }, [debouncedLogSearch, logsSort.sort.sortBy, logsSort.sort.sortDir]);
 
   useEffect(() => {
     let active = true;
@@ -177,6 +180,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
           search: debouncedLogSearch.trim() || undefined,
           page: logsPage,
           limit: logsLimit,
+          ...logsSort.sortParams,
         },
       })
       .then((res) => {
@@ -200,11 +204,17 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
       .catch(() => {
         if (!active) return;
         const q = debouncedLogSearch.toLowerCase();
-        const fallback = auditLogs.filter(
+        const filteredFallback = auditLogs.filter(
           (l) => !q || l.ruleName.toLowerCase().includes(q) || l.actionDispatched.toLowerCase().includes(q)
         );
-        setTotalLogs(fallback.length);
-        setLogRows(fallback.slice((logsPage - 1) * logsLimit, logsPage * logsLimit));
+        const sortedFallback = sortArrayByColumn(filteredFallback, logsSort.sort, {
+          createdAt: (l) => l.timestamp,
+          ruleName: (l) => l.ruleName,
+          target: (l) => l.target,
+          status: (l) => l.status,
+        });
+        setTotalLogs(sortedFallback.length);
+        setLogRows(sortedFallback.slice((logsPage - 1) * logsLimit, logsPage * logsLimit));
       })
       .finally(() => {
         if (active) setIsLoadingLogs(false);
@@ -212,7 +222,16 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
     return () => {
       active = false;
     };
-  }, [debouncedLogSearch, logsPage, logsLimit, logsRefreshKey, auditLogs]);
+  }, [
+    debouncedLogSearch,
+    logsPage,
+    logsLimit,
+    logsRefreshKey,
+    auditLogs,
+    logsSort.sort.sortBy,
+    logsSort.sort.sortDir,
+    logsSort.sortParams,
+  ]);
 
   const findRuleForPreset = (preset: ReminderPreset) =>
     activeRules.find(
@@ -483,10 +502,38 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[10.5px] font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
-                <th className="px-4 py-2.5">Time</th>
-                <th className="px-4 py-2.5">Reminder</th>
-                <th className="px-4 py-2.5">Details</th>
-                <th className="px-4 py-2.5">Status</th>
+                <SortableTableHeader
+                  label="Time"
+                  column="createdAt"
+                  sort={logsSort.sort}
+                  onSort={logsSort.handleSort}
+                  defaultDir="desc"
+                  className="px-4 py-2.5 whitespace-nowrap"
+                />
+                <SortableTableHeader
+                  label="Reminder"
+                  column="ruleName"
+                  sort={logsSort.sort}
+                  onSort={logsSort.handleSort}
+                  defaultDir="asc"
+                  className="px-4 py-2.5 whitespace-nowrap"
+                />
+                <SortableTableHeader
+                  label="Details"
+                  column="target"
+                  sort={logsSort.sort}
+                  onSort={logsSort.handleSort}
+                  defaultDir="asc"
+                  className="px-4 py-2.5 whitespace-nowrap"
+                />
+                <SortableTableHeader
+                  label="Status"
+                  column="status"
+                  sort={logsSort.sort}
+                  onSort={logsSort.handleSort}
+                  defaultDir="asc"
+                  className="px-4 py-2.5 whitespace-nowrap"
+                />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">

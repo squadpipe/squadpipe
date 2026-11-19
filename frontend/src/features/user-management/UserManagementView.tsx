@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { ActionButton } from '../../components/shared/ActionButton';
+import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { User } from '../../types';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
@@ -21,6 +22,7 @@ import { CustomSelect } from '../../components/shared/CustomSelect';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapUserFromApi } from '../../utils/entityMappers';
 import { getWorkspaceBrandSlug } from '../../utils/workspaceBrand';
+import { sortArrayByColumn, useTableSort } from '../../utils/tableSort';
 
 interface UserManagementViewProps {
   users: User[];
@@ -46,6 +48,9 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Invited' | 'Suspended'>('All');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const tableSort = useTableSort<
+    'fullName' | 'role' | 'desk' | 'workload' | 'rateMasked' | 'status'
+  >();
   const [tableUsers, setTableUsers] = useState<User[]>(() => users.slice(0, 10));
   const [totalUsers, setTotalUsers] = useState(users.length);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
@@ -59,7 +64,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, roleFilter, statusFilter]);
+  }, [debouncedSearch, roleFilter, statusFilter, tableSort.sort.sortBy, tableSort.sort.sortDir]);
 
   useEffect(() => {
     let active = true;
@@ -75,7 +80,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
       return matchesSearch && matchesRole && matchesStatus;
     });
 
-    if (users.length > 0) {
+    if (users.length > 0 && !tableSort.sort.sortBy) {
       setTotalUsers(localFiltered.length);
       setTableUsers(localFiltered.slice((page - 1) * limit, page * limit));
       setIsLoadingUsers(false);
@@ -91,6 +96,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
           status: statusFilter !== 'All' ? statusFilter : undefined,
           page,
           limit,
+          ...tableSort.sortParams,
         },
       })
       .then((res) => {
@@ -103,8 +109,16 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
       })
       .catch(() => {
         if (!active) return;
-        setTotalUsers(localFiltered.length);
-        setTableUsers(localFiltered.slice((page - 1) * limit, page * limit));
+        const sortedFallback = sortArrayByColumn(localFiltered, tableSort.sort, {
+          fullName: (u) => u.name,
+          role: (u) => u.role,
+          desk: (u) => u.desk,
+          workload: (u) => u.workload,
+          rateMasked: (u) => u.rateMasked,
+          status: (u) => u.status,
+        });
+        setTotalUsers(sortedFallback.length);
+        setTableUsers(sortedFallback.slice((page - 1) * limit, page * limit));
       })
       .finally(() => {
         if (active) setIsLoadingUsers(false);
@@ -112,7 +126,18 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
     return () => {
       active = false;
     };
-  }, [debouncedSearch, roleFilter, statusFilter, page, limit, users, currentUserEmail]);
+  }, [
+    debouncedSearch,
+    roleFilter,
+    statusFilter,
+    page,
+    limit,
+    users,
+    currentUserEmail,
+    tableSort.sort.sortBy,
+    tableSort.sort.sortDir,
+    tableSort.sortParams,
+  ]);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [newUser, setNewUser] = useState({
@@ -271,13 +296,55 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)]">
               <tr className="text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
-                <th className="py-3 px-5">Member</th>
-                <th className="py-3 px-4">Role</th>
-                <th className="py-3 px-4">Desk</th>
-                <th className="py-3 px-4">Live Workload</th>
-                <th className="py-3 px-4">Rate Access</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-5 text-right">Actions</th>
+                <SortableTableHeader
+                  label="Member"
+                  column="fullName"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  className="py-3 px-5 whitespace-nowrap"
+                />
+                <SortableTableHeader
+                  label="Role"
+                  column="role"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  className="py-3 px-4 whitespace-nowrap"
+                />
+                <SortableTableHeader
+                  label="Desk"
+                  column="desk"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  className="py-3 px-4 whitespace-nowrap"
+                />
+                <SortableTableHeader
+                  label="Live Workload"
+                  column="workload"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="desc"
+                  className="py-3 px-4 whitespace-nowrap"
+                />
+                <SortableTableHeader
+                  label="Rate Access"
+                  column="rateMasked"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  className="py-3 px-4 whitespace-nowrap"
+                />
+                <SortableTableHeader
+                  label="Status"
+                  column="status"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  className="py-3 px-4 whitespace-nowrap"
+                />
+                <th className="py-3 px-5 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">

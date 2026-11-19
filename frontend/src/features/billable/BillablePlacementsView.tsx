@@ -18,6 +18,7 @@ import {
 import { apiClient } from '../../config/api.config';
 import { BillablePlacement, Vendor } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
+import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { CustomSelect } from '../../components/shared/CustomSelect';
@@ -25,6 +26,11 @@ import { useCurrency } from '../../utils/currency';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapPlacementFromApi } from '../../utils/entityMappers';
 import { getWorkspaceBrandSlug } from '../../utils/workspaceBrand';
+import {
+  extractRateSortValue,
+  sortArrayByColumn,
+  useTableSort,
+} from '../../utils/tableSort';
 import { PlacementModals } from './PlacementModals';
 import {
   ExtensionData,
@@ -65,6 +71,9 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
   const [modelFilter, setModelFilter] = useState<'All' | 'W2 Hourly' | 'C2C Subcontractor' | '1099' | 'Full-Time'>('All');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const tableSort = useTableSort<
+    'customer' | 'resourceName' | 'status' | 'payRate' | 'billRate' | 'hourlySpread' | 'endDate'
+  >();
   const [tableRows, setTableRows] = useState<BillablePlacement[]>(() => placements.slice(0, 10));
   const [totalRows, setTotalRows] = useState(placements.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
@@ -73,7 +82,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, statusFilter, modelFilter]);
+  }, [debouncedSearch, statusFilter, modelFilter, tableSort.sort.sortBy, tableSort.sort.sortDir]);
 
   useEffect(() => {
     let active = true;
@@ -96,13 +105,21 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
       return matchesSearch && matchesStatus && matchesModel;
     });
 
-    if (placements.length > 0) {
+    if (placements.length > 0 && !tableSort.sort.sortBy) {
       setTotalRows(localFiltered.length);
       setTableRows(localFiltered.slice((page - 1) * limit, page * limit));
       setIsLoadingRows(false);
     } else {
       setIsLoadingRows(true);
     }
+
+    const activeSortParams =
+      rateMasked &&
+      (tableSort.sort.sortBy === 'payRate' ||
+        tableSort.sort.sortBy === 'billRate' ||
+        tableSort.sort.sortBy === 'hourlySpread')
+        ? {}
+        : tableSort.sortParams;
 
     apiClient
       .get('/placements', {
@@ -112,6 +129,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
           model: modelFilter !== 'All' ? modelFilter : undefined,
           page,
           limit,
+          ...activeSortParams,
         },
       })
       .then((res) => {
@@ -124,8 +142,17 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
       })
       .catch(() => {
         if (!active) return;
-        setTotalRows(localFiltered.length);
-        setTableRows(localFiltered.slice((page - 1) * limit, page * limit));
+        const sortedFallback = sortArrayByColumn(localFiltered, tableSort.sort, {
+          customer: (p) => p.customer,
+          resourceName: (p) => p.resourceName,
+          status: (p) => getEffectiveStatus(p),
+          payRate: (p) => (rateMasked ? null : extractRateSortValue(p.payRate)),
+          billRate: (p) => (rateMasked ? null : extractRateSortValue(p.billing)),
+          hourlySpread: (p) => (rateMasked ? null : Number(p.hourlySpread) || 0),
+          endDate: (p) => (p.endDate ? new Date(p.endDate) : null),
+        });
+        setTotalRows(sortedFallback.length);
+        setTableRows(sortedFallback.slice((page - 1) * limit, page * limit));
       })
       .finally(() => {
         if (active) setIsLoadingRows(false);
@@ -133,7 +160,18 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
     return () => {
       active = false;
     };
-  }, [debouncedSearch, statusFilter, modelFilter, page, limit, placements]);
+  }, [
+    debouncedSearch,
+    statusFilter,
+    modelFilter,
+    page,
+    limit,
+    placements,
+    rateMasked,
+    tableSort.sort.sortBy,
+    tableSort.sort.sortDir,
+    tableSort.sortParams,
+  ]);
 
   const [editingPlacement, setEditingPlacement] = useState<BillablePlacement | null>(null);
   const [deletingPlacement, setDeletingPlacement] = useState<BillablePlacement | null>(null);
@@ -360,13 +398,65 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
               <tr>
-                <th className="px-3.5 py-3">Customer &amp; PO</th>
-                <th className="px-3.5 py-3">Consultant &amp; Role</th>
-                <th className="px-3.5 py-3">Model &amp; Status</th>
-                <th className="px-3.5 py-3">Pay Rate</th>
-                <th className="px-3.5 py-3">Bill Rate</th>
-                <th className="px-3.5 py-3">Hourly Spread</th>
-                <th className="px-3.5 py-3">Contract Period</th>
+                <SortableTableHeader
+                  label="Customer &amp; PO"
+                  column="customer"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  className="px-3.5 py-3"
+                />
+                <SortableTableHeader
+                  label="Consultant &amp; Role"
+                  column="resourceName"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  className="px-3.5 py-3"
+                />
+                <SortableTableHeader
+                  label="Model &amp; Status"
+                  column="status"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  className="px-3.5 py-3"
+                />
+                <SortableTableHeader
+                  label="Pay Rate"
+                  column="payRate"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="desc"
+                  disabled={rateMasked}
+                  className="px-3.5 py-3"
+                />
+                <SortableTableHeader
+                  label="Bill Rate"
+                  column="billRate"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="desc"
+                  disabled={rateMasked}
+                  className="px-3.5 py-3"
+                />
+                <SortableTableHeader
+                  label="Hourly Spread"
+                  column="hourlySpread"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="desc"
+                  disabled={rateMasked}
+                  className="px-3.5 py-3"
+                />
+                <SortableTableHeader
+                  label="Contract Period"
+                  column="endDate"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  className="px-3.5 py-3"
+                />
                 <th className="px-3.5 py-3 text-right">Actions</th>
               </tr>
             </thead>

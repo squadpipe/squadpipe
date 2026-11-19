@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { ChevronRight, Pencil, Plus, Search, Trash2, Users } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Vendor, VendorContact } from '../../types';
+import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { EditVendorModal } from '../../components/modals/edit/EditVendorModal';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapVendorFromApi } from '../../utils/entityMappers';
+import { sortArrayByColumn, useTableSort } from '../../utils/tableSort';
 
 interface VendorsViewProps {
   vendors: Vendor[];
@@ -28,6 +30,15 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const tableSort = useTableSort<
+    | 'name'
+    | 'contactName'
+    | 'location'
+    | 'skillSpecialization'
+    | 'paymentTerms'
+    | 'invoicingTerms'
+    | 'msaSigned'
+  >();
   const [tableRows, setTableRows] = useState<Vendor[]>(() => vendors.slice(0, 10));
   const [totalRows, setTotalRows] = useState(vendors.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
@@ -37,7 +48,7 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, tableSort.sort.sortBy, tableSort.sort.sortDir]);
 
   useEffect(() => {
     let active = true;
@@ -51,7 +62,7 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
         v.location.toLowerCase().includes(q)
     );
 
-    if (vendors.length > 0) {
+    if (vendors.length > 0 && !tableSort.sort.sortBy) {
       setTotalRows(localFiltered.length);
       setTableRows(localFiltered.slice((page - 1) * limit, page * limit));
       setIsLoadingRows(false);
@@ -65,6 +76,7 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
           search: debouncedSearch.trim() || undefined,
           page,
           limit,
+          ...tableSort.sortParams,
         },
       })
       .then((res) => {
@@ -77,8 +89,17 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
       })
       .catch(() => {
         if (!active) return;
-        setTotalRows(localFiltered.length);
-        setTableRows(localFiltered.slice((page - 1) * limit, page * limit));
+        const sortedFallback = sortArrayByColumn(localFiltered, tableSort.sort, {
+          name: (v) => v.name,
+          contactName: (v) => v.contactName,
+          location: (v) => v.location,
+          skillSpecialization: (v) => v.skillSpecialization,
+          paymentTerms: (v) => v.paymentTerms,
+          invoicingTerms: (v) => v.invoicingTerms,
+          msaSigned: (v) => v.msa === 'Yes' || v.msa === 'Active',
+        });
+        setTotalRows(sortedFallback.length);
+        setTableRows(sortedFallback.slice((page - 1) * limit, page * limit));
       })
       .finally(() => {
         if (active) setIsLoadingRows(false);
@@ -86,7 +107,15 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
     return () => {
       active = false;
     };
-  }, [debouncedSearch, page, limit, vendors]);
+  }, [
+    debouncedSearch,
+    page,
+    limit,
+    vendors,
+    tableSort.sort.sortBy,
+    tableSort.sort.sortDir,
+    tableSort.sortParams,
+  ]);
 
   const filtered = tableRows;
 
@@ -133,15 +162,64 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase">
               <tr>
-                <th className="px-4 py-3">Vendor Company</th>
-                <th className="px-4 py-3">Contacts</th>
-                <th className="px-4 py-3">Phone & Email</th>
-                <th className="px-4 py-3">Location</th>
-                <th className="px-4 py-3">Specialization</th>
-                <th className="px-4 py-3">Payment Terms</th>
-                <th className="px-4 py-3">Invoicing</th>
-                <th className="px-4 py-3">MSA Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <SortableTableHeader
+                  label="Vendor Company"
+                  column="name"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  className="px-4 py-3 whitespace-nowrap"
+                />
+                <SortableTableHeader
+                  label="Contacts"
+                  column="contactName"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  className="px-4 py-3 whitespace-nowrap"
+                />
+                <th className="px-4 py-3 whitespace-nowrap">Phone &amp; Email</th>
+                <SortableTableHeader
+                  label="Location"
+                  column="location"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  className="px-4 py-3 whitespace-nowrap"
+                />
+                <SortableTableHeader
+                  label="Specialization"
+                  column="skillSpecialization"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  className="px-4 py-3 whitespace-nowrap"
+                />
+                <SortableTableHeader
+                  label="Payment Terms"
+                  column="paymentTerms"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  className="px-4 py-3 whitespace-nowrap"
+                />
+                <SortableTableHeader
+                  label="Invoicing"
+                  column="invoicingTerms"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  className="px-4 py-3 whitespace-nowrap"
+                />
+                <SortableTableHeader
+                  label="MSA Status"
+                  column="msaSigned"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="desc"
+                  className="px-4 py-3 whitespace-nowrap"
+                />
+                <th className="px-4 py-3 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">

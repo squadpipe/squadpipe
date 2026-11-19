@@ -28,12 +28,14 @@ import {
   SlaTask,
 } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
+import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { useDebounce } from '../../utils/useDebounce';
 import { formatUserRole, mapRequirementFromApi } from '../../utils/entityMappers';
+import { sortArrayByColumn, useTableSort } from '../../utils/tableSort';
 import {
   buildRequirementStageOptions,
   getStageDotClass,
@@ -84,6 +86,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const reqSort = useTableSort<'code' | 'opportunityTitle' | 'contact' | 'companyName' | 'location' | 'status'>();
+  const perfSort = useTableSort<'recruiterName' | 'openReqs' | 'submissions' | 'interviews' | 'placements' | 'conversionPct'>();
   const [tableRows, setTableRows] = useState<Requirement[]>(() => requirements.slice(0, 10));
   const [totalRows, setTotalRows] = useState(requirements.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
@@ -107,7 +111,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, statusFilter]);
+  }, [debouncedSearch, statusFilter, reqSort.sort.sortBy, reqSort.sort.sortDir]);
 
   useEffect(() => {
     let active = true;
@@ -124,7 +128,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       return matchesSearch && matchesStatus;
     });
 
-    if (requirements.length > 0) {
+    if (requirements.length > 0 && !reqSort.sort.sortBy) {
       setTotalRows(localFiltered.length);
       setTableRows(localFiltered.slice((page - 1) * limit, page * limit));
       setIsLoadingRows(false);
@@ -139,6 +143,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           status: statusFilter !== 'all' ? statusFilter : undefined,
           page,
           limit,
+          ...reqSort.sortParams,
         },
       })
       .then((res) => {
@@ -151,8 +156,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       })
       .catch(() => {
         if (!active) return;
-        setTotalRows(localFiltered.length);
-        setTableRows(localFiltered.slice((page - 1) * limit, page * limit));
+        const sortedFallback = sortArrayByColumn(localFiltered, reqSort.sort, {
+          code: (r) => r.code,
+          opportunityTitle: (r) => r.opportunityTitle,
+          contact: (r) =>
+            typeof r.clientContact === 'object' && r.clientContact !== null
+              ? (r.clientContact as any).fullName || ''
+              : String(r.clientContact || ''),
+          companyName: (r) => r.companyName,
+          location: (r) => r.location,
+          status: (r) => r.status,
+        });
+        setTotalRows(sortedFallback.length);
+        setTableRows(sortedFallback.slice((page - 1) * limit, page * limit));
       })
       .finally(() => {
         if (active) setIsLoadingRows(false);
@@ -160,13 +176,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return () => {
       active = false;
     };
-  }, [debouncedSearch, statusFilter, page, limit, requirements]);
+  }, [
+    debouncedSearch,
+    statusFilter,
+    page,
+    limit,
+    requirements,
+    reqSort.sort.sortBy,
+    reqSort.sort.sortDir,
+    reqSort.sortParams,
+  ]);
 
   const fetchRecruiterPerformance = async (targetPeriod: 'week' | 'month' | 'all' = perfPeriod) => {
     setIsLoadingPerf(true);
     try {
       const res = await apiClient.get('/dashboard/recruiter-performance', {
-        params: { period: targetPeriod },
+        params: { period: targetPeriod, ...perfSort.sortParams },
       });
       const report = res.data?.data;
       if (report && Array.isArray(report.team)) {
@@ -186,7 +211,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     let active = true;
     setIsLoadingPerf(true);
     apiClient
-      .get('/dashboard/recruiter-performance', { params: { period: perfPeriod } })
+      .get('/dashboard/recruiter-performance', {
+        params: { period: perfPeriod, ...perfSort.sortParams },
+      })
       .then((res) => {
         if (!active) return;
         const report = res.data?.data;
@@ -204,7 +231,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return () => {
       active = false;
     };
-  }, [perfPeriod, requirements.length, placements.length]);
+  }, [
+    perfPeriod,
+    requirements.length,
+    placements.length,
+    perfSort.sort.sortBy,
+    perfSort.sort.sortDir,
+    perfSort.sortParams,
+  ]);
 
   // 6 KPI Counts
   const activeReqsCount = requirements.length;
@@ -381,13 +415,55 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[10.5px] font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
-                <th className="px-3.5 py-2.5 whitespace-nowrap">Req #</th>
-                <th className="px-3.5 py-2.5 whitespace-nowrap">Opportunity</th>
-                <th className="px-3.5 py-2.5 whitespace-nowrap">Client Contact</th>
-                <th className="px-3.5 py-2.5 whitespace-nowrap">Company</th>
-                <th className="px-3.5 py-2.5 whitespace-nowrap">Location</th>
+                <SortableTableHeader
+                  label="Req #"
+                  column="code"
+                  sort={reqSort.sort}
+                  onSort={reqSort.handleSort}
+                  defaultDir="asc"
+                  className="px-3.5 py-2.5 whitespace-nowrap"
+                />
+                <SortableTableHeader
+                  label="Opportunity"
+                  column="opportunityTitle"
+                  sort={reqSort.sort}
+                  onSort={reqSort.handleSort}
+                  defaultDir="asc"
+                  className="px-3.5 py-2.5 whitespace-nowrap"
+                />
+                <SortableTableHeader
+                  label="Client Contact"
+                  column="contact"
+                  sort={reqSort.sort}
+                  onSort={reqSort.handleSort}
+                  defaultDir="asc"
+                  className="px-3.5 py-2.5 whitespace-nowrap"
+                />
+                <SortableTableHeader
+                  label="Company"
+                  column="companyName"
+                  sort={reqSort.sort}
+                  onSort={reqSort.handleSort}
+                  defaultDir="asc"
+                  className="px-3.5 py-2.5 whitespace-nowrap"
+                />
+                <SortableTableHeader
+                  label="Location"
+                  column="location"
+                  sort={reqSort.sort}
+                  onSort={reqSort.handleSort}
+                  defaultDir="asc"
+                  className="px-3.5 py-2.5 whitespace-nowrap"
+                />
                 <th className="px-3.5 py-2.5 whitespace-nowrap">Consultant</th>
-                <th className="px-3.5 py-2.5 whitespace-nowrap">Status</th>
+                <SortableTableHeader
+                  label="Status"
+                  column="status"
+                  sort={reqSort.sort}
+                  onSort={reqSort.handleSort}
+                  defaultDir="asc"
+                  className="px-3.5 py-2.5 whitespace-nowrap"
+                />
                 <th className="px-3.5 py-2.5 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
@@ -835,12 +911,59 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50/70 border-b border-slate-200/80 text-[10.5px] font-semibold text-slate-500 uppercase tracking-wider">
                 <tr>
-                  <th className="pl-5 pr-4 py-2.5">Recruiter</th>
-                  <th className="px-4 py-2.5 text-right">Open Reqs</th>
-                  <th className="px-4 py-2.5 text-right">Submissions</th>
-                  <th className="px-4 py-2.5 text-right">Interviews</th>
-                  <th className="px-4 py-2.5 text-right">Placements</th>
-                  <th className="pl-4 pr-5 py-2.5 text-right">Conversion %</th>
+                  <SortableTableHeader
+                    label="Recruiter"
+                    column="recruiterName"
+                    sort={perfSort.sort}
+                    onSort={perfSort.handleSort}
+                    defaultDir="asc"
+                    className="pl-5 pr-4 py-2.5 whitespace-nowrap"
+                  />
+                  <SortableTableHeader
+                    label="Open Reqs"
+                    column="openReqs"
+                    sort={perfSort.sort}
+                    onSort={perfSort.handleSort}
+                    defaultDir="desc"
+                    align="right"
+                    className="px-4 py-2.5 whitespace-nowrap"
+                  />
+                  <SortableTableHeader
+                    label="Submissions"
+                    column="submissions"
+                    sort={perfSort.sort}
+                    onSort={perfSort.handleSort}
+                    defaultDir="desc"
+                    align="right"
+                    className="px-4 py-2.5 whitespace-nowrap"
+                  />
+                  <SortableTableHeader
+                    label="Interviews"
+                    column="interviews"
+                    sort={perfSort.sort}
+                    onSort={perfSort.handleSort}
+                    defaultDir="desc"
+                    align="right"
+                    className="px-4 py-2.5 whitespace-nowrap"
+                  />
+                  <SortableTableHeader
+                    label="Placements"
+                    column="placements"
+                    sort={perfSort.sort}
+                    onSort={perfSort.handleSort}
+                    defaultDir="desc"
+                    align="right"
+                    className="px-4 py-2.5 whitespace-nowrap"
+                  />
+                  <SortableTableHeader
+                    label="Conversion %"
+                    column="conversionPct"
+                    sort={perfSort.sort}
+                    onSort={perfSort.handleSort}
+                    defaultDir="desc"
+                    align="right"
+                    className="pl-4 pr-5 py-2.5 whitespace-nowrap"
+                  />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
