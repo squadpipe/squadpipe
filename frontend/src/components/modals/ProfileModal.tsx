@@ -3,6 +3,7 @@ import { LogOut, ShieldCheck, X } from 'lucide-react';
 import { User } from '../../types';
 import { ActionButton } from '../shared/ActionButton';
 import { AnimatedModal } from '../shared/MotionPrimitives';
+import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../utils/formValidation';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -43,8 +44,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   const handleSave = async () => {
     if (isSaving || !currentUser) return;
-    if (!formData.name.trim() || !formData.email.trim()) {
-      showToast('Validation Error', 'Full name and email address are required.', 'fa-solid fa-circle-exclamation text-rose-500');
+    const missingFields = getMissingFieldLabels([
+      { label: 'Full Name', valid: Boolean(formData.name.trim()) },
+      { label: 'Email Address', valid: Boolean(formData.email.trim()) },
+    ]);
+    if (missingFields.length > 0) {
+      showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'fa-solid fa-circle-exclamation text-rose-500');
       return;
     }
     setIsSaving(true);

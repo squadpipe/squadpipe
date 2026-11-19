@@ -4,6 +4,7 @@ import { Candidate, Requirement, Client, Vendor, BillablePlacement } from '../..
 import { formatRateDisplay, parseRateNumber, useCurrency } from '../../utils/currency';
 import { CustomSelect } from './CustomSelect';
 import { AnimatedModal } from './MotionPrimitives';
+import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../utils/formValidation';
 
 interface QuickAddModalProps {
   isOpen: boolean;
@@ -116,8 +117,12 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
 
   const handleSave = () => {
     if (activeTab === 'consultant') {
-      if (!conForm.fullName || !conForm.email) {
-        showToast('Required Fields', 'Full Name and Email are required.');
+      const missingFields = getMissingFieldLabels([
+        { label: 'Full Name', valid: Boolean(conForm.fullName.trim()) },
+        { label: 'Email', valid: Boolean(conForm.email.trim()) },
+      ]);
+      if (missingFields.length > 0) {
+        showToast('Required Fields', formatMissingFieldsMessage(missingFields));
         return;
       }
       onSaveCandidate({
@@ -131,8 +136,13 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
       showToast('Candidate Registered', `${conForm.fullName} added to bench!`, 'fa-solid fa-circle-check text-emerald-400');
     } else if (activeTab === 'requirement') {
       const openPosNum = Number(reqForm.openPositions);
-      if (!reqForm.companyName || !reqForm.opportunityTitle || !Number.isInteger(openPosNum) || openPosNum < 1) {
-        showToast('Required Fields', 'Company Name, Title, and Open Positions (>= 1) are required.');
+      const missingFields = getMissingFieldLabels([
+        { label: 'Company Name', valid: Boolean(reqForm.companyName.trim()) },
+        { label: 'Title', valid: Boolean(reqForm.opportunityTitle.trim()) },
+        { label: 'Open Positions (at least 1)', valid: Number.isInteger(openPosNum) && openPosNum >= 1 },
+      ]);
+      if (missingFields.length > 0) {
+        showToast('Required Fields', formatMissingFieldsMessage(missingFields));
         return;
       }
       onSaveRequirement({
@@ -151,7 +161,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
       });
       showToast('Job Requisition Open', `${reqForm.opportunityTitle} added to pipeline!`, 'fa-solid fa-circle-check text-emerald-400');
     } else if (activeTab === 'client') {
-      if (!cliForm.name) {
+      if (!cliForm.name.trim()) {
         showToast('Required Fields', 'Client Name is required.');
         return;
       }
@@ -173,7 +183,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
       });
       showToast('Client Account Added', `${cliForm.name} registered to client directory!`, 'fa-solid fa-circle-check text-emerald-400');
     } else if (activeTab === 'vendor') {
-      if (!venForm.name) {
+      if (!venForm.name.trim()) {
         showToast('Required Fields', 'Vendor Name is required.');
         return;
       }
@@ -183,8 +193,12 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
       });
       showToast('Staffing Vendor Added', `${venForm.name} registered!`, 'fa-solid fa-circle-check text-emerald-400');
     } else if (activeTab === 'placement') {
-      if (!placeForm.resourceName || !placeForm.customer) {
-        showToast('Required Fields', 'Resource Name and Customer are required.');
+      const missingFields = getMissingFieldLabels([
+        { label: 'Resource Name', valid: Boolean(placeForm.resourceName.trim()) },
+        { label: 'Customer', valid: Boolean(placeForm.customer.trim()) },
+      ]);
+      if (missingFields.length > 0) {
+        showToast('Required Fields', formatMissingFieldsMessage(missingFields));
         return;
       }
       const billNum = parseRateNumber(placeForm.billing, 0);

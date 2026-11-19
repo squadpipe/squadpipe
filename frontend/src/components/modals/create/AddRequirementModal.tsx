@@ -7,6 +7,7 @@ import { SearchableSelectInput } from '../../shared/SearchableSelectInput';
 import { CustomSelect } from '../../shared/CustomSelect';
 import { ActionButton } from '../../shared/ActionButton';
 import { AnimatedModal } from '../../shared/MotionPrimitives';
+import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../../utils/formValidation';
 
 interface AddRequirementModalProps {
   isOpen: boolean;
@@ -54,15 +55,18 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.opportunityTitle.trim() || !form.companyName.trim()) {
-      showToast('Validation Error', 'Role Title and Client Company are required.', 'fa-solid fa-triangle-exclamation text-amber-500');
-      return;
-    }
-
     const openPosStr = String(form.openPositions || '').trim();
     const openPosNum = Number(openPosStr);
-    if (!openPosStr || !/^\d+$/.test(openPosStr) || !Number.isInteger(openPosNum) || openPosNum < 1 || openPosNum > 1000) {
-      showToast('Required Field', 'Please enter at least 1 open position.', 'fa-solid fa-triangle-exclamation text-amber-500');
+    const isOpenPosValid =
+      Boolean(openPosStr) && /^\d+$/.test(openPosStr) && Number.isInteger(openPosNum) && openPosNum >= 1 && openPosNum <= 1000;
+
+    const missingFields = getMissingFieldLabels([
+      { label: 'Role Title', valid: Boolean(form.opportunityTitle.trim()) },
+      { label: 'Client Company', valid: Boolean(form.companyName.trim()) },
+      { label: 'Open Positions (at least 1)', valid: isOpenPosValid },
+    ]);
+    if (missingFields.length > 0) {
+      showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'fa-solid fa-triangle-exclamation text-amber-500');
       return;
     }
 

@@ -23,6 +23,7 @@ import { apiClient } from '../../config/api.config';
 import { BillablePlacement, Client, Requirement } from '../../types';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
+import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../utils/formValidation';
 import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
@@ -204,10 +205,14 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
 
   const handleSaveContact = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!contactForm.name.trim() || !contactForm.email.trim()) {
+    const missingFields = getMissingFieldLabels([
+      { label: 'Contact Name', valid: Boolean(contactForm.name.trim()) },
+      { label: 'Email', valid: Boolean(contactForm.email.trim()) },
+    ]);
+    if (missingFields.length > 0) {
       showToast(
         'Missing Fields',
-        'Contact name and email are required.',
+        formatMissingFieldsMessage(missingFields),
         'fa-solid fa-circle-exclamation text-rose-500'
       );
       return;

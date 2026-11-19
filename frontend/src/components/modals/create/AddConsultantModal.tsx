@@ -6,6 +6,7 @@ import { CustomSelect } from '../../shared/CustomSelect';
 import { useCurrency } from '../../../utils/currency';
 import { ALLOWED_CV_ACCEPT, validateCvFileSelection } from '../../../utils/cvFiles';
 import { AnimatedModal } from '../../shared/MotionPrimitives';
+import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../../utils/formValidation';
 
 interface AddConsultantModalProps {
   isOpen: boolean;
@@ -68,8 +69,12 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.fullName.trim() || !form.email.trim()) {
-      showToast('Validation Error', 'Full Name and Email Address are required.', 'fa-solid fa-triangle-exclamation text-amber-500');
+    const missingFields = getMissingFieldLabels([
+      { label: 'Full Name', valid: Boolean(form.fullName.trim()) },
+      { label: 'Email Address', valid: Boolean(form.email.trim()) },
+    ]);
+    if (missingFields.length > 0) {
+      showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'fa-solid fa-triangle-exclamation text-amber-500');
       return;
     }
 

@@ -5,6 +5,7 @@ import { DynamicCustomFieldsSection, useMasterTaxonomies } from '../../shared/Dy
 import { CustomSelect } from '../../shared/CustomSelect';
 import { ActionButton } from '../../shared/ActionButton';
 import { AnimatedModal } from '../../shared/MotionPrimitives';
+import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../../utils/formValidation';
 
 interface AddVendorModalProps {
   isOpen: boolean;
@@ -46,8 +47,13 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSaving) return;
-    if (!form.name.trim() || !form.contactName.trim() || !form.email.trim()) {
-      showToast('Validation Error', 'Vendor Agency Name, Contact Person, and Email are required.', 'fa-solid fa-triangle-exclamation text-amber-500');
+    const missingFields = getMissingFieldLabels([
+      { label: 'Vendor Agency Name', valid: Boolean(form.name.trim()) },
+      { label: 'Contact Person', valid: Boolean(form.contactName.trim()) },
+      { label: 'Email', valid: Boolean(form.email.trim()) },
+    ]);
+    if (missingFields.length > 0) {
+      showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'fa-solid fa-triangle-exclamation text-amber-500');
       return;
     }
 

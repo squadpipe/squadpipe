@@ -25,6 +25,7 @@ import { useAiCapabilities } from '../../utils/workspaceBrand';
 import { mapCandidateFromApi } from '../../utils/entityMappers';
 import { AnimatedModal } from '../shared/MotionPrimitives';
 import { CustomSelect } from '../shared/CustomSelect';
+import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../utils/formValidation';
 import {
   ALLOWED_CV_ACCEPT,
   buildCandidateFormData,
@@ -187,6 +188,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
   const [aiUsed, setAiUsed] = useState<boolean>(false);
   const [selectedCvFile, setSelectedCvFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [validationAttempted, setValidationAttempted] = useState<boolean>(false);
   const [bulkItems, setBulkItems] = useState<BulkQueueItem[]>([]);
   const [isBulkRunning, setIsBulkRunning] = useState<boolean>(false);
   const [bulkRecruiter, setBulkRecruiter] = useState<string>('');
@@ -205,6 +207,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
     setSelectedCvFile(null);
     setIsParsing(false);
     setIsSaving(false);
+    setValidationAttempted(false);
     setParseProgress(0);
     setBulkItems([]);
     setIsBulkRunning(false);
@@ -459,9 +462,24 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
     await handleFileSelection(e.dataTransfer.files);
   };
 
+  const isFullNameMissing = !profile.fullName.trim();
+  const isEmailMissing = !profile.email.trim();
+  const showFullNameError = (hasParsedFile || validationAttempted) && isFullNameMissing;
+  const showEmailError = (hasParsedFile || validationAttempted) && isEmailMissing;
+
   const handleApprove = async () => {
-    if (!profile.fullName.trim() || !profile.email.trim()) {
-      showToast('Validation Error', 'Full Name and Email Address are required before saving.', 'fa-solid fa-triangle-exclamation text-amber-500');
+    const missingFields = getMissingFieldLabels([
+      { label: 'Full Name', valid: !isFullNameMissing },
+      { label: 'Email Address', valid: !isEmailMissing },
+    ]);
+
+    if (missingFields.length > 0) {
+      setValidationAttempted(true);
+      showToast(
+        'Validation Error',
+        formatMissingFieldsMessage(missingFields, 'before saving'),
+        'fa-solid fa-triangle-exclamation text-amber-500'
+      );
       return;
     }
 
@@ -906,12 +924,21 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
               {/* Form Grid */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block font-medium text-slate-700 text-[10px] mb-0.5">Full Name *</label>
+                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                    <label className="block font-medium text-slate-700 text-[10px]">Full Name *</label>
+                    {showFullNameError && (
+                      <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    )}
+                  </div>
                   <input
                     type="text"
                     value={profile.fullName}
                     onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
-                    className="w-full px-2.5 py-1 text-xs border border-slate-200 rounded bg-slate-50/50 font-medium focus:bg-white focus:border-brand-500 focus:outline-none"
+                    className={`w-full px-2.5 py-1 text-xs border rounded font-medium focus:bg-white focus:outline-none ${
+                      showFullNameError
+                        ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/25 focus:border-rose-500'
+                        : 'border-slate-200 bg-slate-50/50 focus:border-brand-500'
+                    }`}
                   />
                 </div>
                 <div>
@@ -957,12 +984,21 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
 
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block font-medium text-slate-700 text-[10px] mb-0.5">Email Address</label>
+                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                    <label className="block font-medium text-slate-700 text-[10px]">Email Address *</label>
+                    {showEmailError && (
+                      <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    )}
+                  </div>
                   <input
                     type="email"
                     value={profile.email}
                     onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                    className="w-full px-2.5 py-1 text-xs border border-slate-200 rounded bg-slate-50/50 focus:bg-white focus:border-brand-500 focus:outline-none"
+                    className={`w-full px-2.5 py-1 text-xs border rounded focus:bg-white focus:outline-none ${
+                      showEmailError
+                        ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/25 focus:border-rose-500'
+                        : 'border-slate-200 bg-slate-50/50 focus:border-brand-500'
+                    }`}
                   />
                 </div>
                 <div>

@@ -19,6 +19,7 @@ import { SearchableSelectInput } from '../../components/shared/SearchableSelectI
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { MULTI_INDUSTRY_SKILLS_TAXONOMY } from '../../utils/skillsTaxonomy';
 import { AnimatedModal } from '../../components/shared/MotionPrimitives';
+import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../utils/formValidation';
 
 const PLACEHOLDER_FIELD_RE =
   /^(?:not\s+(?:explicitly\s+)?(?:specified|mentioned|provided|stated|disclosed|available|found|given|listed|known|applicable|included)(?:\s+in\s+(?:the\s+)?(?:email|message|thread|resume|cv|document)(?:\s+body)?)?|unspecified|none|n\/?a|unknown|unk|tbd|tba|to\s+be\s+(?:determined|confirmed)|missing|pending(?:\s+confirmation)?|blank|empty|nil|null|undisclosed)$/i;
@@ -142,6 +143,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
   const [hasParsed, setHasParsed] = useState(false);
   const [aiUsed, setAiUsed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [validationAttempted, setValidationAttempted] = useState(false);
   const [rawEmailText, setRawEmailText] = useState<string>('');
   const [skillInput, setSkillInput] = useState<string>('');
   const [showSkillSuggestions, setShowSkillSuggestions] = useState(false);
@@ -160,6 +162,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
     lastParsedTextRef.current = cleanInput;
     setIsParsing(true);
     setAiUsed(false);
+    setValidationAttempted(false);
     try {
       const res = await apiClient.post('/parse-email', { rawEmailText: cleanInput });
       const d = res.data?.data?.data || res.data?.data;
@@ -233,6 +236,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
     setHasParsed(false);
     setAiUsed(false);
     setIsParsing(false);
+    setValidationAttempted(false);
     lastParsedTextRef.current = '';
     setExtractedReq(EMPTY_FORM);
   }, [isOpen]);
@@ -292,6 +296,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
     setHasParsed(false);
     setAiUsed(false);
     setIsParsing(false);
+    setValidationAttempted(false);
     lastParsedTextRef.current = '';
     setExtractedReq(EMPTY_FORM);
   };
@@ -363,22 +368,33 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
     (Number(extractedReq.targetBillRate) || 0) - (Number(extractedReq.targetPayRate) || 0)
   );
 
+  const isCompanyMissing = !extractedReq.companyName.trim();
+  const isTitleMissing = !extractedReq.opportunityTitle.trim();
+  const openPosStr = String(extractedReq.openPositions || '').trim();
+  const openPosNum = Number(openPosStr);
+  const isOpenPosInvalid =
+    !openPosStr ||
+    !/^\d+$/.test(openPosStr) ||
+    !Number.isInteger(openPosNum) ||
+    openPosNum < 1 ||
+    openPosNum > 1000;
+
+  const showCompanyError = (hasParsed || validationAttempted) && isCompanyMissing;
+  const showTitleError = (hasParsed || validationAttempted) && isTitleMissing;
+  const showOpenPosError = (hasParsed || validationAttempted) && isOpenPosInvalid;
+
   const handleApprove = async () => {
-    if (!extractedReq.companyName.trim() || !extractedReq.opportunityTitle.trim()) {
+    const missingFields = getMissingFieldLabels([
+      { label: 'Target Company', valid: !isCompanyMissing },
+      { label: 'Job Title', valid: !isTitleMissing },
+      { label: 'No. of Open Positions (at least 1)', valid: !isOpenPosInvalid },
+    ]);
+
+    if (missingFields.length > 0) {
+      setValidationAttempted(true);
       showToast(
         'Validation Required',
-        'Please enter or parse a Target Company and Job Title before creating the requisition.',
-        'fa-solid fa-triangle-exclamation text-amber-500'
-      );
-      return;
-    }
-
-    const openPosStr = String(extractedReq.openPositions || '').trim();
-    const openPosNum = Number(openPosStr);
-    if (!openPosStr || !/^\d+$/.test(openPosStr) || !Number.isInteger(openPosNum) || openPosNum < 1 || openPosNum > 1000) {
-      showToast(
-        'Open Positions Required',
-        'Please enter at least 1 open position.',
+        formatMissingFieldsMessage(missingFields, 'before creating the requisition'),
         'fa-solid fa-triangle-exclamation text-amber-500'
       );
       return;
@@ -564,7 +580,12 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">Target Company *</label>
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Target Company *</label>
+                    {showCompanyError && (
+                      <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    )}
+                  </div>
                   <SearchableSelectInput
                     value={extractedReq.companyName}
                     onChange={(val) => {
@@ -593,7 +614,11 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                     placeholder="Select or type client company..."
                     emptyLabel="No saved clients — type company name"
                     newOptionBadge="Auto-saved on create"
-                    inputClassName="w-full pl-2.5 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 font-bold focus:border-brand-600 focus:outline-none"
+                    inputClassName={`w-full pl-2.5 pr-7 py-1.5 text-xs rounded-lg text-slate-800 font-bold focus:outline-none border ${
+                      showCompanyError
+                        ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/25 focus:border-rose-500'
+                        : 'bg-white border-slate-200 focus:border-brand-600'
+                    }`}
                   />
                   {extractedReq.companyName.trim() &&
                     !clients.some(
@@ -610,13 +635,22 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">Job / Opportunity Title *</label>
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Job / Opportunity Title *</label>
+                    {showTitleError && (
+                      <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    )}
+                  </div>
                   <input
                     type="text"
                     value={extractedReq.opportunityTitle}
                     onChange={(e) => setExtractedReq({ ...extractedReq, opportunityTitle: e.target.value })}
                     placeholder="e.g. Senior Java Architect"
-                    className="mt-0.5 w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 font-semibold focus:border-brand-600 focus:outline-none"
+                    className={`mt-0.5 w-full px-2.5 py-1.5 text-xs border rounded-lg text-slate-800 font-semibold focus:outline-none ${
+                      showTitleError
+                        ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/25 focus:border-rose-500'
+                        : 'bg-white border-slate-200 focus:border-brand-600'
+                    }`}
                   />
                 </div>
               </div>
@@ -646,7 +680,12 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">No. of Open Positions *</label>
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">No. of Open Positions *</label>
+                    {showOpenPosError && (
+                      <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    )}
+                  </div>
                   <input
                     type="number"
                     min={1}
@@ -656,8 +695,12 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
                     value={extractedReq.openPositions}
                     onChange={(e) => setExtractedReq({ ...extractedReq, openPositions: e.target.value })}
                     placeholder="e.g. 2"
-                    className={`mt-0.5 w-full px-2.5 py-1.5 text-xs bg-white border rounded-lg text-slate-800 font-semibold focus:border-brand-600 focus:outline-none ${
-                      !extractedReq.openPositions ? 'border-amber-300 bg-amber-50/30' : 'border-slate-200'
+                    className={`mt-0.5 w-full px-2.5 py-1.5 text-xs border rounded-lg text-slate-800 font-semibold focus:outline-none ${
+                      showOpenPosError
+                        ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/25 focus:border-rose-500'
+                        : !extractedReq.openPositions
+                        ? 'border-amber-300 bg-amber-50/30 focus:border-brand-600'
+                        : 'bg-white border-slate-200 focus:border-brand-600'
                     }`}
                   />
                 </div>

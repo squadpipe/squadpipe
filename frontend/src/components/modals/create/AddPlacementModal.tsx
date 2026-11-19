@@ -9,6 +9,7 @@ import { CustomSelect } from '../../shared/CustomSelect';
 import { ActionButton } from '../../shared/ActionButton';
 import { getVendorComplianceWarning } from '../../../features/billable/placementUtils';
 import { AnimatedModal } from '../../shared/MotionPrimitives';
+import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../../utils/formValidation';
 
 interface AddPlacementModalProps {
   isOpen: boolean;
@@ -159,10 +160,14 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSaving) return;
-    if (!form.resourceName.trim() || !form.customer.trim()) {
+    const missingFields = getMissingFieldLabels([
+      { label: 'Placed Consultant Resource', valid: Boolean(form.resourceName.trim()) },
+      { label: 'Client Company', valid: Boolean(form.customer.trim()) },
+    ]);
+    if (missingFields.length > 0) {
       showToast(
         'Validation Error',
-        'Placed Consultant Resource and Client Company are required.',
+        formatMissingFieldsMessage(missingFields),
         'fa-solid fa-triangle-exclamation text-amber-500'
       );
       return;
