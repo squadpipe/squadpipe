@@ -3,6 +3,9 @@ import {
   AlertTriangle,
   ArrowLeft,
   Briefcase,
+  Calendar,
+  Check,
+  CheckCircle2,
   Handshake,
   Layers,
   Mail,
@@ -10,15 +13,19 @@ import {
   Pencil,
   Phone,
   Search,
+  ShieldAlert,
   ShieldCheck,
   Star,
   Trash2,
   UserCheck,
   Users,
+  X,
 } from 'lucide-react';
-import { BillablePlacement, Candidate, Vendor } from '../../types';
+import { BillablePlacement, Candidate, SlaTask, Vendor } from '../../types';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
+import { CustomSelect } from '../../components/shared/CustomSelect';
+import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { MaskedValue } from '../../components/shared/MaskedValue';
@@ -49,6 +56,9 @@ interface VendorDetailPageProps {
   placements?: BillablePlacement[];
   rateMasked?: boolean;
   initialEditing?: boolean;
+  initialTab?: 'consultants' | 'contacts' | 'placements' | 'terms';
+  initialAuditTask?: SlaTask | null;
+  onClearAuditTask?: () => void;
   onSelectCandidate?: (candidate: Candidate) => void;
   onSelectPlacement?: (placement: BillablePlacement) => void;
   onUpdateVendor?: (vendor: Vendor) => Promise<void> | void;
@@ -63,6 +73,9 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
   placements = [],
   rateMasked = false,
   initialEditing = false,
+  initialTab = 'consultants',
+  initialAuditTask = null,
+  onClearAuditTask,
   onSelectCandidate,
   onSelectPlacement,
   onUpdateVendor,
@@ -70,9 +83,24 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
 }) => {
   const { symbol: currencySymbol } = useCurrency();
   const [isEditing, setIsEditing] = useState(initialEditing);
+  const [showAuditModal, setShowAuditModal] = useState(Boolean(initialAuditTask));
+  const [isSavingAudit, setIsSavingAudit] = useState(false);
+  const [auditForm, setAuditForm] = useState<{
+    msa: 'Active' | 'Pending';
+    coiExpiryDate: string;
+    paymentTerms: string;
+    invoicingTerms: string;
+  }>({
+    msa: vendor?.msa === 'Yes' || vendor?.msa === 'Active' ? 'Active' : 'Pending',
+    coiExpiryDate: vendor?.coiExpiryDate || '',
+    paymentTerms: vendor?.paymentTerms || 'Net 30',
+    invoicingTerms: vendor?.invoicingTerms || 'Bi-weekly',
+  });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [workspaceTab, setWorkspaceTab] = useState<'consultants' | 'contacts' | 'placements' | 'terms'>('consultants');
+  const [workspaceTab, setWorkspaceTab] = useState<'consultants' | 'contacts' | 'placements' | 'terms'>(
+    initialAuditTask ? 'terms' : initialTab
+  );
   const [candidateSearch, setCandidateSearch] = useState('');
   const contactsSort = useTableSort<'fullName' | 'designation' | 'isPrimary'>();
   const candidatesSort = useTableSort<'fullName' | 'currentTitle' | 'workAuth' | 'hourlyRate' | 'pipelineStage'>();
@@ -80,14 +108,25 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
 
   useEffect(() => {
     setIsEditing(Boolean(initialEditing));
+    setShowAuditModal(Boolean(initialAuditTask));
     setShowDeleteConfirm(false);
     setIsDeleting(false);
-    setWorkspaceTab('consultants');
+    setWorkspaceTab(initialAuditTask ? 'terms' : initialTab);
     setCandidateSearch('');
     contactsSort.resetSort();
     candidatesSort.resetSort();
     placementsSort.resetSort();
-  }, [vendor?.id, initialEditing]);
+  }, [vendor?.id, initialEditing, initialTab, initialAuditTask]);
+
+  useEffect(() => {
+    if (!vendor) return;
+    setAuditForm({
+      msa: vendor.msa === 'Yes' || vendor.msa === 'Active' ? 'Active' : 'Pending',
+      coiExpiryDate: vendor.coiExpiryDate || '',
+      paymentTerms: vendor.paymentTerms || 'Net 30',
+      invoicingTerms: vendor.invoicingTerms || 'Bi-weekly',
+    });
+  }, [vendor, showAuditModal]);
 
   const vendorPlacements = vendor
     ? placements.filter(
@@ -777,16 +816,26 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
                   </p>
                 </div>
               </div>
-              {onUpdateVendor && (
+              <div className="flex items-center gap-3 shrink-0">
                 <button
                   type="button"
-                  onClick={openEditModal}
-                  className="text-brand-600 font-semibold hover:underline text-xs inline-flex items-center gap-1 cursor-pointer"
+                  onClick={() => setShowAuditModal(true)}
+                  className="px-2.5 py-1 rounded-lg border border-amber-200 bg-amber-50/80 hover:bg-amber-100/80 text-amber-800 text-[11px] font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer"
                 >
-                  <Pencil className="w-3 h-3" />
-                  <span>Edit Terms</span>
+                  <ShieldAlert className="w-3 h-3" />
+                  <span>Audit Compliance</span>
                 </button>
-              )}
+                {onUpdateVendor && (
+                  <button
+                    type="button"
+                    onClick={openEditModal}
+                    className="text-brand-600 font-semibold hover:underline text-xs inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    <span>Edit Terms</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-5">
@@ -980,6 +1029,318 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
           onUpdateVendor={onUpdateVendor}
         />
       )}
+
+      {/* Vendor Compliance Audit Modal */}
+      <AnimatedModal
+        isOpen={showAuditModal}
+        onBackdropClick={() => {
+          if (!isSavingAudit) {
+            setShowAuditModal(false);
+            onClearAuditTask?.();
+          }
+        }}
+        zIndexClass="z-50"
+        panelClassName="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
+        ariaLabel={`Vendor Compliance Audit for ${vendor.name}`}
+      >
+        {(() => {
+          const auditCoiDays = auditForm.coiExpiryDate
+            ? getDaysRemaining(auditForm.coiExpiryDate)
+            : null;
+          const isFormCompliant =
+            auditForm.msa === 'Active' &&
+            (auditCoiDays === null || auditCoiDays > 30);
+
+          const closeAudit = () => {
+            if (isSavingAudit) return;
+            setShowAuditModal(false);
+            onClearAuditTask?.();
+          };
+
+          const handleSaveAudit = async (e: React.FormEvent) => {
+            e.preventDefault();
+            if (isSavingAudit || !onUpdateVendor) {
+              closeAudit();
+              return;
+            }
+            setIsSavingAudit(true);
+            try {
+              await onUpdateVendor({
+                ...vendor,
+                msa: auditForm.msa,
+                coiExpiryDate: auditForm.coiExpiryDate || undefined,
+                paymentTerms: auditForm.paymentTerms,
+                invoicingTerms: auditForm.invoicingTerms,
+              });
+              setShowAuditModal(false);
+              onClearAuditTask?.();
+            } catch {
+              // Error toast handled by parent caller
+            } finally {
+              setIsSavingAudit(false);
+            }
+          };
+
+          return (
+            <>
+              <div className="px-6 py-4 bg-[#141615] text-white flex items-center justify-between gap-3 border-b border-white/10 shrink-0">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                      isFormCompliant
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-amber-500 text-slate-950'
+                    }`}
+                  >
+                    {isFormCompliant ? (
+                      <ShieldCheck className="w-4 h-4" />
+                    ) : (
+                      <ShieldAlert className="w-4 h-4" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-sm font-bold text-white">Vendor Compliance Audit</h2>
+                      {auditCoiDays !== null && auditCoiDays <= 30 && (
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            auditCoiDays < 0
+                              ? 'bg-rose-500/20 text-rose-200 border border-rose-400/30'
+                              : 'bg-amber-500/20 text-amber-200 border border-amber-400/30'
+                          }`}
+                        >
+                          {auditCoiDays < 0
+                            ? 'Insurance Expired'
+                            : `Insurance Expiring (${auditCoiDays}d)`}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-400 truncate mt-0.5">{vendor.name}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={isSavingAudit}
+                  onClick={closeAudit}
+                  aria-label="Close audit modal"
+                  className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveAudit} className="flex flex-col flex-1 overflow-hidden">
+                <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
+                  {/* Alert / Compliance Summary Box */}
+                  <div
+                    className={`rounded-xl border p-3.5 flex items-start gap-2.5 ${
+                      initialAuditTask ||
+                      !isMsaExecuted ||
+                      (coiDaysRemaining !== null && coiDaysRemaining <= 30)
+                        ? 'bg-amber-50/80 border-amber-200 text-amber-900'
+                        : 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                    }`}
+                  >
+                    {isFormCompliant ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    )}
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="font-bold text-xs">
+                        {initialAuditTask?.slaRuleTag ||
+                          (coiDaysRemaining !== null && coiDaysRemaining < 0
+                            ? 'Certificate of Insurance Expired'
+                            : coiDaysRemaining !== null && coiDaysRemaining <= 30
+                              ? `Insurance Expiring in ${coiDaysRemaining} Days`
+                              : !isMsaExecuted
+                                ? 'MSA Agreement Verification Required'
+                                : 'All Compliance Checks Verified')}
+                      </div>
+                      <p className="text-[11px] opacity-90 leading-relaxed">
+                        {initialAuditTask?.desc ||
+                          `Partner vendor ${vendor.name} agreement & insurance status check. Update executed MSA or renewed COI expiry below to resolve this audit alert.`}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* MSA Agreement Toggle */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1.5">
+                      Master Service Agreement (MSA) Status
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(
+                        [
+                          { id: 'Active', label: 'MSA Executed (Active)' },
+                          { id: 'Pending', label: 'Pending Review' },
+                        ] as const
+                      ).map((opt) => {
+                        const selected = auditForm.msa === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            disabled={!onUpdateVendor}
+                            onClick={() => setAuditForm({ ...auditForm, msa: opt.id })}
+                            className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-60 ${
+                              selected
+                                ? opt.id === 'Active'
+                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow-2xs'
+                                  : 'bg-amber-50 border-amber-300 text-amber-800 shadow-2xs'
+                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            {selected && <Check className="w-3.5 h-3.5" />}
+                            <span>{opt.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Insurance / COI Expiry Date */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label
+                        htmlFor="vendor-audit-coi-date"
+                        className="text-[11px] font-semibold text-slate-700 inline-flex items-center gap-1.5"
+                      >
+                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Insurance (COI) Expiry Date</span>
+                      </label>
+                      {auditCoiDays !== null && (
+                        <span
+                          className={`text-[10.5px] font-semibold ${
+                            auditCoiDays < 0
+                              ? 'text-rose-600'
+                              : auditCoiDays <= 30
+                                ? 'text-amber-700'
+                                : 'text-emerald-700'
+                          }`}
+                        >
+                          {auditCoiDays < 0
+                            ? `${Math.abs(auditCoiDays)}d overdue`
+                            : `${auditCoiDays}d remaining`}
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      id="vendor-audit-coi-date"
+                      type="date"
+                      disabled={!onUpdateVendor}
+                      value={auditForm.coiExpiryDate}
+                      onChange={(e) =>
+                        setAuditForm({ ...auditForm, coiExpiryDate: e.target.value })
+                      }
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none disabled:bg-slate-50"
+                    />
+                  </div>
+
+                  {/* Commercial Terms */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Payment Terms
+                      </label>
+                      <CustomSelect
+                        value={auditForm.paymentTerms}
+                        disabled={!onUpdateVendor}
+                        onChange={(val) => setAuditForm({ ...auditForm, paymentTerms: val })}
+                        ariaLabel="Payment Terms"
+                        options={['Net 15', 'Net 30', 'Net 45', 'Net 60']}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Invoicing Schedule
+                      </label>
+                      <CustomSelect
+                        value={auditForm.invoicingTerms}
+                        disabled={!onUpdateVendor}
+                        onChange={(val) => setAuditForm({ ...auditForm, invoicingTerms: val })}
+                        ariaLabel="Invoicing Schedule"
+                        options={['Weekly', 'Bi-weekly', 'Monthly']}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Vendor Primary Contact for Renewal Outreach */}
+                  {primaryContact && (
+                    <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3.5 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Compliance Contact
+                        </div>
+                        <div className="text-xs font-semibold text-slate-900 mt-0.5 truncate">
+                          {primaryContact.fullName || vendor.contactName}
+                        </div>
+                        <div className="text-[11px] text-slate-500 truncate">
+                          {primaryContact.email || vendor.email}
+                          {primaryContact.phone ? ` · ${primaryContact.phone}` : ''}
+                        </div>
+                      </div>
+                      {(primaryContact.email || vendor.email) && (
+                        <a
+                          href={`mailto:${primaryContact.email || vendor.email}?subject=${encodeURIComponent(
+                            `Compliance Verification & COI Update — ${vendor.name}`
+                          )}`}
+                          className="shrink-0 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors"
+                        >
+                          <Mail className="w-3 h-3 text-brand-600" />
+                          <span>Request COI</span>
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2 shrink-0">
+                  {onUpdateVendor ? (
+                    <button
+                      type="button"
+                      disabled={isSavingAudit}
+                      onClick={() => {
+                        setShowAuditModal(false);
+                        onClearAuditTask?.();
+                        openEditModal();
+                      }}
+                      className="text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      <span>Edit Full Profile</span>
+                    </button>
+                  ) : (
+                    <span />
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isSavingAudit}
+                      onClick={closeAudit}
+                      className="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold cursor-pointer disabled:opacity-60"
+                    >
+                      Close
+                    </button>
+                    {onUpdateVendor && (
+                      <ActionButton
+                        type="submit"
+                        loading={isSavingAudit}
+                        loadingText="Saving Audit..."
+                        icon={<Check className="w-3.5 h-3.5" />}
+                        className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-xs cursor-pointer"
+                      >
+                        Save Audit &amp; Update Terms
+                      </ActionButton>
+                    )}
+                  </div>
+                </div>
+              </form>
+            </>
+          );
+        })()}
+      </AnimatedModal>
     </section>
   );
 };

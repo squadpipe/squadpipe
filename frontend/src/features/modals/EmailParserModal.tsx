@@ -445,8 +445,14 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
               <MailOpen className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-bold text-white text-sm">
+              <h3 className="font-bold text-white text-sm flex items-center gap-2">
                 <span>Create Job from Client Email</span>
+                {aiCapabilities.enabled && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-indigo-500/20 text-indigo-200 border border-indigo-400/30 px-1.5 py-0.5 rounded">
+                    <Sparkles className="w-2.5 h-2.5" />
+                    <span>AI Parse</span>
+                  </span>
+                )}
               </h3>
               <p className="text-[11px] text-slate-400">
                 Paste any client email to auto-fill company, role, hiring lead, skills, work model &amp; rates.

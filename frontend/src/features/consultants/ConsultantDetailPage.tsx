@@ -401,9 +401,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
               }`}
             />
             <span>
-              {hasStoredOriginalCv
-                ? `Original CV Stored (${candidate.resumeName || 'Attached'})`
-                : 'CRM Profile Brief'}
+              {hasStoredOriginalCv ? 'Original CV Stored' : 'CRM Profile Brief'}
             </span>
           </div>
         }

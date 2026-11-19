@@ -608,6 +608,11 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                       <span>
                         {isLoading ? 'Generating Draft...' : `Generate ${getPurposeLabel(purpose)}`}
                       </span>
+                      {!isLoading && aiCapabilities.enabled && (
+                        <span className="px-1.5 py-0.5 rounded bg-white/15 text-[9.5px] font-bold uppercase tracking-wide leading-none">
+                          AI
+                        </span>
+                      )}
                     </button>
                   </div>
 

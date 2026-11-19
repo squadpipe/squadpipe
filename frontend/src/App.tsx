@@ -345,6 +345,10 @@ export const App: React.FC = () => {
   const [selectedVendorForDetail, setSelectedVendorForDetail] = useState<Vendor | null>(null);
   const [vendorDetailReturnView, setVendorDetailReturnView] = useState<string>('vendors');
   const [vendorDetailInitialEdit, setVendorDetailInitialEdit] = useState<boolean>(false);
+  const [vendorDetailInitialTab, setVendorDetailInitialTab] = useState<
+    'consultants' | 'contacts' | 'placements' | 'terms'
+  >('consultants');
+  const [vendorDetailAuditTask, setVendorDetailAuditTask] = useState<SlaTask | null>(null);
   const [selectedPlacementForDetail, setSelectedPlacementForDetail] =
     useState<BillablePlacement | null>(null);
   const [placementDetailReturnView, setPlacementDetailReturnView] = useState<string>('billable');
@@ -386,13 +390,19 @@ export const App: React.FC = () => {
   const handleOpenVendorDetail = (
     vendor: Vendor,
     startEditing = false,
-    fromView?: string
+    fromView?: string,
+    options?: {
+      initialTab?: 'consultants' | 'contacts' | 'placements' | 'terms';
+      auditTask?: SlaTask | null;
+    }
   ) => {
     setVendorDetailReturnView(
       fromView || (currentView !== 'vendor_detail' ? currentView : vendorDetailReturnView)
     );
     setSelectedVendorForDetail(vendor);
     setVendorDetailInitialEdit(Boolean(startEditing));
+    setVendorDetailInitialTab(options?.initialTab || (options?.auditTask ? 'terms' : 'consultants'));
+    setVendorDetailAuditTask(options?.auditTask || null);
     setCurrentView('vendor_detail');
   };
 
@@ -419,6 +429,8 @@ export const App: React.FC = () => {
     if (!['vendor_detail', 'placement_detail'].includes(nextView)) {
       setSelectedVendorForDetail(null);
       setVendorDetailInitialEdit(false);
+      setVendorDetailAuditTask(null);
+      setVendorDetailInitialTab('consultants');
     }
     if (
       ![
@@ -623,18 +635,20 @@ export const App: React.FC = () => {
     }
   };
 
-  const fetchVendors = async () => {
+  const fetchVendors = async (): Promise<Vendor[]> => {
     try {
       const res = await apiClient.get('/vendors');
       if (res.data?.data) {
-        const mapped = res.data.data.map(mapVendorFromApi);
+        const mapped: Vendor[] = res.data.data.map(mapVendorFromApi);
         setVendors(mapped);
         setSidebarCounts((prev) => ({ ...prev, vendors: mapped.length }));
         loadedEntities.current.add('vendors');
+        return mapped;
       }
     } catch (e) {
       console.warn('API fetch vendors:', e);
     }
+    return [];
   };
 
   const fetchPlacements = async () => {
@@ -1751,28 +1765,50 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleTaskAction = (task: SlaTask) => {
+  const handleTaskAction = async (task: SlaTask) => {
     const action = String(task.actionType || '').toLowerCase();
     const matchedReq =
       task.relatedEntityId
         ? requirements.find((r) => r.id === task.relatedEntityId)
         : undefined;
 
+    setIsSlaOpen(false);
+
     if (action === 'matcher') {
       setActiveReq(matchedReq || requirements[0] || null);
       setIsMatcherModalOpen(true);
     } else if (action === 'billable') {
       setCurrentView('billable');
-    } else if (action === 'checklist') {
-      setCurrentView('vendors');
+    } else if (action === 'checklist' || task.relatedEntityType === 'vendor') {
+      let vendorList = vendors;
+      if (vendorList.length === 0 || !loadedEntities.current.has('vendors')) {
+        const loaded = await fetchVendors();
+        if (loaded.length > 0) vendorList = loaded;
+      }
+      const titleVendorPrefix = String(task.title || '').split(':')[0].trim().toLowerCase();
+      const matchedVendor =
+        (task.relatedEntityId
+          ? vendorList.find((v) => v.id === task.relatedEntityId)
+          : undefined) ||
+        (titleVendorPrefix
+          ? vendorList.find((v) => v.name.trim().toLowerCase() === titleVendorPrefix)
+          : undefined);
+
+      if (matchedVendor) {
+        handleOpenVendorDetail(matchedVendor, false, currentView, {
+          initialTab: 'terms',
+          auditTask: task,
+        });
+      } else {
+        handleNavigateView('vendors');
+      }
     } else {
       if (matchedReq) {
-        handleOpenRequirementDetail(matchedReq, 'pipeline');
+        handleOpenRequirementDetail(matchedReq, currentView);
       } else {
         handleNavigateView('pipeline');
       }
     }
-    setIsSlaOpen(false);
   };
 
   const handleSignOut = () => {
@@ -2037,6 +2073,7 @@ export const App: React.FC = () => {
                 setIsMatcherModalOpen(true);
               }}
               onOpenSlaDrawer={() => setIsSlaOpen(true)}
+              onTaskAction={handleTaskAction}
               onRefreshSla={async () => {
                 await Promise.all([fetchSlaTasks(), fetchAutomations(), fetchSidebarCounts()]);
               }}
@@ -2248,17 +2285,22 @@ export const App: React.FC = () => {
                 selectedVendorForDetail
               }
               backLabel={
-                vendorDetailReturnView === 'placement_detail'
-                  ? 'Back to Placement'
-                  : vendorDetailReturnView === 'consultant_detail'
-                    ? 'Back to Consultant'
-                    : 'Back to Vendors'
+                vendorDetailReturnView === 'dashboard'
+                  ? 'Back to Dashboard'
+                  : vendorDetailReturnView === 'placement_detail'
+                    ? 'Back to Placement'
+                    : vendorDetailReturnView === 'consultant_detail'
+                      ? 'Back to Consultant'
+                      : 'Back to Vendors'
               }
               onBack={() => handleNavigateView(vendorDetailReturnView)}
               candidates={candidates}
               placements={placements}
               rateMasked={rateMasked}
               initialEditing={vendorDetailInitialEdit}
+              initialTab={vendorDetailInitialTab}
+              initialAuditTask={vendorDetailAuditTask}
+              onClearAuditTask={() => setVendorDetailAuditTask(null)}
               onSelectCandidate={(c) => handleOpenConsultantDetail(c, false, 'vendor_detail')}
               onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'vendor_detail')}
               onUpdateVendor={canManageDataOperations ? handleUpdateVendor : undefined}

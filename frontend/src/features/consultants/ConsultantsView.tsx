@@ -9,6 +9,7 @@ import {
   Plus,
   Search,
   ShieldAlert,
+  Sparkles,
   Trash2,
   X,
 } from 'lucide-react';
@@ -24,6 +25,7 @@ import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapCandidateFromApi } from '../../utils/entityMappers';
 import { useCurrency } from '../../utils/currency';
+import { useAiCapabilities } from '../../utils/workspaceBrand';
 import {
   extractRateSortValue,
   sortArrayByColumn,
@@ -65,6 +67,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
   onUpdateCandidate,
   onDeleteCandidate,
 }) => {
+  const aiCapabilities = useAiCapabilities();
   const [search, setSearch] = useState('');
   const [workAuthFilter, setWorkAuthFilter] = useState('All');
   const [stageFilter, setStageFilter] = useState('All');
@@ -252,8 +255,17 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
             onClick={onOpenResumeParser}
             className="px-3 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
           >
-            <FileText className="w-3.5 h-3.5 text-brand-600" />
+            {aiCapabilities.enabled ? (
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+            ) : (
+              <FileText className="w-3.5 h-3.5 text-brand-600" />
+            )}
             <span>Upload Resume</span>
+            {aiCapabilities.enabled && (
+              <span className="px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-200/80 text-[9.5px] font-bold text-indigo-700 leading-none">
+                AI
+              </span>
+            )}
           </button>
           {onOpenAddConsultant && (
             <button

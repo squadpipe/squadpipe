@@ -38,6 +38,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Sparkles,
   Trash2,
   User,
   UsersRound,
@@ -58,7 +59,7 @@ import { mapRequirementFromApi } from '../../utils/entityMappers';
 import { useCurrency } from '../../utils/currency';
 import { getStageStyle } from '../../utils/stageStyles';
 import { sortArrayByColumn, useTableSort } from '../../utils/tableSort';
-import { getWorkspaceBrandSlug } from '../../utils/workspaceBrand';
+import { getWorkspaceBrandSlug, useAiCapabilities } from '../../utils/workspaceBrand';
 import { useMasterTaxonomies } from '../../components/shared/DynamicCustomFieldsSection';
 
 type KanbanColumnState = {
@@ -260,6 +261,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
   onDeleteReq,
 }) => {
   const { symbol: currencySymbol } = useCurrency();
+  const aiCapabilities = useAiCapabilities();
   const [displayMode, setDisplayMode] = useState<'kanban' | 'list'>('kanban');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -1074,8 +1076,17 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             onClick={onOpenEmailParser}
             className="px-3 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50 shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <MailOpen className="w-3.5 h-3.5 text-brand-600" />
+            {aiCapabilities.enabled ? (
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+            ) : (
+              <MailOpen className="w-3.5 h-3.5 text-brand-600" />
+            )}
             <span>Intake Email Parser</span>
+            {aiCapabilities.enabled && (
+              <span className="px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-200/80 text-[9.5px] font-bold text-indigo-700 leading-none">
+                AI
+              </span>
+            )}
           </button>
           {onOpenAddReq && (
             <button

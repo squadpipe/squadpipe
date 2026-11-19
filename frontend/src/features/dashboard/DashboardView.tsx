@@ -13,6 +13,7 @@ import {
   Plus,
   RefreshCw,
   Send,
+  Sparkles,
   Trash2,
   UserCheck,
   X,
@@ -41,6 +42,7 @@ import {
   getSlaDotClass,
 } from '../../utils/stageStyles';
 import { useMasterTaxonomies } from '../../components/shared/DynamicCustomFieldsSection';
+import { useAiCapabilities } from '../../utils/workspaceBrand';
 
 interface DashboardViewProps {
   requirements: Requirement[];
@@ -57,6 +59,7 @@ interface DashboardViewProps {
   onStatusChange: (req: Requirement, newStatus: any) => void;
   onOpenMatcher: (req: Requirement) => void;
   onOpenSlaDrawer: () => void;
+  onTaskAction?: (task: SlaTask) => void;
   onRefreshSla?: () => Promise<void> | void;
   showToast: (title: string, message: string, icon?: string) => void;
 }
@@ -76,9 +79,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onStatusChange,
   onOpenMatcher,
   onOpenSlaDrawer,
+  onTaskAction,
   onRefreshSla,
   showToast,
 }) => {
+  const aiCapabilities = useAiCapabilities();
   const [isEvaluatingSla, setIsEvaluatingSla] = useState(false);
   const [tableSearch, setTableSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -597,6 +602,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     tone="emerald"
                     size="xs"
                   />
+                  {aiCapabilities.enabled && (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9.5px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80">
+                      <Sparkles className="w-2.5 h-2.5" />
+                      <span>AI</span>
+                    </span>
+                  )}
                 </div>
                 <span className="text-[10px] text-slate-400">
                   Client follow-ups, upcoming interviews, and ending contracts
@@ -671,6 +682,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       {actionType === 'matcher' ? (
                         <button
                           onClick={() => {
+                            if (onTaskAction) {
+                              onTaskAction(item);
+                              return;
+                            }
                             const r =
                               (item.relatedEntityId
                                 ? requirements.find((x) => x.id === item.relatedEntityId)
@@ -683,14 +698,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         </button>
                       ) : actionType === 'billable' ? (
                         <button
-                          onClick={() => onNavigate('billable')}
+                          onClick={() => (onTaskAction ? onTaskAction(item) : onNavigate('billable'))}
                           className="flex-shrink-0 px-2.5 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[10px] font-semibold transition-colors cursor-pointer"
                         >
                           Review
                         </button>
                       ) : actionType === 'checklist' ? (
                         <button
-                          onClick={() => onNavigate('vendors')}
+                          onClick={() => (onTaskAction ? onTaskAction(item) : onNavigate('vendors'))}
                           className="flex-shrink-0 px-2.5 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[10px] font-semibold transition-colors cursor-pointer"
                         >
                           Audit
@@ -698,6 +713,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       ) : (
                         <button
                           onClick={() => {
+                            if (onTaskAction) {
+                              onTaskAction(item);
+                              return;
+                            }
                             const r = item.relatedEntityId
                               ? requirements.find((x) => x.id === item.relatedEntityId)
                               : undefined;

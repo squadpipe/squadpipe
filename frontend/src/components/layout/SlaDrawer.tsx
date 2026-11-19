@@ -102,7 +102,15 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
                 <Bell className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="font-bold text-slate-800 text-sm">Action Center</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-slate-800 text-sm">Action Center</h3>
+                  {aiCapabilities.enabled && (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9.5px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80">
+                      <Sparkles className="w-2.5 h-2.5" />
+                      <span>AI</span>
+                    </span>
+                  )}
+                </div>
                 <p className="text-[11px] text-slate-400">
                   {pendingCount} {pendingCount === 1 ? 'reminder' : 'reminders'} needing your attention
                 </p>

@@ -593,7 +593,15 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
         {/* Header */}
         <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <h4 className="text-sm font-bold text-slate-900">Attach Bench Candidates</h4>
+            <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <span>Attach Bench Candidates</span>
+              {aiModeEnabled && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80">
+                  <Sparkles className="w-2.5 h-2.5" />
+                  <span>AI Match</span>
+                </span>
+              )}
+            </h4>
             <p className="text-[11px] text-slate-500 truncate mt-0.5">
               {currentReq.code} &bull; {currentReq.opportunityTitle}
               {currentReq.companyName ? ` (${currentReq.companyName})` : ''}

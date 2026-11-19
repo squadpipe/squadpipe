@@ -524,8 +524,9 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
             <div>
               <h2 className="text-sm font-bold text-white flex items-center gap-2">
                 <span>Add Consultant from Resume</span>
-                <span className="text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded">
-                  Auto-Fill
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded">
+                  {aiCapabilities.enabled && <Sparkles className="w-2.5 h-2.5" />}
+                  <span>{aiCapabilities.enabled ? 'AI Auto-Fill' : 'Auto-Fill'}</span>
                 </span>
               </h2>
               <div className="text-[11px] text-slate-400 mt-0.5">
