@@ -80,6 +80,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       panelClassName="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden flex flex-col"
       ariaLabel="My Profile"
     >
+      {currentUser && (
+        <>
         {/* Header */}
         <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white">
           <div className="flex items-center gap-2.5">
@@ -191,6 +193,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             Save Changes
           </ActionButton>
         </div>
+        </>
+      )}
     </AnimatedModal>
   );
 };
