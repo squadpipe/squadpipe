@@ -1388,12 +1388,12 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
       {workspaceTab === 'applicants' && (
         <div className="space-y-5">
           {skills.length > 0 && (
-            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow px-6 py-3.5 flex items-center justify-between gap-4 flex-wrap text-xs">
-              <div className="flex items-center gap-2.5 flex-wrap min-w-0">
-                <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 shrink-0">
+            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow px-6 py-3.5 flex items-start justify-between gap-4 text-xs">
+              <div className="flex items-start gap-2.5 flex-wrap sm:flex-nowrap flex-1 min-w-0">
+                <span className="h-6 inline-flex items-center text-[10.5px] font-bold uppercase tracking-wider text-slate-400 shrink-0 whitespace-nowrap">
                   Required Skills:
                 </span>
-                <div className="flex items-center flex-wrap gap-1.5">
+                <div className="flex items-center flex-wrap gap-1.5 flex-1 min-w-0">
                   {(showAllSkills ? skills : skills.slice(0, 10)).map((s, idx) => (
                     <SkillTag key={idx} skill={s} className="!mr-0 !mb-0" />
                   ))}
@@ -1418,9 +1418,10 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                     setEditOpenPosError('');
                     setIsEditing(true);
                   }}
-                  className="text-[11px] font-semibold text-brand-600 hover:underline cursor-pointer shrink-0"
+                  className="h-6 inline-flex items-center gap-1 text-[11px] font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer shrink-0 whitespace-nowrap"
                 >
-                  Edit skills
+                  <Pencil className="w-3 h-3" />
+                  <span>Edit skills</span>
                 </button>
               )}
             </div>
