@@ -1,84 +1,86 @@
-from fastapi import APIRouter
 import re
+from fastapi import APIRouter
 from app.schemas.email import EmailIntakeRequest, EmailIntakeResponse, ExtractedRequirement
 from app.extractors.skills_extractor import extract_skills
 
 router = APIRouter()
 
+_PLACEHOLDER_RE = re.compile(
+    r"^(?:not\s+(?:explicitly\s+)?(?:specified|mentioned|provided|stated|disclosed|available|found)|unknown|n/?a|none|tbd|missing|pending)$",
+    re.IGNORECASE,
+)
+
+_CLAUSE_CUT_RE = re.compile(
+    r"\s+(?:for\s+(?:one\s+of|our|their|this|the\s+(?:ongoing|new|client|project)|an?\s+(?:ongoing|contract|\d+[- ]?(?:month|mo|week|year)))\b|with\s+(?:\d+|around|experience|strong|good)\b|who\s+(?:can|has|is)\b|to\s+(?:join|work|support|build|lead)\b|based\s+in\b|located\s+in\b).*$",
+    re.IGNORECASE,
+)
+
+
+def _clean_text(val: str) -> str:
+    cleaned = re.sub(r"\s+", " ", (val or "").strip(" \t\r\n:•-–—\"'"))
+    return "" if not cleaned or _PLACEHOLDER_RE.match(cleaned) else cleaned
+
+
 @router.post("/parse-email", response_model=EmailIntakeResponse)
 async def parse_email_intake(request: EmailIntakeRequest):
     """
-    Extracts structured job requisition details from raw client email text.
+    Extracts explicit structured fields from raw client email text without fabricating defaults.
     """
-    text = request.rawEmailText
-    
-    # Check for known prototype samples
-    if "goldman" in text.lower():
-        req = ExtractedRequirement(
-            companyName="Goldman Sachs",
-            opportunityTitle="Cyber Security Incident Responder",
-            location="Jersey City, NJ (Hybrid)",
-            clientContact="Angela Wu",
-            clientContactTitle="CISO Hiring Lead",
-            skillsRequired="Splunk, EDR, SIEM, MITRE ATT&CK, Threat Hunting",
-            assignedRecruiter="Marcus Brody",
-            initialStage="Requirement",
-            missingNotes="Client telephone number and maximum target billing rate were not specified in email body."
-        )
-        return EmailIntakeResponse(success=True, data=req)
-    elif "pfizer" in text.lower():
-        req = ExtractedRequirement(
-            companyName="Pfizer Global Health",
-            opportunityTitle="Principal Snowflake & PySpark Data Engineer",
-            location="New York, NY (Hybrid / Remote)",
-            clientContact="Robert Vance",
-            clientContactTitle="VP Global Infrastructure",
-            skillsRequired="Snowflake, dbt, Apache Airflow, PySpark, Python, SQL",
-            assignedRecruiter="Marcus Brody",
-            initialStage="Requirement",
-            missingNotes="Hourly bill rate range not explicitly stated in email."
-        )
-        return EmailIntakeResponse(success=True, data=req)
-    elif "capital one" in text.lower():
-        req = ExtractedRequirement(
-            companyName="Capital One Financial",
-            opportunityTitle="Lead Full-Stack Java / Microservices Engineer",
-            location="McLean, VA (Hybrid)",
-            clientContact="Jessica Albright",
-            clientContactTitle="Engineering Director",
-            skillsRequired="Java 17, Spring Boot, Kafka, AWS, React, Microservices",
-            assignedRecruiter="Marcus Brody",
-            initialStage="Requirement",
-            missingNotes="Bill rate and overtime authorization pending procurement approval."
-        )
-        return EmailIntakeResponse(success=True, data=req)
+    text = request.rawEmailText or ""
 
-    # Heuristic parsing for arbitrary emails
-    company = ""
-    for comp in ["Goldman Sachs", "Pfizer", "Capital One", "JPMorgan Chase", "Delta Air Lines", "Amazon", "Microsoft", "Google", "Apple"]:
-        if comp.lower() in text.lower():
-            company = comp
-            break
-            
-    contact_match = re.search(r'From:\s*([A-Za-z\s]+)<', text)
-    client_contact = contact_match.group(1).strip() if contact_match else ""
+    company_match = re.search(
+        r"(?:Target\s*Company|Company(?:\s*Name)?|Client(?:\s*Company|\s*Name)?|End\s*Client|Organization)\s*:\s*([^\n\r]+)",
+        text,
+        re.IGNORECASE,
+    )
+    company = _clean_text(company_match.group(1)) if company_match else ""
 
-    subject_match = re.search(r'Subject:\s*(?:Contract:|Open Req:|Urgent:)?\s*([^\n\r]+)', text, re.IGNORECASE)
-    opportunity_title = subject_match.group(1).strip() if subject_match else ""
+    contact_match = re.search(
+        r"(?:From|Hiring\s*Manager|Contact(?:\s*Name)?|POC)\s*:\s*([^<\n\r]+?)(?:<|$)",
+        text,
+        re.IGNORECASE | re.MULTILINE,
+    )
+    client_contact = _clean_text(contact_match.group(1)) if contact_match else ""
+
+    title_header_match = re.search(
+        r"(?:Job\s*Title|Position(?:\s*Title)?|Opportunity(?:\s*Title)?|Role(?:\s*Title)?|Opening)\s*:\s*([^\n\r]+)",
+        text,
+        re.IGNORECASE,
+    )
+    subject_match = re.search(
+        r"Subject:\s*(?:Re:|Fwd:|Fw:|Urgent:|Contract:|Open\s*Req:|Requisition:)?\s*([^\n\r]+)",
+        text,
+        re.IGNORECASE,
+    )
+    raw_title = (
+        title_header_match.group(1)
+        if title_header_match
+        else (subject_match.group(1) if subject_match else "")
+    )
+    opportunity_title = _clean_text(_CLAUSE_CUT_RE.sub("", raw_title))
+
+    location_match = re.search(r"(?:Work\s*Location|Location)\s*:\s*([^\n\r]+)", text, re.IGNORECASE)
+    location = _clean_text(location_match.group(1)) if location_match else ""
+
+    contact_title_match = re.search(
+        r"(?:Contact\s*Title|Designation|Hiring\s*Manager\s*Title)\s*:\s*([^\n\r]+)",
+        text,
+        re.IGNORECASE,
+    )
+    client_contact_title = _clean_text(contact_title_match.group(1)) if contact_title_match else ""
 
     skills = extract_skills(text)
-    
+
     req = ExtractedRequirement(
         companyName=company,
         opportunityTitle=opportunity_title,
-        location="Remote / Hybrid",
+        location=location,
         clientContact=client_contact,
-        clientContactTitle="",
+        clientContactTitle=client_contact_title,
         skillsRequired=", ".join(skills) if skills else "",
         assignedRecruiter=None,
         initialStage="Requirement",
-        missingNotes="Bill rate and direct telephone number pending confirmation."
+        missingNotes=None,
     )
-    
-    return EmailIntakeResponse(success=True, data=req)
 
+    return EmailIntakeResponse(success=True, data=req)

@@ -14,6 +14,11 @@ import {
   ResumeParseAiSchema,
   SubmissionCapabilityAiSchema,
 } from './ai.schemas';
+import {
+  purifyJobTitle,
+  sanitizeExtractedText,
+  sanitizeMissingNotes,
+} from './extractionSanitizer';
 import type {
   AiProviderAdapter,
   CapabilityCandidateInput,
@@ -479,16 +484,18 @@ export class AiService {
     };
   }> {
     const normalizedBaseline: Required<ResumeParseBaseline> = {
-      fullName: String(baselineFields.fullName || '').trim(),
-      email: String(baselineFields.email || '').trim(),
-      phone: String(baselineFields.phone || '').trim(),
-      workAuth: String(baselineFields.workAuth || '').trim(),
-      currentTitle: String(baselineFields.currentTitle || '').trim(),
-      education: String(baselineFields.education || '').trim(),
-      skills: Array.isArray(baselineFields.skills) ? baselineFields.skills.filter(Boolean) : [],
-      hourlyRate: String(baselineFields.hourlyRate || '').trim(),
-      relocation: String(baselineFields.relocation || '').trim(),
-      professionalSummary: String(baselineFields.professionalSummary || '').trim(),
+      fullName: sanitizeExtractedText(baselineFields.fullName),
+      email: sanitizeExtractedText(baselineFields.email),
+      phone: sanitizeExtractedText(baselineFields.phone),
+      workAuth: sanitizeExtractedText(baselineFields.workAuth),
+      currentTitle: purifyJobTitle(baselineFields.currentTitle) || sanitizeExtractedText(baselineFields.currentTitle),
+      education: sanitizeExtractedText(baselineFields.education),
+      skills: Array.isArray(baselineFields.skills)
+        ? baselineFields.skills.map((s) => sanitizeExtractedText(s)).filter(Boolean)
+        : [],
+      hourlyRate: sanitizeExtractedText(baselineFields.hourlyRate),
+      relocation: sanitizeExtractedText(baselineFields.relocation),
+      professionalSummary: sanitizeExtractedText(baselineFields.professionalSummary),
     };
 
     const { config, adapter, quotaNotice } = await this.getActiveRuntime(context);
@@ -514,7 +521,7 @@ export class AiService {
           {
             role: 'system',
             content:
-              'You extract clean structured candidate fields from resume text. Return ONLY strict JSON matching keys: fullName, email, phone, workAuth, currentTitle, education, skills (array of concise skill names), hourlyRate, relocation, professionalSummary (2-3 crisp sentences). Preserve facts only; never invent contact details or work authorization.',
+              'You extract clean structured candidate fields from resume text. Return ONLY strict JSON matching keys: fullName, email, phone, workAuth, currentTitle, education, skills (array of concise skill names), hourlyRate, relocation, professionalSummary (2-3 crisp sentences). Preserve facts only; return "" for any missing text field (never write "Not specified", "Unknown", or "N/A"), and keep currentTitle as a pure concise job title.',
           },
           {
             role: 'user',
@@ -582,18 +589,20 @@ export class AiService {
     const normalizedBaseline: Required<Omit<EmailIntakeBaseline, 'openPositions'>> & {
       openPositions?: number;
     } = {
-      companyName: String(baselineFields.companyName || '').trim(),
-      opportunityTitle: String(baselineFields.opportunityTitle || '').trim(),
+      companyName: sanitizeExtractedText(baselineFields.companyName),
+      opportunityTitle: purifyJobTitle(baselineFields.opportunityTitle),
       openPositions: baselineFields.openPositions,
-      clientContact: String(baselineFields.clientContact || '').trim(),
-      clientContactEmail: String(baselineFields.clientContactEmail || '').trim(),
-      clientContactTitle: String(baselineFields.clientContactTitle || '').trim(),
-      location: String(baselineFields.location || '').trim(),
+      clientContact: sanitizeExtractedText(baselineFields.clientContact),
+      clientContactEmail: sanitizeExtractedText(baselineFields.clientContactEmail),
+      clientContactTitle: sanitizeExtractedText(baselineFields.clientContactTitle),
+      location: sanitizeExtractedText(baselineFields.location),
       workModel: baselineFields.workModel || 'Remote',
       targetBillRate: Number(baselineFields.targetBillRate || 0),
       targetPayRate: Number(baselineFields.targetPayRate || 0),
-      skills: Array.isArray(baselineFields.skills) ? baselineFields.skills.filter(Boolean) : [],
-      missingNotes: String(baselineFields.missingNotes || '').trim(),
+      skills: Array.isArray(baselineFields.skills)
+        ? baselineFields.skills.map((s) => sanitizeExtractedText(s)).filter(Boolean)
+        : [],
+      missingNotes: sanitizeMissingNotes(baselineFields.missingNotes),
     };
 
     const { config, adapter, quotaNotice } = await this.getActiveRuntime(context);
@@ -619,7 +628,7 @@ export class AiService {
           {
             role: 'system',
             content:
-              'You extract structured staffing job requisition fields from client/vendor email threads. Return ONLY strict JSON with keys: companyName, opportunityTitle, openPositions (integer >=1 if mentioned), clientContact, clientContactEmail, clientContactTitle, location, workModel ("Remote"|"Hybrid"|"Onsite"), targetBillRate (number, 0 if unknown), targetPayRate (number, 0 if unknown), skills (string array), missingNotes (concise note on missing commercial/contact fields).',
+              'You extract structured staffing job requisition fields from client/vendor email threads. Return ONLY strict JSON with keys: companyName, opportunityTitle, openPositions (integer >=1 only if explicitly stated), clientContact, clientContactEmail, clientContactTitle, location, workModel ("Remote"|"Hybrid"|"Onsite"), targetBillRate (number, 0 if unknown), targetPayRate (number, 0 if unknown), skills (array of concise skill names), missingNotes (brief list of absent details such as company name, pay rate, or phone).\n\nCRITICAL RULES:\n1. Never output placeholders like "Not specified in email", "Not specified", "Unknown", "N/A", "None", or "TBD" in any field. If a text field (companyName, clientContact, clientContactTitle, clientContactEmail, location) is not explicitly mentioned in the email, return "".\n2. opportunityTitle MUST be ONLY the pure canonical job role title (typically 2-6 words, e.g. "React Developer", "Senior Java Cloud Engineer"). Remove filler words ("looking for a", "for one of our ongoing projects", "with 4-5 years experience"), durations, locations, work models, and hourly rates.\n3. Never guess or invent companyName, clientContact, clientContactTitle, or location if omitted.\n4. In missingNotes, avoid saying "Not specified in email"; write concisely like "Missing: company name, explicit pay rate, direct phone."',
           },
           {
             role: 'user',
@@ -635,23 +644,28 @@ export class AiService {
       const resolvedPay = result.data.targetPayRate || normalizedBaseline.targetPayRate;
       await this.recordFeatureUsage('email_parse', result.completion, context);
 
+      const pureTitle = purifyJobTitle(result.data.opportunityTitle) || normalizedBaseline.opportunityTitle;
+
       return {
         data: {
-          companyName: result.data.companyName || normalizedBaseline.companyName,
-          opportunityTitle:
-            result.data.opportunityTitle || normalizedBaseline.opportunityTitle,
+          companyName: sanitizeExtractedText(result.data.companyName) || normalizedBaseline.companyName,
+          opportunityTitle: pureTitle,
           openPositions: result.data.openPositions ?? normalizedBaseline.openPositions,
-          clientContact: result.data.clientContact || normalizedBaseline.clientContact,
+          clientContact:
+            sanitizeExtractedText(result.data.clientContact) || normalizedBaseline.clientContact,
           clientContactEmail:
-            result.data.clientContactEmail || normalizedBaseline.clientContactEmail,
+            sanitizeExtractedText(result.data.clientContactEmail) ||
+            normalizedBaseline.clientContactEmail,
           clientContactTitle:
-            result.data.clientContactTitle || normalizedBaseline.clientContactTitle,
-          location: result.data.location || normalizedBaseline.location,
+            sanitizeExtractedText(result.data.clientContactTitle) ||
+            normalizedBaseline.clientContactTitle,
+          location: sanitizeExtractedText(result.data.location) || normalizedBaseline.location,
           workModel: result.data.workModel || normalizedBaseline.workModel,
           targetBillRate: resolvedBill,
           targetPayRate: resolvedPay,
           skills: result.data.skills.length > 0 ? result.data.skills : normalizedBaseline.skills,
-          missingNotes: result.data.missingNotes || normalizedBaseline.missingNotes,
+          missingNotes:
+            sanitizeMissingNotes(result.data.missingNotes) || normalizedBaseline.missingNotes,
         },
         aiUsed: true,
         meta: {

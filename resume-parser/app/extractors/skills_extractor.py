@@ -15,15 +15,15 @@ MULTI_INDUSTRY_SKILLS_TAXONOMY = [
     "Redshift", "Power BI", "Tableau", "Looker", "Snowpark", "ETL", "Machine Learning", "Deep Learning",
     "NLP", "LLM", "PyTorch", "TensorFlow", "Scikit-learn", "LangChain", "RAG", "Pandas", "NumPy",
     # Programming, Web & Mobile
-    "Python", "Java", "Java 17", "Spring Boot", "Spring Cloud", "Node.js", "TypeScript", "JavaScript",
-    "React", "Next.js", "Vue", "Angular", "Go", "Golang", "C++", "C#", ".NET", "Rust", "Scala", "PHP",
+    "Python", "Java", "Java 17", "Spring Boot", "Spring Cloud", "Node.js", "Express", "TypeScript", "JavaScript",
+    "React", "Redux", "Next.js", "Vue", "Angular", "Tailwind CSS", "Go", "Golang", "C++", "C#", ".NET", "Rust", "Scala", "PHP",
     "FastAPI", "Django", "Flask", "Ruby on Rails", "Swift", "Kotlin", "React Native", "Flutter",
     # QA, Testing & Security
     "Selenium", "Playwright", "Cypress", "JUnit", "PyTest", "Postman", "LoadRunner", "JMeter",
     "Cyber Security", "SIEM", "Splunk", "EDR", "MITRE ATT&CK", "Threat Hunting", "DevSecOps",
     "SOC 2", "ISO 27001", "Penetration Testing", "Zero Trust", "Okta", "CrowdStrike",
     # Architecture, Enterprise & SaaS
-    "Microservices", "REST API", "GraphQL", "SAP", "SAP FICO", "SAP MM", "SAP SD", "S/4HANA",
+    "Microservices", "REST API", "REST APIs", "GraphQL", "SAP", "SAP FICO", "SAP MM", "SAP SD", "S/4HANA",
     "Salesforce", "ServiceNow", "ITSM", "Flow Designer", "Workday", "Oracle NetSuite", "NetSuite",
     "Dynamics 365", "Jira", "Confluence", "SharePoint", "Zendesk",
     # Engineering, CAD & Manufacturing
@@ -56,6 +56,8 @@ SYNONYM_MAP = {
     "apache airflow": "Airflow",
     "microsoft excel": "Excel",
     "salesforce crm": "Salesforce",
+    "rest api": "REST APIs",
+    "rest apis": "REST APIs",
 }
 
 TITLE_KEYWORDS = (

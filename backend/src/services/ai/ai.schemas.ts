@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  purifyJobTitle,
+  sanitizeExtractedText,
+  sanitizeMissingNotes,
+} from './extractionSanitizer';
 
 const cleanStringList = (maxItems: number, maxLen: number) =>
   z
@@ -6,10 +11,16 @@ const cleanStringList = (maxItems: number, maxLen: number) =>
     .default([])
     .transform((items) =>
       items
-        .map((s) => String(s || '').trim().slice(0, maxLen))
+        .map((s) => sanitizeExtractedText(s).slice(0, maxLen))
         .filter(Boolean)
         .slice(0, maxItems)
     );
+
+const sanitizedString = (maxLen: number) =>
+  z
+    .string()
+    .default('')
+    .transform((s) => sanitizeExtractedText(s).slice(0, maxLen));
 
 const boundedString = (maxLen: number) =>
   z
@@ -18,26 +29,29 @@ const boundedString = (maxLen: number) =>
     .transform((s) => s.slice(0, maxLen));
 
 export const ResumeParseAiSchema = z.object({
-  fullName: z.string().trim().max(120).default(''),
-  email: z.string().trim().max(160).default(''),
-  phone: z.string().trim().max(60).default(''),
-  workAuth: z.string().trim().max(80).default(''),
-  currentTitle: z.string().trim().max(140).default(''),
-  education: z.string().trim().max(180).default(''),
+  fullName: sanitizedString(120),
+  email: sanitizedString(160),
+  phone: sanitizedString(60),
+  workAuth: sanitizedString(80),
+  currentTitle: sanitizedString(140),
+  education: sanitizedString(180),
   skills: cleanStringList(30, 60),
-  hourlyRate: z.string().trim().max(60).default(''),
-  relocation: z.string().trim().max(80).default(''),
-  professionalSummary: z.string().trim().max(1200).default(''),
+  hourlyRate: sanitizedString(60),
+  relocation: sanitizedString(80),
+  professionalSummary: sanitizedString(1200),
 });
 
 export const EmailIntakeAiSchema = z.object({
-  companyName: z.string().trim().max(120).default(''),
-  opportunityTitle: z.string().trim().max(160).default(''),
+  companyName: sanitizedString(120),
+  opportunityTitle: z
+    .string()
+    .default('')
+    .transform((s) => purifyJobTitle(s).slice(0, 160)),
   openPositions: z.coerce.number().int().min(1).max(1000).optional(),
-  clientContact: z.string().trim().max(120).default(''),
-  clientContactEmail: z.string().trim().max(160).default(''),
-  clientContactTitle: z.string().trim().max(120).default(''),
-  location: z.string().trim().max(140).default(''),
+  clientContact: sanitizedString(120),
+  clientContactEmail: sanitizedString(160),
+  clientContactTitle: sanitizedString(120),
+  location: sanitizedString(140),
   workModel: z
     .preprocess((val): 'Remote' | 'Hybrid' | 'Onsite' => {
       const s = String(val || '').trim().toLowerCase();
@@ -49,7 +63,10 @@ export const EmailIntakeAiSchema = z.object({
   targetBillRate: z.coerce.number().min(0).max(10000).default(0),
   targetPayRate: z.coerce.number().min(0).max(10000).default(0),
   skills: cleanStringList(30, 60),
-  missingNotes: z.string().trim().max(500).default(''),
+  missingNotes: z
+    .string()
+    .default('')
+    .transform((s) => sanitizeMissingNotes(s).slice(0, 500)),
 });
 
 export const SubmissionCapabilityAiSchema = z.object({

@@ -20,12 +20,30 @@ import { CustomSelect } from '../../components/shared/CustomSelect';
 import { MULTI_INDUSTRY_SKILLS_TAXONOMY } from '../../utils/skillsTaxonomy';
 import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 
-const cleanField = (val?: any) =>
-  String(val || '')
+const PLACEHOLDER_FIELD_RE =
+  /^(?:not\s+(?:explicitly\s+)?(?:specified|mentioned|provided|stated|disclosed|available|found|given|listed|known|applicable|included)(?:\s+in\s+(?:the\s+)?(?:email|message|thread|resume|cv|document)(?:\s+body)?)?|unspecified|none|n\/?a|unknown|unk|tbd|tba|to\s+be\s+(?:determined|confirmed)|missing|pending(?:\s+confirmation)?|blank|empty|nil|null|undisclosed)$/i;
+
+const cleanField = (val?: any) => {
+  const cleaned = String(val || '')
     .replace(/\*+/g, '')
     .replace(/[_`~]+/g, '')
     .replace(/^[\s:•\-–—]+|[\s*]+$/g, '')
     .trim();
+  const unwrapped = cleaned.replace(/^["'\[\]()<>]+|["'\[\]()<>.:;]+$/g, '').trim();
+  if (!cleaned || !unwrapped || PLACEHOLDER_FIELD_RE.test(unwrapped)) {
+    return '';
+  }
+  return cleaned;
+};
+
+const cleanNotes = (val?: any) => {
+  const cleaned = cleanField(val);
+  if (!cleaned) return '';
+  return cleaned.replace(
+    /\b(?:were|was|are|is)?\s*not\s+(?:explicitly\s+)?specified(?:\s+in\s+(?:the\s+)?email(?:\s+body)?)?\s*:?/gi,
+    'Missing in email:'
+  );
+};
 
 const stripClientLocation = (name?: string) =>
   String(name || '')
@@ -167,14 +185,13 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
         setExtractedReq((prev) => {
           const nextLocation =
             cleanField(d.location) ||
-            prev.location ||
             matchedClient?.location ||
-            'Remote';
+            '';
           return {
             ...prev,
-            companyName: resolvedCompany || prev.companyName,
-            opportunityTitle: cleanField(d.opportunityTitle || d.jobTitle) || prev.opportunityTitle,
-            openPositions: d.openPositions ? String(d.openPositions) : prev.openPositions || '1',
+            companyName: resolvedCompany || '',
+            opportunityTitle: cleanField(d.opportunityTitle || d.jobTitle) || '',
+            openPositions: d.openPositions ? String(d.openPositions) : '1',
             location:
               nextLocation === 'Remote' && matchedClient?.location
                 ? matchedClient.location
@@ -182,22 +199,21 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
             workModel: detectedWorkModel,
             clientContact:
               cleanField(d.clientContact || d.contactName) ||
-              prev.clientContact ||
               matchedClient?.contacts?.[0]?.name ||
               '',
             clientContactTitle:
               cleanField(d.clientContactTitle || d.contactTitle) ||
-              prev.clientContactTitle ||
               matchedClient?.contacts?.[0]?.designation ||
               '',
-            clientContactEmail: cleanField(d.clientContactEmail) || prev.clientContactEmail,
-            skillsRequired: parsedSkills || prev.skillsRequired,
-            assignedRecruiter: cleanField(d.assignedRecruiter) || prev.assignedRecruiter || users[0]?.name || '',
-            targetBillRate: parsedBillRate || prev.targetBillRate,
-            targetPayRate: parsedPayRate || prev.targetPayRate,
+            clientContactEmail: cleanField(d.clientContactEmail) || '',
+            skillsRequired: parsedSkills || '',
+            assignedRecruiter:
+              cleanField(d.assignedRecruiter) || prev.assignedRecruiter || users[0]?.name || '',
+            targetBillRate: parsedBillRate,
+            targetPayRate: parsedPayRate,
             missingNotes: Array.isArray(d.missingFields)
-              ? d.missingFields.join(', ')
-              : cleanField(d.missingNotes) || 'Extraction complete.',
+              ? d.missingFields.map((item: unknown) => cleanField(item)).filter(Boolean).join(', ')
+              : cleanNotes(d.missingNotes),
           };
         });
         setAiUsed(usedAi);
@@ -258,6 +274,10 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
     if (trimmed.length <= 20) {
       setHasParsed(false);
       setAiUsed(false);
+      if (!trimmed) {
+        lastParsedTextRef.current = '';
+        setExtractedReq(EMPTY_FORM);
+      }
       return;
     }
     const timer = setTimeout(() => {

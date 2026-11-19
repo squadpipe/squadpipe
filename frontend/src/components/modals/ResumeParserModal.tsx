@@ -98,6 +98,14 @@ function normalizeRelocation(raw?: string): 'Yes' | 'No' {
   return 'Yes';
 }
 
+const PLACEHOLDER_VALUE_RE =
+  /^(?:not\s+(?:explicitly\s+)?(?:specified|mentioned|provided|stated|disclosed|available|found)|unspecified|none|n\/?a|unknown|tbd|missing|pending)$/i;
+
+function cleanParsedField(val?: unknown): string {
+  const cleaned = String(val ?? '').trim();
+  return !cleaned || PLACEHOLDER_VALUE_RE.test(cleaned) ? '' : cleaned;
+}
+
 function mapParsedResumeToDraft(
   resData: any,
   file: File,
@@ -107,34 +115,40 @@ function mapParsedResumeToDraft(
   const parsed = resData?.data || resData || {};
   const aiUsed = Boolean(resData?.aiUsed ?? parsed?.aiUsed);
   const skillsText = Array.isArray(parsed.skills)
-    ? parsed.skills.join(', ')
-    : parsed.skillset || parsed.skills || 'AWS, Kubernetes, Python, SQL';
+    ? parsed.skills.map((s: unknown) => cleanParsedField(s)).filter(Boolean).join(', ')
+    : cleanParsedField(parsed.skillset || parsed.skills) || 'AWS, Kubernetes, Python, SQL';
   const baseName = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ').trim() || 'Uploaded Candidate';
   const emailSlug = baseName.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '') || 'candidate';
   const fallbackEmail = options?.uniqueFallbackEmail
     ? `${emailSlug}.${Date.now()}${options?.batchIndex ?? 0}@no-email.local`
     : 'candidate@gmail.com';
-  const rawRate = parsed.hourly_rate || parsed.hourlyRate;
+  const rawRate = cleanParsedField(parsed.hourly_rate || parsed.hourlyRate);
 
   return {
     aiUsed,
     profile: {
-      fullName: parsed.full_name || parsed.fullName || baseName,
-      phone: parsed.phone || '+1 (555) 010-0200',
-      email: parsed.email || fallbackEmail,
-      workAuth: normalizeWorkAuth(parsed.work_auth || parsed.workAuth),
-      education: parsed.education || "Bachelor's Degree",
-      currentTitle: parsed.current_title || parsed.currentTitle || 'Senior Software Engineer',
+      fullName: cleanParsedField(parsed.full_name || parsed.fullName) || baseName,
+      phone: cleanParsedField(parsed.phone) || '+1 (555) 010-0200',
+      email: cleanParsedField(parsed.email) || fallbackEmail,
+      workAuth: normalizeWorkAuth(cleanParsedField(parsed.work_auth || parsed.workAuth)),
+      education: cleanParsedField(parsed.education) || "Bachelor's Degree",
+      currentTitle:
+        cleanParsedField(parsed.current_title || parsed.currentTitle) || 'Senior Software Engineer',
       skillset: skillsText,
       hourlyRate: rawRate ? formatRateDisplay(rawRate, currencySymbol) : `${currencySymbol}90/hr (W2)`,
-      relocation: normalizeRelocation(parsed.relocation),
-      recruiter: options?.defaultRecruiter?.trim() || parsed.recruiter || 'Assigned Recruiter',
+      relocation: normalizeRelocation(cleanParsedField(parsed.relocation)),
+      recruiter:
+        options?.defaultRecruiter?.trim() ||
+        cleanParsedField(parsed.recruiter) ||
+        'Assigned Recruiter',
       fileName: file.name,
       rawSnippet:
         parsed.raw_text_snippet ||
         parsed.rawSnippet ||
         `Document text extracted from: ${file.name}`,
-      professionalSummary: parsed.professionalSummary || parsed.professional_summary || '',
+      professionalSummary: cleanParsedField(
+        parsed.professionalSummary || parsed.professional_summary
+      ),
     },
   };
 }

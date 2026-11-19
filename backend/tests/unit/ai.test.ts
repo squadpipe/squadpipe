@@ -14,9 +14,14 @@ import {
   redactRatesFromText,
 } from '../../src/services/ai/ai.service';
 import {
+  purifyJobTitle,
+  sanitizeExtractedText,
+} from '../../src/services/ai/extractionSanitizer';
+import {
   buildEnhancedEmailParseResponse,
   buildEnhancedResumeParseResponse,
   buildNodeResumeFallback,
+  extractEmailHeuristics,
 } from '../../src/services/ai/parseBridge.service';
 import type { AiProviderAdapter } from '../../src/services/ai/ai.types';
 
@@ -528,6 +533,100 @@ export const runAiServiceTests = async () => {
     messages: [{ role: 'user', content: 'Return JSON' }],
   });
   assert.ok((seenCfBody.max_tokens || 0) >= 2048);
+
+  // 14. Extraction Engine: placeholder stripping -> blank, pure job titles, and conversational email parsing
+  assert.equal(sanitizeExtractedText('Not specified in email'), '');
+  assert.equal(sanitizeExtractedText('Unknown'), '');
+  assert.equal(sanitizeExtractedText('N/A'), '');
+  assert.equal(purifyJobTitle('React developer for one of our ongoing projects'), 'React Developer');
+  assert.equal(
+    purifyJobTitle('Urgent: Fwd: Lead SAP S/4HANA FICO Solution Architect - Remote (12 mos)'),
+    'Lead SAP S/4HANA FICO Solution Architect'
+  );
+  assert.equal(purifyJobTitle('aws devops engineer role in Austin, TX'), 'AWS DevOps Engineer');
+  assert.equal(purifyJobTitle('ui/ux product designers with 5+ years'), 'UI/UX Product Designer');
+
+  const screenshotEmail = [
+    'Hi,',
+    '',
+    'We are looking for a React developer for one of our ongoing projects. The client needs someone with around 4–5 years of experience in React, JavaScript, Redux and REST APIs. Good knowledge of Node.js and AWS would be an advantage.',
+    '',
+    'The role is remote and initially for 6 months. The budget is around $75 per hour, but there is some flexibility for the right candidate. They would prefer someone who can join within 2 weeks.',
+    '',
+    'Thanks,',
+    'David',
+  ].join('\n');
+
+  const heuristicScreenshotRes = extractEmailHeuristics(screenshotEmail);
+  assert.equal(heuristicScreenshotRes.companyName, '');
+  assert.equal(heuristicScreenshotRes.clientContactTitle, '');
+  assert.equal(heuristicScreenshotRes.clientContact, 'David');
+  assert.equal(heuristicScreenshotRes.opportunityTitle, 'React Developer');
+  assert.equal(heuristicScreenshotRes.location, 'Remote');
+  assert.equal(heuristicScreenshotRes.workModel, 'Remote');
+  assert.equal(heuristicScreenshotRes.targetBillRate, 75);
+  assert.ok(heuristicScreenshotRes.skillsRequired.includes('React'));
+  assert.ok(heuristicScreenshotRes.skillsRequired.includes('JavaScript'));
+  assert.ok(heuristicScreenshotRes.skillsRequired.includes('Redux'));
+  assert.ok(heuristicScreenshotRes.skillsRequired.includes('REST APIs'));
+  assert.ok(heuristicScreenshotRes.skillsRequired.includes('Node.js'));
+  assert.ok(heuristicScreenshotRes.skillsRequired.includes('AWS'));
+  assert.equal(/not specified in email/i.test(heuristicScreenshotRes.missingNotes), false);
+
+  // LLM returning placeholder strings and noisy title is sanitized back to blank + pure title
+  const noisySentinelAiService = new AiService({
+    getConfig: () =>
+      resolveAiConfig({
+        AI_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test',
+        AI_FALLBACK_TO_OFFLINE: 'true',
+      }),
+    fetchImpl: async () =>
+      makeJsonResponse({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                companyName: 'Not specified in email',
+                opportunityTitle: 'React Developer for one of our ongoing projects',
+                clientContact: 'David',
+                clientContactEmail: 'N/A',
+                clientContactTitle: 'Not specified in email',
+                location: 'Remote',
+                workModel: 'Remote',
+                targetBillRate: 75,
+                targetPayRate: 0,
+                skills: ['React', 'JavaScript', 'Redux', 'REST APIs', 'Node.js', 'AWS'],
+                missingNotes: 'Not specified in email: company name, explicit pay rate.',
+              }),
+            },
+          },
+        ],
+      }),
+  });
+
+  const cleanedAiEmailRes = await buildEnhancedEmailParseResponse({
+    rawEmailText: screenshotEmail,
+    aiSvc: noisySentinelAiService,
+  });
+  assert.equal(cleanedAiEmailRes.aiUsed, true);
+  assert.equal(cleanedAiEmailRes.companyName, '');
+  assert.equal(cleanedAiEmailRes.clientContactTitle, '');
+  assert.equal(cleanedAiEmailRes.clientContactEmail, '');
+  assert.equal(cleanedAiEmailRes.opportunityTitle, 'React Developer');
+  assert.equal(/not specified in email/i.test(cleanedAiEmailRes.missingNotes), false);
+
+  // Sparse email with no location/company/signature leaves blank fields & extracts multi-headcount pure role
+  const sparseEmailRes = extractEmailHeuristics(
+    'Subject: Staffing Update\nWe are looking for 2 python data engineers with Airflow and Snowflake experience and at least 5 years in production. Salary band around $150,000.'
+  );
+  assert.equal(sparseEmailRes.companyName, '');
+  assert.equal(sparseEmailRes.location, '');
+  assert.equal(sparseEmailRes.clientContact, '');
+  assert.equal(sparseEmailRes.clientContactTitle, '');
+  assert.equal(sparseEmailRes.targetBillRate, 0);
+  assert.equal(sparseEmailRes.openPositions, 2);
+  assert.equal(sparseEmailRes.opportunityTitle, 'Python Data Engineer');
 
   console.log('✅ Provider-Agnostic AI Adapter & Guardrail Tests: PASSED');
 };
