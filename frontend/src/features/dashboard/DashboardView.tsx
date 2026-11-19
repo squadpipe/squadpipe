@@ -43,6 +43,11 @@ import {
 } from '../../utils/stageStyles';
 import { useMasterTaxonomies } from '../../components/shared/DynamicCustomFieldsSection';
 import { useAiCapabilities } from '../../utils/workspaceBrand';
+import {
+  formatMissingFieldsMessage,
+  getMissingFieldLabels,
+  INVALID_FIELD_CLASSES,
+} from '../../utils/formValidation';
 
 interface DashboardViewProps {
   requirements: Requirement[];
@@ -94,6 +99,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [totalRows, setTotalRows] = useState(requirements.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
   const [editingReq, setEditingReq] = useState<Requirement | null>(null);
+  const [reqValidationAttempted, setReqValidationAttempted] = useState(false);
   const [reqToDelete, setReqToDelete] = useState<Requirement | null>(null);
   const [isUpdatingReq, setIsUpdatingReq] = useState(false);
   const [isDeletingReq, setIsDeletingReq] = useState(false);
@@ -822,9 +828,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </button>
             </div>
             <form
+              noValidate
               onSubmit={async (e) => {
                 e.preventDefault();
                 if (isUpdatingReq) return;
+                const missingFields = getMissingFieldLabels([
+                  { label: 'Opportunity Title', valid: Boolean(editingReq.opportunityTitle.trim()) },
+                  { label: 'Client Company', valid: Boolean(editingReq.companyName.trim()) },
+                ]);
+                if (missingFields.length > 0) {
+                  setReqValidationAttempted(true);
+                  showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'fa-solid fa-triangle-exclamation text-amber-500');
+                  return;
+                }
+                setReqValidationAttempted(false);
                 setIsUpdatingReq(true);
                 try {
                   if (onUpdateReq) await onUpdateReq(editingReq);
@@ -838,25 +855,41 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               className="p-6 space-y-4 text-xs"
             >
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Opportunity Title</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700">Opportunity Title *</label>
+                  {reqValidationAttempted && !editingReq.opportunityTitle.trim() && (
+                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                  )}
+                </div>
                 <input
                   type="text"
-                  required
                   value={editingReq.opportunityTitle}
                   onChange={(e) => setEditingReq({ ...editingReq, opportunityTitle: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
+                    reqValidationAttempted && !editingReq.opportunityTitle.trim()
+                      ? INVALID_FIELD_CLASSES
+                      : 'border-slate-200 focus:border-brand-600'
+                  }`}
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Client Company</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-semibold text-slate-700">Client Company *</label>
+                    {reqValidationAttempted && !editingReq.companyName.trim() && (
+                      <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    )}
+                  </div>
                   <input
                     type="text"
-                    required
                     value={editingReq.companyName}
                     onChange={(e) => setEditingReq({ ...editingReq, companyName: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                    className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
+                      reqValidationAttempted && !editingReq.companyName.trim()
+                        ? INVALID_FIELD_CLASSES
+                        : 'border-slate-200 focus:border-brand-600'
+                    }`}
                   />
                 </div>
                 <div>

@@ -12,7 +12,11 @@ import { BrandLogo } from '../../components/shared/BrandMark';
 import { apiClient } from '../../config/api.config';
 import { User } from '../../types';
 import { setAuthSession } from '../../utils/authStorage';
-import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../utils/formValidation';
+import {
+  formatMissingFieldsMessage,
+  getMissingFieldLabels,
+  INVALID_FIELD_CLASSES,
+} from '../../utils/formValidation';
 
 interface LoginViewProps {
   onLoginSuccess: (user: User, token: string) => void;
@@ -32,6 +36,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [validationAttempted, setValidationAttempted] = useState(false);
 
   // Signup state (self-registrant always becomes workspace Administrator)
   const [signupFullName, setSignupFullName] = useState('');
@@ -107,16 +112,29 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
       });
   }, []);
 
+  const isValidEmailFormat = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim());
+
   const handleLogin = async (e?: React.FormEvent, targetEmail?: string, targetPass?: string) => {
     if (e) e.preventDefault();
     const loginEmail = targetEmail || email;
     const loginPassword = targetPass || password;
 
-    if (!loginEmail || !loginPassword) {
-      setErrorMessage('Please enter both corporate email and password.');
+    const missingFields = getMissingFieldLabels([
+      { label: 'Email address', valid: Boolean(loginEmail.trim()) },
+      { label: 'Password', valid: Boolean(loginPassword) },
+    ]);
+    if (missingFields.length > 0) {
+      setValidationAttempted(true);
+      setErrorMessage(formatMissingFieldsMessage(missingFields));
+      return;
+    }
+    if (!isValidEmailFormat(loginEmail)) {
+      setValidationAttempted(true);
+      setErrorMessage('Please enter a valid email address.');
       return;
     }
 
+    setValidationAttempted(false);
     setIsLoading(true);
     setErrorMessage('');
     setSuccessMessage('');
@@ -150,24 +168,34 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
     const missingFields = getMissingFieldLabels([
       { label: 'Full Name', valid: Boolean(signupFullName.trim()) },
       { label: 'Company Name', valid: Boolean(signupCompanyName.trim()) },
-      { label: 'Email', valid: Boolean(signupEmail.trim()) },
+      { label: 'Work Email', valid: Boolean(signupEmail.trim()) },
       { label: 'Password', valid: Boolean(signupPassword) },
+      { label: 'Confirm Password', valid: Boolean(signupConfirmPassword) },
     ]);
     if (missingFields.length > 0) {
+      setValidationAttempted(true);
       setErrorMessage(formatMissingFieldsMessage(missingFields));
       return;
     }
-
-    if (signupPassword !== signupConfirmPassword) {
-      setErrorMessage('Passwords do not match. Please re-enter.');
+    if (!isValidEmailFormat(signupEmail)) {
+      setValidationAttempted(true);
+      setErrorMessage('Please enter a valid work email address.');
       return;
     }
 
     if (signupPassword.length < 6) {
+      setValidationAttempted(true);
       setErrorMessage('Password must be at least 6 characters long.');
       return;
     }
 
+    if (signupPassword !== signupConfirmPassword) {
+      setValidationAttempted(true);
+      setErrorMessage('Passwords do not match. Please re-enter.');
+      return;
+    }
+
+    setValidationAttempted(false);
     setIsLoading(true);
     setErrorMessage('');
     setSuccessMessage('');
@@ -206,11 +234,18 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!forgotEmail) {
-      setErrorMessage('Please provide your corporate email address.');
+    if (!forgotEmail.trim()) {
+      setValidationAttempted(true);
+      setErrorMessage('Email address is required.');
+      return;
+    }
+    if (!isValidEmailFormat(forgotEmail)) {
+      setValidationAttempted(true);
+      setErrorMessage('Please enter a valid email address.');
       return;
     }
 
+    setValidationAttempted(false);
     setIsLoading(true);
     setErrorMessage('');
     setSuccessMessage('');
@@ -290,11 +325,17 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanCode = resetCode.trim();
-    if (!cleanCode) {
-      setErrorMessage('Please enter the 6-digit verification code from your email.');
+    if (cleanCode.length < 6) {
+      setValidationAttempted(true);
+      setErrorMessage(
+        cleanCode
+          ? 'Please enter the complete 6-digit verification code.'
+          : '6-digit verification code is required.'
+      );
       return;
     }
 
+    setValidationAttempted(false);
     setIsLoading(true);
     setErrorMessage('');
     setSuccessMessage('');
@@ -323,19 +364,27 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPassword || !confirmNewPassword) {
-      setErrorMessage('Please enter and confirm your new password.');
-      return;
-    }
-    if (newPassword !== confirmNewPassword) {
-      setErrorMessage('New passwords do not match.');
+    const missingFields = getMissingFieldLabels([
+      { label: 'New password', valid: Boolean(newPassword) },
+      { label: 'Confirm new password', valid: Boolean(confirmNewPassword) },
+    ]);
+    if (missingFields.length > 0) {
+      setValidationAttempted(true);
+      setErrorMessage(formatMissingFieldsMessage(missingFields));
       return;
     }
     if (newPassword.length < 6) {
+      setValidationAttempted(true);
       setErrorMessage('Password must be at least 6 characters.');
       return;
     }
+    if (newPassword !== confirmNewPassword) {
+      setValidationAttempted(true);
+      setErrorMessage('New passwords do not match.');
+      return;
+    }
 
+    setValidationAttempted(false);
     setIsLoading(true);
     setErrorMessage('');
 
@@ -376,19 +425,28 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
       setErrorMessage('Invitation token is missing.');
       return;
     }
-    if (!invitePassword || !inviteConfirmPassword) {
-      setErrorMessage('Please enter and confirm your password.');
-      return;
-    }
-    if (invitePassword !== inviteConfirmPassword) {
-      setErrorMessage('Passwords do not match.');
+    const missingFields = getMissingFieldLabels([
+      { label: 'Full name', valid: Boolean(inviteFullName.trim()) },
+      { label: 'Password', valid: Boolean(invitePassword) },
+      { label: 'Confirm password', valid: Boolean(inviteConfirmPassword) },
+    ]);
+    if (missingFields.length > 0) {
+      setValidationAttempted(true);
+      setErrorMessage(formatMissingFieldsMessage(missingFields));
       return;
     }
     if (invitePassword.length < 6) {
+      setValidationAttempted(true);
       setErrorMessage('Password must be at least 6 characters.');
       return;
     }
+    if (invitePassword !== inviteConfirmPassword) {
+      setValidationAttempted(true);
+      setErrorMessage('Passwords do not match.');
+      return;
+    }
 
+    setValidationAttempted(false);
     setIsLoading(true);
     setErrorMessage('');
     setSuccessMessage('');
@@ -472,11 +530,48 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
   ) => {
     setErrorMessage('');
     setSuccessMessage('');
+    setValidationAttempted(false);
     setAuthMode(mode);
   };
 
   const inputBaseClass =
-    'w-full h-10 px-3.5 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 text-xs focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 focus:outline-none transition-all';
+    'w-full h-10 px-3.5 bg-white border rounded-lg text-slate-900 placeholder-slate-400 text-xs focus:ring-2 focus:outline-none transition-all';
+
+  const authInputClass = (hasError: boolean, extraClass = '') =>
+    `${inputBaseClass} ${
+      hasError
+        ? INVALID_FIELD_CLASSES
+        : 'border-slate-200 focus:border-brand-600 focus:ring-brand-600/15'
+    }${extraClass ? ` ${extraClass}` : ''}`;
+
+  const loginEmailInvalid =
+    validationAttempted && (!email.trim() || !isValidEmailFormat(email));
+  const loginPasswordInvalid = validationAttempted && !password;
+  const signupNameInvalid = validationAttempted && !signupFullName.trim();
+  const signupCompanyInvalid = validationAttempted && !signupCompanyName.trim();
+  const signupEmailInvalid =
+    validationAttempted && (!signupEmail.trim() || !isValidEmailFormat(signupEmail));
+  const signupPasswordInvalid =
+    validationAttempted && (!signupPassword || signupPassword.length < 6);
+  const signupConfirmInvalid =
+    validationAttempted &&
+    (!signupConfirmPassword ||
+      (signupPassword.length >= 6 && signupPassword !== signupConfirmPassword));
+  const forgotEmailInvalid =
+    validationAttempted && (!forgotEmail.trim() || !isValidEmailFormat(forgotEmail));
+  const otpInvalid = validationAttempted && resetCode.trim().length < 6;
+  const newPasswordInvalid =
+    validationAttempted && (!newPassword || newPassword.length < 6);
+  const confirmNewPasswordInvalid =
+    validationAttempted &&
+    (!confirmNewPassword || (newPassword.length >= 6 && newPassword !== confirmNewPassword));
+  const inviteNameInvalid = validationAttempted && !inviteFullName.trim();
+  const invitePassInvalid =
+    validationAttempted && (!invitePassword || invitePassword.length < 6);
+  const inviteConfirmInvalid =
+    validationAttempted &&
+    (!inviteConfirmPassword ||
+      (invitePassword.length >= 6 && invitePassword !== inviteConfirmPassword));
 
   return (
     <div className="h-full w-full flex flex-col lg:flex-row bg-[#FAFAFA] overflow-y-auto select-none">
@@ -546,22 +641,31 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
 
           {/* 1. LOGIN FORM */}
           {authMode === 'login' && (
-            <form onSubmit={(e) => handleLogin(e)} className="space-y-4 text-xs">
+            <form noValidate onSubmit={(e) => handleLogin(e)} className="space-y-4 text-xs">
               <div>
-                <label className="block text-slate-700 font-medium mb-1.5">Email address</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-slate-700 font-medium">Email address</label>
+                  {loginEmailInvalid && !email.trim() && (
+                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                  )}
+                </div>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@company.com"
-                  required
-                  className={inputBaseClass}
+                  className={authInputClass(loginEmailInvalid)}
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-slate-700 font-medium">Password</label>
+                  <div className="flex items-center gap-2">
+                    <label className="text-slate-700 font-medium">Password</label>
+                    {loginPasswordInvalid && (
+                      <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={() => switchMode('forgot')}
@@ -576,8 +680,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
-                    required
-                    className={`${inputBaseClass} pr-10`}
+                    className={authInputClass(loginPasswordInvalid, 'pr-10')}
                   />
                   <button
                     type="button"
@@ -635,53 +738,69 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
 
           {/* 2. SIGNUP FORM */}
           {authMode === 'signup' && (
-            <form onSubmit={handleSignup} className="space-y-4 text-xs">
+            <form noValidate onSubmit={handleSignup} className="space-y-4 text-xs">
               <div>
-                <label className="block text-slate-700 font-medium mb-1.5">Full name *</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-slate-700 font-medium">Full name *</label>
+                  {signupNameInvalid && (
+                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={signupFullName}
                   onChange={(e) => setSignupFullName(e.target.value)}
                   placeholder="e.g. Rachel Adams"
-                  required
-                  className={inputBaseClass}
+                  className={authInputClass(signupNameInvalid)}
                 />
               </div>
 
               <div>
-                <label className="block text-slate-700 font-medium mb-1.5">Company name *</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-slate-700 font-medium">Company name *</label>
+                  {signupCompanyInvalid && (
+                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={signupCompanyName}
                   onChange={(e) => setSignupCompanyName(e.target.value)}
                   placeholder="e.g. Apex Staffing Solutions"
-                  required
-                  className={inputBaseClass}
+                  className={authInputClass(signupCompanyInvalid)}
                 />
               </div>
 
               <div>
-                <label className="block text-slate-700 font-medium mb-1.5">Work email *</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-slate-700 font-medium">Work email *</label>
+                  {signupEmailInvalid && !signupEmail.trim() && (
+                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                  )}
+                </div>
                 <input
                   type="email"
                   value={signupEmail}
                   onChange={(e) => setSignupEmail(e.target.value)}
                   placeholder="you@company.com"
-                  required
-                  className={inputBaseClass}
+                  className={authInputClass(signupEmailInvalid)}
                 />
               </div>
 
               <div>
-                <label className="block text-slate-700 font-medium mb-1.5">Password *</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-slate-700 font-medium">Password *</label>
+                  {signupPasswordInvalid && !signupPassword && (
+                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                  )}
+                </div>
                 <div className="relative">
                   <input
                     type={showSignupPassword ? 'text' : 'password'}
                     value={signupPassword}
                     onChange={(e) => setSignupPassword(e.target.value)}
                     placeholder="Minimum 6 characters"
-                    required
-                    className={`${inputBaseClass} pr-10`}
+                    className={authInputClass(signupPasswordInvalid, 'pr-10')}
                   />
                   <button
                     type="button"
@@ -695,15 +814,19 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
               </div>
 
               <div>
-                <label className="block text-slate-700 font-medium mb-1.5">Confirm password *</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-slate-700 font-medium">Confirm password *</label>
+                  {signupConfirmInvalid && !signupConfirmPassword && (
+                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                  )}
+                </div>
                 <div className="relative">
                   <input
                     type={showSignupConfirmPassword ? 'text' : 'password'}
                     value={signupConfirmPassword}
                     onChange={(e) => setSignupConfirmPassword(e.target.value)}
                     placeholder="Re-enter password"
-                    required
-                    className={`${inputBaseClass} pr-10`}
+                    className={authInputClass(signupConfirmInvalid, 'pr-10')}
                   />
                   <button
                     type="button"
@@ -749,16 +872,20 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
 
           {/* 3. FORGOT PASSWORD FORM */}
           {authMode === 'forgot' && (
-            <form onSubmit={handleForgotPassword} className="space-y-4 text-xs">
+            <form noValidate onSubmit={handleForgotPassword} className="space-y-4 text-xs">
               <div>
-                <label className="block text-slate-700 font-medium mb-1.5">Email address</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-slate-700 font-medium">Email address</label>
+                  {forgotEmailInvalid && !forgotEmail.trim() && (
+                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                  )}
+                </div>
                 <input
                   type="email"
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(e.target.value)}
                   placeholder="you@company.com"
-                  required
-                  className={inputBaseClass}
+                  className={authInputClass(forgotEmailInvalid)}
                 />
               </div>
 
@@ -795,11 +922,16 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
 
           {/* 4. VERIFY OTP FORM (OTP only + 2-minute resend timer) */}
           {authMode === 'verify-otp' && (
-            <form key="verify-otp-form" onSubmit={handleVerifyOtp} className="space-y-4 text-xs">
+            <form noValidate key="verify-otp-form" onSubmit={handleVerifyOtp} className="space-y-4 text-xs">
               <div>
-                <label className="block text-slate-700 font-medium mb-1.5">
-                  6-digit verification code *
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-slate-700 font-medium">
+                    6-digit verification code *
+                  </label>
+                  {otpInvalid && (
+                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                  )}
+                </div>
                 <input
                   key="reset-verification-code"
                   type="text"
@@ -810,14 +942,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                   value={resetCode}
                   onChange={(e) => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   placeholder="Enter 6-digit code"
-                  required
-                  className={`${inputBaseClass} text-center text-base font-semibold tracking-[0.35em]`}
+                  className={authInputClass(otpInvalid, 'text-center text-base font-semibold tracking-[0.35em]')}
                 />
               </div>
 
               <button
                 type="submit"
-                disabled={isLoading || resetCode.trim().length < 6}
+                disabled={isLoading}
                 className="w-full h-10 mt-1 px-4 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:opacity-50 text-white rounded-lg font-medium text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isLoading ? (
@@ -860,17 +991,21 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
 
           {/* 5. RESET PASSWORD FORM (appears only after OTP verified) */}
           {authMode === 'reset' && (
-            <form key="reset-password-form" onSubmit={handleResetPassword} className="space-y-4 text-xs">
+            <form noValidate key="reset-password-form" onSubmit={handleResetPassword} className="space-y-4 text-xs">
               <div>
-                <label className="block text-slate-700 font-medium mb-1.5">New password *</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-slate-700 font-medium">New password *</label>
+                  {newPasswordInvalid && !newPassword && (
+                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                  )}
+                </div>
                 <div className="relative">
                   <input
                     type={showNewPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Minimum 6 characters"
-                    required
-                    className={`${inputBaseClass} pr-10`}
+                    className={authInputClass(newPasswordInvalid, 'pr-10')}
                   />
                   <button
                     type="button"
@@ -884,15 +1019,19 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
               </div>
 
               <div>
-                <label className="block text-slate-700 font-medium mb-1.5">Confirm new password *</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-slate-700 font-medium">Confirm new password *</label>
+                  {confirmNewPasswordInvalid && !confirmNewPassword && (
+                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                  )}
+                </div>
                 <div className="relative">
                   <input
                     type={showConfirmNewPassword ? 'text' : 'password'}
                     value={confirmNewPassword}
                     onChange={(e) => setConfirmNewPassword(e.target.value)}
                     placeholder="Re-enter new password"
-                    required
-                    className={`${inputBaseClass} pr-10`}
+                    className={authInputClass(confirmNewPasswordInvalid, 'pr-10')}
                   />
                   <button
                     type="button"
@@ -944,7 +1083,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                   <span>Validating your invitation link...</span>
                 </div>
               ) : inviteProfile ? (
-                <form onSubmit={handleAcceptInvite} className="space-y-4">
+                <form noValidate onSubmit={handleAcceptInvite} className="space-y-4">
                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1">
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500">Workspace</span>
@@ -963,27 +1102,35 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                   </div>
 
                   <div>
-                    <label className="block text-slate-700 font-medium mb-1.5">Full name *</label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-slate-700 font-medium">Full name *</label>
+                      {inviteNameInvalid && (
+                        <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                      )}
+                    </div>
                     <input
                       type="text"
                       value={inviteFullName}
                       onChange={(e) => setInviteFullName(e.target.value)}
                       placeholder="Your full name"
-                      required
-                      className={inputBaseClass}
+                      className={authInputClass(inviteNameInvalid)}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-slate-700 font-medium mb-1.5">Create password *</label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-slate-700 font-medium">Create password *</label>
+                      {invitePassInvalid && !invitePassword && (
+                        <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                      )}
+                    </div>
                     <div className="relative">
                       <input
                         type={showInvitePassword ? 'text' : 'password'}
                         value={invitePassword}
                         onChange={(e) => setInvitePassword(e.target.value)}
                         placeholder="Minimum 6 characters"
-                        required
-                        className={`${inputBaseClass} pr-10`}
+                        className={authInputClass(invitePassInvalid, 'pr-10')}
                       />
                       <button
                         type="button"
@@ -997,15 +1144,19 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                   </div>
 
                   <div>
-                    <label className="block text-slate-700 font-medium mb-1.5">Confirm password *</label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-slate-700 font-medium">Confirm password *</label>
+                      {inviteConfirmInvalid && !inviteConfirmPassword && (
+                        <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                      )}
+                    </div>
                     <div className="relative">
                       <input
                         type={showInviteConfirmPassword ? 'text' : 'password'}
                         value={inviteConfirmPassword}
                         onChange={(e) => setInviteConfirmPassword(e.target.value)}
                         placeholder="Re-enter password"
-                        required
-                        className={`${inputBaseClass} pr-10`}
+                        className={authInputClass(inviteConfirmInvalid, 'pr-10')}
                       />
                       <button
                         type="button"

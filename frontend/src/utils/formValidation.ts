@@ -10,6 +10,17 @@ export function getMissingFieldLabels(fields: RequiredFieldCheck[]): string[] {
   return fields.filter((field) => !field.valid).map((field) => field.label);
 }
 
+export const INVALID_FIELD_CLASSES =
+  'border-rose-500 ring-1 ring-rose-500/25 bg-rose-50/25 focus:border-rose-500 focus:ring-rose-500/25';
+
+export function validationInputClass(
+  baseClass: string,
+  invalid: boolean,
+  validBorderClass = 'border-slate-200 focus:border-brand-600'
+): string {
+  return `${baseClass} ${invalid ? INVALID_FIELD_CLASSES : validBorderClass}`;
+}
+
 /**
  * Formats an exact validation error message naming only the missing fields.
  */

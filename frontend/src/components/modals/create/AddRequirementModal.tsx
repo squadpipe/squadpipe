@@ -7,7 +7,11 @@ import { SearchableSelectInput } from '../../shared/SearchableSelectInput';
 import { CustomSelect } from '../../shared/CustomSelect';
 import { ActionButton } from '../../shared/ActionButton';
 import { AnimatedModal } from '../../shared/MotionPrimitives';
-import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../../utils/formValidation';
+import {
+  formatMissingFieldsMessage,
+  getMissingFieldLabels,
+  INVALID_FIELD_CLASSES,
+} from '../../../utils/formValidation';
 
 interface AddRequirementModalProps {
   isOpen: boolean;
@@ -44,28 +48,38 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
     remarks: '',
   });
   const [form, setForm] = useState(getInitialForm);
+  const [validationAttempted, setValidationAttempted] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setForm(getInitialForm());
       setCustomValues({});
       setIsSaving(false);
+      setValidationAttempted(false);
     }
   }, [currencySymbol, isOpen]);
 
+  const openPosStr = String(form.openPositions || '').trim();
+  const openPosNum = Number(openPosStr);
+  const isOpenPosValid =
+    Boolean(openPosStr) &&
+    /^\d+$/.test(openPosStr) &&
+    Number.isInteger(openPosNum) &&
+    openPosNum >= 1 &&
+    openPosNum <= 1000;
+  const isTitleInvalid = validationAttempted && !form.opportunityTitle.trim();
+  const isCompanyInvalid = validationAttempted && !form.companyName.trim();
+  const isOpenPosInvalid = validationAttempted && !isOpenPosValid;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const openPosStr = String(form.openPositions || '').trim();
-    const openPosNum = Number(openPosStr);
-    const isOpenPosValid =
-      Boolean(openPosStr) && /^\d+$/.test(openPosStr) && Number.isInteger(openPosNum) && openPosNum >= 1 && openPosNum <= 1000;
-
     const missingFields = getMissingFieldLabels([
       { label: 'Role Title', valid: Boolean(form.opportunityTitle.trim()) },
       { label: 'Client Company', valid: Boolean(form.companyName.trim()) },
       { label: 'Open Positions (at least 1)', valid: isOpenPosValid },
     ]);
     if (missingFields.length > 0) {
+      setValidationAttempted(true);
       showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'fa-solid fa-triangle-exclamation text-amber-500');
       return;
     }
@@ -142,21 +156,28 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
         </div>
 
         {/* Modal Body Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+        <form noValidate onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
           <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Requirement / Role Title *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-slate-700">Requirement / Role Title *</label>
+                  {isTitleInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                </div>
                 <input
                   value={form.opportunityTitle}
                   onChange={(e) => setForm({ ...form, opportunityTitle: e.target.value })}
                   placeholder="e.g. Lead AWS Cloud Architect"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600 focus:outline-none"
-                  required
+                  className={`w-full px-3 py-1.5 border rounded-lg text-xs font-medium focus:outline-none ${
+                    isTitleInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-white focus:border-brand-600'
+                  }`}
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Client Company *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-slate-700">Client Company *</label>
+                  {isCompanyInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                </div>
                 <SearchableSelectInput
                   value={form.companyName}
                   onChange={(val) => {
@@ -178,9 +199,10 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
                     sublabel: c.location,
                   }))}
                   placeholder="Select or type client company name..."
-                  required
                   wrapperClassName=""
-                  inputClassName="w-full pl-3 pr-7 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600 focus:outline-none"
+                  inputClassName={`w-full pl-3 pr-7 py-1.5 border rounded-lg text-xs font-medium focus:outline-none ${
+                    isCompanyInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-white focus:border-brand-600'
+                  }`}
                 />
               </div>
             </div>
@@ -209,7 +231,10 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">No. of Open Positions *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-slate-700">No. of Open Positions *</label>
+                  {isOpenPosInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                </div>
                 <input
                   type="number"
                   min={1}
@@ -218,8 +243,9 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
                   value={form.openPositions}
                   onChange={(e) => setForm({ ...form, openPositions: e.target.value })}
                   placeholder="e.g. 2"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600 focus:outline-none"
-                  required
+                  className={`w-full px-3 py-1.5 border rounded-lg text-xs font-medium focus:outline-none ${
+                    isOpenPosInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-white focus:border-brand-600'
+                  }`}
                 />
               </div>
               <div>

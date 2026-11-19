@@ -6,7 +6,11 @@ import { CustomSelect } from '../../shared/CustomSelect';
 import { useCurrency } from '../../../utils/currency';
 import { ALLOWED_CV_ACCEPT, validateCvFileSelection } from '../../../utils/cvFiles';
 import { AnimatedModal } from '../../shared/MotionPrimitives';
-import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../../utils/formValidation';
+import {
+  formatMissingFieldsMessage,
+  getMissingFieldLabels,
+  INVALID_FIELD_CLASSES,
+} from '../../../utils/formValidation';
 
 interface AddConsultantModalProps {
   isOpen: boolean;
@@ -30,6 +34,7 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [selectedCvFile, setSelectedCvFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [validationAttempted, setValidationAttempted] = useState(false);
   const getInitialForm = () => ({
     fullName: '',
     currentTitle: '',
@@ -52,6 +57,7 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
       setCustomValues({});
       setSelectedCvFile(null);
       setIsSaving(false);
+      setValidationAttempted(false);
     }
   }, [isOpen]);
 
@@ -67,6 +73,9 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
     setSelectedCvFile(file);
   };
 
+  const isFullNameInvalid = validationAttempted && !form.fullName.trim();
+  const isEmailInvalid = validationAttempted && !form.email.trim();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const missingFields = getMissingFieldLabels([
@@ -74,6 +83,7 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
       { label: 'Email Address', valid: Boolean(form.email.trim()) },
     ]);
     if (missingFields.length > 0) {
+      setValidationAttempted(true);
       showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'fa-solid fa-triangle-exclamation text-amber-500');
       return;
     }
@@ -162,17 +172,21 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
         </div>
 
         {/* Modal Body Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+        <form noValidate onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
           <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Full Name *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-slate-700">Full Name *</label>
+                  {isFullNameInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                </div>
                 <input
                   value={form.fullName}
                   onChange={(e) => setForm({ ...form, fullName: e.target.value })}
                   placeholder="e.g. Tarun Sengupta"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600 focus:outline-none"
-                  required
+                  className={`w-full px-3 py-1.5 border rounded-lg text-xs font-medium focus:outline-none ${
+                    isFullNameInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-white focus:border-brand-600'
+                  }`}
                 />
               </div>
               <div>
@@ -211,14 +225,18 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Email Address *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-slate-700">Email Address *</label>
+                  {isEmailInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                </div>
                 <input
                   type="email"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   placeholder="e.g. tarun.dev@gmail.com"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600 focus:outline-none"
-                  required
+                  className={`w-full px-3 py-1.5 border rounded-lg text-xs font-medium focus:outline-none ${
+                    isEmailInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-white focus:border-brand-600'
+                  }`}
                 />
               </div>
               <div>

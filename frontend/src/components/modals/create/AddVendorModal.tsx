@@ -5,7 +5,11 @@ import { DynamicCustomFieldsSection, useMasterTaxonomies } from '../../shared/Dy
 import { CustomSelect } from '../../shared/CustomSelect';
 import { ActionButton } from '../../shared/ActionButton';
 import { AnimatedModal } from '../../shared/MotionPrimitives';
-import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../../utils/formValidation';
+import {
+  formatMissingFieldsMessage,
+  getMissingFieldLabels,
+  INVALID_FIELD_CLASSES,
+} from '../../../utils/formValidation';
 
 interface AddVendorModalProps {
   isOpen: boolean;
@@ -35,14 +39,20 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
   const taxonomies = useMasterTaxonomies(isOpen);
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [validationAttempted, setValidationAttempted] = useState(false);
   const [form, setForm] = useState({ ...INITIAL_VENDOR_FORM });
 
   useEffect(() => {
     if (isOpen) {
       setForm({ ...INITIAL_VENDOR_FORM });
       setCustomValues({});
+      setValidationAttempted(false);
     }
   }, [isOpen]);
+
+  const isNameInvalid = validationAttempted && !form.name.trim();
+  const isContactInvalid = validationAttempted && !form.contactName.trim();
+  const isEmailInvalid = validationAttempted && !form.email.trim();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +63,7 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
       { label: 'Email', valid: Boolean(form.email.trim()) },
     ]);
     if (missingFields.length > 0) {
+      setValidationAttempted(true);
       showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'fa-solid fa-triangle-exclamation text-amber-500');
       return;
     }
@@ -120,40 +131,47 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
         </div>
 
         {/* Modal Body Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+        <form noValidate onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
           <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Vendor Agency Name *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-slate-700">Vendor Agency Name *</label>
+                  {isNameInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                </div>
                 <input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="e.g. CloudSync Global Corp"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600 focus:outline-none"
-                  required
+                  className={`w-full px-3 py-1.5 border rounded-lg text-xs font-medium focus:outline-none ${
+                    isNameInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-white focus:border-brand-600'
+                  }`}
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Headquarters Location *</label>
+                <label className="block font-semibold text-slate-700 mb-1">Headquarters Location</label>
                 <input
                   value={form.location}
                   onChange={(e) => setForm({ ...form, location: e.target.value })}
                   placeholder="e.g. Dallas, TX"
                   className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs focus:border-brand-600 focus:outline-none"
-                  required
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Partner Contact Person *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-slate-700">Partner Contact Person *</label>
+                  {isContactInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                </div>
                 <input
                   value={form.contactName}
                   onChange={(e) => setForm({ ...form, contactName: e.target.value })}
                   placeholder="e.g. Sandeep Reddy"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600 focus:outline-none"
-                  required
+                  className={`w-full px-3 py-1.5 border rounded-lg text-xs font-medium focus:outline-none ${
+                    isContactInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-white focus:border-brand-600'
+                  }`}
                 />
               </div>
               <div>
@@ -168,14 +186,18 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Contact Email Address *</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block font-semibold text-slate-700">Contact Email Address *</label>
+                {isEmailInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+              </div>
               <input
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 placeholder="sandeep@cloudsync.com"
-                className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs focus:border-brand-600 focus:outline-none"
-                required
+                className={`w-full px-3 py-1.5 border rounded-lg text-xs focus:outline-none ${
+                  isEmailInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-white focus:border-brand-600'
+                }`}
               />
             </div>
 

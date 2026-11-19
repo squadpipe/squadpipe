@@ -5,6 +5,7 @@ import { ActionButton } from '../../shared/ActionButton';
 import { CustomSelect } from '../../shared/CustomSelect';
 import { DynamicCustomFieldsSection } from '../../shared/DynamicCustomFieldsSection';
 import { AnimatedModal } from '../../shared/MotionPrimitives';
+import { INVALID_FIELD_CLASSES } from '../../../utils/formValidation';
 
 export const buildInitialVendorContacts = (v: Vendor): VendorContact[] =>
   v.contacts && v.contacts.length > 0
@@ -36,6 +37,7 @@ export const EditVendorModal: React.FC<EditVendorModalProps> = ({
 }) => {
   const [editForm, setEditForm] = useState<Vendor | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [validationAttempted, setValidationAttempted] = useState(false);
 
   useEffect(() => {
     if (vendor && isOpen) {
@@ -56,12 +58,20 @@ export const EditVendorModal: React.FC<EditVendorModalProps> = ({
               ],
       });
       setIsSaving(false);
+      setValidationAttempted(false);
     }
   }, [vendor, isOpen]);
+
+  const isVendorNameInvalid = validationAttempted && !editForm?.name.trim();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSaving || !editForm) return;
+    if (!editForm.name.trim()) {
+      setValidationAttempted(true);
+      return;
+    }
+    setValidationAttempted(false);
 
     const contacts = (editForm.contacts || []).filter(
       (c) => c.fullName.trim() || c.email.trim()
@@ -119,19 +129,23 @@ export const EditVendorModal: React.FC<EditVendorModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+        <form noValidate onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
           <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Vendor Company *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700">
+                    Vendor Company *
+                  </label>
+                  {isVendorNameInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                </div>
                 <input
                   type="text"
-                  required
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
+                    isVendorNameInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 focus:border-brand-600'
+                  }`}
                 />
               </div>
               <div>

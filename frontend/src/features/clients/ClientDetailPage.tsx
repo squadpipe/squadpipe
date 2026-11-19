@@ -23,7 +23,11 @@ import { apiClient } from '../../config/api.config';
 import { BillablePlacement, Client, Requirement } from '../../types';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
-import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../utils/formValidation';
+import {
+  formatMissingFieldsMessage,
+  getMissingFieldLabels,
+  INVALID_FIELD_CLASSES,
+} from '../../utils/formValidation';
 import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
@@ -75,6 +79,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
 
   const [showAddContact, setShowAddContact] = useState(false);
   const [isSavingContact, setIsSavingContact] = useState(false);
+  const [contactValidationAttempted, setContactValidationAttempted] = useState(false);
   const [contactForm, setContactForm] = useState({
     name: '',
     designation: 'Hiring Manager',
@@ -203,6 +208,9 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
     ([, v]) => v !== null && v !== undefined && String(v).trim() !== ''
   );
 
+  const isContactNameInvalid = contactValidationAttempted && !contactForm.name.trim();
+  const isContactEmailInvalid = contactValidationAttempted && !contactForm.email.trim();
+
   const handleSaveContact = async (e: React.FormEvent) => {
     e.preventDefault();
     const missingFields = getMissingFieldLabels([
@@ -210,6 +218,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
       { label: 'Email', valid: Boolean(contactForm.email.trim()) },
     ]);
     if (missingFields.length > 0) {
+      setContactValidationAttempted(true);
       showToast(
         'Missing Fields',
         formatMissingFieldsMessage(missingFields),
@@ -217,6 +226,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
       );
       return;
     }
+    setContactValidationAttempted(false);
     setIsSavingContact(true);
     try {
       const res = await apiClient.post(`/clients/${client.id}/contacts`, {
@@ -1107,21 +1117,27 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSaveContact} className="flex flex-col flex-1 overflow-hidden">
+            <form noValidate onSubmit={handleSaveContact} className="flex flex-col flex-1 overflow-hidden">
               <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Full Name *
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-semibold text-slate-700">
+                        Full Name *
+                      </label>
+                      {isContactNameInvalid && (
+                        <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                      )}
+                    </div>
                     <input
                       type="text"
-                      required
                       autoFocus
                       value={contactForm.name}
                       onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
                       placeholder="e.g., Sarah Connor"
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                      className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
+                        isContactNameInvalid ? INVALID_FIELD_CLASSES : 'bg-white border-slate-200 focus:border-brand-600'
+                      }`}
                     />
                   </div>
                   <div>
@@ -1139,16 +1155,22 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Email *
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-semibold text-slate-700">
+                        Email *
+                      </label>
+                      {isContactEmailInvalid && (
+                        <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                      )}
+                    </div>
                     <input
                       type="email"
-                      required
                       value={contactForm.email}
                       onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
                       placeholder="sarah@client.com"
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                      className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
+                        isContactEmailInvalid ? INVALID_FIELD_CLASSES : 'bg-white border-slate-200 focus:border-brand-600'
+                      }`}
                     />
                   </div>
                   <div>

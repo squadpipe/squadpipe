@@ -14,7 +14,11 @@ import {
 import { apiClient } from '../../config/api.config';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { ALLOWED_CV_ACCEPT, validateCvFileSelection } from '../../utils/cvFiles';
-import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../utils/formValidation';
+import {
+  formatMissingFieldsMessage,
+  getMissingFieldLabels,
+  INVALID_FIELD_CLASSES,
+} from '../../utils/formValidation';
 
 interface PublicRequirementDetails {
   agencyName: string;
@@ -65,6 +69,7 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
   const [honeypotWebsite, setHoneypotWebsite] = useState('');
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [formError, setFormError] = useState('');
+  const [validationAttempted, setValidationAttempted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmation, setConfirmation] = useState<PublicApplicationConfirmation | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -111,24 +116,28 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
     setCvFile(file);
   };
 
+  const isFullNameInvalid = validationAttempted && !fullName.trim();
+  const isEmailInvalid = validationAttempted && !email.trim();
+  const isPhoneInvalid = validationAttempted && !phone.trim();
+  const isCvInvalid = validationAttempted && !cvFile;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
 
     const missingFields = getMissingFieldLabels([
+      { label: 'Resume / CV File', valid: Boolean(cvFile) },
       { label: 'Full Name', valid: Boolean(fullName.trim()) },
       { label: 'Email', valid: Boolean(email.trim()) },
       { label: 'Phone', valid: Boolean(phone.trim()) },
       { label: 'Work Authorization', valid: Boolean(workAuth.trim()) },
     ]);
-    if (missingFields.length > 0) {
+    if (missingFields.length > 0 || !cvFile) {
+      setValidationAttempted(true);
       setFormError(formatMissingFieldsMessage(missingFields));
       return;
     }
-    if (!cvFile) {
-      setFormError('Please attach a resume (.pdf, .doc, .docx, .txt, or .rtf) before submitting.');
-      return;
-    }
+    setValidationAttempted(false);
 
     const formData = new FormData();
     formData.append('fullName', fullName.trim());
@@ -309,6 +318,7 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
 
         {/* Application Submission Form */}
         <form
+          noValidate
           onSubmit={handleSubmit}
           className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-5"
         >
@@ -335,9 +345,12 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
 
           {/* Resume Upload Dropzone */}
           <div className="space-y-1.5">
-            <label className="block text-[11px] font-semibold text-slate-700">
-              Resume / CV File *
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="block text-[11px] font-semibold text-slate-700">
+                Resume / CV File *
+              </label>
+              {isCvInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+            </div>
             {cvFile ? (
               <div className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-emerald-50/60 border border-emerald-200 text-xs">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -371,7 +384,11 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                   e.preventDefault();
                   handleCvPick(e.dataTransfer.files?.[0]);
                 }}
-                className="border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-xl p-6 text-center bg-slate-50/70 hover:bg-white transition-colors cursor-pointer space-y-2"
+                className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors cursor-pointer space-y-2 ${
+                  isCvInvalid
+                    ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/20'
+                    : 'border-slate-300 hover:border-brand-500 bg-slate-50/70 hover:bg-white'
+                }`}
               >
                 <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-brand-600 flex items-center justify-center mx-auto shadow-2xs">
                   <CloudUpload className="w-5 h-5" />
@@ -395,42 +412,54 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Full Name *
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-semibold text-slate-700">
+                  Full Name *
+                </label>
+                {isFullNameInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+              </div>
               <input
                 type="text"
-                required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="e.g. Jordan Patel"
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-brand-500 focus:outline-none"
+                className={`w-full px-3 py-2 rounded-lg border focus:bg-white focus:outline-none ${
+                  isFullNameInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-slate-50/50 focus:border-brand-500'
+                }`}
               />
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Email Address *
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-semibold text-slate-700">
+                  Email Address *
+                </label>
+                {isEmailInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+              </div>
               <input
                 type="email"
-                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="candidate@email.com"
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-brand-500 focus:outline-none"
+                className={`w-full px-3 py-2 rounded-lg border focus:bg-white focus:outline-none ${
+                  isEmailInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-slate-50/50 focus:border-brand-500'
+                }`}
               />
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Phone Number *
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-semibold text-slate-700">
+                  Phone Number *
+                </label>
+                {isPhoneInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+              </div>
               <input
                 type="tel"
-                required
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+1 (555) 234-5678"
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-brand-500 focus:outline-none"
+                className={`w-full px-3 py-2 rounded-lg border focus:bg-white focus:outline-none ${
+                  isPhoneInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-slate-50/50 focus:border-brand-500'
+                }`}
               />
             </div>
             <div>

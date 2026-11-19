@@ -10,6 +10,7 @@ import {
   useMasterTaxonomies,
 } from '../../shared/DynamicCustomFieldsSection';
 import { AnimatedModal } from '../../shared/MotionPrimitives';
+import { INVALID_FIELD_CLASSES } from '../../../utils/formValidation';
 
 const PIPELINE_STAGE_OPTIONS = [
   'Available / Bench',
@@ -44,6 +45,7 @@ export const EditConsultantModal: React.FC<EditConsultantModalProps> = ({
   const [editCvFile, setEditCvFile] = useState<File | null>(null);
   const [editCvError, setEditCvError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [validationAttempted, setValidationAttempted] = useState(false);
 
   useEffect(() => {
     if (candidate && isOpen) {
@@ -51,6 +53,7 @@ export const EditConsultantModal: React.FC<EditConsultantModalProps> = ({
       setEditCvFile(null);
       setEditCvError('');
       setIsSaving(false);
+      setValidationAttempted(false);
     }
   }, [candidate, isOpen]);
 
@@ -68,9 +71,18 @@ export const EditConsultantModal: React.FC<EditConsultantModalProps> = ({
     onClose();
   };
 
+  const isNameInvalid = validationAttempted && !editForm?.fullName.trim();
+  const isTitleInvalid = validationAttempted && !editForm?.currentTitle.trim();
+  const isEmailInvalid = validationAttempted && !editForm?.email.trim();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSaving || !editForm) return;
+    if (!editForm.fullName.trim() || !editForm.currentTitle.trim() || !editForm.email.trim()) {
+      setValidationAttempted(true);
+      return;
+    }
+    setValidationAttempted(false);
     setIsSaving(true);
     setEditCvError('');
     try {
@@ -119,43 +131,55 @@ export const EditConsultantModal: React.FC<EditConsultantModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+        <form noValidate onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
           <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Full Name *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700">
+                    Full Name *
+                  </label>
+                  {isNameInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                </div>
                 <input
                   type="text"
-                  required
                   value={editForm.fullName}
                   onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
+                    isNameInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 focus:border-brand-600'
+                  }`}
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Current Title *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700">
+                    Current Title *
+                  </label>
+                  {isTitleInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                </div>
                 <input
                   type="text"
-                  required
                   value={editForm.currentTitle}
                   onChange={(e) => setEditForm({ ...editForm, currentTitle: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
+                    isTitleInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 focus:border-brand-600'
+                  }`}
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Email *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700">
+                    Email *
+                  </label>
+                  {isEmailInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                </div>
                 <input
                   type="email"
-                  required
                   value={editForm.email}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
+                    isEmailInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 focus:border-brand-600'
+                  }`}
                 />
               </div>
               <div>

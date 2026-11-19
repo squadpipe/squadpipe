@@ -8,6 +8,7 @@ import { DynamicCustomFieldsSection } from '../../components/shared/DynamicCusto
 import { useCurrency } from '../../utils/currency';
 import { initWorkspaceBrand, useWorkspacePolicies } from '../../utils/workspaceBrand';
 import { AnimatedModal } from '../../components/shared/MotionPrimitives';
+import { INVALID_FIELD_CLASSES } from '../../utils/formValidation';
 import {
   addMonthsToDate,
   ExtensionData,
@@ -70,6 +71,7 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
   const [isDeletingPlacement, setIsDeletingPlacement] = useState(false);
   const [extendPoError, setExtendPoError] = useState('');
   const [editPoError, setEditPoError] = useState('');
+  const [editValidationAttempted, setEditValidationAttempted] = useState(false);
   const extendPoInputRef = useRef<HTMLInputElement | null>(null);
   const editPoInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -88,6 +90,7 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
 
   useEffect(() => {
     setEditPoError('');
+    setEditValidationAttempted(false);
     if (editingPlacement) {
       void initWorkspaceBrand(true);
     }
@@ -171,6 +174,7 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
             </div>
 
             <form
+              noValidate
               onSubmit={async (e) => {
                 e.preventDefault();
                 if (isExtending || !onExtendContract) return;
@@ -339,9 +343,18 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
             </div>
 
             <form
+              noValidate
               onSubmit={async (e) => {
                 e.preventDefault();
                 if (isSavingPlacement || !editDraft) return;
+                if (
+                  !editDraft.resourceName.trim() ||
+                  !editDraft.skillRole.trim() ||
+                  !editDraft.customer.trim()
+                ) {
+                  setEditValidationAttempted(true);
+                  return;
+                }
                 const nextIsEnded =
                   editDraft.status === 'Completed' || editDraft.status === 'Terminated';
                 if (
@@ -353,6 +366,7 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
                   editPoInputRef.current?.focus();
                   return;
                 }
+                setEditValidationAttempted(false);
                 setIsSavingPlacement(true);
                 try {
                   if (onUpdatePlacement) {
@@ -390,36 +404,60 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Consultant Name *</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-semibold text-slate-700">Consultant Name *</label>
+                    {editValidationAttempted && !editDraft.resourceName.trim() && (
+                      <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    )}
+                  </div>
                   <input
                     type="text"
-                    required
                     value={editDraft.resourceName}
                     onChange={(e) => setEditDraft({ ...editDraft, resourceName: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                    className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
+                      editValidationAttempted && !editDraft.resourceName.trim()
+                        ? INVALID_FIELD_CLASSES
+                        : 'border-slate-200 focus:border-brand-600'
+                    }`}
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Skill / Role *</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-semibold text-slate-700">Skill / Role *</label>
+                    {editValidationAttempted && !editDraft.skillRole.trim() && (
+                      <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    )}
+                  </div>
                   <input
                     type="text"
-                    required
                     value={editDraft.skillRole}
                     onChange={(e) => setEditDraft({ ...editDraft, skillRole: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                    className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
+                      editValidationAttempted && !editDraft.skillRole.trim()
+                        ? INVALID_FIELD_CLASSES
+                        : 'border-slate-200 focus:border-brand-600'
+                    }`}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Client / Customer *</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-semibold text-slate-700">Client / Customer *</label>
+                    {editValidationAttempted && !editDraft.customer.trim() && (
+                      <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    )}
+                  </div>
                   <input
                     type="text"
-                    required
                     value={editDraft.customer}
                     onChange={(e) => setEditDraft({ ...editDraft, customer: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                    className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
+                      editValidationAttempted && !editDraft.customer.trim()
+                        ? INVALID_FIELD_CLASSES
+                        : 'border-slate-200 focus:border-brand-600'
+                    }`}
                   />
                 </div>
                 <div>
@@ -701,6 +739,7 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
       >
         {endingPlacement && (
           <form
+            noValidate
             onSubmit={handleConfirmEndPlacement}
             className="flex flex-col"
           >

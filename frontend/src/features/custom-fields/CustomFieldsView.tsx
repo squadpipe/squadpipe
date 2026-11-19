@@ -30,6 +30,7 @@ import { ActionButton } from '../../components/shared/ActionButton';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { useDebounce } from '../../utils/useDebounce';
 import { sortArrayByColumn, useTableSort } from '../../utils/tableSort';
+import { INVALID_FIELD_CLASSES } from '../../utils/formValidation';
 
 interface CustomFieldsViewProps {
   customFields?: CustomField[];
@@ -240,6 +241,8 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
     options: '',
     required: false,
   });
+  const [createValidationAttempted, setCreateValidationAttempted] = useState(false);
+  const [editValidationAttempted, setEditValidationAttempted] = useState(false);
 
   const filteredFields = tableFields;
 
@@ -323,7 +326,13 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
 
   const handleCreateField = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newField.name.trim() || isCreatingField) return;
+    if (isCreatingField) return;
+    if (!newField.name.trim()) {
+      setCreateValidationAttempted(true);
+      showToast('Validation Error', 'Field Label is required.');
+      return;
+    }
+    setCreateValidationAttempted(false);
 
     const entityLabelMap: Record<string, string> = {
       consultant: 'Consultant',
@@ -861,18 +870,26 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleCreateField} className="p-6 space-y-4 text-xs">
+            <form noValidate onSubmit={handleCreateField} className="p-6 space-y-4 text-xs">
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  Field Label <span className="text-rose-500">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    Field Label <span className="text-rose-500">*</span>
+                  </label>
+                  {createValidationAttempted && !newField.name.trim() && (
+                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                  )}
+                </div>
                 <input
                   type="text"
-                  required
                   placeholder="e.g. Security Clearance Level"
                   value={newField.name}
                   onChange={(e) => setNewField({ ...newField, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-slate-50 focus:bg-white focus:border-brand-600 focus:outline-none"
+                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:bg-white focus:outline-none ${
+                    createValidationAttempted && !newField.name.trim()
+                      ? INVALID_FIELD_CLASSES
+                      : 'border-slate-200 bg-slate-50 focus:border-brand-600'
+                  }`}
                 />
               </div>
 
@@ -984,9 +1001,16 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
             </div>
 
             <form
+              noValidate
               onSubmit={async (e) => {
                 e.preventDefault();
-                if (!editingField.name.trim() || isUpdatingField) return;
+                if (isUpdatingField) return;
+                if (!editingField.name.trim()) {
+                  setEditValidationAttempted(true);
+                  showToast('Validation Error', 'Field Label is required.');
+                  return;
+                }
+                setEditValidationAttempted(false);
                 const entityLabelMap: Record<string, string> = {
                   consultant: 'Consultant',
                   requirement: 'Requirement',
@@ -1023,13 +1047,21 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
               className="p-6 space-y-4 text-xs"
             >
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Field Label *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700">Field Label *</label>
+                  {editValidationAttempted && !editingField.name.trim() && (
+                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                  )}
+                </div>
                 <input
                   type="text"
-                  required
                   value={editingField.name}
                   onChange={(e) => setEditingField({ ...editingField, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
+                    editValidationAttempted && !editingField.name.trim()
+                      ? INVALID_FIELD_CLASSES
+                      : 'border-slate-200 focus:border-brand-600'
+                  }`}
                 />
               </div>
 

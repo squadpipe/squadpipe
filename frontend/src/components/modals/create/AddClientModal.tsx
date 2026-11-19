@@ -5,7 +5,11 @@ import { DynamicCustomFieldsSection } from '../../shared/DynamicCustomFieldsSect
 
 import { ActionButton } from '../../shared/ActionButton';
 import { AnimatedModal } from '../../shared/MotionPrimitives';
-import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../../utils/formValidation';
+import {
+  formatMissingFieldsMessage,
+  getMissingFieldLabels,
+  INVALID_FIELD_CLASSES,
+} from '../../../utils/formValidation';
 
 interface AddClientModalProps {
   isOpen: boolean;
@@ -33,14 +37,21 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
 }) => {
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [validationAttempted, setValidationAttempted] = useState(false);
   const [form, setForm] = useState({ ...INITIAL_CLIENT_FORM });
 
   useEffect(() => {
     if (isOpen) {
       setForm({ ...INITIAL_CLIENT_FORM });
       setCustomValues({});
+      setValidationAttempted(false);
     }
   }, [isOpen]);
+
+  const isNameInvalid = validationAttempted && !form.name.trim();
+  const isLocationInvalid = validationAttempted && !form.location.trim();
+  const isContactInvalid = validationAttempted && !form.contactName.trim();
+  const isEmailInvalid = validationAttempted && !form.email.trim();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,6 +63,7 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
       { label: 'Email', valid: Boolean(form.email.trim()) },
     ]);
     if (missingFields.length > 0) {
+      setValidationAttempted(true);
       showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'fa-solid fa-triangle-exclamation text-amber-500');
       return;
     }
@@ -122,17 +134,21 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
         </div>
 
         {/* Modal Body Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+        <form noValidate onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
           <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Company Legal Name *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-slate-700">Company Legal Name *</label>
+                  {isNameInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                </div>
                 <input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="e.g. Morgan Stanley Tech"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600 focus:outline-none"
-                  required
+                  className={`w-full px-3 py-1.5 border rounded-lg text-xs font-medium focus:outline-none ${
+                    isNameInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-white focus:border-brand-600'
+                  }`}
                 />
               </div>
               <div>
@@ -148,13 +164,17 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Headquarters Location *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-slate-700">Headquarters Location *</label>
+                  {isLocationInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                </div>
                 <input
                   value={form.location}
                   onChange={(e) => setForm({ ...form, location: e.target.value })}
                   placeholder="e.g. New York, NY"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs focus:border-brand-600 focus:outline-none"
-                  required
+                  className={`w-full px-3 py-1.5 border rounded-lg text-xs focus:outline-none ${
+                    isLocationInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-white focus:border-brand-600'
+                  }`}
                 />
               </div>
               <div>
@@ -174,13 +194,17 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Contact Person Name *</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-semibold text-slate-700">Contact Person Name *</label>
+                    {isContactInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                  </div>
                   <input
                     value={form.contactName}
                     onChange={(e) => setForm({ ...form, contactName: e.target.value })}
                     placeholder="e.g. Brian O'Connor"
-                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-medium focus:border-brand-600 focus:outline-none"
-                    required
+                    className={`w-full px-3 py-1.5 border rounded-lg text-xs font-medium focus:outline-none ${
+                      isContactInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-white focus:border-brand-600'
+                    }`}
                   />
                 </div>
                 <div>
@@ -195,14 +219,18 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Contact Email *</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-semibold text-slate-700">Contact Email *</label>
+                    {isEmailInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                  </div>
                   <input
                     type="email"
                     value={form.email}
                     onChange={(e) => setForm({ ...form, email: e.target.value })}
                     placeholder="brian.oc@morganstanley.com"
-                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs focus:border-brand-600 focus:outline-none"
-                    required
+                    className={`w-full px-3 py-1.5 border rounded-lg text-xs focus:outline-none ${
+                      isEmailInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-white focus:border-brand-600'
+                    }`}
                   />
                 </div>
                 <div>

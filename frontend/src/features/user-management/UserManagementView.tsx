@@ -18,7 +18,11 @@ import { SortableTableHeader } from '../../components/shared/SortableTableHeader
 import { User } from '../../types';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
-import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../utils/formValidation';
+import {
+  formatMissingFieldsMessage,
+  getMissingFieldLabels,
+  INVALID_FIELD_CLASSES,
+} from '../../utils/formValidation';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapUserFromApi } from '../../utils/entityMappers';
@@ -58,6 +62,8 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
+  const [inviteValidationAttempted, setInviteValidationAttempted] = useState(false);
+  const [editValidationAttempted, setEditValidationAttempted] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -161,6 +167,11 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
 
   const filteredUsers = tableUsers;
 
+  const isInviteNameInvalid = inviteValidationAttempted && !newUser.name.trim();
+  const isInviteEmailInvalid = inviteValidationAttempted && !newUser.email.trim();
+  const isEditNameInvalid = editValidationAttempted && !editingUser?.name.trim();
+  const isEditEmailInvalid = editValidationAttempted && !editingUser?.email.trim();
+
   const handleInviteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isInviting) return;
@@ -169,9 +180,11 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
       { label: 'Email', valid: Boolean(newUser.email.trim()) },
     ]);
     if (missingFields.length > 0) {
+      setInviteValidationAttempted(true);
       showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'fa-solid fa-circle-exclamation text-rose-500');
       return;
     }
+    setInviteValidationAttempted(false);
     setIsInviting(true);
     try {
       await onInviteUser(newUser);
@@ -616,32 +629,40 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleInviteSubmit} className="p-6 space-y-4 text-xs">
+            <form noValidate onSubmit={handleInviteSubmit} className="p-6 space-y-4 text-xs">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Full Name <span className="text-rose-500">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700">
+                    Full Name <span className="text-rose-500">*</span>
+                  </label>
+                  {isInviteNameInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                </div>
                 <input
                   type="text"
-                  required
                   placeholder="e.g. Rachel Adams"
                   value={newUser.name}
                   onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none"
+                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
+                    isInviteNameInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-white focus:border-brand-600'
+                  }`}
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Corporate Email <span className="text-rose-500">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700">
+                    Corporate Email <span className="text-rose-500">*</span>
+                  </label>
+                  {isInviteEmailInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                </div>
                 <input
                   type="email"
-                  required
                   placeholder="e.g. r.adams@squadpipe.com"
                   value={newUser.email}
                   onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none"
+                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
+                    isInviteEmailInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-white focus:border-brand-600'
+                  }`}
                 />
               </div>
 
@@ -739,9 +760,20 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
             </div>
 
             <form
+              noValidate
               onSubmit={async (e) => {
                 e.preventDefault();
                 if (isUpdating) return;
+                const missingFields = getMissingFieldLabels([
+                  { label: 'Full Name', valid: Boolean(editingUser.name.trim()) },
+                  { label: 'Email', valid: Boolean(editingUser.email.trim()) },
+                ]);
+                if (missingFields.length > 0) {
+                  setEditValidationAttempted(true);
+                  showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'fa-solid fa-circle-exclamation text-rose-500');
+                  return;
+                }
+                setEditValidationAttempted(false);
                 setIsUpdating(true);
                 try {
                   if (onUpdateUser) await onUpdateUser(editingUser);
@@ -755,24 +787,32 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
               className="p-6 space-y-4 text-xs"
             >
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Full Name *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700">Full Name *</label>
+                  {isEditNameInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                </div>
                 <input
                   type="text"
-                  required
                   value={editingUser.name}
                   onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
+                    isEditNameInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 focus:border-brand-600'
+                  }`}
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Email *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700">Email *</label>
+                  {isEditEmailInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                </div>
                 <input
                   type="email"
-                  required
                   value={editingUser.email}
                   onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
+                    isEditEmailInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 focus:border-brand-600'
+                  }`}
                 />
               </div>
 

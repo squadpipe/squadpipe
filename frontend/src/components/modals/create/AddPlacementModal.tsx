@@ -9,7 +9,11 @@ import { CustomSelect } from '../../shared/CustomSelect';
 import { ActionButton } from '../../shared/ActionButton';
 import { getVendorComplianceWarning } from '../../../features/billable/placementUtils';
 import { AnimatedModal } from '../../shared/MotionPrimitives';
-import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../../utils/formValidation';
+import {
+  formatMissingFieldsMessage,
+  getMissingFieldLabels,
+  INVALID_FIELD_CLASSES,
+} from '../../../utils/formValidation';
 
 interface AddPlacementModalProps {
   isOpen: boolean;
@@ -86,9 +90,11 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
       });
       setCustomValues({});
       setPoError('');
+      setValidationAttempted(false);
       void initWorkspaceBrand(true);
     } else {
       setPoError('');
+      setValidationAttempted(false);
     }
   }, [isOpen, currencySymbol]);
 
@@ -157,6 +163,11 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
     return `${currencySymbol}${n}/hr`;
   };
 
+  const [validationAttempted, setValidationAttempted] = useState(false);
+
+  const isResourceInvalid = validationAttempted && !form.resourceName.trim();
+  const isCustomerInvalid = validationAttempted && !form.customer.trim();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSaving) return;
@@ -165,6 +176,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
       { label: 'Client Company', valid: Boolean(form.customer.trim()) },
     ]);
     if (missingFields.length > 0) {
+      setValidationAttempted(true);
       showToast(
         'Validation Error',
         formatMissingFieldsMessage(missingFields),
@@ -269,7 +281,7 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
         </div>
 
         {/* Modal Body Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+        <form noValidate onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
           <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
             {/* Quick Auto-Fill Bar */}
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -341,17 +353,24 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Placed Consultant Resource *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-slate-700">Placed Consultant Resource *</label>
+                  {isResourceInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                </div>
                 <input
                   value={form.resourceName}
                   onChange={(e) => setForm({ ...form, resourceName: e.target.value })}
                   placeholder="e.g. Anand Verma"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-900 focus:border-brand-600 focus:outline-none"
-                  required
+                  className={`w-full px-3 py-1.5 border rounded-lg text-xs font-bold text-slate-900 focus:outline-none ${
+                    isResourceInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-white focus:border-brand-600'
+                  }`}
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Client Customer Company *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-slate-700">Client Customer Company *</label>
+                  {isCustomerInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                </div>
                 <SearchableSelectInput
                   value={form.customer}
                   onChange={(val) => {
@@ -370,9 +389,10 @@ export const AddPlacementModal: React.FC<AddPlacementModalProps> = ({
                     sublabel: c.location,
                   }))}
                   placeholder="Select or type client company name..."
-                  required
                   wrapperClassName=""
-                  inputClassName="w-full pl-3 pr-7 py-1.5 border border-slate-200 rounded-lg bg-white text-xs font-semibold focus:border-brand-600 focus:outline-none"
+                  inputClassName={`w-full pl-3 pr-7 py-1.5 border rounded-lg text-xs font-semibold focus:outline-none ${
+                    isCustomerInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-white focus:border-brand-600'
+                  }`}
                 />
               </div>
             </div>
