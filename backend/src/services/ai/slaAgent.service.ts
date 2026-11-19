@@ -3,6 +3,10 @@ import { prisma } from '../../config/prisma.config';
 import { getTenantSettings } from '../../config/smtp.config';
 import { aiService, redactRatesFromText } from './ai.service';
 import type { CapabilityCandidateInput, CapabilityRequirementInput } from './ai.types';
+import { candidateIndexingService } from '../vector/candidateIndexing.service';
+import { embeddingService } from '../vector/embedding.service';
+import { buildRequirementSearchQuery } from '../vector/resumeChunker';
+import { getVectorStore } from '../vector/vectorStore.router';
 
 export interface StaleReqAgentSuggestion {
   candidateId: string;
@@ -35,6 +39,7 @@ export interface BenchCandidateRow {
   workAuth: string;
   relocation: string;
   rawSnippet?: string | null;
+  matchedChunks?: string[];
 }
 
 export async function buildStaleReqSuggestionsPure(params: {
@@ -78,6 +83,7 @@ export async function buildStaleReqSuggestionsPure(params: {
     workAuth: c.workAuth,
     relocation: c.relocation,
     rawSnippet: redactRatesFromText(c.rawSnippet),
+    ...(c.matchedChunks?.length ? { matchedChunks: c.matchedChunks } : {}),
   }));
 
   const ranked = await aiSvc.rankCandidatesForRequirement(candInputs, safeReq, {
@@ -289,34 +295,81 @@ export class SlaAgentService {
       rawSnippet: true,
     };
 
-    const primaryRows =
-      orFilters.length > 0
-        ? await prisma.candidate.findMany({
-            where: { ...baseWhere, OR: orFilters },
-            select: selectFields,
-            orderBy: { updatedAt: 'desc' },
-            take: 20,
-          })
-        : [];
-
-    let combined = primaryRows;
-    if (combined.length < 20) {
-      const seenIds = combined.map((c) => c.id);
-      const topUp = await prisma.candidate.findMany({
-        where: {
-          ...baseWhere,
-          ...(seenIds.length > 0 ? { id: { notIn: seenIds } } : {}),
-        },
-        select: selectFields,
-        orderBy: { updatedAt: 'desc' },
-        take: 20 - combined.length,
+    let benchCandidates: BenchCandidateRow[] = [];
+    try {
+      await candidateIndexingService.ensureTenantIndexedForSearch(tenantId, {
+        maxChunkSync: 250,
+        maxEmbedChunks: 24,
       });
-      combined = [...combined, ...topUp];
+
+      const { queryText, skillTokens: ragTokens } = buildRequirementSearchQuery(reqRecord);
+      const queryEmbedded = await embeddingService.embedTexts([queryText], { tenantId });
+      const queryVector = queryEmbedded?.vectors?.[0] ?? null;
+
+      const hybridRes = await getVectorStore().hybridSearchCandidates({
+        tenantId,
+        queryText,
+        queryVector,
+        skillTokens: ragTokens,
+        pipelineStageFilter: CandidatePipelineStage.AVAILABLE_BENCH,
+        limit: 20,
+      });
+
+      const matchedIds = hybridRes.matches.map((m) => m.candidateId);
+      if (matchedIds.length > 0) {
+        const rows = await prisma.candidate.findMany({
+          where: { tenantId, id: { in: matchedIds } },
+          select: selectFields,
+        });
+        const byId = new Map(rows.map((r) => [r.id, r]));
+        const matchMetaById = new Map(hybridRes.matches.map((m) => [m.candidateId, m]));
+        benchCandidates = matchedIds
+          .map((id) => {
+            const row = byId.get(id);
+            if (!row) return null;
+            const meta = matchMetaById.get(id);
+            return {
+              ...row,
+              ...(meta?.matchedChunks?.length ? { matchedChunks: meta.matchedChunks } : {}),
+            };
+          })
+          .filter((x): x is NonNullable<typeof x> => Boolean(x));
+      }
+    } catch {
+      benchCandidates = [];
+    }
+
+    if (benchCandidates.length === 0) {
+      const primaryRows =
+        orFilters.length > 0
+          ? await prisma.candidate.findMany({
+              where: { ...baseWhere, OR: orFilters },
+              select: selectFields,
+              orderBy: { updatedAt: 'desc' },
+              take: 20,
+            })
+          : [];
+
+      let combined = primaryRows;
+      if (combined.length < 20) {
+        const seenIds = combined.map((c) => c.id);
+        const topUp = await prisma.candidate.findMany({
+          where: {
+            ...baseWhere,
+            ...(seenIds.length > 0 ? { id: { notIn: seenIds } } : {}),
+          },
+          select: selectFields,
+          orderBy: { updatedAt: 'desc' },
+          take: 20 - combined.length,
+        });
+        combined = [...combined, ...topUp];
+      }
+      benchCandidates = combined;
     }
 
     return buildStaleReqSuggestionsPure({
       requirement: reqRecord,
-      benchCandidates: combined,
+      benchCandidates,
       tenantId,
     });
   }

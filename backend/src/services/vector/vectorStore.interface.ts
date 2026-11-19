@@ -7,6 +7,7 @@ export interface HybridSearchQuery {
   skillTokens: string[];
   searchFilter?: string;
   workAuthFilter?: string;
+  pipelineStageFilter?: string;
   candidateIdsFilter?: string[];
   limit?: number;
 }

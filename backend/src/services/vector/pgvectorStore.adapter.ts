@@ -243,18 +243,26 @@ export class PgVectorStoreAdapter implements VectorStoreAdapter {
       skillTokens,
       searchFilter,
       workAuthFilter,
+      pipelineStageFilter,
       candidateIdsFilter,
       limit = 50,
     } = params;
 
     const cleanSearch = String(searchFilter || '').trim();
     const cleanWorkAuth = String(workAuthFilter || '').trim();
+    const cleanStage = String(pipelineStageFilter || '').trim();
     const tsQueryStr = buildSafeTsQuery(skillTokens, queryText);
 
     const candidateConditions: Prisma.Sql[] = [
       Prisma.sql`c."tenantId" = ${tenantId}`,
       Prisma.sql`c."pipelineStage" <> 'ARCHIVED'::"CandidatePipelineStage"`,
     ];
+
+    if (cleanStage) {
+      candidateConditions.push(
+        Prisma.sql`c."pipelineStage" = ${cleanStage}::"CandidatePipelineStage"`
+      );
+    }
 
     if (cleanWorkAuth && cleanWorkAuth !== 'All') {
       const authPattern = `%${cleanWorkAuth}%`;

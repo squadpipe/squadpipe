@@ -31,6 +31,13 @@ function makeBenchPool(count: number): BenchCandidateRow[] {
       rawSnippet: isTop
         ? `Built Java Spring Boot microservices on AWS. Target pay expectation $110/hr C2C (cand #${n}).`
         : `Manual QA engineer (cand #${n}). Bill cap $85/hr.`,
+      ...(isTop
+        ? {
+            matchedChunks: [
+              `Deep CV Page 3: Led Java Spring Boot core banking migration with PostgreSQL and AWS EKS.`,
+            ],
+          }
+        : {}),
     };
   });
 }
@@ -159,7 +166,8 @@ export const runSlaAgentTests = async () => {
   // Pool capped at 20 before calling LLM
   assert.equal(seenShortlistPrompt.includes('cand-20'), true);
   assert.equal(seenShortlistPrompt.includes('cand-21'), false);
-  // Zero billing/pay rates leaked into LLM prompt OR output summaries
+  // Deep retrieved chunks flow cleanly into prompt; zero rates leaked
+  assert.equal(seenShortlistPrompt.includes('Deep CV Page 3'), true);
   assert.equal(seenShortlistPrompt.includes('145'), false);
   assert.equal(seenShortlistPrompt.includes('110'), false);
   assert.equal(activeShortlist.suggestions?.[0].oneLineSummary.includes('145'), false);
