@@ -741,57 +741,93 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
 
       {/* TAB 3: Agreement & Details */}
       {workspaceTab === 'details' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-          <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <h3 className="font-bold text-slate-900">Agreement &amp; Contact Info</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          <div className="lg:col-span-8 bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <div>
+                  <h3 className="font-bold text-slate-900">Agreement &amp; Contact Info</h3>
+                  <p className="text-[11px] text-slate-400">
+                    SOW purchase order reference, engagement model, and stakeholder contacts.
+                  </p>
+                </div>
+              </div>
+              {onUpdatePlacement && (
+                <button
+                  type="button"
+                  onClick={() => setEditingPlacement({ ...placement })}
+                  className="text-brand-600 font-semibold hover:underline text-xs inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <Pencil className="w-3 h-3" />
+                  <span>Edit Details</span>
+                </button>
+              )}
             </div>
-            <dl className="p-6 space-y-3">
-              <div className="flex items-start justify-between gap-2">
-                <dt className="text-slate-400 font-medium shrink-0">PO / SOW #</dt>
-                <dd className="text-slate-800 font-semibold font-mono text-right min-w-0 [overflow-wrap:anywhere]">
+
+            <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-5">
+              <div>
+                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  PO / SOW #
+                </div>
+                <div className="font-semibold font-mono text-slate-900 [overflow-wrap:anywhere]">
                   {placement.purchaseOrderNumber || '—'}
-                </dd>
+                </div>
               </div>
-              <div className="flex items-start justify-between gap-2">
-                <dt className="text-slate-400 font-medium shrink-0">Placement Model</dt>
-                <dd className="text-slate-800 font-semibold text-right">
+
+              <div>
+                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  Placement Model
+                </div>
+                <div className="font-semibold text-slate-900">
                   {placement.placementType || 'C2C Subcontractor'}
-                </dd>
+                </div>
               </div>
-              <div className="flex items-start justify-between gap-2">
-                <dt className="text-slate-400 font-medium shrink-0">Deployment</dt>
-                <dd className="text-slate-800 font-medium text-right">
+
+              <div>
+                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  Deployment
+                </div>
+                <div className="font-semibold text-slate-900">
                   {placement.deployment || 'Onshore'}
-                </dd>
+                </div>
               </div>
-              <div className="flex items-start justify-between gap-2">
-                <dt className="text-slate-400 font-medium shrink-0">Contract Window</dt>
-                <dd className="text-slate-800 font-medium text-right inline-flex items-center gap-1 flex-wrap justify-end">
+
+              <div>
+                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  Contract Window
+                </div>
+                <div className="font-semibold font-mono text-slate-900 inline-flex items-center gap-1 flex-wrap">
                   <span>{placement.startDate || '—'}</span>
                   <ArrowRight className="w-3 h-3 text-slate-400 shrink-0" />
                   <span>{placement.endDate || '—'}</span>
-                </dd>
+                </div>
               </div>
-              <div className="flex items-start justify-between gap-2">
-                <dt className="text-slate-400 font-medium shrink-0">Assigned Recruiter</dt>
-                <dd className="text-slate-800 font-medium text-right min-w-0 [overflow-wrap:anywhere]">
+
+              <div>
+                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  Assigned Recruiter
+                </div>
+                <div className="font-semibold text-slate-900">
                   {placement.recruiter || '—'}
-                </dd>
+                </div>
               </div>
-              <div className="flex items-start justify-between gap-2">
-                <dt className="text-slate-400 font-medium shrink-0">Client Contact</dt>
-                <dd className="text-slate-800 font-medium text-right min-w-0 [overflow-wrap:anywhere]">
+
+              <div>
+                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  Client Contact
+                </div>
+                <div className="font-semibold text-slate-900">
                   {placement.customerContact || '—'}
-                </dd>
+                </div>
               </div>
-              <div className="flex items-start justify-between gap-2 pt-3 border-t border-slate-100">
-                <dt className="text-slate-400 font-medium shrink-0 inline-flex items-center gap-1">
+
+              <div>
+                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1 inline-flex items-center gap-1">
                   <Mail className="w-3 h-3" />
                   <span>Work Email</span>
-                </dt>
-                <dd className="text-slate-800 font-medium text-right min-w-0 [overflow-wrap:anywhere]">
+                </div>
+                <div className="font-semibold text-slate-900 [overflow-wrap:anywhere]">
                   {contactEmail ? (
                     <a href={`mailto:${contactEmail}`} className="text-brand-700 hover:underline">
                       {contactEmail}
@@ -799,14 +835,15 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
                   ) : (
                     '—'
                   )}
-                </dd>
+                </div>
               </div>
-              <div className="flex items-start justify-between gap-2">
-                <dt className="text-slate-400 font-medium shrink-0 inline-flex items-center gap-1">
+
+              <div>
+                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1 inline-flex items-center gap-1">
                   <Phone className="w-3 h-3" />
                   <span>Phone</span>
-                </dt>
-                <dd className="text-slate-800 font-medium text-right whitespace-nowrap">
+                </div>
+                <div className="font-semibold text-slate-900 whitespace-nowrap">
                   {contactPhone ? (
                     <a href={`tel:${contactPhone}`} className="text-brand-700 hover:underline">
                       {contactPhone}
@@ -814,19 +851,38 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
                   ) : (
                     '—'
                   )}
-                </dd>
+                </div>
               </div>
-            </dl>
+            </div>
           </div>
 
-          <div className="space-y-4">
+          <aside className="lg:col-span-4 space-y-4">
+            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-3 text-xs">
+              <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Linked Entities
+              </h3>
+              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
+                <span className="text-slate-600 font-medium">Connected Records</span>
+                <span className="font-bold font-mono text-slate-900">{connectedRecordsCount}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWorkspaceTab('records')}
+                className="w-full py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs cursor-pointer transition-colors"
+              >
+                View Connected Records &rarr;
+              </button>
+            </div>
+
             {customFieldEntries.length > 0 && (
               <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+                <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
                   <Layers className="w-3.5 h-3.5 text-brand-600" />
-                  <h3 className="font-bold text-slate-900">Custom Attributes</h3>
+                  <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    Custom Attributes
+                  </h3>
                 </div>
-                <dl className="p-6 space-y-2.5">
+                <dl className="p-5 space-y-2.5">
                   {customFieldEntries.map(([k, v]) => (
                     <div key={k} className="flex items-start justify-between gap-2">
                       <dt className="text-slate-400 font-medium capitalize shrink-0">
@@ -842,31 +898,33 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
             )}
 
             {onDeletePlacement && (
-              <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-6 space-y-3 text-xs">
-                <div>
-                  <h3 className="font-bold text-slate-900">Placement Lifecycle</h3>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    {ended
-                      ? 'This placement has ended and can now be removed from active billing.'
-                      : 'Active placements cannot be deleted until the contract is ended first.'}
-                  </p>
+              <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-3 text-xs">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-bold text-slate-900">Placement Lifecycle</h3>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {ended
+                        ? 'Ended placement ready for cleanup.'
+                        : 'End contract before deleting.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!ended}
+                    onClick={() => ended && setDeletingPlacement(placement)}
+                    className={`px-3 py-1.5 rounded-lg border font-semibold text-xs inline-flex items-center gap-1.5 transition-colors shrink-0 ${
+                      ended
+                        ? 'border-rose-200 text-rose-600 hover:bg-rose-50 cursor-pointer'
+                        : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-75'
+                    }`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Remove</span>
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  disabled={!ended}
-                  onClick={() => ended && setDeletingPlacement(placement)}
-                  className={`px-3.5 py-2 rounded-lg border font-semibold text-xs inline-flex items-center gap-1.5 transition-colors ${
-                    ended
-                      ? 'border-rose-200 text-rose-600 hover:bg-rose-50 cursor-pointer'
-                      : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-75'
-                  }`}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Remove Placement</span>
-                </button>
               </div>
             )}
-          </div>
+          </aside>
         </div>
       )}
 

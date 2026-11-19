@@ -1104,96 +1104,113 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
 
       {/* TAB 4: Profile Details & Attributes */}
       {workspaceTab === 'details' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-          <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
-              <UserCheck className="w-3.5 h-3.5 text-brand-600" />
-              <h3 className="font-bold text-slate-900">Profile &amp; Contact Summary</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          <div className="lg:col-span-8 space-y-5">
+            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <UserCheck className="w-3.5 h-3.5 text-brand-600" />
+                  <h3 className="text-xs font-bold text-slate-900">Profile &amp; Contact Summary</h3>
+                </div>
+                {onUpdateCandidate && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(true)}
+                    className="text-xs font-semibold text-brand-600 hover:text-brand-700 inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    <span>Edit Profile</span>
+                  </button>
+                )}
+              </div>
+              <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-5">
+                <div>
+                  <div className="text-[11px] font-medium text-slate-400">Email</div>
+                  <div className="mt-1 text-xs font-medium text-slate-800 break-all">
+                    {candidate.email ? (
+                      <a
+                        href={`mailto:${candidate.email}`}
+                        className="inline-flex items-center gap-1.5 text-brand-700 hover:underline"
+                      >
+                        <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                        <span>{candidate.email}</span>
+                      </a>
+                    ) : (
+                      '—'
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] font-medium text-slate-400">Phone</div>
+                  <div className="mt-1 text-xs font-medium text-slate-800">
+                    {candidate.phone ? (
+                      <a
+                        href={`tel:${candidate.phone}`}
+                        className="inline-flex items-center gap-1.5 hover:text-brand-600"
+                      >
+                        <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+                        <span>{candidate.phone}</span>
+                      </a>
+                    ) : (
+                      '—'
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] font-medium text-slate-400">Work Auth</div>
+                  <div className="mt-1 text-xs font-medium text-slate-800">
+                    {candidate.workAuth || '—'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] font-medium text-slate-400">Target Rate</div>
+                  <div className="mt-1 text-xs font-semibold text-slate-900">
+                    {rateMasked ? '•••• (Restricted)' : formattedRate || 'Rate on request'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] font-medium text-slate-400">Relocation</div>
+                  <div className="mt-1 text-xs font-medium text-slate-800">
+                    {candidate.relocation === 'Yes' ? 'Open (Yes)' : candidate.relocation || '—'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] font-medium text-slate-400">Recruiter</div>
+                  <div className="mt-1 text-xs font-medium text-slate-800">
+                    {candidate.assignedRecruiter || 'Unassigned'}
+                  </div>
+                </div>
+                <div className="sm:col-span-2 lg:col-span-3 pt-4 border-t border-slate-100">
+                  <div className="text-[11px] font-medium text-slate-400">Partner Vendor</div>
+                  <div className="mt-1 text-xs font-medium text-slate-800 [overflow-wrap:anywhere]">
+                    {!vendorLabel ? (
+                      <span className="text-slate-500">Direct / Own Bench</span>
+                    ) : matchedVendor && onOpenVendor ? (
+                      <button
+                        type="button"
+                        onClick={() => onOpenVendor(matchedVendor)}
+                        className="text-brand-700 font-semibold hover:underline cursor-pointer"
+                      >
+                        {vendorLabel}
+                      </button>
+                    ) : (
+                      <span className="text-amber-700 font-semibold">{vendorLabel}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-            <dl className="p-6 space-y-2.5">
-              <div className="flex items-start justify-between gap-2">
-                <dt className="text-slate-400 font-medium inline-flex items-center gap-1">
-                  <Mail className="w-3 h-3" />
-                  <span>Email</span>
-                </dt>
-                <dd className="text-slate-800 font-medium text-right break-all">
-                  {candidate.email ? (
-                    <a href={`mailto:${candidate.email}`} className="hover:text-brand-600">
-                      {candidate.email}
-                    </a>
-                  ) : (
-                    '—'
-                  )}
-                </dd>
-              </div>
-              <div className="flex items-start justify-between gap-2">
-                <dt className="text-slate-400 font-medium inline-flex items-center gap-1">
-                  <Phone className="w-3 h-3" />
-                  <span>Phone</span>
-                </dt>
-                <dd className="text-slate-800 font-medium text-right">
-                  {candidate.phone ? (
-                    <a href={`tel:${candidate.phone}`} className="hover:text-brand-600">
-                      {candidate.phone}
-                    </a>
-                  ) : (
-                    '—'
-                  )}
-                </dd>
-              </div>
-              <div className="flex items-start justify-between gap-2">
-                <dt className="text-slate-400 font-medium">Work Auth</dt>
-                <dd className="text-slate-800 font-medium text-right">
-                  {candidate.workAuth || '—'}
-                </dd>
-              </div>
-              <div className="flex items-start justify-between gap-2">
-                <dt className="text-slate-400 font-medium">Target Rate</dt>
-                <dd className="text-slate-800 font-semibold text-right">
-                  {rateMasked ? '•••• (Restricted)' : formattedRate || 'Rate on request'}
-                </dd>
-              </div>
-              <div className="flex items-start justify-between gap-2">
-                <dt className="text-slate-400 font-medium">Relocation</dt>
-                <dd className="text-slate-800 font-medium text-right">
-                  {candidate.relocation === 'Yes' ? 'Open (Yes)' : candidate.relocation || '—'}
-                </dd>
-              </div>
-              <div className="flex items-start justify-between gap-2">
-                <dt className="text-slate-400 font-medium inline-flex items-center gap-1">
-                  <UserCheck className="w-3 h-3" />
-                  <span>Recruiter</span>
-                </dt>
-                <dd className="text-slate-800 font-medium text-right">
-                  {candidate.assignedRecruiter || 'Unassigned'}
-                </dd>
-              </div>
-              <div className="flex items-start justify-between gap-2">
-                <dt className="text-slate-400 font-medium shrink-0">Partner Vendor</dt>
-                <dd className="text-slate-800 font-medium text-right min-w-0 [overflow-wrap:anywhere]">
-                  {!vendorLabel ? (
-                    <span className="text-slate-500">Direct / Own Bench</span>
-                  ) : matchedVendor && onOpenVendor ? (
-                    <button
-                      type="button"
-                      onClick={() => onOpenVendor(matchedVendor)}
-                      className="text-brand-700 font-semibold hover:underline cursor-pointer"
-                    >
-                      {vendorLabel}
-                    </button>
-                  ) : (
-                    <span className="text-amber-700 font-semibold">{vendorLabel}</span>
-                  )}
-                </dd>
-              </div>
-            </dl>
-          </div>
 
-          <div className="space-y-4">
             <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
-                <GraduationCap className="w-3.5 h-3.5 text-brand-600" />
-                <h3 className="font-bold text-slate-900">Education &amp; Credentials</h3>
+              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <GraduationCap className="w-3.5 h-3.5 text-brand-600" />
+                  <h3 className="font-bold text-slate-900">Education &amp; Credentials</h3>
+                </div>
+                <div className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700">
+                  <BadgeCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Verified CRM Record</span>
+                </div>
               </div>
               <div className="p-6 space-y-2.5">
                 <div className="text-xs font-semibold text-slate-900">{resolvedEducation}</div>
@@ -1204,20 +1221,50 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                     ))}
                   </div>
                 )}
-                <div className="flex items-center gap-1.5 text-[11px] text-slate-500 pt-1">
-                  <BadgeCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Verified CRM Record</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-4 space-y-4">
+            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
+              <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
+                <h3 className="font-bold text-slate-900">Activity Summary</h3>
+              </div>
+              <div className="p-5 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-slate-500 font-medium">Submissions</span>
+                  <span className="font-semibold text-slate-900">{linkedSubmissions.length}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-slate-500 font-medium">Active Placements</span>
+                  <span
+                    className={`font-semibold ${
+                      activeLinkedPlacements.length > 0 ? 'text-emerald-700' : 'text-slate-800'
+                    }`}
+                  >
+                    {activeLinkedPlacements.length}
+                  </span>
+                </div>
+                <div className="pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setWorkspaceTab('submissions')}
+                    className="w-full py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-xs inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <span>View Submissions</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
                 </div>
               </div>
             </div>
 
             {customFieldEntries.length > 0 && (
               <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+                <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
                   <Layers className="w-3.5 h-3.5 text-brand-600" />
                   <h3 className="font-bold text-slate-900">Additional Attributes</h3>
                 </div>
-                <dl className="p-6 space-y-2">
+                <dl className="p-5 space-y-2.5">
                   {customFieldEntries.map(([fieldName, value]) => (
                     <div key={fieldName} className="flex items-start justify-between gap-2">
                       <dt className="text-slate-400 font-medium capitalize shrink-0">
@@ -1233,89 +1280,101 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
             )}
 
             {onDeleteCandidate && (
-              <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-6 space-y-3 text-xs">
-                <div>
-                  <h3 className="font-bold text-slate-900">Profile Lifecycle</h3>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Remove this consultant profile and associated requirement submissions.
-                  </p>
-                </div>
+              <div className="bg-white rounded-xl border border-slate-200/80 card-shadow p-5 space-y-3 text-xs">
                 {!showDeleteConfirm ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowDeleteConfirm(true)}
-                    className="px-3.5 py-2 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 font-semibold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Delete Consultant</span>
-                  </button>
-                ) : isBillable ? (
-                  <div className="space-y-2.5">
-                    <div className="flex items-start gap-2 text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3 text-[11px]">
-                      <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
-                      <span>
-                        Cannot delete a billable consultant. Remove their active placement under
-                        Billable Consultants first.
-                      </span>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-slate-900">Profile Lifecycle</h3>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Remove profile and submission records.
+                      </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowDeleteConfirm(false)}
-                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-[11px] font-semibold cursor-pointer"
-                      >
-                        Close
-                      </button>
-                      {onNavigateToBillable && (
-                        <button
-                          type="button"
-                          onClick={onNavigateToBillable}
-                          className="px-3 py-1.5 rounded-lg bg-brand-600 text-white text-[11px] font-semibold cursor-pointer"
-                        >
-                          Go to Billable
-                        </button>
-                      )}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="shrink-0 px-3 py-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 font-semibold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete</span>
+                    </button>
                   </div>
                 ) : (
-                  <div className="space-y-2.5 pt-1">
-                    <div className="flex items-start gap-2 text-rose-700 text-[11px]">
-                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                      <span>
-                        Permanently delete <strong>{candidate.fullName}</strong>? This removes
-                        associated submission records.
-                      </span>
+                  <>
+                    <div>
+                      <h3 className="font-bold text-slate-900">Profile Lifecycle</h3>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Remove this consultant profile and associated requirement submissions.
+                      </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        disabled={isDeleting}
-                        onClick={() => setShowDeleteConfirm(false)}
-                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-[11px] font-semibold cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                      <ActionButton
-                        type="button"
-                        loading={isDeleting}
-                        loadingText="Deleting..."
-                        onClick={async () => {
-                          setIsDeleting(true);
-                          try {
-                            await onDeleteCandidate(candidate);
-                            onBack();
-                          } catch {
-                            // Error toast displayed by parent caller
-                          } finally {
-                            setIsDeleting(false);
-                          }
-                        }}
-                        className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-semibold cursor-pointer"
-                      >
-                        Confirm Delete
-                      </ActionButton>
-                    </div>
-                  </div>
+                    {isBillable ? (
+                      <div className="space-y-2.5">
+                        <div className="flex items-start gap-2 text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3 text-[11px]">
+                          <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                          <span>
+                            Cannot delete a billable consultant. Remove their active placement under
+                            Billable Consultants first.
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowDeleteConfirm(false)}
+                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-[11px] font-semibold cursor-pointer"
+                          >
+                            Close
+                          </button>
+                          {onNavigateToBillable && (
+                            <button
+                              type="button"
+                              onClick={onNavigateToBillable}
+                              className="px-3 py-1.5 rounded-lg bg-brand-600 text-white text-[11px] font-semibold cursor-pointer"
+                            >
+                              Go to Billable
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5 pt-1">
+                        <div className="flex items-start gap-2 text-rose-700 text-[11px]">
+                          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                          <span>
+                            Permanently delete <strong>{candidate.fullName}</strong>? This removes
+                            associated submission records.
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={isDeleting}
+                            onClick={() => setShowDeleteConfirm(false)}
+                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-[11px] font-semibold cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                          <ActionButton
+                            type="button"
+                            loading={isDeleting}
+                            loadingText="Deleting..."
+                            onClick={async () => {
+                              setIsDeleting(true);
+                              try {
+                                await onDeleteCandidate(candidate);
+                                onBack();
+                              } catch {
+                                // Error toast displayed by parent caller
+                              } finally {
+                                setIsDeleting(false);
+                              }
+                            }}
+                            className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-semibold cursor-pointer"
+                          >
+                            Confirm Delete
+                          </ActionButton>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
