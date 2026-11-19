@@ -1,5 +1,9 @@
 import { Request, Response } from 'express';
-import { placementService } from '../services/placement.service';
+import {
+  PLACEMENT_SORTABLE_FIELDS,
+  placementService,
+} from '../services/placement.service';
+import { parseSortParams } from '../utils/tableSort';
 
 export const getPlacements = async (req: Request, res: Response) => {
   try {
@@ -7,6 +11,12 @@ export const getPlacements = async (req: Request, res: Response) => {
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
     const parsedPage = page ? Math.max(1, parseInt(String(page), 10) || 1) : undefined;
     const parsedLimit = limit ? Math.max(1, Math.min(100, parseInt(String(limit), 10) || 10)) : undefined;
+    const blockedFields = req.user?.rateMasked ? ['payRate', 'billRate', 'hourlySpread'] : [];
+    const { sortBy, sortDir } = parseSortParams(
+      req.query as Record<string, any>,
+      PLACEMENT_SORTABLE_FIELDS,
+      blockedFields
+    );
 
     const result = await placementService.getPlacements(tenantId, {
       search: search ? String(search) : undefined,
@@ -14,6 +24,8 @@ export const getPlacements = async (req: Request, res: Response) => {
       model: model ? String(model) : undefined,
       page: parsedPage,
       limit: parsedLimit,
+      sortBy,
+      sortDir,
     });
     res.json({ success: true, data: result.data, pagination: result.pagination });
   } catch (error: any) {

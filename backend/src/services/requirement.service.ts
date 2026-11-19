@@ -4,6 +4,11 @@ import { slaEngineService } from './slaEngine.service';
 import { automationEngineService } from './automationEngine.service';
 import { parseCustomFields } from '../utils/customFields';
 import { parseRateNumber } from '../utils/rateParser';
+import {
+  SortDirection,
+  buildPrismaOrderBy,
+  sortRecordsByColumn,
+} from '../utils/tableSort';
 
 export const RequirementStatus = {
   REQUIREMENT: 'REQUIREMENT',
@@ -32,6 +37,33 @@ export function normalizeStageValue(input?: unknown): string {
   return CANONICAL_STAGE_BY_LOWER[trimmed.toLowerCase()] || trimmed;
 }
 
+export const REQUIREMENT_SORTABLE_FIELDS = [
+  'code',
+  'title',
+  'opportunityTitle',
+  'company',
+  'companyName',
+  'location',
+  'openPositions',
+  'applicants',
+  'stage',
+  'status',
+  'contact',
+  'recruiter',
+  'createdAt',
+] as const;
+
+export const REQUIREMENT_SUBMISSION_SORTABLE_FIELDS = [
+  'applicant',
+  'fullName',
+  'fitScore',
+  'capabilityScore',
+  'rate',
+  'stage',
+  'date',
+  'submissionDate',
+] as const;
+
 export interface RequirementFilterParams {
   tenantId?: string;
   search?: string;
@@ -39,6 +71,8 @@ export interface RequirementFilterParams {
   page?: number;
   limit?: number;
   view?: 'full' | 'kanban';
+  sortBy?: string;
+  sortDir?: SortDirection;
 }
 
 export const KANBAN_CARD_SELECT = {
@@ -180,17 +214,49 @@ export class RequirementService {
     return where;
   }
 
+  private getRequirementOrderBy(
+    sortBy?: string,
+    sortDir: SortDirection = 'desc'
+  ): Prisma.RequirementOrderByWithRelationInput[] {
+    const defaultOrder: Prisma.RequirementOrderByWithRelationInput[] = [
+      { createdAt: 'desc' },
+      { id: 'desc' },
+    ];
+    return buildPrismaOrderBy<Prisma.RequirementOrderByWithRelationInput>(
+      sortBy,
+      sortDir,
+      {
+        code: (d) => [{ code: d }, { id: d }],
+        title: (d) => [{ opportunityTitle: d }, { id: d }],
+        opportunityTitle: (d) => [{ opportunityTitle: d }, { id: d }],
+        company: (d) => [{ companyName: d }, { id: d }],
+        companyName: (d) => [{ companyName: d }, { id: d }],
+        location: (d) => [{ location: d }, { id: d }],
+        openPositions: (d) => [{ openPositions: d }, { id: d }],
+        applicants: (d) => [{ submissions: { _count: d } }, { id: d }],
+        stage: (d) => [{ status: d }, { id: d }],
+        status: (d) => [{ status: d }, { id: d }],
+        contact: (d) => [{ clientContact: { fullName: d } }, { id: d }],
+        recruiter: (d) => [{ assignedRecruiter: { fullName: d } }, { id: d }],
+        createdAt: (d) => [{ createdAt: d }, { id: d }],
+      },
+      defaultOrder
+    ) as Prisma.RequirementOrderByWithRelationInput[];
+  }
+
   async getRequirements(params: RequirementFilterParams) {
     const where = this.buildWhereClause(params);
+    const orderBy = this.getRequirementOrderBy(params.sortBy, params.sortDir);
     return prisma.requirement.findMany({
       where,
       include: REQUIREMENT_INCLUDE,
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
+      orderBy,
     });
   }
 
   async getRequirementsPaginated(params: RequirementFilterParams) {
     const where = this.buildWhereClause(params);
+    const orderBy = this.getRequirementOrderBy(params.sortBy, params.sortDir);
     const hasPagination = params.page !== undefined || params.limit !== undefined;
     const page = params.page ? Math.max(1, params.page) : 1;
     const limit = params.limit ? Math.max(1, Math.min(100, params.limit)) : 10;
@@ -199,7 +265,7 @@ export class RequirementService {
       const data = await prisma.requirement.findMany({
         where,
         include: REQUIREMENT_INCLUDE,
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
+        orderBy,
       });
       return {
         data,
@@ -219,14 +285,14 @@ export class RequirementService {
         ? prisma.requirement.findMany({
             where,
             select: KANBAN_CARD_SELECT,
-            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            orderBy,
             skip: (page - 1) * limit,
             take: limit,
           })
         : prisma.requirement.findMany({
             where,
             include: REQUIREMENT_INCLUDE,
-            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            orderBy,
             skip: (page - 1) * limit,
             take: limit,
           }),
@@ -312,7 +378,11 @@ export class RequirementService {
     };
   }
 
-  async getRequirementById(id: string, tenantId?: string) {
+  async getRequirementById(
+    id: string,
+    tenantId?: string,
+    sortOptions?: { sortBy?: string; sortDir?: SortDirection }
+  ) {
     const req = await prisma.requirement.findUnique({
       where: { id },
       include: REQUIREMENT_INCLUDE
@@ -320,6 +390,36 @@ export class RequirementService {
 
     if (req && tenantId && req.tenantId !== tenantId) {
       return null;
+    }
+    if (req && sortOptions?.sortBy && Array.isArray(req.submissions)) {
+      const extractRateNum = (sub: any): number | null => {
+        const raw =
+          sub.submittedRate ||
+          sub.candidate?.hourlyRateDisplay ||
+          sub.candidate?.hourlyRateW2 ||
+          sub.candidate?.hourlyRateC2c;
+        if (raw === null || raw === undefined) return null;
+        if (typeof raw === 'number') return raw;
+        const rawStr = String(raw);
+        if (!/\d/.test(rawStr)) return null;
+        return parseRateNumber(rawStr, 0);
+      };
+      req.submissions = sortRecordsByColumn(
+        req.submissions,
+        sortOptions.sortBy,
+        sortOptions.sortDir || 'asc',
+        {
+          applicant: (s) => s.candidate?.fullName || '',
+          fullName: (s) => s.candidate?.fullName || '',
+          fitScore: (s) => (typeof s.capabilityScore === 'number' ? s.capabilityScore : null),
+          capabilityScore: (s) => (typeof s.capabilityScore === 'number' ? s.capabilityScore : null),
+          rate: extractRateNum,
+          stage: (s) => s.stage || '',
+          date: (s) => (s.submissionDate ? new Date(s.submissionDate) : new Date(s.createdAt)),
+          submissionDate: (s) =>
+            s.submissionDate ? new Date(s.submissionDate) : new Date(s.createdAt),
+        }
+      );
     }
     return req;
   }

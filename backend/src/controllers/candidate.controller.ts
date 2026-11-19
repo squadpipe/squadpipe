@@ -1,5 +1,9 @@
 import { Request, Response } from 'express';
-import { candidateService } from '../services/candidate.service';
+import {
+  CANDIDATE_SORTABLE_FIELDS,
+  candidateService,
+} from '../services/candidate.service';
+import { parseSortParams } from '../utils/tableSort';
 
 export const getCandidates = async (req: Request, res: Response) => {
   try {
@@ -18,6 +22,12 @@ export const getCandidates = async (req: Request, res: Response) => {
         ? Number(maxRate)
         : undefined;
 
+    const { sortBy, sortDir } = parseSortParams(
+      req.query as Record<string, any>,
+      CANDIDATE_SORTABLE_FIELDS,
+      allowRateFilter ? [] : ['hourlyRate']
+    );
+
     const result = await candidateService.getCandidatesPaginated({
       tenantId,
       search: search ? String(search) : undefined,
@@ -28,6 +38,8 @@ export const getCandidates = async (req: Request, res: Response) => {
       maxRate: parsedMaxRate !== undefined && Number.isFinite(parsedMaxRate) ? parsedMaxRate : undefined,
       page: parsedPage,
       limit: parsedLimit,
+      sortBy,
+      sortDir,
     });
     res.json({ success: true, data: result.data, pagination: result.pagination });
   } catch (error: any) {

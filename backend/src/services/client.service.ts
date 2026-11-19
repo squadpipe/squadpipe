@@ -2,11 +2,33 @@ import { prisma } from '../config/prisma.config';
 import { Prisma, SlaCategory } from '@prisma/client';
 import { slaEngineService } from './slaEngine.service';
 import { parseCustomFields } from '../utils/customFields';
+import { SortDirection, buildPrismaOrderBy } from '../utils/tableSort';
+
+export const CLIENT_SORTABLE_FIELDS = [
+  'name',
+  'location',
+  'requirementsCount',
+  'placementsCount',
+  'createdAt',
+] as const;
+
+export const VENDOR_SORTABLE_FIELDS = [
+  'name',
+  'contactName',
+  'location',
+  'skillSpecialization',
+  'paymentTerms',
+  'invoicingTerms',
+  'msaSigned',
+  'createdAt',
+] as const;
 
 export interface ListQueryParams {
   search?: string;
   page?: number;
   limit?: number;
+  sortBy?: string;
+  sortDir?: SortDirection;
 }
 
 export class ClientService {
@@ -35,12 +57,25 @@ export class ClientService {
       }
     };
 
+    const orderBy = buildPrismaOrderBy<Prisma.ClientOrderByWithRelationInput>(
+      params.sortBy,
+      params.sortDir || 'desc',
+      {
+        name: (d) => [{ name: d }, { id: d }],
+        location: (d) => [{ location: d }, { id: d }],
+        requirementsCount: (d) => [{ requirements: { _count: d } }, { id: d }],
+        placementsCount: (d) => [{ placements: { _count: d } }, { id: d }],
+        createdAt: (d) => [{ createdAt: d }, { id: d }],
+      },
+      [{ createdAt: 'desc' }, { id: 'desc' }]
+    ) as Prisma.ClientOrderByWithRelationInput[];
+
     const hasPagination = params.page !== undefined || params.limit !== undefined;
     if (!hasPagination) {
       const data = await prisma.client.findMany({
         where,
         include,
-        orderBy: { createdAt: 'desc' }
+        orderBy,
       });
       return {
         data,
@@ -55,7 +90,7 @@ export class ClientService {
       prisma.client.findMany({
         where,
         include,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip: (page - 1) * limit,
         take: limit
       })
@@ -236,12 +271,28 @@ export class ClientService {
       }
     };
 
+    const orderBy = buildPrismaOrderBy<Prisma.VendorOrderByWithRelationInput>(
+      params.sortBy,
+      params.sortDir || 'desc',
+      {
+        name: (d) => [{ name: d }, { id: d }],
+        contactName: (d) => [{ contactName: d }, { id: d }],
+        location: (d) => [{ location: d }, { id: d }],
+        skillSpecialization: (d) => [{ skillSpecialization: d }, { id: d }],
+        paymentTerms: (d) => [{ paymentTerms: d }, { id: d }],
+        invoicingTerms: (d) => [{ invoicingTerms: d }, { id: d }],
+        msaSigned: (d) => [{ msaSigned: d }, { id: d }],
+        createdAt: (d) => [{ createdAt: d }, { id: d }],
+      },
+      [{ createdAt: 'desc' }, { id: 'desc' }]
+    ) as Prisma.VendorOrderByWithRelationInput[];
+
     const hasPagination = params.page !== undefined || params.limit !== undefined;
     if (!hasPagination) {
       const data = await prisma.vendor.findMany({
         where,
         include,
-        orderBy: { createdAt: 'desc' }
+        orderBy,
       });
       return {
         data,
@@ -256,7 +307,7 @@ export class ClientService {
       prisma.vendor.findMany({
         where,
         include,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip: (page - 1) * limit,
         take: limit
       })

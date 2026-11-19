@@ -7,6 +7,20 @@ import { parseRateNumber } from '../utils/rateParser';
 import { RequirementStatus, normalizeStageValue } from './requirement.service';
 import { computeHighestActiveStage, getTenantPipelineStages } from './submission.service';
 import { getTenantSettings } from '../config/smtp.config';
+import { SortDirection, buildPrismaOrderBy } from '../utils/tableSort';
+
+export const PLACEMENT_SORTABLE_FIELDS = [
+  'customer',
+  'resourceName',
+  'status',
+  'placementType',
+  'payRate',
+  'billRate',
+  'hourlySpread',
+  'startDate',
+  'endDate',
+  'createdAt',
+] as const;
 
 export function validateRequiredPoNumber(
   requirePoForPlacement: boolean,
@@ -37,6 +51,8 @@ export interface PlacementFilterParams {
   model?: string;
   page?: number;
   limit?: number;
+  sortBy?: string;
+  sortDir?: SortDirection;
 }
 
 export class PlacementService {
@@ -127,12 +143,30 @@ export class PlacementService {
       vendor: true
     };
 
+    const orderBy = buildPrismaOrderBy<Prisma.PlacementOrderByWithRelationInput>(
+      params.sortBy,
+      params.sortDir || 'desc',
+      {
+        customer: (d) => [{ customer: d }, { purchaseOrderNumber: d }, { id: d }],
+        resourceName: (d) => [{ resourceName: d }, { id: d }],
+        status: (d) => [{ status: d }, { placementType: d }, { id: d }],
+        placementType: (d) => [{ placementType: d }, { status: d }, { id: d }],
+        payRate: (d) => [{ payRate: d }, { id: d }],
+        billRate: (d) => [{ billRate: d }, { id: d }],
+        hourlySpread: (d) => [{ hourlySpread: d }, { id: d }],
+        startDate: (d) => [{ startDate: d }, { id: d }],
+        endDate: (d) => [{ endDate: d }, { id: d }],
+        createdAt: (d) => [{ createdAt: d }, { id: d }],
+      },
+      [{ createdAt: 'desc' }, { id: 'desc' }]
+    ) as Prisma.PlacementOrderByWithRelationInput[];
+
     const hasPagination = params.page !== undefined || params.limit !== undefined;
     if (!hasPagination) {
       const data = await prisma.placement.findMany({
         where,
         include,
-        orderBy: { createdAt: 'desc' }
+        orderBy,
       });
       return {
         data,
@@ -147,7 +181,7 @@ export class PlacementService {
       prisma.placement.findMany({
         where,
         include,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip: (page - 1) * limit,
         take: limit
       })

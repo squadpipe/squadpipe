@@ -1,5 +1,10 @@
 import { Request, Response } from 'express';
-import { clientService } from '../services/client.service';
+import {
+  CLIENT_SORTABLE_FIELDS,
+  VENDOR_SORTABLE_FIELDS,
+  clientService,
+} from '../services/client.service';
+import { parseSortParams } from '../utils/tableSort';
 
 export const getClients = async (req: Request, res: Response) => {
   try {
@@ -7,11 +12,14 @@ export const getClients = async (req: Request, res: Response) => {
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
     const parsedPage = page ? Math.max(1, parseInt(String(page), 10) || 1) : undefined;
     const parsedLimit = limit ? Math.max(1, Math.min(100, parseInt(String(limit), 10) || 10)) : undefined;
+    const { sortBy, sortDir } = parseSortParams(req.query as Record<string, any>, CLIENT_SORTABLE_FIELDS);
 
     const result = await clientService.getClients(tenantId, {
       search: search ? String(search) : undefined,
       page: parsedPage,
       limit: parsedLimit,
+      sortBy,
+      sortDir,
     });
     res.json({ success: true, data: result.data, pagination: result.pagination });
   } catch (error: any) {
@@ -59,11 +67,14 @@ export const getVendors = async (req: Request, res: Response) => {
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
     const parsedPage = page ? Math.max(1, parseInt(String(page), 10) || 1) : undefined;
     const parsedLimit = limit ? Math.max(1, Math.min(100, parseInt(String(limit), 10) || 10)) : undefined;
+    const { sortBy, sortDir } = parseSortParams(req.query as Record<string, any>, VENDOR_SORTABLE_FIELDS);
 
     const result = await clientService.getVendors(tenantId, {
       search: search ? String(search) : undefined,
       page: parsedPage,
       limit: parsedLimit,
+      sortBy,
+      sortDir,
     });
     res.json({ success: true, data: result.data, pagination: result.pagination });
   } catch (error: any) {

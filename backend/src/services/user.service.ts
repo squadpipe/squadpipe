@@ -6,6 +6,21 @@ import { smtpService } from './smtp.service';
 import { getTenantSettings } from '../config/smtp.config';
 import { renderInviteEmail } from './emailTemplate.service';
 import { analyticsService, formatLiveWorkloadText } from './analytics.service';
+import {
+  SortDirection,
+  buildPrismaOrderBy,
+  sortRecordsByColumn,
+} from '../utils/tableSort';
+
+export const USER_SORTABLE_FIELDS = [
+  'fullName',
+  'role',
+  'desk',
+  'workload',
+  'rateMasked',
+  'status',
+  'createdAt',
+] as const;
 
 export interface UserFilterParams {
   search?: string;
@@ -13,6 +28,8 @@ export interface UserFilterParams {
   status?: string;
   page?: number;
   limit?: number;
+  sortBy?: string;
+  sortDir?: SortDirection;
 }
 
 export class UserService {
@@ -78,11 +95,52 @@ export class UserService {
     };
 
     const hasPagination = params.page !== undefined || params.limit !== undefined;
+    const page = params.page ? Math.max(1, params.page) : 1;
+    const limit = params.limit ? Math.max(1, Math.min(100, params.limit)) : 10;
+
+    if (params.sortBy === 'workload') {
+      const rawUsers = await prisma.user.findMany({
+        where,
+        select,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      });
+      const enrichedAll = await enrichUsers(rawUsers);
+      const sorted = sortRecordsByColumn(enrichedAll, 'workload', params.sortDir || 'desc', {
+        workload: (u) =>
+          (u.metrics?.openReqs || 0) + (u.metrics?.submissions || 0) + (u.metrics?.placements || 0),
+      });
+      const total = sorted.length;
+      const sliced = hasPagination ? sorted.slice((page - 1) * limit, page * limit) : sorted;
+      return {
+        data: sliced,
+        pagination: {
+          page: hasPagination ? page : 1,
+          limit: hasPagination ? limit : sliced.length || 10,
+          total,
+          totalPages: hasPagination ? Math.max(1, Math.ceil(total / limit)) : 1,
+        },
+      };
+    }
+
+    const orderBy = buildPrismaOrderBy<Prisma.UserOrderByWithRelationInput>(
+      params.sortBy,
+      params.sortDir || 'desc',
+      {
+        fullName: (d) => [{ fullName: d }, { id: d }],
+        role: (d) => [{ role: d }, { id: d }],
+        desk: (d) => [{ desk: d }, { id: d }],
+        rateMasked: (d) => [{ rateMasked: d }, { id: d }],
+        status: (d) => [{ status: d }, { id: d }],
+        createdAt: (d) => [{ createdAt: d }, { id: d }],
+      },
+      [{ createdAt: 'desc' }, { id: 'desc' }]
+    ) as Prisma.UserOrderByWithRelationInput[];
+
     if (!hasPagination) {
       const data = await prisma.user.findMany({
         where,
         select,
-        orderBy: { createdAt: 'desc' }
+        orderBy,
       });
       const enriched = await enrichUsers(data);
       return {
@@ -91,14 +149,12 @@ export class UserService {
       };
     }
 
-    const page = params.page ? Math.max(1, params.page) : 1;
-    const limit = params.limit ? Math.max(1, Math.min(100, params.limit)) : 10;
     const [total, data] = await Promise.all([
       prisma.user.count({ where }),
       prisma.user.findMany({
         where,
         select,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip: (page - 1) * limit,
         take: limit
       })

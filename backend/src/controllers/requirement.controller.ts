@@ -1,5 +1,10 @@
 import { Request, Response } from 'express';
-import { requirementService } from '../services/requirement.service';
+import {
+  REQUIREMENT_SORTABLE_FIELDS,
+  REQUIREMENT_SUBMISSION_SORTABLE_FIELDS,
+  requirementService,
+} from '../services/requirement.service';
+import { parseSortParams } from '../utils/tableSort';
 
 export const getRequirements = async (req: Request, res: Response) => {
   try {
@@ -7,6 +12,7 @@ export const getRequirements = async (req: Request, res: Response) => {
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
     const parsedPage = page ? Math.max(1, parseInt(String(page), 10) || 1) : undefined;
     const parsedLimit = limit ? Math.max(1, Math.min(100, parseInt(String(limit), 10) || 10)) : undefined;
+    const { sortBy, sortDir } = parseSortParams(req.query as Record<string, any>, REQUIREMENT_SORTABLE_FIELDS);
 
     const result = await requirementService.getRequirementsPaginated({
       tenantId,
@@ -15,6 +21,8 @@ export const getRequirements = async (req: Request, res: Response) => {
       page: parsedPage,
       limit: parsedLimit,
       view: view === 'kanban' ? 'kanban' : 'full',
+      sortBy,
+      sortDir,
     });
     res.json({ success: true, data: result.data, pagination: result.pagination });
   } catch (error: any) {
@@ -49,7 +57,16 @@ export const getKanbanBoard = async (req: Request, res: Response) => {
 export const getRequirementById = async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
-    const requirement = await requirementService.getRequirementById(req.params.id, tenantId);
+    const blockedFields = req.user?.rateMasked ? ['rate'] : [];
+    const { sortBy, sortDir } = parseSortParams(
+      req.query as Record<string, any>,
+      REQUIREMENT_SUBMISSION_SORTABLE_FIELDS,
+      blockedFields
+    );
+    const requirement = await requirementService.getRequirementById(req.params.id, tenantId, {
+      sortBy,
+      sortDir,
+    });
     if (!requirement) {
       res.status(404).json({ success: false, message: 'Requirement not found' });
       return;

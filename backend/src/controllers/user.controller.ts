@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
-import { userService } from '../services/user.service';
+import { USER_SORTABLE_FIELDS, userService } from '../services/user.service';
+import { parseSortParams } from '../utils/tableSort';
 
 export const getUsers = async (req: Request, res: Response) => {
   try {
@@ -7,6 +8,7 @@ export const getUsers = async (req: Request, res: Response) => {
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
     const parsedPage = page ? Math.max(1, parseInt(String(page), 10) || 1) : undefined;
     const parsedLimit = limit ? Math.max(1, Math.min(100, parseInt(String(limit), 10) || 10)) : undefined;
+    const { sortBy, sortDir } = parseSortParams(req.query as Record<string, any>, USER_SORTABLE_FIELDS);
 
     const result = await userService.getUsers(tenantId, {
       search: search ? String(search) : undefined,
@@ -14,6 +16,8 @@ export const getUsers = async (req: Request, res: Response) => {
       status: status ? String(status) : undefined,
       page: parsedPage,
       limit: parsedLimit,
+      sortBy,
+      sortDir,
     });
     res.json({ success: true, data: result.data, pagination: result.pagination });
   } catch (error: any) {

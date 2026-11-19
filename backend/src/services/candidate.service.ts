@@ -8,6 +8,22 @@ import {
 } from './cvStorage.service';
 import { parseCustomFields } from '../utils/customFields';
 import { parseRateNumber } from '../utils/rateParser';
+import {
+  SortDirection,
+  buildPrismaOrderBy,
+  sortRecordsByColumn,
+} from '../utils/tableSort';
+
+export const CANDIDATE_SORTABLE_FIELDS = [
+  'fullName',
+  'workAuth',
+  'currentTitle',
+  'hourlyRate',
+  'relocation',
+  'stage',
+  'pipelineStage',
+  'createdAt',
+] as const;
 
 export interface CandidateFilterParams {
   tenantId?: string;
@@ -19,6 +35,8 @@ export interface CandidateFilterParams {
   maxRate?: number;
   page?: number;
   limit?: number;
+  sortBy?: string;
+  sortDir?: SortDirection;
 }
 
 export function parseCandidateSearchTokens(search?: string): string[] {
@@ -151,12 +169,36 @@ export class CandidateService {
     return null;
   }
 
+  private getCandidateOrderBy(
+    sortBy?: string,
+    sortDir: SortDirection = 'desc'
+  ): Prisma.CandidateOrderByWithRelationInput[] {
+    const defaultOrder: Prisma.CandidateOrderByWithRelationInput[] = [
+      { createdAt: 'desc' },
+      { id: 'desc' },
+    ];
+    return buildPrismaOrderBy<Prisma.CandidateOrderByWithRelationInput>(
+      sortBy,
+      sortDir,
+      {
+        fullName: (d) => [{ fullName: d }, { id: d }],
+        workAuth: (d) => [{ workAuth: d }, { id: d }],
+        currentTitle: (d) => [{ currentTitle: d }, { id: d }],
+        relocation: (d) => [{ relocation: d }, { id: d }],
+        stage: (d) => [{ pipelineStage: d }, { id: d }],
+        pipelineStage: (d) => [{ pipelineStage: d }, { id: d }],
+        createdAt: (d) => [{ createdAt: d }, { id: d }],
+      },
+      defaultOrder
+    ) as Prisma.CandidateOrderByWithRelationInput[];
+  }
+
   async getCandidates(params: CandidateFilterParams) {
     const where = this.buildWhereClause(params);
     return prisma.candidate.findMany({
       where,
       include: CANDIDATE_DEFAULT_INCLUDE,
-      orderBy: { createdAt: 'desc' }
+      orderBy: this.getCandidateOrderBy(params.sortBy, params.sortDir),
     });
   }
 
@@ -165,14 +207,69 @@ export class CandidateService {
     const hasPagination = params.page !== undefined || params.limit !== undefined;
     const page = params.page ? Math.max(1, params.page) : 1;
     const limit = params.limit ? Math.max(1, Math.min(100, params.limit)) : 10;
-
     const include = CANDIDATE_DEFAULT_INCLUDE;
+
+    if (params.sortBy === 'hourlyRate') {
+      const rateDir = params.sortDir || 'desc';
+      const rateCandidates = await prisma.candidate.findMany({
+        where,
+        select: {
+          id: true,
+          hourlyRateW2: true,
+          hourlyRateC2c: true,
+          hourlyRateDisplay: true,
+          createdAt: true,
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      });
+
+      const extractNumericRate = (c: typeof rateCandidates[number]): number | null => {
+        if (c.hourlyRateW2 !== null) return Number(c.hourlyRateW2);
+        if (c.hourlyRateC2c !== null) return Number(c.hourlyRateC2c);
+        if (c.hourlyRateDisplay && /\d/.test(c.hourlyRateDisplay)) {
+          return parseRateNumber(c.hourlyRateDisplay, 0);
+        }
+        return null;
+      };
+
+      const sortedRows = sortRecordsByColumn(rateCandidates, 'hourlyRate', rateDir, {
+        hourlyRate: extractNumericRate,
+      });
+
+      const total = sortedRows.length;
+      const sliced = hasPagination
+        ? sortedRows.slice((page - 1) * limit, page * limit)
+        : sortedRows;
+      const pageIds = sliced.map((r) => r.id);
+
+      const fullRows =
+        pageIds.length > 0
+          ? await prisma.candidate.findMany({
+              where: { id: { in: pageIds } },
+              include,
+            })
+          : [];
+      const rowById = new Map(fullRows.map((r) => [r.id, r]));
+      const orderedData = pageIds.map((id) => rowById.get(id)).filter((r): r is NonNullable<typeof r> => Boolean(r));
+
+      return {
+        data: orderedData,
+        pagination: {
+          page: hasPagination ? page : 1,
+          limit: hasPagination ? limit : orderedData.length || 10,
+          total,
+          totalPages: hasPagination ? Math.max(1, Math.ceil(total / limit)) : 1,
+        },
+      };
+    }
+
+    const orderBy = this.getCandidateOrderBy(params.sortBy, params.sortDir);
 
     if (!hasPagination) {
       const data = await prisma.candidate.findMany({
         where,
         include,
-        orderBy: { createdAt: 'desc' }
+        orderBy,
       });
       return {
         data,
@@ -190,7 +287,7 @@ export class CandidateService {
       prisma.candidate.findMany({
         where,
         include,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip: (page - 1) * limit,
         take: limit
       })
