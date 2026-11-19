@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict';
 import { resolveAiConfig } from '../../src/config/ai.config';
-import { AiService } from '../../src/services/ai/ai.service';
 import {
+  AiService,
+  extractCleanRecipientGreeting,
+  normalizeDisplayCandidateName,
+  normalizePitchEmailSpacing,
+} from '../../src/services/ai/ai.service';
+import {
+  buildPitchCacheKey,
   generatePitchDraftPure,
   normalizePitchPurpose,
   normalizePitchToneInput,
+  selectOrGeneratePitchDraftPure,
 } from '../../src/services/pitchDraft.service';
 
 function makeJsonResponse(payload: unknown, status = 200): Response {
@@ -172,6 +179,261 @@ export const runPitchDraftTests = async () => {
   });
   assert.equal(fallbackDraft.aiUsed, false);
   assert.ok(fallbackDraft.bodyText.includes('Softiox Partners'));
+
+  // 6. Clean greeting (strips job title), clean underscore name, sender sign-off, scannable snapshot format
+  assert.deepEqual(
+    extractCleanRecipientGreeting('Robert "Bob" Miller, Senior Director of ERP Transformation'),
+    { cleanName: 'Robert "Bob" Miller', greeting: 'Hi Robert,' }
+  );
+  assert.deepEqual(extractCleanRecipientGreeting('Maya Lin | VP Engineering'), {
+    cleanName: 'Maya Lin',
+    greeting: 'Hi Maya,',
+  });
+  assert.deepEqual(extractCleanRecipientGreeting(''), {
+    cleanName: '',
+    greeting: 'Hi Hiring Team,',
+  });
+  assert.equal(normalizeDisplayCandidateName('Chirag_Mehra'), 'Chirag Mehra');
+
+  const formattedPitch = await generatePitchDraftPure({
+    submissionId: 'sub-2',
+    candidate: { ...candidate, fullName: 'Chirag_Mehra' },
+    requirement,
+    agencyName: 'Softiox Partners',
+    senderName: 'Nakul Das',
+    recipientName: 'Robert "Bob" Miller, Senior Director of ERP Transformation',
+    purpose: 'client_pitch',
+    pitchTone: 'PROFESSIONAL',
+    rateMasked: true,
+    aiSvc: offlineAi,
+  });
+  assert.equal(formattedPitch.subject.includes('Chirag_Mehra'), false);
+  assert.ok(formattedPitch.subject.includes('Chirag Mehra'));
+  assert.ok(formattedPitch.bodyText.startsWith('Hi Robert,'));
+  assert.equal(formattedPitch.bodyText.includes('Senior Director of ERP Transformation'), false);
+  assert.ok(formattedPitch.bodyText.includes('Candidate Snapshot:\n- Current Role:'));
+  assert.ok(formattedPitch.bodyText.includes('Nakul Das\nSoftiox Partners'));
+  assert.equal(formattedPitch.bodyText.includes('[Your Name]'), false);
+
+  // 7. Scrubs [Your Name] placeholder from LLM output if model ignores signOffName instruction
+  const placeholderScrubAi = new AiService({
+    getConfig: () =>
+      resolveAiConfig({
+        AI_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test',
+        AI_MODEL_SMART: 'gpt-4o-mini',
+      }),
+    fetchImpl: async () =>
+      makeJsonResponse({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                subject: 'Candidate Submittal: Chirag Mehra',
+                bodyText: 'Hi Robert,\n\nQuick summary.\n\nBest regards,\n[Your Name]',
+              }),
+            },
+          },
+        ],
+      }),
+  });
+  const scrubbedAiDraft = await generatePitchDraftPure({
+    submissionId: 'sub-2',
+    candidate: { ...candidate, fullName: 'Chirag_Mehra' },
+    requirement,
+    agencyName: 'Softiox Partners',
+    senderName: 'Nakul Das',
+    recipientName: 'Robert "Bob" Miller, Senior Director of ERP Transformation',
+    rateMasked: true,
+    aiSvc: placeholderScrubAi,
+  });
+  assert.equal(scrubbedAiDraft.bodyText.includes('[Your Name]'), false);
+  assert.ok(scrubbedAiDraft.bodyText.includes('Nakul Das'));
+
+  // 8. Cache-first pitch resolution saves AI tokens across re-opens and isolates masked vs unmasked keys
+  let draftCalls = 0;
+  const countingAi = new AiService({
+    getConfig: () =>
+      resolveAiConfig({
+        AI_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test',
+        AI_MODEL_SMART: 'gpt-4o-mini',
+      }),
+    fetchImpl: async () => {
+      draftCalls += 1;
+      return makeJsonResponse({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                subject: `Submittal v${draftCalls}: Meera Krishnan`,
+                bodyText: `Hi Maya,\n\nPitch body v${draftCalls}.\n\nBest regards,\nNakul Das`,
+              }),
+            },
+          },
+        ],
+      });
+    },
+  });
+
+  const firstRun = await selectOrGeneratePitchDraftPure({
+    submissionId: 'sub-cache-1',
+    candidate,
+    requirement,
+    agencyName: 'Softiox Partners',
+    senderName: 'Nakul Das',
+    recipientName: 'Maya Lin',
+    purpose: 'client_pitch',
+    pitchTone: 'PROFESSIONAL',
+    rateMasked: true,
+    aiSvc: countingAi,
+  });
+  assert.equal(draftCalls, 1);
+  assert.equal(firstRun.didGenerate, true);
+  assert.equal(firstRun.draft.cached, false);
+  assert.ok(firstRun.nextCache[buildPitchCacheKey('client_pitch', 'PROFESSIONAL', true)]);
+
+  // Re-opening or switching back hits saved draft with 0 LLM calls
+  const secondRun = await selectOrGeneratePitchDraftPure({
+    submissionId: 'sub-cache-1',
+    existingCache: firstRun.nextCache,
+    candidate,
+    requirement,
+    agencyName: 'Softiox Partners',
+    senderName: 'Nakul Das',
+    recipientName: 'Maya Lin',
+    purpose: 'client_pitch',
+    pitchTone: 'PROFESSIONAL',
+    rateMasked: true,
+    aiSvc: countingAi,
+  });
+  assert.equal(draftCalls, 1);
+  assert.equal(secondRun.didGenerate, false);
+  assert.equal(secondRun.draft.cached, true);
+  assert.equal(secondRun.draft.subject, firstRun.draft.subject);
+
+  // Explicit Regenerate refreshes the saved cache entry
+  const regenRun = await selectOrGeneratePitchDraftPure({
+    submissionId: 'sub-cache-1',
+    existingCache: secondRun.nextCache,
+    forceRegenerate: true,
+    candidate,
+    requirement,
+    agencyName: 'Softiox Partners',
+    senderName: 'Nakul Das',
+    recipientName: 'Maya Lin',
+    purpose: 'client_pitch',
+    pitchTone: 'PROFESSIONAL',
+    rateMasked: true,
+    aiSvc: countingAi,
+  });
+  assert.equal(draftCalls, 2);
+  assert.equal(regenRun.didGenerate, true);
+  assert.equal(regenRun.draft.cached, false);
+  assert.ok(regenRun.draft.subject.includes('v2'));
+
+  // Masked vs unmasked rates use isolated cache slots so unmasked never leaks to masked users
+  const unmaskedRun = await selectOrGeneratePitchDraftPure({
+    submissionId: 'sub-cache-1',
+    existingCache: regenRun.nextCache,
+    candidate,
+    requirement,
+    agencyName: 'Softiox Partners',
+    senderName: 'Nakul Das',
+    recipientName: 'Maya Lin',
+    purpose: 'client_pitch',
+    pitchTone: 'PROFESSIONAL',
+    rateMasked: false,
+    aiSvc: countingAi,
+  });
+  assert.equal(draftCalls, 3);
+  assert.equal(unmaskedRun.didGenerate, true);
+  assert.ok(unmaskedRun.nextCache[buildPitchCacheKey('client_pitch', 'PROFESSIONAL', true)]);
+  assert.ok(unmaskedRun.nextCache[buildPitchCacheKey('client_pitch', 'PROFESSIONAL', false)]);
+
+  // 9. Enforces clean blank lines around greeting, snapshot bullets, paragraphs, and closing signature
+  const crampedAiBody = [
+    'Hi Robert,',
+    'We are excited to submit Ashwin Raman for the Lead SAP S/4HANA FICO role (REQ-1002).',
+    'Candidate Snapshot:',
+    '• 9+ years of IT experience in cloud networking and architecture',
+    '* Skilled in AWS, Azure, Terraform, and Python',
+    'Ashwin Raman brings strong client-facing consulting skills and integration leadership.',
+    'Please let us schedule an interview with Ashwin Raman at your earliest convenience.',
+    'Best regards,',
+    'Nakul Das',
+    'Softiox Partners',
+  ].join('\n');
+
+  const spacedExpected = [
+    'Hi Robert,',
+    '',
+    'We are excited to submit Ashwin Raman for the Lead SAP S/4HANA FICO role (REQ-1002).',
+    '',
+    'Candidate Snapshot:',
+    '- 9+ years of IT experience in cloud networking and architecture',
+    '- Skilled in AWS, Azure, Terraform, and Python',
+    '',
+    'Ashwin Raman brings strong client-facing consulting skills and integration leadership.',
+    '',
+    'Please let us schedule an interview with Ashwin Raman at your earliest convenience.',
+    '',
+    'Best regards,',
+    'Nakul Das',
+    'Softiox Partners',
+  ].join('\n');
+
+  assert.equal(normalizePitchEmailSpacing(crampedAiBody), spacedExpected);
+  assert.equal(normalizePitchEmailSpacing(spacedExpected), spacedExpected);
+
+  // Also auto-heals cramped unedited cached drafts on read with zero LLM calls, while leaving manual edits untouched
+  const legacyKey = buildPitchCacheKey('client_pitch', 'TECHNICAL_FOCUS', true);
+  const legacyHealed = await selectOrGeneratePitchDraftPure({
+    submissionId: 'sub-cache-heal',
+    existingCache: {
+      [legacyKey]: {
+        subject: 'Submittal: Ashwin Raman',
+        bodyText: crampedAiBody,
+        aiUsed: true,
+        purpose: 'client_pitch',
+        pitchTone: 'TECHNICAL_FOCUS',
+        generatedAt: '2026-11-19T10:00:00.000Z',
+      },
+    },
+    candidate,
+    requirement,
+    agencyName: 'Softiox Partners',
+    purpose: 'client_pitch',
+    pitchTone: 'TECHNICAL_FOCUS',
+    rateMasked: true,
+    aiSvc: countingAi,
+  });
+  assert.equal(draftCalls, 3);
+  assert.equal(legacyHealed.didGenerate, false);
+  assert.equal(legacyHealed.draft.bodyText, spacedExpected);
+
+  const manualPreserved = await selectOrGeneratePitchDraftPure({
+    submissionId: 'sub-cache-manual',
+    existingCache: {
+      [legacyKey]: {
+        subject: 'Custom Subject',
+        bodyText: 'Hi Robert,\nCustom manual compact line',
+        aiUsed: true,
+        manuallyEdited: true,
+        purpose: 'client_pitch',
+        pitchTone: 'TECHNICAL_FOCUS',
+        generatedAt: '2026-11-19T10:00:00.000Z',
+      },
+    },
+    candidate,
+    requirement,
+    agencyName: 'Softiox Partners',
+    purpose: 'client_pitch',
+    pitchTone: 'TECHNICAL_FOCUS',
+    rateMasked: true,
+    aiSvc: countingAi,
+  });
+  assert.equal(manualPreserved.draft.bodyText, 'Hi Robert,\nCustom manual compact line');
 
   console.log('✅ Rate-Safe Pitch Draft Tests: PASSED');
 };

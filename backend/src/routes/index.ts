@@ -624,14 +624,16 @@ router.post('/submissions/:id/evaluate', async (req: Request, res: Response) => 
 router.post('/submissions/:id/pitch-draft', async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
-    const { pitchTone, tone, purpose } = req.body || {};
+    const { pitchTone, tone, purpose, regenerate, forceRegenerate } = req.body || {};
     const draft = await pitchDraftService.draftForSubmission({
       submissionId: req.params.id,
       tenantId,
       userId: req.user?.id,
+      senderName: req.user?.fullName,
       pitchTone: pitchTone || tone,
       purpose,
       rateMasked: Boolean(req.user?.rateMasked),
+      forceRegenerate: Boolean(regenerate ?? forceRegenerate),
     });
     res.json({ success: true, data: draft });
   } catch (error: any) {
@@ -639,6 +641,29 @@ router.post('/submissions/:id/pitch-draft', async (req: Request, res: Response) 
     res.status(status).json({
       success: false,
       message: error?.message || 'Failed to generate client pitch draft',
+    });
+  }
+});
+
+router.put('/submissions/:id/pitch-draft', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const { pitchTone, tone, purpose, subject, bodyText } = req.body || {};
+    const saved = await pitchDraftService.saveManualDraft({
+      submissionId: req.params.id,
+      tenantId,
+      pitchTone: pitchTone || tone,
+      purpose,
+      rateMasked: Boolean(req.user?.rateMasked),
+      subject: String(subject ?? ''),
+      bodyText: String(bodyText ?? ''),
+    });
+    res.json({ success: true, data: saved });
+  } catch (error: any) {
+    const status = error?.statusCode || 500;
+    res.status(status).json({
+      success: false,
+      message: error?.message || 'Failed to save client pitch draft',
     });
   }
 });

@@ -9,6 +9,7 @@ import {
   Loader2,
   Mail,
   RefreshCw,
+  Save,
   Shield,
   Sparkles,
   X,
@@ -66,20 +67,32 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
   const [bodyText, setBodyText] = useState('');
   const [recipientEmail, setRecipientEmail] = useState('');
   const [aiUsed, setAiUsed] = useState(false);
+  const [isCached, setIsCached] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatusText, setSaveStatusText] = useState<'Saved' | ''>('');
   const [draftError, setDraftError] = useState('');
   const [copiedTarget, setCopiedTarget] = useState<'subject' | 'body' | null>(null);
   const [isBlindPdf, setIsBlindPdf] = useState(false);
   const [isDownloadingCv, setIsDownloadingCv] = useState(false);
 
-  const loadDraft = async (nextPurpose: PitchPurposeOption, nextTone: PitchToneOption) => {
+  const loadDraft = async (
+    nextPurpose: PitchPurposeOption,
+    nextTone: PitchToneOption,
+    forceRegenerate = false
+  ) => {
     if (!submissionId) return;
     setIsLoading(true);
+    setIsRegenerating(forceRegenerate);
     setDraftError('');
+    setSaveStatusText('');
     try {
       const res = await apiClient.post(`/submissions/${submissionId}/pitch-draft`, {
         purpose: nextPurpose,
         pitchTone: nextTone,
+        ...(forceRegenerate ? { regenerate: true } : {}),
       });
       const data = res.data?.data;
       if (data) {
@@ -87,14 +100,49 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
         setBodyText(String(data.bodyText || ''));
         setRecipientEmail(String(data.recipientEmail || ''));
         setAiUsed(Boolean(data.aiUsed));
+        setIsCached(Boolean(data.cached));
+        setIsDirty(false);
       }
     } catch (err: any) {
       setDraftError(
         err?.response?.data?.message || err?.message || 'Could not generate pitch draft.'
       );
       setAiUsed(false);
+      setIsCached(false);
     } finally {
       setIsLoading(false);
+      setIsRegenerating(false);
+    }
+  };
+
+  const persistEditsIfDirty = async (
+    targetPurpose: PitchPurposeOption = purpose,
+    targetTone: PitchToneOption = pitchTone
+  ) => {
+    if (!submissionId || !isDirty || (!subject.trim() && !bodyText.trim())) return;
+    setIsSaving(true);
+    try {
+      const res = await apiClient.put(`/submissions/${submissionId}/pitch-draft`, {
+        purpose: targetPurpose,
+        pitchTone: targetTone,
+        subject,
+        bodyText,
+      });
+      const saved = res.data?.data;
+      if (saved) {
+        setSubject(String(saved.subject || ''));
+        setBodyText(String(saved.bodyText || ''));
+      }
+      setIsDirty(false);
+      setIsCached(true);
+      setSaveStatusText('Saved');
+      setTimeout(() => setSaveStatusText(''), 2000);
+    } catch (err: any) {
+      setDraftError(
+        err?.response?.data?.message || err?.message || 'Could not save draft edits.'
+      );
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -109,18 +157,58 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
     setCopiedTarget(null);
     setDraftError('');
     setIsBlindPdf(false);
-    loadDraft(defaultPurpose, 'PROFESSIONAL');
+    setIsCached(false);
+    setIsDirty(false);
+    setSaveStatusText('');
+    loadDraft(defaultPurpose, 'PROFESSIONAL', false);
   }, [isOpen, submissionId]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        void persistEditsIfDirty(purpose, pitchTone);
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, purpose, pitchTone, isDirty, subject, bodyText, submissionId]);
 
   if (!isOpen) return null;
 
-  const candidateName = candidate?.fullName || fallbackCandidateName;
+  const rawCandidateName = candidate?.fullName || fallbackCandidateName;
+  const candidateName =
+    String(rawCandidateName || '')
+      .replace(/_+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim() || 'Consultant';
   const hasStoredOriginalCv = Boolean(candidate?.resumeFileUrl);
   const formattedRate = rateMasked || !candidate ? '' : formatRate(candidate.hourlyRate);
+
+  const handleClose = () => {
+    void persistEditsIfDirty(purpose, pitchTone);
+    onClose();
+  };
+
+  const handleTypeSelect = async (nextPurpose: PitchPurposeOption) => {
+    if (isLoading || nextPurpose === purpose) return;
+    await persistEditsIfDirty(purpose, pitchTone);
+    setPurpose(nextPurpose);
+    loadDraft(nextPurpose, pitchTone, false);
+  };
+
+  const handleToneSelect = async (nextTone: PitchToneOption) => {
+    if (isLoading || nextTone === pitchTone) return;
+    await persistEditsIfDirty(purpose, pitchTone);
+    setPitchTone(nextTone);
+    loadDraft(purpose, nextTone, false);
+  };
 
   const handleCopy = async (target: 'subject' | 'body') => {
     const textToCopy = target === 'subject' ? subject : bodyText;
     if (!textToCopy.trim()) return;
+    void persistEditsIfDirty(purpose, pitchTone);
     try {
       await navigator.clipboard.writeText(textToCopy);
       setCopiedTarget(target);
@@ -168,15 +256,15 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
 
   return (
     <div
-      onClick={onClose}
-      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-fade-in"
+      onClick={handleClose}
+      className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-[1px] flex justify-end animate-fade-in"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
+        className="bg-white h-full w-full max-w-2xl border-l border-slate-200 shadow-2xl overflow-hidden flex flex-col"
       >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-white/10 bg-[#141615] text-white flex items-center justify-between gap-3">
+        <div className="flex-shrink-0 px-5 py-4 border-b border-white/10 bg-[#141615] text-white flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white flex-shrink-0">
               <Mail className="w-4 h-4" />
@@ -192,6 +280,15 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                     <span>AI Drafted</span>
                   </span>
                 )}
+                {isCached && !isLoading && (
+                  <span
+                    title="Loaded from saved draft (no extra AI tokens used)"
+                    className="inline-flex items-center gap-1 text-[10px] font-semibold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 px-2 py-0.5 rounded-full"
+                  >
+                    <Check className="w-2.5 h-2.5" />
+                    <span>Saved Draft</span>
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-slate-400 truncate mt-0.5">
                 {requirementCode} &bull; {requirementTitle}
@@ -201,8 +298,8 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
-            aria-label="Close email draft dialog"
+            onClick={handleClose}
+            aria-label="Close email draft drawer"
             className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -210,7 +307,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
         </div>
 
         {/* Body */}
-        <div className="p-5 overflow-y-auto space-y-4 text-xs">
+        <div className="p-5 flex-1 min-h-0 overflow-y-auto space-y-4 text-xs">
           {/* Purpose & Tone Controls */}
           <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 border border-slate-200/80 rounded-xl p-3">
             <div className="flex items-center gap-1.5">
@@ -225,10 +322,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                   key={item.id}
                   type="button"
                   disabled={isLoading}
-                  onClick={() => {
-                    setPurpose(item.id);
-                    loadDraft(item.id, pitchTone);
-                  }}
+                  onClick={() => void handleTypeSelect(item.id)}
                   className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-60 ${
                     purpose === item.id
                       ? 'bg-slate-900 text-white shadow-2xs'
@@ -247,10 +341,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                   key={t.id}
                   type="button"
                   disabled={isLoading}
-                  onClick={() => {
-                    setPitchTone(t.id);
-                    loadDraft(purpose, t.id);
-                  }}
+                  onClick={() => void handleToneSelect(t.id)}
                   className={`px-2 py-1 rounded-md text-[10.5px] font-semibold transition-colors cursor-pointer disabled:opacity-60 ${
                     pitchTone === t.id
                       ? 'bg-brand-600 text-white'
@@ -263,11 +354,12 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
               <button
                 type="button"
                 disabled={isLoading}
-                onClick={() => loadDraft(purpose, pitchTone)}
-                title="Regenerate draft"
-                className="p-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 cursor-pointer disabled:opacity-50"
+                onClick={() => loadDraft(purpose, pitchTone, true)}
+                title="Generate a fresh draft using AI (replaces saved draft for this option)"
+                className="px-2 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-[10px] font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3 h-3 ${isRegenerating ? 'animate-spin' : ''}`} />
+                <span>Regenerate</span>
               </button>
             </div>
           </div>
@@ -284,7 +376,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
               <label className="text-[11px] font-semibold text-slate-700">Email Subject</label>
               <button
                 type="button"
-                onClick={() => handleCopy('subject')}
+                onClick={() => void handleCopy('subject')}
                 className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-slate-500 hover:text-brand-600 cursor-pointer"
               >
                 {copiedTarget === 'subject' ? (
@@ -303,7 +395,12 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
             <input
               type="text"
               value={subject}
-              onChange={(e) => setSubject(e.target.value)}
+              onChange={(e) => {
+                setSubject(e.target.value);
+                setIsDirty(true);
+                setSaveStatusText('');
+              }}
+              onBlur={() => void persistEditsIfDirty(purpose, pitchTone)}
               disabled={isLoading}
               className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50/50 text-xs font-medium text-slate-900 focus:bg-white focus:border-brand-500 focus:outline-none disabled:opacity-60"
             />
@@ -311,8 +408,32 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
 
           {/* Email Message Body */}
           <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <label className="text-[11px] font-semibold text-slate-700">Email Body</label>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <label className="text-[11px] font-semibold text-slate-700">Email Body</label>
+                {isSaving && (
+                  <span className="text-[10px] font-medium text-slate-400 inline-flex items-center gap-1">
+                    <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                    <span>Saving...</span>
+                  </span>
+                )}
+                {!isSaving && saveStatusText === 'Saved' && (
+                  <span className="text-[10px] font-medium text-emerald-600 inline-flex items-center gap-1">
+                    <Check className="w-2.5 h-2.5" />
+                    <span>Edits saved</span>
+                  </span>
+                )}
+                {!isSaving && isDirty && (
+                  <button
+                    type="button"
+                    onClick={() => void persistEditsIfDirty(purpose, pitchTone)}
+                    className="inline-flex items-center gap-1 text-[10px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 px-1.5 py-0.5 rounded cursor-pointer"
+                  >
+                    <Save className="w-2.5 h-2.5" />
+                    <span>Save Edits</span>
+                  </button>
+                )}
+              </div>
               {rateMasked && (
                 <span className="text-[10px] font-medium text-slate-500">
                   Rate-safe copy (bill/pay rates omitted)
@@ -321,16 +442,23 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
             </div>
             <div className="relative">
               <textarea
-                rows={9}
+                rows={16}
                 value={bodyText}
-                onChange={(e) => setBodyText(e.target.value)}
+                onChange={(e) => {
+                  setBodyText(e.target.value);
+                  setIsDirty(true);
+                  setSaveStatusText('');
+                }}
+                onBlur={() => void persistEditsIfDirty(purpose, pitchTone)}
                 disabled={isLoading}
-                className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50/50 text-xs text-slate-800 leading-relaxed focus:bg-white focus:border-brand-500 focus:outline-none disabled:opacity-60"
+                className="w-full min-h-[300px] p-4 rounded-xl border border-slate-200 bg-slate-50/50 text-[12.5px] text-slate-800 leading-relaxed focus:bg-white focus:border-brand-500 focus:outline-none disabled:opacity-60"
               />
               {isLoading && (
-                <div className="absolute inset-0 bg-white/70 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-brand-700">
+                <div className="absolute inset-0 bg-white/75 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-brand-700">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Preparing email draft...</span>
+                  <span>
+                    {isRegenerating ? 'Regenerating fresh email draft...' : 'Preparing saved email draft...'}
+                  </span>
                 </div>
               )}
             </div>
@@ -391,10 +519,10 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2 flex-wrap text-xs">
+        <div className="flex-shrink-0 px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2 flex-wrap text-xs">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-medium cursor-pointer"
           >
             Close
@@ -404,7 +532,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
             <button
               type="button"
               disabled={isLoading || !bodyText.trim()}
-              onClick={() => handleCopy('body')}
+              onClick={() => void handleCopy('body')}
               className="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-800 font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               {copiedTarget === 'body' ? (
@@ -423,7 +551,11 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
             <a
               href={mailtoHref}
               onClick={(e) => {
-                if (isLoading || !subject.trim()) e.preventDefault();
+                if (isLoading || !subject.trim()) {
+                  e.preventDefault();
+                  return;
+                }
+                void persistEditsIfDirty(purpose, pitchTone);
               }}
               className={`px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-xs inline-flex items-center gap-1.5 transition-colors ${
                 isLoading ? 'opacity-60 pointer-events-none' : ''

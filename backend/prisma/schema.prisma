@@ -370,6 +370,7 @@ model Submission {
   pitchEmailSubject      String?
   pitchEmailBody         String?           @db.Text
   pitchTone              PitchTone         @default(PROFESSIONAL)
+  pitchDrafts            Json?
   submissionDate         DateTime          @default(now())
   lastClientFeedbackDate DateTime?
   interviewDate          DateTime?

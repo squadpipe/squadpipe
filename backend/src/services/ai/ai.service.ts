@@ -199,6 +199,143 @@ export function computeOfflineCapabilityEvaluation(
   };
 }
 
+export function extractCleanRecipientGreeting(rawName?: string): {
+  cleanName: string;
+  greeting: string;
+} {
+  const withoutTitle = String(rawName || '')
+    .split(/\s*(?:,|\||\s-\s)\s*/)[0]
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!withoutTitle) {
+    return { cleanName: '', greeting: 'Hi Hiring Team,' };
+  }
+  const firstWord = withoutTitle.replace(/["'()]/g, '').split(/\s+/)[0] || '';
+  return {
+    cleanName: withoutTitle,
+    greeting: firstWord ? `Hi ${firstWord},` : 'Hi Hiring Team,',
+  };
+}
+
+export function normalizeDisplayCandidateName(rawName?: string | null): string {
+  return (
+    String(rawName || 'Consultant')
+      .replace(/_+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim() || 'Consultant'
+  );
+}
+
+/**
+ * Ensures recruiter email pitches always have clean, readable paragraph spacing:
+ * - blank line after greeting, before section headings, after bullet blocks, before prose paragraphs, and before sign-off
+ * - tight grouping for section headings directly above "- " bullets, consecutive bullets, and sign-off signature lines
+ */
+export function normalizePitchEmailSpacing(rawBody: string): string {
+  const normalized = String(rawBody || '')
+    .replace(/\r\n/g, '\n')
+    .trim();
+  if (!normalized) return '';
+
+  const lines = normalized.split('\n');
+  const isGreeting = (line: string) =>
+    /^(?:hi|hello|dear|good\s+(?:morning|afternoon|evening))\b.*[,:]$/i.test(line);
+  const isBullet = (line: string) => /^(?:[-*•]|\u2022|\d+[.)])\s+/.test(line);
+  const isSignOff = (line: string) =>
+    /^(?:best\s+regards|kind\s+regards|warm\s+regards|thanks\s*(?:&|and)?\s*regards|regards|sincerely|thank\s+you|thanks|best|warmly|cheers)[,.!]?$/i.test(
+      line
+    );
+
+  const output: string[] = [];
+  let prevKind: 'greeting' | 'heading' | 'bullet' | 'prose' | 'signoff' | 'signature' | null = null;
+  let prevProseText = '';
+  let hadBlankBefore = false;
+  let inSignature = false;
+
+  const ensureBlankLine = () => {
+    if (output.length > 0 && output[output.length - 1] !== '') {
+      output.push('');
+    }
+  };
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const trimmed = lines[i].trim();
+    if (!trimmed) {
+      hadBlankBefore = true;
+      continue;
+    }
+
+    let nextNonEmpty = '';
+    for (let j = i + 1; j < lines.length; j += 1) {
+      const candidateLine = lines[j].trim();
+      if (candidateLine) {
+        nextNonEmpty = candidateLine;
+        break;
+      }
+    }
+
+    if (isSignOff(trimmed)) {
+      ensureBlankLine();
+      output.push(trimmed);
+      inSignature = true;
+      prevKind = 'signoff';
+      hadBlankBefore = false;
+      continue;
+    }
+
+    if (inSignature) {
+      output.push(trimmed);
+      prevKind = 'signature';
+      hadBlankBefore = false;
+      continue;
+    }
+
+    if (prevKind === null && isGreeting(trimmed)) {
+      output.push(trimmed);
+      prevKind = 'greeting';
+      hadBlankBefore = false;
+      continue;
+    }
+
+    if (isBullet(trimmed)) {
+      const normalizedBullet = trimmed.replace(/^(?:[-*•]|\u2022)\s+/, '- ');
+      if (prevKind !== 'heading' && prevKind !== 'bullet') {
+        ensureBlankLine();
+      }
+      output.push(normalizedBullet);
+      prevKind = 'bullet';
+      hadBlankBefore = false;
+      continue;
+    }
+
+    if (/:\s*$/.test(trimmed) && nextNonEmpty && isBullet(nextNonEmpty)) {
+      ensureBlankLine();
+      output.push(trimmed);
+      prevKind = 'heading';
+      hadBlankBefore = false;
+      continue;
+    }
+
+    // Normal prose paragraph line
+    if (
+      prevKind === 'greeting' ||
+      prevKind === 'bullet' ||
+      prevKind === 'heading' ||
+      (prevKind === 'prose' &&
+        (hadBlankBefore || /[.!?]["')\]]*$/.test(prevProseText)))
+    ) {
+      ensureBlankLine();
+    }
+
+    output.push(trimmed);
+    prevKind = 'prose';
+    prevProseText = trimmed;
+    hadBlankBefore = false;
+  }
+
+  return output.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 export class AiService {
   private readonly getConfigFn: () => ResolvedAiConfig;
   private readonly hasExplicitConfigProvider: boolean;
@@ -738,56 +875,74 @@ export class AiService {
     const rateMasked = Boolean(options.rateMasked);
     const purpose = options.purpose || 'client_pitch';
     const tone = String(options.tone || 'PROFESSIONAL').toUpperCase();
-    const agencyName = (options.agencyName || 'Our Staffing Team').trim();
-    const recipientName = String(options.recipientName || '').trim();
-    const recipientFirstName = recipientName.split(/\s+/)[0] || '';
-    const greeting = recipientFirstName ? `Hi ${recipientFirstName},` : 'Hi,';
+    const agencyName = (options.agencyName || 'SquadPipe Staffing').trim();
+    const senderName = String(options.senderName || '').trim();
+    const { cleanName: recipientCleanName, greeting } = extractCleanRecipientGreeting(
+      options.recipientName
+    );
     const roleTitle = (requirement.opportunityTitle || 'Open Requirement').trim();
-    const candidateName =
-      (candidate.fullName || 'Consultant').replace(/_+/g, ' ').replace(/\s+/g, ' ').trim() ||
-      'Consultant';
+    const candidateName = normalizeDisplayCandidateName(candidate.fullName);
     const candidateTitle = (candidate.currentTitle || 'Technology Consultant').trim();
     const skillsList = splitSkillList(candidate.skillset).slice(0, 6).join(', ');
+    const signOffName = senderName
+      ? `${senderName}\n${agencyName}`
+      : `${agencyName} Recruiting Team`;
+
+    const reqContextTag = [requirement.location, requirement.workModel].filter(Boolean).join(' • ');
+    const clientClause = requirement.companyName ? ` at ${requirement.companyName}` : '';
+    const reqRefClause = requirement.code ? ` (${requirement.code})` : '';
 
     const offlineSubject =
       purpose === 'interview_followup'
-        ? `Follow-Up: ${candidateName} — ${roleTitle}${requirement.code ? ` (${requirement.code})` : ''}`
-        : `Candidate Submittal: ${candidateName} — ${roleTitle}${requirement.code ? ` (${requirement.code})` : ''}`;
+        ? `Follow-Up: ${candidateName} — ${roleTitle}${reqRefClause}`
+        : `Candidate Submittal: ${candidateName} — ${roleTitle}${reqRefClause}`;
 
-    const rateLine =
+    const rateBullet =
       !rateMasked && candidate.hourlyRateDisplay
-        ? `\nTarget Rate: ${candidate.hourlyRateDisplay}`
+        ? `- Target Rate: ${candidate.hourlyRateDisplay}`
         : '';
+
+    const authRelocParts = [
+      candidate.workAuth ? `Work Auth: ${candidate.workAuth}` : '',
+      candidate.relocation ? `Relocation: ${candidate.relocation}` : '',
+    ].filter(Boolean);
 
     const offlineBody =
       purpose === 'interview_followup'
         ? [
             greeting,
             '',
-            `Checking in from ${agencyName} regarding ${candidateName} (${candidateTitle}) for the ${roleTitle} position.`,
-            skillsList ? `Key strengths: ${skillsList}.` : '',
-            'Please let us know your team’s feedback or next interview scheduling steps.',
+            `Following up from ${agencyName} on our submitted consultant, ${candidateName}, for the ${roleTitle}${reqRefClause} opening${clientClause}.`,
             '',
-            `Best regards,\n${agencyName}`,
+            'Quick Recap:',
+            `- Candidate: ${candidateName} (${candidateTitle})`,
+            skillsList ? `- Key Alignment: ${skillsList}` : '',
+            '',
+            'Could you share any interview feedback or next steps on scheduling? Happy to coordinate availability on our end.',
+            '',
+            'Best regards,',
+            signOffName,
           ]
-            .filter((line, idx, arr) => !(line === '' && arr[idx - 1] === ''))
+            .filter((line, idx, arr) => line !== '' || (idx > 0 && arr[idx - 1] !== ''))
             .join('\n')
         : [
             greeting,
             '',
-            `Please find ${candidateName}'s profile attached for your ${roleTitle} requirement${requirement.location ? ` (${requirement.location})` : ''}.`,
-            `- Title: ${candidateTitle}`,
+            `Please find ${candidateName}'s profile attached for your ${roleTitle}${reqRefClause} opening${clientClause}${reqContextTag ? ` (${reqContextTag})` : ''}.`,
+            '',
+            'Candidate Snapshot:',
+            `- Current Role: ${candidateTitle}`,
             skillsList ? `- Core Skills: ${skillsList}` : '',
-            candidate.workAuth ? `- Work Authorization: ${candidate.workAuth}` : '',
-            rateLine ? rateLine.trim() : '',
+            authRelocParts.length > 0 ? `- ${authRelocParts.join(' | ')}` : '',
+            rateBullet,
             '',
-            'Let us know if you would like to schedule an interview slot.',
+            'Please let me know if you would like to schedule an introductory call or interview slot.',
             '',
-            `Best regards,\n${agencyName}`,
+            'Best regards,',
+            signOffName,
           ]
-            .filter(Boolean)
-            .join('\n')
-            .replace(/\n{3,}/g, '\n\n');
+            .filter((line, idx, arr) => line !== '' || (idx > 0 && arr[idx - 1] !== ''))
+            .join('\n');
 
     const { config, adapter, quotaNotice } = await this.getActiveRuntime({
       tenantId: options.tenantId,
@@ -815,8 +970,8 @@ export class AiService {
 
       const emailGoal =
         purpose === 'interview_followup'
-          ? `You are a recruiter at ${agencyName} emailing ${recipientName || 'the client hiring manager'} to follow up on feedback or next interview steps for our submitted candidate ${candidateName}.`
-          : `You are a recruiter at ${agencyName} emailing ${recipientName || 'the client hiring manager'} to submit and pitch our candidate ${candidateName} for the ${roleTitle} role.`;
+          ? `Recruiter ${senderName || agencyName} following up with ${recipientCleanName || 'the client hiring team'} regarding interview feedback or next scheduling steps for submitted consultant ${candidateName}.`
+          : `Recruiter ${senderName || agencyName} pitching submitted consultant ${candidateName} to ${recipientCleanName || 'the client hiring team'} for the ${roleTitle}${reqRefClause} role.`;
 
       const result = await completeValidatedJson({
         adapter,
@@ -825,18 +980,30 @@ export class AiService {
         messages: [
           {
             role: 'system',
-            content:
-              'You draft crisp, natural B2B IT staffing emails written BY a staffing recruiter TO a client hiring manager or vendor contact ABOUT a submitted consultant in THIRD PERSON. CRITICAL: NEVER write in first person as the job candidate (never say "my skills", "my background", or "thank you for interviewing me"); write from the agency/recruiter perspective ("we", "our submitted consultant", "<candidateName> brings..."). Tone options: PROFESSIONAL, HIGH_IMPACT, TECHNICAL_FOCUS. NEVER mention bill rates, margins, or hourly rates unless explicitly present in input. Return ONLY JSON: { "subject": string, "bodyText": string }.',
+            content: [
+              'You are an experienced US/global B2B IT staffing recruiter writing a clean, structured email TO a client hiring manager ABOUT your submitted consultant in THIRD PERSON.',
+              'STRICT RULES:',
+              '1. Perspective: Always write as the recruiter/agency ("we", "our consultant <candidateName>", "<candidateName> brings..."). NEVER write in first person as the candidate.',
+              '2. Positive framing: Highlight concrete relevant skills, architecture strengths, and transferable project delivery. NEVER apologize for missing skills or write negative caveats like "Although background is primarily X" or "with proper training and support".',
+              '3. Scannable spacing & format: ALWAYS separate every section with a blank line (\\n\\n): greeting ("Hi <FirstName>,"), opening paragraph, "Candidate Snapshot:" (or "Quick Recap:"), relevance paragraph, 1-line CTA, and closing signature. Keep NO blank line between "Candidate Snapshot:" and its "- " bullet points, NO blank line between consecutive bullets, and NO blank line between the closing phrase ("Best regards,") and the exact provided signOffName (NEVER use "[Your Name]" or placeholders).',
+              '4. Tone: PROFESSIONAL (balanced executive), HIGH_IMPACT (punchy results & speed-to-value), TECHNICAL_FOCUS (concrete stack & engineering depth).',
+              '5. Rate privacy: NEVER mention bill rates, margins, or hourly rates unless hourlyRate is explicitly provided in input.',
+              'Return ONLY JSON: { "subject": string, "bodyText": string }.',
+            ].join('\n'),
           },
           {
             role: 'user',
             content: JSON.stringify({
-              senderRole: `Staffing Recruiter at ${agencyName}`,
+              greeting,
+              signOffName,
+              senderRole: senderName
+                ? `${senderName}, Staffing Recruiter at ${agencyName}`
+                : `Staffing Recruiter at ${agencyName}`,
               emailGoal,
               purpose,
               tone,
               agencyName,
-              recipientName: recipientName || undefined,
+              recipientName: recipientCleanName || undefined,
               candidateName,
               requirement: safeReq,
               candidate: safeCand,
@@ -851,9 +1018,14 @@ export class AiService {
         options
       );
 
+      const rawCleanedBody = result.data.bodyText
+        .replace(/\[(?:Your Name|Recruiter Name|Sender Name)\]/gi, senderName || agencyName)
+        .trim();
+      const cleanedBody = normalizePitchEmailSpacing(rawCleanedBody);
+
       return {
         subject: result.data.subject,
-        bodyText: result.data.bodyText,
+        bodyText: cleanedBody,
         aiUsed: true,
         meta: {
           provider: result.completion.provider,

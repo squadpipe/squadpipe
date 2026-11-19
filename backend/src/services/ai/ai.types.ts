@@ -123,6 +123,7 @@ export interface PitchDraftInput {
   purpose?: 'client_pitch' | 'interview_followup';
   rateMasked?: boolean;
   agencyName?: string;
+  senderName?: string;
   recipientName?: string;
   tenantId?: string;
   userId?: string;
