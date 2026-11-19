@@ -492,5 +492,38 @@ export const runPitchDraftTests = async () => {
   });
   assert.equal(manualPreserved.draft.bodyText, 'Hi Robert,\nCustom manual compact line');
 
+  // Stale legacy offline artifacts are excluded from savedDraftKeys so UI never flags them as saved
+  const staleOfflineProbe = await selectOrGeneratePitchDraftPure({
+    submissionId: 'sub-cache-stale',
+    cacheOnly: true,
+    existingCache: {
+      'interview_followup:PROFESSIONAL:masked': {
+        subject: 'Follow-Up',
+        bodyText: `Hi Maya,\nChecking in regarding ${requirement.title} (${requirement.code}).`,
+        aiUsed: false,
+        purpose: 'interview_followup',
+        pitchTone: 'PROFESSIONAL',
+        generatedAt: '2026-11-19T09:00:00.000Z',
+      },
+      'client_pitch:HIGH_IMPACT:masked': {
+        subject: 'Submittal: Meera Krishnan',
+        bodyText: 'Hi Maya,\nFresh clean pitch.\n\nBest regards,\nNakul Das',
+        aiUsed: true,
+        purpose: 'client_pitch',
+        pitchTone: 'HIGH_IMPACT',
+        generatedAt: '2026-11-19T11:00:00.000Z',
+      },
+    },
+    candidate,
+    requirement,
+    agencyName: 'Softiox Partners',
+    purpose: 'interview_followup',
+    pitchTone: 'PROFESSIONAL',
+    rateMasked: true,
+    aiSvc: countingAi,
+  });
+  assert.equal(staleOfflineProbe.draft.hasDraft, false);
+  assert.deepEqual(staleOfflineProbe.draft.savedDraftKeys, ['client_pitch:HIGH_IMPACT']);
+
   console.log('✅ Rate-Safe Pitch Draft Tests: PASSED');
 };

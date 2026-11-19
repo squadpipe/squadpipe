@@ -1076,6 +1076,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
               </>
             )}
           </div>
+        </div>
     </AnimatedModal>
   );
 };

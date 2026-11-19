@@ -358,7 +358,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
           },
         })
         .then((res) => {
-          if (!active) return;
+          if (!active || dragOriginRef.current) return;
           if (res.data?.success && res.data.data?.columns) {
             const nextCols: Record<
               string,

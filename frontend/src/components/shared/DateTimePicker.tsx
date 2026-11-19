@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { Calendar, ChevronLeft, ChevronRight, Clock, X } from 'lucide-react';
+import { AnimatedPopover } from './MotionPrimitives';
 
 interface DateTimePickerProps {
   value: string;
@@ -180,10 +182,13 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
         )}
       </div>
 
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 right-0 sm:right-auto sm:w-[430px] mt-1.5 z-50 bg-white rounded-xl border border-slate-200 shadow-2xl overflow-hidden animate-fade-in">
+      {open && <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />}
+      <AnimatePresence>
+        {open && (
+          <AnimatedPopover
+            key="datetime-popover"
+            className="absolute left-0 right-0 sm:right-auto sm:w-[430px] mt-1.5 z-50 bg-white rounded-xl border border-slate-200 shadow-2xl overflow-hidden"
+          >
             <div className="grid grid-cols-1 sm:grid-cols-12 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
               {/* Calendar Side */}
               <div className="sm:col-span-7 p-3 space-y-2.5">
@@ -301,9 +306,9 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
                 </div>
               </div>
             </div>
-          </div>
-        </>
-      )}
+          </AnimatedPopover>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

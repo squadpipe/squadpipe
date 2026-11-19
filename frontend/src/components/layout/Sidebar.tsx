@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import {
   BarChart3,
   Building2,
@@ -22,6 +23,7 @@ import {
 import { User } from '../../types';
 import { formatUserRole } from '../../utils/entityMappers';
 import { BrandLogo } from '../shared/BrandMark';
+import { AnimatedPopover } from '../shared/MotionPrimitives';
 
 interface SidebarProps {
   currentView: string;
@@ -451,8 +453,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         {/* Popover Menu above the profile trigger card */}
-        {showProfileMenu && (
-          <div className="absolute bottom-full left-0 right-0 mb-2 bg-[#1A1D1B] border border-white/10 rounded-xl shadow-2xl p-2 z-50 animate-fade-in text-xs space-y-1">
+        <AnimatePresence>
+          {showProfileMenu && (
+            <AnimatedPopover
+              key="sidebar-profile-menu"
+              className="absolute bottom-full left-0 right-0 mb-2 bg-[#1A1D1B] border border-white/10 rounded-xl shadow-2xl p-2 z-50 text-xs space-y-1"
+            >
             {/* User Info Header */}
             <div className="p-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06]">
               <div className="font-bold text-white text-xs truncate">
@@ -496,8 +502,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <LogOut className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
               <span>Sign Out</span>
             </button>
-          </div>
-        )}
+            </AnimatedPopover>
+          )}
+        </AnimatePresence>
 
         {/* Trigger Card */}
         <div

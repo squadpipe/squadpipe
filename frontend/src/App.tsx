@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { AppIcon } from './components/shared/AppIcon';
+import { AnimatedToast } from './components/shared/MotionPrimitives';
 import { apiClient, AUTH_EXPIRED_EVENT, USER_SESSION_SYNC_EVENT } from './config/api.config';
 import {
   clearAuthSession,
@@ -1860,25 +1862,28 @@ export const App: React.FC = () => {
     return (
       <div className="flex h-screen w-screen overflow-hidden bg-[#141615]">
         {/* Global Toast Banner */}
-        {toast && (
-          <div
-            style={{ zIndex: 9999 }}
-            className="fixed bottom-5 right-5 z-[9999] max-w-md bg-white border border-slate-200 shadow-2xl rounded-xl p-4 flex items-center gap-3 animate-fade-in"
-          >
-            <AppIcon icon={toast.icon} className="w-4 h-4 flex-shrink-0" />
-            <div className="min-w-0 flex-1">
-              <div className="text-xs font-bold text-slate-900">{toast.title}</div>
-              <div className="text-[11px] text-slate-500 break-words">{toast.message}</div>
-            </div>
-            <button
-              onClick={() => setToast(null)}
-              aria-label="Dismiss notification"
-              className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer flex-shrink-0"
+        <AnimatePresence>
+          {toast && (
+            <AnimatedToast
+              key="login-toast"
+              style={{ zIndex: 9999 }}
+              className="fixed bottom-5 right-5 z-[9999] max-w-md bg-white border border-slate-200 shadow-2xl rounded-xl p-4 flex items-center gap-3"
             >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
+              <AppIcon icon={toast.icon} className="w-4 h-4 flex-shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold text-slate-900">{toast.title}</div>
+                <div className="text-[11px] text-slate-500 break-words">{toast.message}</div>
+              </div>
+              <button
+                onClick={() => setToast(null)}
+                aria-label="Dismiss notification"
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer flex-shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </AnimatedToast>
+          )}
+        </AnimatePresence>
 
         <LoginView
           onLoginSuccess={(user, token) => {
@@ -1917,25 +1922,28 @@ export const App: React.FC = () => {
   return (
     <div className="h-screen w-full flex overflow-hidden text-slate-800 bg-[#FAFAFA]">
       {/* Toast Banner */}
-      {toast && (
-        <div
-          style={{ zIndex: 9999 }}
-          className="fixed bottom-5 right-5 z-[9999] max-w-md bg-white border border-slate-200 card-shadow rounded-xl p-4 flex items-center gap-3 animate-fade-in"
-        >
-          <AppIcon icon={toast.icon} className="w-4 h-4 flex-shrink-0" />
-          <div className="min-w-0 flex-1">
-            <div className="text-xs font-bold text-slate-900">{toast.title}</div>
-            <div className="text-[11px] text-slate-500 break-words">{toast.message}</div>
-          </div>
-          <button
-            onClick={() => setToast(null)}
-            aria-label="Dismiss notification"
-            className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer flex-shrink-0"
+      <AnimatePresence>
+        {toast && (
+          <AnimatedToast
+            key="app-toast"
+            style={{ zIndex: 9999 }}
+            className="fixed bottom-5 right-5 z-[9999] max-w-md bg-white border border-slate-200 card-shadow rounded-xl p-4 flex items-center gap-3"
           >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
+            <AppIcon icon={toast.icon} className="w-4 h-4 flex-shrink-0" />
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-bold text-slate-900">{toast.title}</div>
+              <div className="text-[11px] text-slate-500 break-words">{toast.message}</div>
+            </div>
+            <button
+              onClick={() => setToast(null)}
+              aria-label="Dismiss notification"
+              className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer flex-shrink-0"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </AnimatedToast>
+        )}
+      </AnimatePresence>
 
       {/* Obsidian Dark Sidebar with live counts & profile popover */}
       <Sidebar

@@ -23,6 +23,7 @@ import { apiClient } from '../../config/api.config';
 import { CustomField } from '../../types';
 import { invalidateSchemaCaches } from '../../components/shared/DynamicCustomFieldsSection';
 import { useCurrency } from '../../utils/currency';
+import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { ActionButton } from '../../components/shared/ActionButton';
@@ -834,9 +835,14 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
       })()}
 
       {/* Add Custom Field Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-scale-up">
+      <AnimatedModal
+        isOpen={showAddModal}
+        onBackdropClick={() => !isCreatingField && setShowAddModal(false)}
+        zIndexClass="z-50"
+        backdropClassName="bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+        panelClassName="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden"
+        ariaLabel="Add Custom Field"
+      >
             <div className="px-6 py-4 bg-[#141615] text-white flex items-center justify-between border-b border-white/10">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center">
@@ -951,20 +957,19 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                 </ActionButton>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </AnimatedModal>
 
       {/* Edit Custom Field Modal */}
-      {editingField && (
-        <div
-          onClick={() => setEditingField(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-scale-up"
-          >
+      <AnimatedModal
+        isOpen={Boolean(editingField)}
+        onBackdropClick={() => !isUpdatingField && setEditingField(null)}
+        zIndexClass="z-50"
+        backdropClassName="bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+        panelClassName="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden"
+        ariaLabel="Edit Custom Field"
+      >
+        {editingField && (
+          <>
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Edit Custom Field</h3>
@@ -1105,20 +1110,20 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                 </ActionButton>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </AnimatedModal>
 
       {/* Delete Confirmation Modal */}
-      {confirmDelete && (
-        <div
-          onClick={() => setConfirmDelete(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-scale-up"
-          >
+      <AnimatedModal
+        isOpen={Boolean(confirmDelete)}
+        onBackdropClick={() => !isDeletingField && setConfirmDelete(null)}
+        zIndexClass="z-50"
+        backdropClassName="bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+        panelClassName="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden"
+        ariaLabel="Delete Custom Field or Option"
+      >
+        {confirmDelete && (
             <div className="p-6 space-y-4">
               <div className="flex items-start gap-3.5">
                 <div className="w-10 h-10 rounded-full bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center flex-shrink-0">
@@ -1173,9 +1178,8 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                 </ActionButton>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+        )}
+      </AnimatedModal>
     </section>
   );
 };

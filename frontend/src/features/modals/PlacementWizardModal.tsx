@@ -670,6 +670,7 @@ export const PlacementWizardModal: React.FC<PlacementWizardModalProps> = ({
               </span>
             </button>
           </div>
+        </div>
     </AnimatedModal>
   );
 };

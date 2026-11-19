@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import {
   Briefcase,
   Building2,
@@ -8,6 +9,7 @@ import {
   Plus,
   UserPlus,
 } from 'lucide-react';
+import { AnimatedPopover } from '../shared/MotionPrimitives';
 
 interface TopbarProps {
   currentView: string;
@@ -95,8 +97,12 @@ export const Topbar: React.FC<TopbarProps> = ({
           )}
 
           {/* Dropdown Menu */}
-          {showQuickAddDropdown && (
-            <div className="absolute right-0 mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 z-50 text-xs animate-fade-in divide-y divide-slate-100">
+          <AnimatePresence>
+            {showQuickAddDropdown && (
+              <AnimatedPopover
+                key="topbar-quick-add"
+                className="absolute right-0 mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 z-50 text-xs divide-y divide-slate-100"
+              >
               <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
                 Create New Record
               </div>
@@ -156,8 +162,9 @@ export const Topbar: React.FC<TopbarProps> = ({
                   <span className="font-medium">New Staffing Vendor</span>
                 </button>
               </div>
-            </div>
-          )}
+              </AnimatedPopover>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </header>

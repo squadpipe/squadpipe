@@ -532,7 +532,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
     }
   };
 
-  const openPositions = currentReq.openPositions || 1;
+  const openPositions = currentReq?.openPositions || 1;
   const toggleCandidateSelection = (candId: string) => {
     if (attachedStageByCandId.has(candId)) return;
     setSelectedCandidateIds((prev) =>
@@ -541,7 +541,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   };
 
   const handleQuickSingleAttach = async (cand: Candidate) => {
-    if (attachedStageByCandId.has(cand.id)) return;
+    if (!currentReq || attachedStageByCandId.has(cand.id)) return;
     setIsAttaching(true);
     try {
       if (onAttachCandidates) {
@@ -556,7 +556,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   };
 
   const handleBatchAttach = async () => {
-    if (selectedCandidateIds.length === 0) return;
+    if (!currentReq || selectedCandidateIds.length === 0) return;
     setIsAttaching(true);
     try {
       if (onAttachCandidates) {

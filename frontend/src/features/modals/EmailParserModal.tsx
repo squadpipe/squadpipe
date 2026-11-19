@@ -881,6 +881,7 @@ export const EmailParserModal: React.FC<EmailParserModalProps> = ({
               <span>{isSaving ? 'Creating Requisition...' : 'Approve & Create Requisition'}</span>
             </button>
           </div>
+        </div>
     </AnimatedModal>
   );
 };

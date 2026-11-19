@@ -23,6 +23,7 @@ import { useDebounce } from '../../utils/useDebounce';
 import { mapUserFromApi } from '../../utils/entityMappers';
 import { getWorkspaceBrandSlug } from '../../utils/workspaceBrand';
 import { sortArrayByColumn, useTableSort } from '../../utils/tableSort';
+import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 
 interface UserManagementViewProps {
   users: User[];
@@ -532,9 +533,16 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
       </div>
 
       {/* Delete Member Confirmation Modal */}
-      {userToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-sm p-6 space-y-4 animate-scale-up">
+      <AnimatedModal
+        isOpen={Boolean(userToDelete)}
+        onBackdropClick={() => !isDeleting && setUserToDelete(null)}
+        zIndexClass="z-50"
+        backdropClassName="bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+        panelClassName="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-sm p-6 space-y-4"
+        ariaLabel="Remove Team Member"
+      >
+        {userToDelete && (
+          <>
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center flex-shrink-0">
                 <AlertTriangle className="w-4 h-4" />
@@ -577,14 +585,19 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                 Remove Member
               </ActionButton>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </AnimatedModal>
 
       {/* Invite Member Modal */}
-      {showInviteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-scale-up">
+      <AnimatedModal
+        isOpen={showInviteModal}
+        onBackdropClick={() => setShowInviteModal(false)}
+        zIndexClass="z-50"
+        backdropClassName="bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+        panelClassName="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden"
+        ariaLabel="Invite Team Member"
+      >
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Invite Team Member</h3>
@@ -694,20 +707,19 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                 </ActionButton>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </AnimatedModal>
 
       {/* Edit Team Member Modal */}
-      {editingUser && (
-        <div
-          onClick={() => setEditingUser(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-scale-up"
-          >
+      <AnimatedModal
+        isOpen={Boolean(editingUser)}
+        onBackdropClick={() => !isUpdating && setEditingUser(null)}
+        zIndexClass="z-50"
+        backdropClassName="bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+        panelClassName="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden"
+        ariaLabel="Edit Team Member"
+      >
+        {editingUser && (
+          <>
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Edit Team Member</h3>
@@ -841,9 +853,9 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                 </ActionButton>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </AnimatedModal>
     </section>
   );
 };

@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { ChevronDown, Check } from 'lucide-react';
+import { AnimatedPopover } from './MotionPrimitives';
 
 export interface SearchableSelectOption {
   id?: string;
@@ -157,8 +159,12 @@ export const SearchableSelectInput: React.FC<SearchableSelectInputProps> = ({
         </button>
       </div>
 
-      {isOpen && (
-        <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl py-1 max-h-48 overflow-y-auto z-50 animate-fade-in">
+      <AnimatePresence>
+        {isOpen && (
+          <AnimatedPopover
+            key="searchable-select-popover"
+            className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl py-1 max-h-48 overflow-y-auto z-50"
+          >
           {filteredOptions.length === 0 && !value.trim() ? (
             <div className="px-3 py-2 text-[11px] text-slate-400 text-center">
               {emptyLabel}
@@ -223,8 +229,9 @@ export const SearchableSelectInput: React.FC<SearchableSelectInputProps> = ({
               )}
             </>
           )}
-        </div>
-      )}
+          </AnimatedPopover>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
