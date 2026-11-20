@@ -141,8 +141,10 @@ export function resolveAiConfig(env: NodeJS.ProcessEnv = process.env): ResolvedA
   };
 
   const configured = isProviderConfigured(provider, credentials);
-  const fallbackToOffline =
-    String(env.AI_FALLBACK_TO_OFFLINE ?? 'true').trim().toLowerCase() !== 'false';
+  const explicitFallback = String(env.AI_FALLBACK_TO_OFFLINE ?? '').trim().toLowerCase();
+  const fallbackToOffline = explicitFallback
+    ? explicitFallback === 'true'
+    : !configured;
   const allowByoKey =
     String(env.AI_ALLOW_BYO_KEY ?? 'false').trim().toLowerCase() === 'true';
   const actionCenterAgentEnabled =

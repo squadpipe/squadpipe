@@ -68,6 +68,70 @@ export function buildStoredCapabilitySummary(
   };
 }
 
+export interface PrecomputedCapabilityPayload {
+  fitScore: number;
+  recommendation?: string;
+  strengths?: string[];
+  gaps?: string[];
+  verdict?: string;
+  evaluatedWithAi?: boolean;
+  evaluatedAt?: string;
+}
+
+export function inferRecommendationFromScore(fitScore: number): CapabilityRecommendation {
+  if (fitScore >= 80) return 'STRONG_FIT';
+  if (fitScore >= 65) return 'GOOD_FIT';
+  if (fitScore >= 45) return 'PARTIAL_FIT';
+  return 'LOW_FIT';
+}
+
+function normalizeRecommendationEnum(raw: string | undefined, fitScore: number): CapabilityRecommendation {
+  switch (String(raw || '').toUpperCase()) {
+    case 'STRONG_FIT':
+    case 'GOOD_FIT':
+    case 'PARTIAL_FIT':
+    case 'LOW_FIT':
+      return String(raw).toUpperCase() as CapabilityRecommendation;
+    default:
+      return inferRecommendationFromScore(fitScore);
+  }
+}
+
+/**
+ * Validates and sanitizes an AI-ranked capability report so attaching pre-ranked candidates
+ * persists their score, strengths, gaps, and verdict without invoking redundant LLM calls.
+ */
+export function normalizePrecomputedCapabilitySummary(
+  payload: PrecomputedCapabilityPayload | undefined | null,
+  options?: { rateMasked?: boolean }
+): { capabilityScore: number; capabilitySummary: StoredCapabilitySummary } | null {
+  if (!payload || payload.evaluatedWithAi !== true) return null;
+  const rawScore = Number(payload.fitScore);
+  if (!Number.isFinite(rawScore)) return null;
+
+  const fitScore = Math.max(0, Math.min(100, Math.round(rawScore)));
+  const recommendation = normalizeRecommendationEnum(payload.recommendation, fitScore);
+  const summary = buildStoredCapabilitySummary(
+    {
+      fitScore,
+      recommendation,
+      verdict: String(payload.verdict || '').trim() || formatRecommendationLabel(recommendation),
+      strengths: Array.isArray(payload.strengths) ? payload.strengths.map(String) : [],
+      gaps: Array.isArray(payload.gaps) ? payload.gaps.map(String) : [],
+      aiUsed: true,
+    },
+    {
+      rateMasked: Boolean(options?.rateMasked),
+      evaluatedAt: payload.evaluatedAt,
+    }
+  );
+
+  return {
+    capabilityScore: summary.fitScore,
+    capabilitySummary: summary,
+  };
+}
+
 /**
  * Pure capability evaluator supporting both active LLM evaluation and offline keyword parity.
  */
@@ -213,13 +277,11 @@ export class CapabilityService {
   }
 
   /**
-   * Computes capability checks on newly attached submissions. Single-candidate attaches use
-   * active AI when configured (with rate masking enforced); multi-candidate batches stay
-   * unscored when AI is active (so the UI prompts "Check Fit Score" instead of storing
-   * deterministic 0% keyword guesses) and never persist 0% non-AI baseline scores on attach.
+   * Attaching candidates (single Quick Attach or multi-applicant batch) must remain fast and never
+   * invoke LLM calls automatically; users explicitly trigger Fit Checks on demand.
    */
   async evaluateNewlyAttachedSubmissions(
-    submissions: Array<{
+    _submissions: Array<{
       id: string;
       candidate: {
         id: string;
@@ -232,7 +294,7 @@ export class CapabilityService {
         rawSnippet: string | null;
       };
     }>,
-    requirement: {
+    _requirement: {
       id: string;
       code: string;
       companyName: string;
@@ -243,71 +305,9 @@ export class CapabilityService {
       rawEmailText: string | null;
       publicDescription?: string | null;
     },
-    options: { tenantId: string; aiSvc?: Pick<typeof aiService, 'evaluateSubmissionCapability' | 'getActiveRuntime'> }
+    _options: { tenantId: string; aiSvc?: Pick<typeof aiService, 'evaluateSubmissionCapability' | 'getActiveRuntime'> }
   ) {
-    if (!submissions || submissions.length === 0) return;
-
-    const evaluable = submissions.filter(
-      (sub) => Boolean(sub.candidate?.skillset?.trim() || sub.candidate?.rawSnippet?.trim())
-    );
-    if (evaluable.length === 0) return;
-
-    const reqInput = toCapabilityRequirementInput(requirement);
-
-    if (evaluable.length === 1) {
-      const target = evaluable[0];
-      const { capabilityScore, capabilitySummary } = await evaluateCandidateCapabilityPure(
-        toCapabilityCandidateInput(target.candidate),
-        reqInput,
-        {
-          rateMasked: true,
-          tenantId: options.tenantId,
-          aiSvc: options.aiSvc,
-        }
-      );
-
-      // Avoid stamping a misleading 0% Low Fit when AI did not actually evaluate the submission
-      if (!capabilitySummary.evaluatedWithAi && capabilityScore === 0) {
-        return;
-      }
-
-      await prisma.submission.update({
-        where: { id: target.id },
-        data: {
-          capabilityScore,
-          capabilitySummary: capabilitySummary as unknown as Prisma.InputJsonValue,
-        },
-      });
-      return;
-    }
-
-    const aiSvc = options.aiSvc || aiService;
-    const { config, adapter } = await aiSvc.getActiveRuntime({ tenantId: options.tenantId });
-    // When AI is enabled, leave batch-attached candidates unscored until explicitly checked
-    // rather than storing fast keyword-only guesses (which can show false 0% Low Fit without AI)
-    if (config.configured && adapter.isConfigured()) {
-      return;
-    }
-
-    await Promise.all(
-      evaluable.map((sub) => {
-        const evalResult = computeOfflineCapabilityEvaluation(
-          toCapabilityCandidateInput(sub.candidate),
-          reqInput
-        );
-        const summary = buildStoredCapabilitySummary(evalResult, { rateMasked: true });
-        if (summary.fitScore === 0) {
-          return Promise.resolve();
-        }
-        return prisma.submission.update({
-          where: { id: sub.id },
-          data: {
-            capabilityScore: summary.fitScore,
-            capabilitySummary: summary as unknown as Prisma.InputJsonValue,
-          },
-        });
-      })
-    );
+    return;
   }
 
   async rankMatchingCandidates(params: {
@@ -318,6 +318,8 @@ export class CapabilityService {
     search?: string;
     workAuth?: string;
     candidateIds?: string[];
+    excludeCandidateIds?: string[];
+    excludeAttached?: boolean;
     candidates?: CapabilityCandidateInput[];
     rateMasked?: boolean;
     maxShortlist?: number;
@@ -329,6 +331,8 @@ export class CapabilityService {
     retrievalMethod?: 'pgvector_hybrid' | 'pg_fts' | 'in_memory';
     totalTenantPool?: number;
     totalEvaluated: number;
+    remainingUnrankedCount: number;
+    excludedCount: number;
     quotaNotice?: string;
   }> {
     const {
@@ -339,9 +343,11 @@ export class CapabilityService {
       search,
       workAuth,
       candidateIds,
+      excludeCandidateIds,
+      excludeAttached = true,
       candidates: suppliedCandidates,
       rateMasked = false,
-      maxShortlist = 45,
+      maxShortlist = 30,
       aiSvc = aiService,
     } = params;
 
@@ -351,6 +357,25 @@ export class CapabilityService {
     if (!requirement) {
       throw createHttpError('Requirement not found for tenant', 404);
     }
+
+    const attachedRows = excludeAttached
+      ? await prisma.submission.findMany({
+          where: { requirementId, tenantId },
+          select: { candidateId: true },
+        })
+      : [];
+
+    const cleanExcludeIds = Array.from(
+      new Set(
+        [
+          ...(Array.isArray(excludeCandidateIds) ? excludeCandidateIds : []),
+          ...attachedRows.map((s) => s.candidateId),
+        ]
+          .map((id) => String(id || '').trim())
+          .filter(Boolean)
+      )
+    ).slice(0, 500);
+    const excludeSet = new Set(cleanExcludeIds);
 
     const effectiveReq = toCapabilityRequirementInput({
       ...requirement,
@@ -385,9 +410,12 @@ export class CapabilityService {
     } as const;
 
     const cleanIds = Array.isArray(candidateIds) && candidateIds.length > 0
-      ? Array.from(new Set(candidateIds.map((id) => String(id || '').trim()).filter(Boolean))).slice(0, 150)
+      ? Array.from(new Set(candidateIds.map((id) => String(id || '').trim()).filter(Boolean)))
+          .filter((id) => !excludeSet.has(id))
+          .slice(0, 150)
       : undefined;
 
+    const batchLimit = Math.max(1, Math.min(30, maxShortlist));
     let candidatePool: CapabilityCandidateInput[] = [];
     const fullRowById = new Map<string, any>();
     let retrievalMethod: 'pgvector_hybrid' | 'pg_fts' | 'in_memory' = 'pg_fts';
@@ -418,7 +446,8 @@ export class CapabilityService {
         searchFilter: search,
         workAuthFilter: workAuth,
         candidateIdsFilter: cleanIds,
-        limit: Math.max(25, Math.min(100, maxShortlist)),
+        excludeCandidateIds: cleanExcludeIds,
+        limit: batchLimit,
       });
 
       retrievalMethod = hybridRes.retrievalMethod;
@@ -453,41 +482,28 @@ export class CapabilityService {
 
     if (candidatePool.length === 0 && Array.isArray(suppliedCandidates) && suppliedCandidates.length > 0) {
       retrievalMethod = 'in_memory';
-      candidatePool = suppliedCandidates;
-      totalTenantPool = suppliedCandidates.length;
+      candidatePool = suppliedCandidates.filter((c) => !excludeSet.has(c.id));
+      totalTenantPool = candidatePool.length;
     }
 
     const shortlisted =
       retrievalMethod === 'in_memory'
-        ? preFilterCandidatesForMatch(candidatePool, effectiveReq, maxShortlist)
-        : candidatePool.slice(0, maxShortlist);
+        ? preFilterCandidatesForMatch(candidatePool, effectiveReq, batchLimit)
+        : candidatePool.slice(0, batchLimit);
 
-    const aiRankBatch = shortlisted.slice(0, 30);
-    const tailCandidates = shortlisted.slice(30);
-
-    const rankedResult = await aiSvc.rankCandidatesForRequirement(aiRankBatch, effectiveReq, {
+    const rankedResult = await aiSvc.rankCandidatesForRequirement(shortlisted, effectiveReq, {
       rateMasked: Boolean(rateMasked),
       tenantId,
       userId,
     });
 
-    const tailRankings: RankedCandidateResult[] = tailCandidates.map((c) => {
-      const evalRes = computeOfflineCapabilityEvaluation(c, effectiveReq);
-      return {
-        candidateId: c.id,
-        fitScore: evalRes.fitScore,
-        matchedHighlights: evalRes.strengths.slice(0, 4),
-        gaps: evalRes.gaps.slice(0, 4),
-        oneLineSummary: evalRes.verdict,
-      };
-    });
-
-    const sortedRankings = [...rankedResult.rankings, ...tailRankings].sort(
+    const sortedRankings = [...rankedResult.rankings].sort(
       (a, b) => b.fitScore - a.fitScore
     );
     const rankedCandidates = sortedRankings
       .map((r) => fullRowById.get(r.candidateId))
       .filter(Boolean);
+    const remainingUnrankedCount = Math.max(0, totalTenantPool - shortlisted.length);
 
     return {
       rankings: sortedRankings,
@@ -495,7 +511,9 @@ export class CapabilityService {
       aiUsed: rankedResult.aiUsed,
       retrievalMethod,
       totalTenantPool,
-      totalEvaluated: shortlisted.length,
+      totalEvaluated: sortedRankings.length,
+      remainingUnrankedCount,
+      excludedCount: cleanExcludeIds.length,
       ...(rankedResult.quotaNotice ? { quotaNotice: rankedResult.quotaNotice } : {}),
     };
   }

@@ -120,12 +120,20 @@ export function buildRateSafeRequirementPromptData(
 
 export function buildPiiSafeCandidatePromptData(
   candidate: CapabilityCandidateInput,
-  options: { rateMasked: boolean; maxSnippetChars: number; includeHourlyRate?: boolean }
+  options: {
+    rateMasked: boolean;
+    maxSnippetChars: number;
+    maxMatchedChunkChars?: number;
+    includeHourlyRate?: boolean;
+  }
 ): Record<string, unknown> {
   const retrievedContext =
     Array.isArray(candidate.matchedChunks) && candidate.matchedChunks.length > 0
       ? candidate.matchedChunks.join('\n---\n')
       : candidate.rawSnippet;
+
+  const matchedChunkLimit =
+    options.maxMatchedChunkChars ?? Math.max(options.maxSnippetChars, 2400);
 
   const safeCand: Record<string, unknown> = {
     candidateId: candidate.id,
@@ -135,7 +143,7 @@ export function buildPiiSafeCandidatePromptData(
     relocation: candidate.relocation || '',
     resumeSummaryExcerpt: truncateInput(
       options.rateMasked ? redactRatesFromText(retrievedContext) : retrievedContext,
-      candidate.matchedChunks?.length ? Math.max(options.maxSnippetChars, 2400) : options.maxSnippetChars
+      candidate.matchedChunks?.length ? matchedChunkLimit : options.maxSnippetChars
     ),
   };
 
@@ -798,6 +806,56 @@ export class AiService {
     }
   }
 
+  private async rankCandidateChunk(
+    chunk: CapabilityCandidateInput[],
+    safeReq: Record<string, unknown>,
+    params: {
+      adapter: AiProviderAdapter;
+      rateMasked: boolean;
+      timeoutMs: number;
+      maxTokens: number;
+      allowChunkSkipOnError: boolean;
+    }
+  ) {
+    try {
+      const safeCandidates = chunk.map((c) =>
+        buildPiiSafeCandidatePromptData(c, {
+          rateMasked: params.rateMasked,
+          maxSnippetChars: 650,
+          maxMatchedChunkChars: 850,
+          includeHourlyRate: false,
+        })
+      );
+
+      const result = await completeValidatedJson({
+        adapter: params.adapter,
+        tier: 'smart',
+        schema: BatchRankAiSchema,
+        maxTokens: params.maxTokens,
+        timeoutMs: params.timeoutMs,
+        messages: [
+          {
+            role: 'system',
+            content:
+              `You rank shortlisted staffing candidates against a requirement using anonymized candidate profiles. You MUST evaluate and return ALL ${chunk.length} candidateIds from the input candidates array without skipping any. Return ONLY JSON: { "rankings": [{ "candidateId": string, "fitScore": 0-100, "matchedHighlights": string[], "gaps": string[], "oneLineSummary": string }] } ordered highest fitScore first.`,
+          },
+          {
+            role: 'user',
+            content: JSON.stringify({ requirement: safeReq, candidates: safeCandidates }),
+          },
+        ],
+      });
+      return { ok: true as const, result };
+    } catch (err: any) {
+      if (!params.allowChunkSkipOnError) throw err;
+      console.warn(
+        '[AI] rankCandidatesForRequirement chunk error (will retry missing candidates if needed):',
+        err?.message || err
+      );
+      return { ok: false as const, error: err };
+    }
+  }
+
   async rankCandidatesForRequirement(
     candidates: CapabilityCandidateInput[],
     requirement: CapabilityRequirementInput,
@@ -823,82 +881,159 @@ export class AiService {
     const rateMasked = Boolean(options.rateMasked);
     const clippedCandidates = candidates.slice(0, 30);
 
-    const offlineRankings: RankedCandidateResult[] = clippedCandidates
-      .map((c) => {
-        const evalRes = computeOfflineCapabilityEvaluation(c, requirement);
-        return {
-          candidateId: c.id,
-          fitScore: evalRes.fitScore,
-          matchedHighlights: evalRes.strengths.slice(0, 4),
-          gaps: evalRes.gaps.slice(0, 4),
-          oneLineSummary: evalRes.verdict,
-        };
-      })
-      .sort((a, b) => b.fitScore - a.fitScore);
+    const buildOfflineRankings = (list: CapabilityCandidateInput[]): RankedCandidateResult[] =>
+      list
+        .map((c) => {
+          const evalRes = computeOfflineCapabilityEvaluation(c, requirement);
+          return {
+            candidateId: c.id,
+            fitScore: evalRes.fitScore,
+            matchedHighlights: evalRes.strengths.slice(0, 4),
+            gaps: evalRes.gaps.slice(0, 4),
+            oneLineSummary: evalRes.verdict,
+            aiEvaluated: false,
+          };
+        })
+        .sort((a, b) => b.fitScore - a.fitScore);
 
     const { config, adapter, quotaNotice } = await this.getActiveRuntime({
       tenantId: options.tenantId,
     });
     if (!config.configured || !adapter.isConfigured() || clippedCandidates.length === 0) {
       return {
-        rankings: offlineRankings,
+        rankings: buildOfflineRankings(clippedCandidates),
         aiUsed: false,
         ...(quotaNotice ? { quotaNotice } : {}),
       };
     }
 
     try {
+      // Split into compact parallel chunks of 5 so each LLM call returns all candidates reliably without timing out
+      const BATCH_CHUNK_SIZE = 5;
+      const chunkTimeoutMs = Math.max(config.timeoutMs, 45000);
       const safeReq = buildRateSafeRequirementPromptData(
         requirement,
         rateMasked,
-        config.maxInputChars
-      );
-      const safeCandidates = clippedCandidates.map((c) =>
-        buildPiiSafeCandidatePromptData(c, {
-          rateMasked,
-          maxSnippetChars: 1200,
-          includeHourlyRate: false,
-        })
+        Math.min(config.maxInputChars, 2800)
       );
 
-      const result = await completeValidatedJson({
-        adapter,
-        tier: 'smart',
-        schema: BatchRankAiSchema,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You rank shortlisted staffing candidates against a requirement using anonymized candidate profiles. Return ONLY JSON: { "rankings": [{ "candidateId": string, "fitScore": 0-100, "matchedHighlights": string[], "gaps": string[], "oneLineSummary": string }] } ordered highest fitScore first.',
-          },
-          {
-            role: 'user',
-            content: JSON.stringify({ requirement: safeReq, candidates: safeCandidates }),
-          },
-        ],
-      });
+      const toChunks = (list: CapabilityCandidateInput[]) => {
+        const out: CapabilityCandidateInput[][] = [];
+        for (let i = 0; i < list.length; i += BATCH_CHUNK_SIZE) {
+          out.push(list.slice(i, i + BATCH_CHUNK_SIZE));
+        }
+        return out;
+      };
 
       const validIds = new Set(clippedCandidates.map((c) => c.id));
       const seenRanked = new Set<string>();
-      const ranked = result.data.rankings
-        .filter((r) => {
-          if (!validIds.has(r.candidateId) || seenRanked.has(r.candidateId)) return false;
-          seenRanked.add(r.candidateId);
-          return true;
-        })
-        .sort((a, b) => b.fitScore - a.fitScore);
+      const ranked: RankedCandidateResult[] = [];
+      const acc: {
+        totalInputTokens: number;
+        totalOutputTokens: number;
+        hasInputTokens: boolean;
+        hasOutputTokens: boolean;
+        maxLatencyMs: number;
+        anyRepaired: boolean;
+        meta: { provider: string; model: string } | null;
+        firstError: any;
+      } = {
+        totalInputTokens: 0,
+        totalOutputTokens: 0,
+        hasInputTokens: false,
+        hasOutputTokens: false,
+        maxLatencyMs: 0,
+        anyRepaired: false,
+        meta: null,
+        firstError: null,
+      };
 
-      if (ranked.length === 0) {
-        return { rankings: offlineRankings, aiUsed: false };
+      const collectChunkResults = (
+        results: Awaited<ReturnType<AiService['rankCandidateChunk']>>[]
+      ) => {
+        for (const cr of results) {
+          if (!cr.ok) {
+            if (!acc.firstError) acc.firstError = cr.error;
+            continue;
+          }
+          const { data, completion, repaired } = cr.result;
+          acc.meta = { provider: completion.provider, model: completion.model };
+          if (typeof completion.inputTokens === 'number') {
+            acc.totalInputTokens += completion.inputTokens;
+            acc.hasInputTokens = true;
+          }
+          if (typeof completion.outputTokens === 'number') {
+            acc.totalOutputTokens += completion.outputTokens;
+            acc.hasOutputTokens = true;
+          }
+          acc.maxLatencyMs = Math.max(acc.maxLatencyMs, completion.latencyMs);
+          acc.anyRepaired = acc.anyRepaired || repaired;
+
+          for (const r of data.rankings) {
+            if (!validIds.has(r.candidateId) || seenRanked.has(r.candidateId)) continue;
+            seenRanked.add(r.candidateId);
+            ranked.push({ ...r, aiEvaluated: true });
+          }
+        }
+      };
+
+      const firstPassResults = await Promise.all(
+        toChunks(clippedCandidates).map((chunk) =>
+          this.rankCandidateChunk(chunk, safeReq, {
+            adapter,
+            rateMasked,
+            timeoutMs: chunkTimeoutMs,
+            maxTokens: 2500,
+            allowChunkSkipOnError: true,
+          })
+        )
+      );
+      collectChunkResults(firstPassResults);
+
+      // Retry once for any candidateIds omitted by the model or dropped by a transient chunk error
+      const missingAfterFirstPass = clippedCandidates.filter((c) => !seenRanked.has(c.id));
+      if (missingAfterFirstPass.length > 0 && ranked.length > 0) {
+        const retryResults = await Promise.all(
+          toChunks(missingAfterFirstPass).map((chunk) =>
+            this.rankCandidateChunk(chunk, safeReq, {
+              adapter,
+              rateMasked,
+              timeoutMs: chunkTimeoutMs,
+              maxTokens: 2500,
+              allowChunkSkipOnError: true,
+            })
+          )
+        );
+        collectChunkResults(retryResults);
       }
 
-      const missingFallback = offlineRankings.filter((r) => !seenRanked.has(r.candidateId));
+      if (ranked.length === 0 || !acc.meta) {
+        if (!config.fallbackToOffline) {
+          throw Object.assign(
+            new Error(acc.firstError?.message || 'PipeAI ranking failed to evaluate candidates.'),
+            { statusCode: 502 }
+          );
+        }
+        return { rankings: buildOfflineRankings(clippedCandidates), aiUsed: false };
+      }
+
+      const missingFallback = config.fallbackToOffline
+        ? buildOfflineRankings(clippedCandidates.filter((c) => !seenRanked.has(c.id)))
+        : [];
       const combinedRankings = [...ranked, ...missingFallback].sort(
         (a, b) => b.fitScore - a.fitScore
       );
+      const aggregatedCompletion = {
+        provider: acc.meta.provider,
+        model: acc.meta.model,
+        ...(acc.hasInputTokens ? { inputTokens: acc.totalInputTokens } : {}),
+        ...(acc.hasOutputTokens ? { outputTokens: acc.totalOutputTokens } : {}),
+        latencyMs: acc.maxLatencyMs,
+      };
+
       await this.recordFeatureUsage(
         options.usageFeature || 'match_rank',
-        result.completion,
+        aggregatedCompletion,
         options
       );
 
@@ -906,12 +1041,8 @@ export class AiService {
         rankings: combinedRankings,
         aiUsed: true,
         meta: {
-          provider: result.completion.provider,
-          model: result.completion.model,
-          inputTokens: result.completion.inputTokens,
-          outputTokens: result.completion.outputTokens,
-          latencyMs: result.completion.latencyMs,
-          repaired: result.repaired,
+          ...aggregatedCompletion,
+          repaired: acc.anyRepaired,
         },
       };
     } catch (err: any) {
@@ -920,7 +1051,7 @@ export class AiService {
         '[AI] rankCandidatesForRequirement fallback to offline baseline:',
         err?.message || err
       );
-      return { rankings: offlineRankings, aiUsed: false };
+      return { rankings: buildOfflineRankings(clippedCandidates), aiUsed: false };
     }
   }
 

@@ -3,12 +3,11 @@ import {
   AlertCircle,
   Briefcase,
   CheckCircle2,
-  CloudUpload,
+  Eye,
   FileText,
   Loader2,
-  MapPin,
+  RotateCcw,
   ShieldCheck,
-  UsersRound,
   X,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
@@ -70,6 +69,8 @@ interface PublicRequirementDetails {
   highlights?: string[];
   engagementSummary?: string | null;
   formTemplate?: PublicFormTemplateConfig;
+  isPreview?: boolean;
+  publicLinkEnabled?: boolean;
 }
 
 interface PublicApplicationConfirmation {
@@ -121,18 +122,31 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
   const fileInputRef = useRef<HTMLInputElement>(null);
   const parseRequestIdRef = useRef(0);
 
+  const previewSearchParams = React.useMemo(() => {
+    if (typeof window === 'undefined') return { preview: '', templateId: '' };
+    const sp = new URLSearchParams(window.location.search);
+    return {
+      preview: sp.get('preview')?.trim() || '',
+      templateId: sp.get('templateId')?.trim() || '',
+    };
+  }, []);
+
   useEffect(() => {
     let active = true;
     setLoading(true);
     setUnavailableMessage('');
 
+    const params: Record<string, string> = {};
+    if (previewSearchParams.preview) params.preview = previewSearchParams.preview;
+    if (previewSearchParams.templateId) params.templateId = previewSearchParams.templateId;
+
     apiClient
-      .get(`/public/apply/${encodeURIComponent(token)}`)
+      .get(`/public/apply/${encodeURIComponent(token)}`, { params })
       .then((res) => {
         if (!active) return;
         if (res.data?.success && res.data.data) {
           setRoleDetails(res.data.data);
-          document.title = `${res.data.data.opportunityTitle} — ${res.data.data.agencyName}`;
+          document.title = `${res.data.data.isPreview ? 'Preview: ' : ''}${res.data.data.opportunityTitle} — ${res.data.data.agencyName}`;
         } else {
           setUnavailableMessage('This position is no longer accepting applications.');
         }
@@ -150,7 +164,9 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
     return () => {
       active = false;
     };
-  }, [token]);
+  }, [token, previewSearchParams]);
+
+  const isPreviewMode = Boolean(roleDetails?.isPreview);
 
   const handleCvPick = async (file: File | undefined | null) => {
     if (!file) return;
@@ -168,9 +184,13 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
     try {
       const parseBody = new FormData();
       parseBody.append('file', file, file.name);
+      const parseParams: Record<string, string> = {};
+      if (previewSearchParams.preview) parseParams.preview = previewSearchParams.preview;
+      if (previewSearchParams.templateId) parseParams.templateId = previewSearchParams.templateId;
       const res = await apiClient.post(
         `/public/apply/${encodeURIComponent(token)}/parse-cv`,
-        parseBody
+        parseBody,
+        { params: parseParams }
       );
       if (requestId !== parseRequestIdRef.current) return;
       const extracted = res.data?.data;
@@ -298,6 +318,16 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
     }
     setValidationAttempted(false);
 
+    if (isPreviewMode && roleDetails) {
+      setConfirmation({
+        agencyName: roleDetails.agencyName,
+        submissionId: 'preview-only',
+        candidateName: fullName.trim(),
+        opportunityTitle: roleDetails.opportunityTitle,
+      });
+      return;
+    }
+
     const formData = new FormData();
     formData.append('fullName', fullName.trim());
     formData.append('email', email.trim());
@@ -335,8 +365,8 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="bg-white border border-slate-200 rounded-xl card-shadow px-8 py-10 text-center space-y-3 max-w-md w-full">
+      <div className="min-h-screen bg-white flex items-center justify-center p-6">
+        <div className="bg-white border border-slate-200 rounded-xl px-8 py-10 text-center space-y-3 max-w-md w-full">
           <Loader2 className="w-7 h-7 text-brand-600 animate-spin mx-auto" />
           <p className="text-sm font-semibold text-slate-800">Loading position details...</p>
         </div>
@@ -346,8 +376,8 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
 
   if (unavailableMessage || !roleDetails) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="bg-white border border-slate-200 rounded-xl card-shadow px-8 py-10 text-center space-y-4 max-w-md w-full">
+      <div className="min-h-screen bg-white flex items-center justify-center p-6">
+        <div className="bg-white border border-slate-200 rounded-xl px-8 py-10 text-center space-y-4 max-w-md w-full">
           <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center mx-auto">
             <Briefcase className="w-6 h-6" />
           </div>
@@ -363,26 +393,47 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
   }
 
   if (confirmation) {
+    const isPreviewSubmission = confirmation.submissionId === 'preview-only' || isPreviewMode;
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="bg-white border border-slate-200 rounded-xl card-shadow p-8 max-w-lg w-full text-center space-y-5">
-          <div className="w-14 h-14 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto">
-            <CheckCircle2 className="w-7 h-7" />
+      <div className="min-h-screen bg-white flex items-center justify-center p-6">
+        <div className="bg-white border border-slate-200 rounded-xl p-8 max-w-lg w-full text-center space-y-5">
+          <div className="w-14 h-14 rounded-xl border bg-emerald-50 border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto">
+            {isPreviewSubmission ? (
+              <Eye className="w-7 h-7" />
+            ) : (
+              <CheckCircle2 className="w-7 h-7" />
+            )}
           </div>
           <div className="space-y-1.5">
-            <span className="inline-block text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-              Application Submitted
+            <span className="inline-block text-[11px] font-semibold border px-2.5 py-0.5 rounded-full text-emerald-700 bg-emerald-50 border-emerald-200">
+              {isPreviewSubmission ? 'Preview Complete' : 'Application Submitted'}
             </span>
             <h1 className="text-xl font-bold text-slate-900 pt-1">
-              Thank you, {confirmation.candidateName}
+              {isPreviewSubmission
+                ? `Everything looks good, ${confirmation.candidateName}`
+                : `Thank you, ${confirmation.candidateName}`}
             </h1>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Your resume has been received by{' '}
-              <span className="font-semibold text-slate-900">{confirmation.agencyName}</span> for{' '}
-              <span className="font-semibold text-slate-900">
-                {confirmation.opportunityTitle}
-              </span>
-              . Our recruiting team will review your profile and follow up shortly.
+              {isPreviewSubmission ? (
+                <>
+                  Your test entry on{' '}
+                  <span className="font-semibold text-slate-900">{formTemplate.name}</span> for{' '}
+                  <span className="font-semibold text-slate-900">
+                    {confirmation.opportunityTitle}
+                  </span>{' '}
+                  is ready. Since this is a preview, no application was saved.
+                </>
+              ) : (
+                <>
+                  Your resume has been received by{' '}
+                  <span className="font-semibold text-slate-900">{confirmation.agencyName}</span>{' '}
+                  for{' '}
+                  <span className="font-semibold text-slate-900">
+                    {confirmation.opportunityTitle}
+                  </span>
+                  . Our recruiting team will review your profile and follow up shortly.
+                </>
+              )}
             </p>
           </div>
           <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 text-left text-xs space-y-1.5">
@@ -396,9 +447,25 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
             </div>
             <div className="flex items-center justify-between gap-2">
               <span className="text-slate-400">Status</span>
-              <span className="font-semibold text-emerald-700">Received &amp; Under Review</span>
+              <span
+                className={`font-semibold ${
+                  isPreviewSubmission ? 'text-slate-600' : 'text-emerald-700'
+                }`}
+              >
+                {isPreviewSubmission ? 'Preview Only' : 'Received & Under Review'}
+              </span>
             </div>
           </div>
+          {isPreviewSubmission && (
+            <button
+              type="button"
+              onClick={() => setConfirmation(null)}
+              className="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Back to Form</span>
+            </button>
+          )}
         </div>
       </div>
     );
@@ -413,14 +480,15 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
         .map((s) => [s.toLowerCase(), s])
     ).values()
   );
-  const INITIAL_VISIBLE_SKILLS = 10;
+  const INITIAL_VISIBLE_SKILLS = 18;
   const visibleSkills = showAllSkills ? skillList : skillList.slice(0, INITIAL_VISIBLE_SKILLS);
   const hiddenSkillsCount = Math.max(0, skillList.length - INITIAL_VISIBLE_SKILLS);
 
-  // Clean location label without duplicate "(Onsite)" if workModel is already displayed as a badge
-  const cleanLocationLabel = roleDetails.location
-    .replace(/\s*\((?:Onsite|On-Site|Remote|Hybrid)\)\s*$/i, '')
-    .trim() || roleDetails.location;
+  // Clean location label without redundant "(Onsite)" suffix
+  const cleanLocationLabel =
+    roleDetails.location
+      .replace(/\s*\((?:Onsite|On-Site|Remote|Hybrid)\)\s*$/i, '')
+      .trim() || roleDetails.location;
 
   const autoGeneratedSummary = buildClientSafeSummaryHtml({
     opportunityTitle: roleDetails.opportunityTitle,
@@ -436,424 +504,445 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
   const highlights = Array.isArray(roleDetails.highlights) ? roleDetails.highlights : [];
   const summaryAlreadyHasBullets = /<(?:ul|ol)\b/i.test(roleSummaryText);
 
+  const formHeading =
+    formTemplate.heading && formTemplate.heading !== 'Submit Candidate Profile & Resume'
+      ? formTemplate.heading
+      : 'Apply for this job';
+  const formSubheading =
+    formTemplate.subheading &&
+    formTemplate.subheading !==
+      'Candidates applying directly or partner agencies submitting consultants can attach a resume below.'
+      ? formTemplate.subheading
+      : 'Fields marked * are required.';
+
+  const inputBaseClass =
+    'w-full px-3 py-2 rounded-md border text-xs text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:border-brand-600 focus:ring-1 focus:ring-brand-600';
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-center">
-      <main className="max-w-6xl w-full mx-auto px-5 py-8 sm:py-10 flex-1">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* LEFT SIDE (5 cols): Clean Job Details, Rich Role Scope Summary & Key Skills */}
-          <aside className="lg:col-span-5 lg:sticky lg:top-6">
-            <section className="bg-white rounded-xl border border-slate-200/80 card-shadow p-6 space-y-5">
-              {/* Role Badges & Title (Zero Internal Codes) */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
-                    {roleDetails.workModel}
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600">
-                    <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>{cleanLocationLabel}</span>
-                  </span>
-                  <span className="text-slate-300">&bull;</span>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600">
-                    <UsersRound className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>
-                      {roleDetails.openPositions}{' '}
-                      {roleDetails.openPositions === 1 ? 'opening' : 'openings'}
-                    </span>
-                  </span>
-                  {roleDetails.engagementSummary && (
+    <div className="min-h-screen bg-white text-slate-900 flex flex-col">
+      {/* Minimal Pure-White Top Header */}
+      <header className="border-b border-slate-200 bg-white">
+        <div className="max-w-6xl w-full mx-auto px-6 sm:px-8 h-14 flex items-center justify-between gap-4">
+          <span className="text-[15px] font-bold tracking-tight text-slate-900 truncate">
+            {roleDetails.agencyName}
+          </span>
+
+          {isPreviewMode && (
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-slate-500">
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    roleDetails.publicLinkEnabled ? 'bg-emerald-500' : 'bg-amber-500'
+                  }`}
+                />
+                <span>
+                  {roleDetails.publicLinkEnabled ? 'Live link active' : 'Draft mode'} &middot; Submissions aren&rsquo;t saved
+                </span>
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-brand-50 border border-brand-200/80 text-[11px] font-semibold text-brand-700 tracking-tight">
+                <Eye className="w-3 h-3 text-brand-600 shrink-0" />
+                <span>Preview</span>
+              </span>
+            </div>
+          )}
+        </div>
+      </header>
+
+      <main className="max-w-6xl w-full mx-auto px-6 sm:px-8 py-8 sm:py-10 flex-1">
+        {/* Clean Editorial Job Title & Metadata */}
+        <div className="max-w-3xl">
+          <h1 className="text-2xl sm:text-[28px] font-bold text-slate-900 tracking-tight leading-tight">
+            {roleDetails.opportunityTitle}
+          </h1>
+          <div className="mt-2 text-xs sm:text-sm text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>{roleDetails.workModel}</span>
+            <span className="text-slate-400">&middot;</span>
+            <span>{cleanLocationLabel}</span>
+            {roleDetails.engagementSummary && (
+              <>
+                <span className="text-slate-400">&middot;</span>
+                <span>{roleDetails.engagementSummary}</span>
+              </>
+            )}
+            <span className="text-slate-400">&middot;</span>
+            <span>
+              {roleDetails.openPositions}{' '}
+              {roleDetails.openPositions === 1 ? 'opening' : 'openings'}
+            </span>
+          </div>
+        </div>
+
+        {/* Two-Column Content Grid */}
+        <div className="mt-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+          {/* LEFT COLUMN (5 cols): Open Editorial Role Overview & Skills */}
+          <div className="lg:col-span-5 space-y-6">
+            <section>
+              <h2 className="text-sm font-semibold text-slate-900 mb-2">About the role</h2>
+              <RichTextDisplay content={roleSummaryText} />
+            </section>
+
+            {highlights.length > 0 && !summaryAlreadyHasBullets && (
+              <section>
+                <h2 className="text-sm font-semibold text-slate-900 mb-2">What you will do</h2>
+                <ul className="list-disc pl-5 space-y-1.5 text-sm text-slate-700 leading-relaxed">
+                  {highlights.map((item, idx) => (
+                    <li key={idx}>{item}</li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {skillList.length > 0 && (
+              <section>
+                <h2 className="text-sm font-semibold text-slate-900 mb-1.5">
+                  Skills we are looking for
+                </h2>
+                <p className="text-sm text-slate-700 leading-relaxed">
+                  {visibleSkills.join(', ')}
+                  {hiddenSkillsCount > 0 && (
                     <>
-                      <span className="text-slate-300">&bull;</span>
-                      <span className="text-[11px] font-medium text-slate-600">
-                        {roleDetails.engagementSummary}
+                      {' '}
+                      <button
+                        type="button"
+                        onClick={() => setShowAllSkills((prev) => !prev)}
+                        className="text-xs font-semibold text-brand-600 hover:text-brand-700 underline underline-offset-2 cursor-pointer"
+                      >
+                        {showAllSkills ? 'Show less' : `+${hiddenSkillsCount} more`}
+                      </button>
+                    </>
+                  )}
+                </p>
+              </section>
+            )}
+          </div>
+
+          {/* RIGHT COLUMN (7 cols): Wide Crisp Bordered Application Form */}
+          <div className="lg:col-span-7">
+            <form
+              noValidate
+              onSubmit={handleSubmit}
+              className="bg-white rounded-xl border border-slate-200 p-6 sm:p-7 space-y-4"
+            >
+              <div>
+                <h2 className="text-base font-bold text-slate-900">{formHeading}</h2>
+                <p className="text-xs text-slate-500 mt-0.5">{formSubheading}</p>
+              </div>
+
+              {/* Anti-spam honeypot (hidden from human visitors) */}
+              <div className="sr-only" aria-hidden="true">
+                <label htmlFor="hp_website">Website</label>
+                <input
+                  id="hp_website"
+                  name="_hpWebsite"
+                  type="text"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={honeypotWebsite}
+                  onChange={(e) => setHoneypotWebsite(e.target.value)}
+                />
+              </div>
+
+              {/* Compact File Browser Bar + Drag-and-Drop Support */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="block text-xs font-medium text-slate-900">
+                    Resume / CV *
+                  </label>
+                  {isParsingCv ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-600">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span>Reading resume...</span>
+                    </span>
+                  ) : cvAutoFilled ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Auto-filled</span>
+                    </span>
+                  ) : isCvInvalid ? (
+                    <span className="text-[11px] font-medium text-rose-600">Required</span>
+                  ) : null}
+                </div>
+
+                {cvFile ? (
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-slate-300 bg-slate-50/70 text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText className="w-4 h-4 text-slate-500 shrink-0" />
+                      <span className="font-medium text-slate-900 truncate">{cvFile.name}</span>
+                      <span className="text-[11px] text-slate-400 shrink-0">
+                        ({(cvFile.size / 1024).toFixed(0)} KB)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        parseRequestIdRef.current += 1;
+                        setCvFile(null);
+                        setIsParsingCv(false);
+                        setCvAutoFilled(false);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                      }}
+                      className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors cursor-pointer shrink-0"
+                      aria-label="Remove resume file"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      handleCvPick(e.dataTransfer.files?.[0]);
+                    }}
+                    className={`px-2.5 py-1.5 rounded-md border flex items-center gap-3 cursor-pointer bg-white transition-colors ${
+                      isCvInvalid
+                        ? 'border-rose-400 bg-rose-50/30'
+                        : 'border-slate-300 hover:border-slate-400'
+                    }`}
+                  >
+                    <span className="px-2.5 py-1 rounded border border-slate-300 bg-slate-100 text-xs font-medium text-slate-800 shrink-0">
+                      Browse...
+                    </span>
+                    <span className="text-xs text-slate-500 truncate">No file selected.</span>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept={ALLOWED_CV_ACCEPT}
+                      onChange={(e) => handleCvPick(e.target.files?.[0])}
+                      className="hidden"
+                    />
+                  </div>
+                )}
+
+                <p className="text-[11px] text-slate-500">
+                  PDF, DOCX, DOC, TXT or RTF. Up to 15 MB.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3.5 gap-y-3.5 text-xs">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-slate-900">
+                      Full name *
+                    </label>
+                    {isFullNameInvalid && (
+                      <span className="text-[11px] font-medium text-rose-600">Required</span>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="e.g. Jordan Patel"
+                    className={`${inputBaseClass} ${
+                      isFullNameInvalid ? INVALID_FIELD_CLASSES : 'border-slate-300'
+                    }`}
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-slate-900">Email *</label>
+                    {isEmailInvalid && (
+                      <span className="text-[11px] font-medium text-rose-600">Required</span>
+                    )}
+                  </div>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="candidate@email.com"
+                    className={`${inputBaseClass} ${
+                      isEmailInvalid ? INVALID_FIELD_CLASSES : 'border-slate-300'
+                    }`}
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-slate-900">Phone *</label>
+                    {isPhoneInvalid && (
+                      <span className="text-[11px] font-medium text-rose-600">Required</span>
+                    )}
+                  </div>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+1 (555) 234-5678"
+                    className={`${inputBaseClass} ${
+                      isPhoneInvalid ? INVALID_FIELD_CLASSES : 'border-slate-300'
+                    }`}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-900 mb-1">
+                    Work authorization *
+                  </label>
+                  <CustomSelect
+                    value={workAuth}
+                    onChange={setWorkAuth}
+                    ariaLabel="Work Authorization"
+                    size="sm"
+                    className="!rounded-md !border-slate-300 hover:!border-slate-400 !h-[34px] text-slate-900"
+                    options={WORK_AUTH_OPTIONS}
+                  />
+                </div>
+
+                {(() => {
+                  const standardBindings = {
+                    currentTitle: {
+                      value: currentTitle,
+                      onChange: setCurrentTitle,
+                      invalid: isCurrentTitleInvalid,
+                    },
+                    expectedRate: {
+                      value: submittedRate,
+                      onChange: setSubmittedRate,
+                      invalid: isExpectedRateInvalid,
+                    },
+                    noticePeriod: {
+                      value: noticePeriod,
+                      onChange: setNoticePeriod,
+                      invalid: isNoticePeriodInvalid,
+                    },
+                    linkedinUrl: {
+                      value: linkedinUrl,
+                      onChange: setLinkedinUrl,
+                      invalid: isLinkedinUrlInvalid,
+                    },
+                    vendorName: {
+                      value: submittedVendorName,
+                      onChange: setSubmittedVendorName,
+                      invalid: isVendorNameInvalid,
+                    },
+                  };
+
+                  return resolveOrderedFormEntries(formTemplate).map((entry) => {
+                    if (entry.kind === 'standard') {
+                      const binding = standardBindings[entry.key];
+                      return (
+                        <div
+                          key={entry.key}
+                          className={getFieldWidthColSpanClass(entry.width)}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs font-medium text-slate-900">
+                              {entry.meta.applicantLabel}{' '}
+                              {entry.required ? (
+                                '*'
+                              ) : (
+                                <span className="text-slate-400 font-normal">(optional)</span>
+                              )}
+                            </label>
+                            {binding.invalid && (
+                              <span className="text-[11px] font-medium text-rose-600">
+                                Required
+                              </span>
+                            )}
+                          </div>
+                          <input
+                            type={entry.meta.inputType}
+                            value={binding.value}
+                            onChange={(e) => binding.onChange(e.target.value)}
+                            placeholder={entry.meta.placeholder}
+                            className={`${inputBaseClass} ${
+                              binding.invalid ? INVALID_FIELD_CLASSES : 'border-slate-300'
+                            }`}
+                          />
+                        </div>
+                      );
+                    }
+
+                    const cf = entry.field;
+                    const val = customFieldValues[cf.key] || '';
+                    const isCfInvalid =
+                      validationAttempted &&
+                      cf.required &&
+                      (cf.type === 'RICH_TEXT' ? isRichTextEmpty(val) : !val.trim());
+
+                    return (
+                      <div key={cf.key} className={getFieldWidthColSpanClass(entry.width)}>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-xs font-medium text-slate-900">
+                            {cf.name}{' '}
+                            {cf.required ? (
+                              '*'
+                            ) : (
+                              <span className="text-slate-400 font-normal">(optional)</span>
+                            )}
+                          </label>
+                          {isCfInvalid && (
+                            <span className="text-[11px] font-medium text-rose-600">Required</span>
+                          )}
+                        </div>
+                        <CustomQuestionFieldInput
+                          type={cf.type}
+                          label={cf.name}
+                          value={val}
+                          onChange={(nextVal) =>
+                            setCustomFieldValues((prev) => ({
+                              ...prev,
+                              [cf.key]: nextVal,
+                            }))
+                          }
+                          options={cf.options}
+                          required={Boolean(cf.required)}
+                          isInvalid={isCfInvalid}
+                          cleanSurface={true}
+                        />
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+
+              {formError && (
+                <div className="flex items-start gap-2 p-2.5 rounded-md bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
+              <div className="pt-1 space-y-3">
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                  {isPreviewMode ? (
+                    <>
+                      <Eye className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span>Preview mode — test entries are not saved.</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span>
+                        Your details will be shared directly with {roleDetails.agencyName}.
                       </span>
                     </>
                   )}
                 </div>
-                <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight leading-snug">
-                  {roleDetails.opportunityTitle}
-                </h1>
-              </div>
-
-              {/* Role Scope & Requirement Summary */}
-              <div className="space-y-2.5 pt-4 border-t border-slate-100">
-                <h2 className="text-xs font-semibold text-slate-800">
-                  Role Overview &amp; Scope
-                </h2>
-                <div className="bg-slate-50/70 border border-slate-200/70 rounded-xl p-4">
-                  <RichTextDisplay content={roleSummaryText} />
-                </div>
-              </div>
-
-              {/* Sanitized Responsibilities / Highlights from JD (shown only if not already bulleted inside summary) */}
-              {highlights.length > 0 && !summaryAlreadyHasBullets && (
-                <div className="space-y-2.5 pt-4 border-t border-slate-100">
-                  <h2 className="text-xs font-semibold text-slate-800">
-                    Key Responsibilities &amp; Focus
-                  </h2>
-                  <ul className="space-y-2 text-xs text-slate-600">
-                    {highlights.map((item, idx) => (
-                      <li key={idx} className="flex items-start gap-2 leading-relaxed">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Key Required Skills (Single clean +N more / Show less toggle matching app standard) */}
-              {skillList.length > 0 && (
-                <div className="space-y-2.5 pt-4 border-t border-slate-100">
-                  <h2 className="text-xs font-semibold text-slate-800">
-                    Key Required Skills ({skillList.length})
-                  </h2>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {visibleSkills.map((skill, idx) => (
-                      <span
-                        key={idx}
-                        className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 border border-slate-200/60"
-                      >
-                        {skill}
-                      </span>
-                    ))}
-                    {hiddenSkillsCount > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setShowAllSkills((prev) => !prev)}
-                        className="ml-1 inline-flex items-center text-[11px] font-semibold text-brand-600 hover:text-brand-700 underline underline-offset-2 whitespace-nowrap cursor-pointer transition-colors"
-                      >
-                        {showAllSkills ? 'Show less' : `+${hiddenSkillsCount} more`}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </section>
-          </aside>
-
-          {/* RIGHT SIDE (7 cols): Agency Brand Header + Application Form */}
-              <div className="lg:col-span-7">
-                <form
-                  noValidate
-                  onSubmit={handleSubmit}
-                  className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden"
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full py-2.5 px-4 rounded-md bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
                 >
-                  {/* Clean Right-Side Agency Header (Zero Internal Codes) */}
-                  <div className="px-6 py-4 bg-[#141615] text-white flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center text-white flex-shrink-0">
-                        <Briefcase className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-sm font-bold text-white truncate">
-                          {roleDetails.agencyName}
-                        </div>
-                        <div className="text-[11px] text-slate-400">
-                          Job Application &amp; Resume Upload
-                        </div>
-                      </div>
-                    </div>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/25 text-[11px] font-semibold text-emerald-300 whitespace-nowrap">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                      <span>Open Position</span>
-                    </span>
-                  </div>
-
-                  <div className="p-6 space-y-5">
-                    <div className="border-b border-slate-100 pb-3.5">
-                      <h2 className="text-base font-bold text-slate-900">{formTemplate.heading}</h2>
-                      <p className="text-xs text-slate-500 mt-0.5">{formTemplate.subheading}</p>
-                    </div>
-
-                    {/* Anti-spam honeypot (hidden from human visitors) */}
-                    <div className="sr-only" aria-hidden="true">
-                      <label htmlFor="hp_website">Website</label>
-                      <input
-                        id="hp_website"
-                        name="_hpWebsite"
-                        type="text"
-                        tabIndex={-1}
-                        autoComplete="off"
-                        value={honeypotWebsite}
-                        onChange={(e) => setHoneypotWebsite(e.target.value)}
-                      />
-                    </div>
-
-                    {/* Resume Upload Dropzone + Basic Resume Parser Auto-Fill */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <label className="block text-[11px] font-semibold text-slate-700">
-                          Resume / CV File *
-                        </label>
-                        {isParsingCv ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700">
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                            <span>Reading resume details...</span>
-                          </span>
-                        ) : cvAutoFilled ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>Fields auto-filled from resume</span>
-                          </span>
-                        ) : isCvInvalid ? (
-                          <span className="text-[11px] font-semibold text-rose-600">Required</span>
-                        ) : null}
-                      </div>
-                      {cvFile ? (
-                        <div className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-emerald-50/60 border border-emerald-200 text-xs">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
-                              <FileText className="w-4 h-4" />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="font-semibold text-slate-900 truncate">{cvFile.name}</div>
-                              <div className="text-[11px] text-slate-500">
-                                {(cvFile.size / 1024).toFixed(0)} KB &bull;{' '}
-                                {isParsingCv ? 'Extracting contact details...' : 'Ready to submit'}
-                              </div>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              parseRequestIdRef.current += 1;
-                              setCvFile(null);
-                              setIsParsingCv(false);
-                              setCvAutoFilled(false);
-                              if (fileInputRef.current) fileInputRef.current.value = '';
-                            }}
-                            className="p-1.5 text-slate-500 hover:text-rose-600 rounded-lg hover:bg-white transition-colors cursor-pointer"
-                            aria-label="Remove resume file"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div
-                          onClick={() => fileInputRef.current?.click()}
-                          onDragOver={(e) => e.preventDefault()}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            handleCvPick(e.dataTransfer.files?.[0]);
-                          }}
-                          className={`border-2 border-dashed rounded-xl p-5 text-center transition-colors cursor-pointer space-y-1.5 ${isCvInvalid
-                            ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/20'
-                            : 'border-slate-300 hover:border-brand-500 bg-slate-50/70 hover:bg-white'
-                            }`}
-                        >
-                          <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 text-brand-600 flex items-center justify-center mx-auto">
-                            <CloudUpload className="w-4 h-4" />
-                          </div>
-                          <div className="text-xs font-semibold text-slate-800">
-                            Drop your resume here, or <span className="text-brand-600">browse file</span>
-                          </div>
-                          <div className="text-[11px] text-slate-400">
-                            Accepted formats: PDF, DOCX, DOC, TXT, or RTF (max 15 MB)
-                          </div>
-                          <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept={ALLOWED_CV_ACCEPT}
-                            onChange={(e) => handleCvPick(e.target.files?.[0])}
-                            className="hidden"
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="block text-[11px] font-semibold text-slate-700">
-                            Full Name *
-                          </label>
-                          {isFullNameInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
-                        </div>
-                        <input
-                          type="text"
-                          value={fullName}
-                          onChange={(e) => setFullName(e.target.value)}
-                          placeholder="e.g. Jordan Patel"
-                          className={`w-full px-3 py-2 rounded-lg border focus:bg-white focus:outline-none ${isFullNameInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-slate-50/50 focus:border-brand-500'
-                            }`}
-                        />
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="block text-[11px] font-semibold text-slate-700">
-                            Email Address *
-                          </label>
-                          {isEmailInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
-                        </div>
-                        <input
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="candidate@email.com"
-                          className={`w-full px-3 py-2 rounded-lg border focus:bg-white focus:outline-none ${isEmailInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-slate-50/50 focus:border-brand-500'
-                            }`}
-                        />
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="block text-[11px] font-semibold text-slate-700">
-                            Phone Number *
-                          </label>
-                          {isPhoneInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
-                        </div>
-                        <input
-                          type="tel"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          placeholder="+1 (555) 234-5678"
-                          className={`w-full px-3 py-2 rounded-lg border focus:bg-white focus:outline-none ${isPhoneInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-slate-50/50 focus:border-brand-500'
-                            }`}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                          Work Authorization *
-                        </label>
-                        <CustomSelect
-                          value={workAuth}
-                          onChange={setWorkAuth}
-                          ariaLabel="Work Authorization"
-                          size="sm"
-                          options={WORK_AUTH_OPTIONS}
-                        />
-                      </div>
-                      {(() => {
-                        const standardBindings = {
-                          currentTitle: {
-                            value: currentTitle,
-                            onChange: setCurrentTitle,
-                            invalid: isCurrentTitleInvalid,
-                          },
-                          expectedRate: {
-                            value: submittedRate,
-                            onChange: setSubmittedRate,
-                            invalid: isExpectedRateInvalid,
-                          },
-                          noticePeriod: {
-                            value: noticePeriod,
-                            onChange: setNoticePeriod,
-                            invalid: isNoticePeriodInvalid,
-                          },
-                          linkedinUrl: {
-                            value: linkedinUrl,
-                            onChange: setLinkedinUrl,
-                            invalid: isLinkedinUrlInvalid,
-                          },
-                          vendorName: {
-                            value: submittedVendorName,
-                            onChange: setSubmittedVendorName,
-                            invalid: isVendorNameInvalid,
-                          },
-                        };
-
-                        return resolveOrderedFormEntries(formTemplate).map((entry) => {
-                          if (entry.kind === 'standard') {
-                            const binding = standardBindings[entry.key];
-                            return (
-                              <div
-                                key={entry.key}
-                                className={getFieldWidthColSpanClass(entry.width)}
-                              >
-                                <div className="flex items-center justify-between mb-1">
-                                  <label className="block text-[11px] font-semibold text-slate-700">
-                                    {entry.meta.applicantLabel}{' '}
-                                    {entry.required ? '*' : '(Optional)'}
-                                  </label>
-                                  {binding.invalid && (
-                                    <span className="text-[11px] font-semibold text-rose-600">
-                                      Required
-                                    </span>
-                                  )}
-                                </div>
-                                <input
-                                  type={entry.meta.inputType}
-                                  value={binding.value}
-                                  onChange={(e) => binding.onChange(e.target.value)}
-                                  placeholder={entry.meta.placeholder}
-                                  className={`w-full px-3 py-2 rounded-lg border focus:bg-white focus:outline-none ${
-                                    binding.invalid
-                                      ? INVALID_FIELD_CLASSES
-                                      : 'border-slate-200 bg-slate-50/50 focus:border-brand-500'
-                                  }`}
-                                />
-                              </div>
-                            );
-                          }
-
-                          const cf = entry.field;
-                          const val = customFieldValues[cf.key] || '';
-                          const isCfInvalid =
-                            validationAttempted &&
-                            cf.required &&
-                            (cf.type === 'RICH_TEXT' ? isRichTextEmpty(val) : !val.trim());
-
-                          return (
-                            <div
-                              key={cf.key}
-                              className={getFieldWidthColSpanClass(entry.width)}
-                            >
-                              <div className="flex items-center justify-between mb-1">
-                                <label className="block text-[11px] font-semibold text-slate-700">
-                                  {cf.name} {cf.required ? '*' : ''}
-                                </label>
-                                {isCfInvalid && (
-                                  <span className="text-[11px] font-semibold text-rose-600">
-                                    Required
-                                  </span>
-                                )}
-                              </div>
-                              <CustomQuestionFieldInput
-                                type={cf.type}
-                                label={cf.name}
-                                value={val}
-                                onChange={(nextVal) =>
-                                  setCustomFieldValues((prev) => ({
-                                    ...prev,
-                                    [cf.key]: nextVal,
-                                  }))
-                                }
-                                options={cf.options}
-                                required={Boolean(cf.required)}
-                                isInvalid={isCfInvalid}
-                              />
-                            </div>
-                          );
-                        });
-                      })()}
-                    </div>
-
-                    {formError && (
-                      <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
-                        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                        <span>{formError}</span>
-                      </div>
-                    )}
-
-                    <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100">
-                      <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                        <span>Direct encrypted submission to {roleDetails.agencyName}</span>
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={isSubmitting}
-                        className="px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                      >
-                        {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                        <span>{isSubmitting ? 'Submitting Application...' : 'Submit Application'}</span>
-                      </button>
-                    </div>
-                  </div>
-                </form>
+                  {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isSubmitting ? 'Submitting application...' : 'Submit application'}</span>
+                </button>
               </div>
-            </div>
-          </main>
+            </form>
+          </div>
         </div>
-        );
+      </main>
+
+      {/* Minimal Footer */}
+      <footer className="border-t border-slate-200 bg-white mt-auto">
+        <div className="max-w-6xl w-full mx-auto px-6 sm:px-8 py-4 flex items-center justify-between gap-4 text-[11px] text-slate-400">
+          <span>&copy; {roleDetails.agencyName}</span>
+          <span>Powered by SquadPipe</span>
+        </div>
+      </footer>
+    </div>
+  );
 };

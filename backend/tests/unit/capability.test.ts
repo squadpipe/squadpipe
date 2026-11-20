@@ -5,6 +5,7 @@ import {
   CapabilityService,
   evaluateCandidateCapabilityPure,
   formatRecommendationLabel,
+  normalizePrecomputedCapabilitySummary,
   preFilterCandidatesForMatch,
 } from '../../src/services/capability.service';
 
@@ -175,7 +176,21 @@ export const runCapabilityTests = async () => {
   assert.ok(sortedBatch.rankings[0].fitScore >= sortedBatch.rankings[1].fitScore);
   assert.ok(sortedBatch.rankings[1].fitScore >= sortedBatch.rankings[2].fitScore);
 
-  // 6. Auto-attach capability hook never persists misleading 0% non-AI Low Fit placeholders
+  // 6. Quick Attach & batch attach never invoke AI automatically on newly attached submissions
+  let attachAiCalls = 0;
+  const trackingActiveAi = new AiService({
+    getConfig: () =>
+      resolveAiConfig({
+        AI_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test',
+        AI_FALLBACK_TO_OFFLINE: 'true',
+      }),
+    fetchImpl: async () => {
+      attachAiCalls += 1;
+      throw new Error('AI should not be invoked during Quick Attach or Batch Attach');
+    },
+  });
+
   const capabilitySvc = new CapabilityService();
   await capabilitySvc.evaluateNewlyAttachedSubmissions(
     [
@@ -203,8 +218,9 @@ export const runCapabilityTests = async () => {
       workModel: 'Remote',
       rawEmailText: null,
     },
-    { tenantId: 'tenant-1', aiSvc: offlineAi }
+    { tenantId: 'tenant-1', aiSvc: trackingActiveAi }
   );
+  assert.equal(attachAiCalls, 0);
 
   await capabilitySvc.evaluateNewlyAttachedSubmissions(
     [
@@ -245,7 +261,170 @@ export const runCapabilityTests = async () => {
       workModel: 'Remote',
       rawEmailText: null,
     },
-    { tenantId: 'tenant-1', aiSvc: activeAi }
+    { tenantId: 'tenant-1', aiSvc: trackingActiveAi }
+  );
+  assert.equal(attachAiCalls, 0);
+
+  // 7. Carrying over PipeAI Rank reports preserves score, strengths, gaps, verdict & rate masking
+  assert.equal(
+    normalizePrecomputedCapabilitySummary({ fitScore: 88, evaluatedWithAi: false }),
+    null
+  );
+  const precomputedSanitized = normalizePrecomputedCapabilitySummary(
+    {
+      fitScore: 87.6,
+      strengths: ['Kubernetes ($145/hr ceiling)', 'Terraform'],
+      gaps: ['Kafka'],
+      verdict: 'Strong Kubernetes match expecting $98/hr.',
+      evaluatedWithAi: true,
+    },
+    { rateMasked: true }
+  );
+  assert.ok(precomputedSanitized);
+  assert.equal(precomputedSanitized.capabilityScore, 88);
+  assert.equal(precomputedSanitized.capabilitySummary.recommendation, 'STRONG_FIT');
+  assert.equal(precomputedSanitized.capabilitySummary.recommendationLabel, 'Strong Fit');
+  assert.equal(precomputedSanitized.capabilitySummary.evaluatedWithAi, true);
+  assert.equal(precomputedSanitized.capabilitySummary.verdict.includes('98'), false);
+  assert.equal(precomputedSanitized.capabilitySummary.strengths[0].includes('145'), false);
+
+  // 8. Large batch (>5 candidates) chunks into parallel LLM calls, retries omitted candidates, and never emits offline fallback when configured
+  const chunkSizesSeen: number[] = [];
+  let failOnceIds = new Set<string>();
+  let fallbackModeFlag: 'true' | 'false' = 'false';
+  const chunkedAi = new AiService({
+    getConfig: () =>
+      resolveAiConfig({
+        AI_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test',
+        AI_FALLBACK_TO_OFFLINE: fallbackModeFlag,
+      }),
+    fetchImpl: async (_url, init) => {
+      const parsedBody = JSON.parse(String(init?.body || '{}'));
+      const userMsg = parsedBody.messages?.find((m: any) => m.role === 'user')?.content || '{}';
+      const payload = JSON.parse(userMsg);
+      const chunkCands = Array.isArray(payload.candidates) ? payload.candidates : [];
+      chunkSizesSeen.push(chunkCands.length);
+
+      const hitTransientFail = chunkCands.some((c: any) => failOnceIds.has(c.candidateId));
+      if (hitTransientFail) {
+        chunkCands.forEach((c: any) => failOnceIds.delete(c.candidateId));
+        throw new Error('simulated transient chunk timeout');
+      }
+
+      return makeJsonResponse({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                rankings: chunkCands.map((c: any, idx: number) => ({
+                  candidateId: c.candidateId,
+                  fitScore: 95 - chunkCands.length - idx * 2,
+                  matchedHighlights: ['Kubernetes'],
+                  gaps: [],
+                  oneLineSummary: `AI evaluated ${c.candidateId}`,
+                })),
+              }),
+            },
+          },
+        ],
+      });
+    },
+  });
+
+  const twelveCandidates = Array.from({ length: 12 }, (_, idx) => ({
+    id: `batch-cand-${idx + 1}`,
+    skillset: idx % 2 === 0 ? 'Kubernetes, Terraform' : 'Java, SQL',
+  }));
+  const chunkedResult = await chunkedAi.rankCandidatesForRequirement(twelveCandidates, {
+    opportunityTitle: 'Platform Engineer',
+    skillsRequired: 'Kubernetes, Terraform',
+  });
+  assert.deepEqual(chunkSizesSeen, [5, 5, 2]);
+  assert.equal(chunkedResult.aiUsed, true);
+  assert.equal(chunkedResult.rankings.length, 12);
+  assert.ok(chunkedResult.rankings.every((r) => r.aiEvaluated === true));
+  for (let i = 1; i < chunkedResult.rankings.length; i++) {
+    assert.ok(chunkedResult.rankings[i - 1].fitScore >= chunkedResult.rankings[i].fitScore);
+  }
+
+  // Transient chunk failure is automatically retried so all 12 still get genuine AI scores without offline fallback
+  chunkSizesSeen.length = 0;
+  failOnceIds = new Set(['batch-cand-11']);
+  const retriedResult = await chunkedAi.rankCandidatesForRequirement(twelveCandidates, {
+    opportunityTitle: 'Platform Engineer',
+    skillsRequired: 'Kubernetes, Terraform',
+  });
+  assert.deepEqual(chunkSizesSeen, [5, 5, 2, 2]);
+  assert.equal(retriedResult.aiUsed, true);
+  assert.equal(retriedResult.rankings.length, 12);
+  assert.ok(retriedResult.rankings.every((r) => r.aiEvaluated === true));
+
+  // Strict non-fallback mode (AI_FALLBACK_TO_OFFLINE=false) never injects offline fallback scores when all chunks fail
+  const alwaysFailingStrictAi = new AiService({
+    getConfig: () =>
+      resolveAiConfig({
+        AI_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test',
+        AI_FALLBACK_TO_OFFLINE: 'false',
+      }),
+    fetchImpl: async () => {
+      throw new Error('Upstream unavailable');
+    },
+  });
+  await assert.rejects(() =>
+    alwaysFailingStrictAi.rankCandidatesForRequirement(twelveCandidates, {
+      opportunityTitle: 'Platform Engineer',
+      skillsRequired: 'Kubernetes, Terraform',
+    })
+  );
+
+  // Explicit opt-in AI_FALLBACK_TO_OFFLINE=true retains offline baseline when requested
+  fallbackModeFlag = 'true';
+  chunkSizesSeen.length = 0;
+  const alwaysFailTwoAi = new AiService({
+    getConfig: () =>
+      resolveAiConfig({
+        AI_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test',
+        AI_FALLBACK_TO_OFFLINE: 'true',
+      }),
+    fetchImpl: async (_url, init) => {
+      const parsedBody = JSON.parse(String(init?.body || '{}'));
+      const payload = JSON.parse(parsedBody.messages.find((m: any) => m.role === 'user').content);
+      const chunkCands = payload.candidates;
+      if (chunkCands.some((c: any) => c.candidateId === 'batch-cand-11')) {
+        throw new Error('persistent failure');
+      }
+      return makeJsonResponse({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                rankings: chunkCands.map((c: any, idx: number) => ({
+                  candidateId: c.candidateId,
+                  fitScore: 90 - idx,
+                  matchedHighlights: ['Kubernetes'],
+                  gaps: [],
+                  oneLineSummary: 'Evaluated',
+                })),
+              }),
+            },
+          },
+        ],
+      });
+    },
+  });
+  const optInPartialFallback = await alwaysFailTwoAi.rankCandidatesForRequirement(twelveCandidates, {
+    opportunityTitle: 'Platform Engineer',
+    skillsRequired: 'Kubernetes, Terraform',
+  });
+  assert.equal(optInPartialFallback.aiUsed, true);
+  assert.equal(optInPartialFallback.rankings.length, 12);
+  assert.equal(optInPartialFallback.rankings.filter((r) => r.aiEvaluated).length, 10);
+  assert.equal(
+    optInPartialFallback.rankings.find((r) => r.candidateId === 'batch-cand-11')?.aiEvaluated,
+    false
   );
 
   console.log('✅ Submitted Resume Capability Check Tests: PASSED');

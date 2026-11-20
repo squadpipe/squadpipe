@@ -105,7 +105,7 @@ export const runSlaAgentTests = async () => {
       recordedUsage.push(entry);
     },
     fetchImpl: async (_url, init) => {
-      seenShortlistPrompt = String(init?.body || '');
+      seenShortlistPrompt += `${seenShortlistPrompt ? '\n' : ''}${String(init?.body || '')}`;
       return makeJsonResponse({
         model: 'gpt-4.1-mini',
         choices: [

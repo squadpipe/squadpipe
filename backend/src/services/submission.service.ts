@@ -4,6 +4,7 @@ import {
   CandidatePipelineStage,
   MasterTaxonomyCategory,
   PitchTone,
+  Prisma,
   SlaCategory,
 } from '@prisma/client';
 import { prisma } from '../config/prisma.config';
@@ -15,7 +16,10 @@ import {
 } from './requirement.service';
 import { slaEngineService } from './slaEngine.service';
 import { automationEngineService } from './automationEngine.service';
-import { capabilityService } from './capability.service';
+import {
+  normalizePrecomputedCapabilitySummary,
+  type PrecomputedCapabilityPayload,
+} from './capability.service';
 
 const CANONICAL_STAGE_RANK: Record<string, number> = {
   [RequirementStatus.REQUIREMENT]: 0,
@@ -429,6 +433,8 @@ export interface AttachCandidatesInput {
   requirementId: string;
   candidateId?: string;
   candidateIds?: string[];
+  precomputedCapabilities?: Record<string, PrecomputedCapabilityPayload>;
+  rateMasked?: boolean;
   pitchEmailSubject?: string;
   pitchEmailBody?: string;
   pitchTone?: string;
@@ -442,6 +448,8 @@ export class SubmissionService {
       requirementId,
       candidateId,
       candidateIds,
+      precomputedCapabilities,
+      rateMasked = false,
       pitchEmailSubject,
       pitchEmailBody,
       pitchTone,
@@ -536,6 +544,10 @@ export class SubmissionService {
     const createdSubmissions = await prisma.$transaction(async (tx) => {
       const createdList = [];
       for (const cand of candidatesToAttach) {
+        const precomputed = normalizePrecomputedCapabilitySummary(
+          precomputedCapabilities?.[cand.id],
+          { rateMasked }
+        );
         const sub = await tx.submission.create({
           data: {
             tenantId,
@@ -546,6 +558,12 @@ export class SubmissionService {
             pitchEmailBody: pitchEmailBody || null,
             pitchTone: toneEnum,
             stage: RequirementStatus.SUBMITTED,
+            ...(precomputed
+              ? {
+                  capabilityScore: precomputed.capabilityScore,
+                  capabilitySummary: precomputed.capabilitySummary as unknown as Prisma.InputJsonValue,
+                }
+              : {}),
           },
           include: { candidate: true },
         });
@@ -590,14 +608,6 @@ export class SubmissionService {
       await slaEngineService.evaluateSlaRadar(tenantId);
     } catch {
       // Non-critical automation hook
-    }
-
-    try {
-      await capabilityService.evaluateNewlyAttachedSubmissions(createdSubmissions, requirement, {
-        tenantId,
-      });
-    } catch {
-      // Non-critical capability hook
     }
 
     const refreshedRequirement = await prisma.requirement.findUnique({

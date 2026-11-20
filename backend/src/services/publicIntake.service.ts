@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { AutomationCategory, CandidatePipelineStage, SlaCategory } from '@prisma/client';
+import { getJwtAccessSecret } from '../config/jwt.config';
 import { prisma } from '../config/prisma.config';
 import {
   ApplicationFormTemplate,
@@ -75,6 +76,8 @@ export interface PublicRequirementView {
   highlights: string[];
   engagementSummary: string | null;
   formTemplate?: PublicFormTemplateView;
+  isPreview?: boolean;
+  publicLinkEnabled?: boolean;
 }
 
 export interface PublicBasicResumeParseResult {
@@ -128,6 +131,77 @@ export function generatePublicFormToken(): string {
   return crypto.randomBytes(18).toString('base64url');
 }
 
+const PREVIEW_TOKEN_TTL_MS = 2 * 60 * 60 * 1000;
+
+function computePreviewTokenSignature(params: {
+  requirementId: string;
+  publicFormToken: string;
+  templateId?: string | null;
+  expStr: string;
+}): string {
+  const templatePart = String(params.templateId || '').trim();
+  const payload = `public-form-preview:${params.requirementId}:${params.publicFormToken}:${templatePart}:${params.expStr}`;
+  return crypto
+    .createHmac('sha256', getJwtAccessSecret())
+    .update(payload)
+    .digest('base64url');
+}
+
+/**
+ * Issues a short-lived HMAC-signed token allowing authorized CRM users to preview
+ * the public apply route in a new tab even while the public link is disabled.
+ */
+export function createPublicFormPreviewToken(params: {
+  requirementId: string;
+  publicFormToken: string;
+  templateId?: string | null;
+  expiresInMs?: number;
+  nowMs?: number;
+}): string {
+  const expMs = (params.nowMs ?? Date.now()) + (params.expiresInMs ?? PREVIEW_TOKEN_TTL_MS);
+  const expStr = expMs.toString(36);
+  const sig = computePreviewTokenSignature({
+    requirementId: params.requirementId,
+    publicFormToken: params.publicFormToken,
+    templateId: params.templateId,
+    expStr,
+  });
+  return `${expStr}.${sig}`;
+}
+
+export function verifyPublicFormPreviewToken(
+  previewToken: string,
+  expected: {
+    requirementId: string;
+    publicFormToken: string;
+    templateId?: string | null;
+  },
+  nowMs = Date.now()
+): boolean {
+  const clean = String(previewToken || '').trim();
+  const dotIdx = clean.indexOf('.');
+  if (dotIdx <= 0) return false;
+
+  const expStr = clean.slice(0, dotIdx);
+  const providedSig = clean.slice(dotIdx + 1);
+  if (!expStr || !providedSig) return false;
+
+  const expMs = Number.parseInt(expStr, 36);
+  if (!Number.isFinite(expMs) || expMs <= nowMs) return false;
+
+  const expectedSig = computePreviewTokenSignature({
+    requirementId: expected.requirementId,
+    publicFormToken: expected.publicFormToken,
+    templateId: expected.templateId,
+    expStr,
+  });
+
+  const a = Buffer.from(providedSig, 'utf8');
+  const b = Buffer.from(expectedSig, 'utf8');
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
 export { formatWorkModelLabel };
 
 export function extractSafePublicJobDetails(reqRecord: {
@@ -167,7 +241,8 @@ export function serializePublicRequirementPayload(
     rawEmailText?: string | null;
   },
   agencyName: string,
-  formTemplate?: PublicFormTemplateView
+  formTemplate?: PublicFormTemplateView,
+  previewMeta?: { isPreview?: boolean; publicLinkEnabled?: boolean }
 ): PublicRequirementView {
   const safeDetails = extractSafePublicJobDetails(reqRecord);
   return {
@@ -184,6 +259,12 @@ export function serializePublicRequirementPayload(
     highlights: safeDetails.highlights,
     engagementSummary: safeDetails.engagementSummary,
     ...(formTemplate ? { formTemplate } : {}),
+    ...(previewMeta?.isPreview
+      ? {
+          isPreview: true,
+          publicLinkEnabled: Boolean(previewMeta.publicLinkEnabled),
+        }
+      : {}),
   };
 }
 
@@ -393,14 +474,15 @@ async function parseSubmittedCvSafely(file: UploadedCvFile, tenantId: string) {
 export class PublicIntakeService {
   private async resolveRequirementFormTemplateView(
     tenantId: string,
-    reqCustomFields?: unknown
+    reqCustomFields?: unknown,
+    overrideTemplateId?: string
   ): Promise<PublicFormTemplateView> {
     const forms = await getApplicationForms(tenantId);
     const cfObj =
       reqCustomFields && typeof reqCustomFields === 'object' && !Array.isArray(reqCustomFields)
         ? (reqCustomFields as Record<string, any>)
         : {};
-    const requestedTemplateId = String(cfObj._publicFormTemplateId || '').trim();
+    const requestedTemplateId = String(overrideTemplateId || cfObj._publicFormTemplateId || '').trim();
     const matchedTemplate: ApplicationFormTemplate =
       (requestedTemplateId ? forms.find((f) => f.id === requestedTemplateId) : undefined) ||
       forms.find((f) => f.isDefault) ||
@@ -541,8 +623,12 @@ export class PublicIntakeService {
     });
   }
 
-  async getPublicRequirementByToken(token: string): Promise<PublicRequirementView> {
-    const cleanToken = String(token || '').trim();
+  private async resolvePublicTokenRequirement(params: {
+    token: string;
+    preview?: string;
+    templateId?: string;
+  }) {
+    const cleanToken = String(params.token || '').trim();
     if (!cleanToken || !/^[a-zA-Z0-9_-]{8,128}$/.test(cleanToken)) {
       throw createHttpError('This position is no longer accepting applications.', 404);
     }
@@ -550,12 +636,13 @@ export class PublicIntakeService {
     const reqRecord = await prisma.requirement.findFirst({
       where: {
         publicFormToken: cleanToken,
-        publicFormEnabled: true,
         status: { not: RequirementStatus.CLOSED },
       },
       select: {
         id: true,
         tenantId: true,
+        publicFormEnabled: true,
+        publicFormToken: true,
         code: true,
         companyName: true,
         clientContact: { select: { fullName: true } },
@@ -574,14 +661,117 @@ export class PublicIntakeService {
       throw createHttpError('This position is no longer accepting applications.', 404);
     }
 
+    const previewParam = String(params.preview || '').trim();
+    const requestedTemplateId = String(params.templateId || '').trim();
+    const hasSignedPreview = previewParam
+      ? verifyPublicFormPreviewToken(previewParam, {
+          requirementId: reqRecord.id,
+          publicFormToken: cleanToken,
+          templateId: requestedTemplateId,
+        })
+      : false;
+    const isPublicPreviewFlag =
+      Boolean(reqRecord.publicFormEnabled) &&
+      (previewParam === '1' || previewParam.toLowerCase() === 'true');
+
+    if (!reqRecord.publicFormEnabled && !hasSignedPreview) {
+      throw createHttpError('This position is no longer accepting applications.', 404);
+    }
+
+    return {
+      reqRecord,
+      isPreview: hasSignedPreview || isPublicPreviewFlag,
+      overrideTemplateId:
+        hasSignedPreview && requestedTemplateId ? requestedTemplateId : undefined,
+    };
+  }
+
+  async issueRequirementPublicFormPreview(params: {
+    requirementId: string;
+    tenantId: string;
+    templateId?: string | null;
+  }) {
+    const existing = await prisma.requirement.findFirst({
+      where: { id: params.requirementId, tenantId: params.tenantId },
+    });
+    if (!existing) {
+      throw createHttpError('Requirement not found', 404);
+    }
+    if (existing.status === RequirementStatus.CLOSED) {
+      throw createHttpError(
+        'Closed requirements do not support public application form preview.',
+        400
+      );
+    }
+
+    let publicFormToken = existing.publicFormToken;
+    let updatedRequirement: any = null;
+    if (!publicFormToken) {
+      publicFormToken = generatePublicFormToken();
+      updatedRequirement = await prisma.requirement.update({
+        where: { id: existing.id },
+        data: { publicFormToken },
+        include: REQUIREMENT_INCLUDE,
+      });
+    }
+
+    const currentCf =
+      existing.customFields &&
+      typeof existing.customFields === 'object' &&
+      !Array.isArray(existing.customFields)
+        ? (existing.customFields as Record<string, any>)
+        : {};
+    const effectiveTemplateId = String(
+      params.templateId || currentCf._publicFormTemplateId || ''
+    ).trim();
+
+    const previewToken = createPublicFormPreviewToken({
+      requirementId: existing.id,
+      publicFormToken,
+      templateId: effectiveTemplateId,
+    });
+
+    const queryParams = new URLSearchParams();
+    queryParams.set('preview', previewToken);
+    if (effectiveTemplateId) {
+      queryParams.set('templateId', effectiveTemplateId);
+    }
+
+    return {
+      publicFormToken,
+      publicFormEnabled: Boolean(existing.publicFormEnabled),
+      previewToken,
+      previewPath: `/apply/${publicFormToken}?${queryParams.toString()}`,
+      ...(updatedRequirement ? { requirement: updatedRequirement } : {}),
+    };
+  }
+
+  async getPublicRequirementByToken(
+    token: string,
+    options?: { preview?: string; templateId?: string }
+  ): Promise<PublicRequirementView> {
+    const { reqRecord, isPreview, overrideTemplateId } =
+      await this.resolvePublicTokenRequirement({
+        token,
+        preview: options?.preview,
+        templateId: options?.templateId,
+      });
+
     const [tenantSettings, formTemplate] = await Promise.all([
       getTenantSettings(reqRecord.tenantId),
-      this.resolveRequirementFormTemplateView(reqRecord.tenantId, (reqRecord as any).customFields),
+      this.resolveRequirementFormTemplateView(
+        reqRecord.tenantId,
+        (reqRecord as any).customFields,
+        overrideTemplateId
+      ),
     ]);
     return serializePublicRequirementPayload(
       reqRecord,
       tenantSettings.general.agencyName,
-      formTemplate
+      formTemplate,
+      isPreview
+        ? { isPreview: true, publicLinkEnabled: Boolean(reqRecord.publicFormEnabled) }
+        : undefined
     );
   }
 
@@ -592,27 +782,19 @@ export class PublicIntakeService {
   async parsePublicResumeBasic(params: {
     token: string;
     file?: UploadedCvFile;
+    preview?: string;
+    templateId?: string;
   }): Promise<PublicBasicResumeParseResult> {
-    const cleanToken = String(params.token || '').trim();
-    if (!cleanToken || !/^[a-zA-Z0-9_-]{8,128}$/.test(cleanToken)) {
-      throw createHttpError('This position is no longer accepting applications.', 404);
-    }
     if (!params.file || !params.file.buffer || params.file.buffer.length === 0) {
       throw createHttpError('Resume file is required for parsing.', 400);
     }
     resolveCvExtension(params.file.originalname, params.file.mimetype);
 
-    const requirement = await prisma.requirement.findFirst({
-      where: {
-        publicFormToken: cleanToken,
-        publicFormEnabled: true,
-        status: { not: RequirementStatus.CLOSED },
-      },
-      select: { id: true },
+    await this.resolvePublicTokenRequirement({
+      token: params.token,
+      preview: params.preview,
+      templateId: params.templateId,
     });
-    if (!requirement) {
-      throw createHttpError('This position is no longer accepting applications.', 404);
-    }
 
     let upstreamPayload: Record<string, any>;
     try {

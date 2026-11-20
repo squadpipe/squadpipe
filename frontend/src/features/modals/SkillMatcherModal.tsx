@@ -1,5 +1,5 @@
 import React from 'react';
-import { Requirement, Candidate } from '../../types';
+import { Requirement, Candidate, CapabilitySummary } from '../../types';
 import { AttachBenchDrawer } from '../../components/modals/AttachBenchDrawer';
 
 interface SkillMatcherModalProps {
@@ -10,7 +10,11 @@ interface SkillMatcherModalProps {
   initialRequirement?: Requirement | null;
   rateMasked?: boolean;
   onSubmitCandidate: (candidate: Candidate, requirement: Requirement) => Promise<void> | void;
-  onAttachCandidates?: (requirement: Requirement, candidateIds: string[]) => Promise<void> | void;
+  onAttachCandidates?: (
+    requirement: Requirement,
+    candidateIds: string[],
+    precomputedCapabilities?: Record<string, CapabilitySummary>
+  ) => Promise<void> | void;
   onOpenCsvImport?: (requirement: Requirement) => void;
   onOpenResumeParser?: (requirement: Requirement) => void;
   showToast: (title: string, message: string, icon?: string) => void;

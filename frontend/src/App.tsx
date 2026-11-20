@@ -2307,14 +2307,21 @@ export const App: React.FC = () => {
     setIsInlineCsvModalOpen(true);
   };
 
-  const handleAttachCandidates = async (req: Requirement, candidateIds: string[]) => {
+  const handleAttachCandidates = async (
+    req: Requirement,
+    candidateIds: string[],
+    precomputedCapabilities?: Record<string, import('./types').CapabilitySummary>
+  ) => {
     const uniqueIds = Array.from(new Set(candidateIds.filter(Boolean)));
     if (uniqueIds.length === 0) return;
 
     try {
+      const hasPrecomputed =
+        precomputedCapabilities && Object.keys(precomputedCapabilities).length > 0;
       const res = await apiClient.post('/submissions', {
         requirementId: req.id,
         candidateIds: uniqueIds,
+        ...(hasPrecomputed ? { precomputedCapabilities } : {}),
       });
 
       if (res.data?.requirement) {
@@ -3113,8 +3120,8 @@ export const App: React.FC = () => {
                   <div className="text-xs font-bold text-white flex items-center gap-1.5 flex-wrap">
                     <span>
                       {bulkResumeQueue.isRunning ? 'Parsing Resumes' : 'Bulk Upload Complete'}
-                    </span>PipeAI
-                    <AiBadge label="SquadPipe AI" size="xs" variant="dark" />
+                    </span>
+                    <AiBadge label="PipeAI" size="xs" variant="dark" />
                     {batchReq && (
                       <span className="px-1.5 py-0.5 rounded bg-white/10 text-[11px] font-mono text-emerald-300">
                         {batchReq.code}
@@ -4427,8 +4434,8 @@ export const App: React.FC = () => {
           await handleAssignCandidate(requirement, candidate);
           navigateToSpecificReqPage(requirement, currentView);
         }}
-        onAttachCandidates={async (requirement, candidateIds) => {
-          await handleAttachCandidates(requirement, candidateIds);
+        onAttachCandidates={async (requirement, candidateIds, precomputedCapabilities) => {
+          await handleAttachCandidates(requirement, candidateIds, precomputedCapabilities);
           navigateToSpecificReqPage(requirement, currentView);
         }}
         onOpenCsvImport={

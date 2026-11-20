@@ -118,6 +118,7 @@ export interface RankedCandidateResult {
   matchedHighlights: string[];
   gaps: string[];
   oneLineSummary: string;
+  aiEvaluated?: boolean;
 }
 
 export interface PitchDraftInput {

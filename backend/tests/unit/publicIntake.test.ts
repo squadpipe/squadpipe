@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import { maskFinancialRecord } from '../../src/middlewares/rateMask.middleware';
 import { normalizeApplicationForms } from '../../src/config/smtp.config';
 import {
+  createPublicFormPreviewToken,
   formatWorkModelLabel,
   generatePublicFormToken,
   serializePublicRequirementPayload,
   validatePublicApplicationInput,
+  verifyPublicFormPreviewToken,
 } from '../../src/services/publicIntake.service';
 import { sanitizePublicSummaryHtml } from '../../src/utils/publicSummary';
 
@@ -306,6 +308,86 @@ export const runPublicIntakeTests = () => {
     '<p><strong>Led AWS migration</strong></p><ul><li>Terraform</li></ul>'
   );
   assert.equal(richApp.customFieldValues['Portfolio URL'], 'https://github.com/jordan');
+
+  // 8. Signed preview token verification binds requirementId, publicFormToken, templateId & TTL
+  const baseNow = 1_795_000_000_000;
+  const previewSig = createPublicFormPreviewToken({
+    requirementId: 'req-uuid-1',
+    publicFormToken: 'pub_tok_abc123456789',
+    templateId: 'form-custom-1',
+    expiresInMs: 60_000,
+    nowMs: baseNow,
+  });
+  assert.equal(
+    verifyPublicFormPreviewToken(
+      previewSig,
+      {
+        requirementId: 'req-uuid-1',
+        publicFormToken: 'pub_tok_abc123456789',
+        templateId: 'form-custom-1',
+      },
+      baseNow + 30_000
+    ),
+    true
+  );
+  assert.equal(
+    verifyPublicFormPreviewToken(
+      previewSig,
+      {
+        requirementId: 'req-uuid-other',
+        publicFormToken: 'pub_tok_abc123456789',
+        templateId: 'form-custom-1',
+      },
+      baseNow + 30_000
+    ),
+    false
+  );
+  assert.equal(
+    verifyPublicFormPreviewToken(
+      previewSig,
+      {
+        requirementId: 'req-uuid-1',
+        publicFormToken: 'pub_tok_abc123456789',
+        templateId: 'form-custom-other',
+      },
+      baseNow + 30_000
+    ),
+    false
+  );
+  assert.equal(
+    verifyPublicFormPreviewToken(
+      previewSig,
+      {
+        requirementId: 'req-uuid-1',
+        publicFormToken: 'pub_tok_abc123456789',
+        templateId: 'form-custom-1',
+      },
+      baseNow + 65_000
+    ),
+    false
+  );
+  assert.equal(
+    verifyPublicFormPreviewToken(
+      `${previewSig}tamper`,
+      {
+        requirementId: 'req-uuid-1',
+        publicFormToken: 'pub_tok_abc123456789',
+        templateId: 'form-custom-1',
+      },
+      baseNow + 10_000
+    ),
+    false
+  );
+
+  const previewPayload = serializePublicRequirementPayload(
+    sensitiveReqRecord as any,
+    'Beacon IT Staffing',
+    undefined,
+    { isPreview: true, publicLinkEnabled: false }
+  );
+  assert.equal(previewPayload.isPreview, true);
+  assert.equal(previewPayload.publicLinkEnabled, false);
+  assert.equal(JSON.stringify(previewPayload).includes('REQ-2045'), false);
 
   console.log('✅ Public Requirement CV Intake Form Tests: PASSED');
 };

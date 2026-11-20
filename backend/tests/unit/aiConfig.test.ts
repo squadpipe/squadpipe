@@ -97,17 +97,25 @@ export const runAiConfigTests = () => {
     true
   );
 
-  // 9. Bounds clamping for timeout & maxInputChars + fallback default
+  // 9. Bounds clamping for timeout & maxInputChars + configured AI disables offline fallback by default
+  const defaultConfiguredCfg = resolveAiConfig({
+    AI_PROVIDER: 'cloudflare',
+    CLOUDFLARE_AI_ACCOUNT_ID: 'acc-123',
+    CLOUDFLARE_AI_API_TOKEN: 'cf-tok-456',
+  });
+  assert.equal(defaultConfiguredCfg.configured, true);
+  assert.equal(defaultConfiguredCfg.fallbackToOffline, false);
+
   const boundedCfg = resolveAiConfig({
     AI_PROVIDER: 'openai',
     OPENAI_API_KEY: 'sk-123',
     AI_TIMEOUT_MS: '50',
     AI_MAX_INPUT_CHARS: '9999999',
-    AI_FALLBACK_TO_OFFLINE: 'false',
+    AI_FALLBACK_TO_OFFLINE: 'true',
   });
   assert.equal(boundedCfg.timeoutMs, 1000);
   assert.equal(boundedCfg.maxInputChars, 100000);
-  assert.equal(boundedCfg.fallbackToOffline, false);
+  assert.equal(boundedCfg.fallbackToOffline, true);
 
   console.log('✅ Single-Switch AI Provider Config Tests: PASSED');
 };

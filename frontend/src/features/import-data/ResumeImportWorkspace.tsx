@@ -300,7 +300,7 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
   return (
     <div className="space-y-4 text-xs">
       {activeBatchReq && (
-        <div className="px-4 py-2.5 rounded-lg bg-slate-50 border border-slate-200 border-l-2 border-l-brand-600 text-slate-700 flex items-center justify-between gap-3 flex-wrap text-xs">
+        <div className="px-4 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 flex items-center justify-between gap-3 flex-wrap text-xs">
           <div className="flex items-center gap-2">
             <Briefcase className="w-4 h-4 text-brand-600 shrink-0" />
             <span>
@@ -648,7 +648,7 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
               </div>
 
               {aiUsed && aiCapabilities.enabled && profile.professionalSummary && (
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 border-l-2 border-l-brand-600 text-[11px] text-slate-700 space-y-1">
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-[11px] text-slate-700 space-y-1">
                   <div className="text-xs font-semibold text-slate-800">
                     Executive Summary
                   </div>

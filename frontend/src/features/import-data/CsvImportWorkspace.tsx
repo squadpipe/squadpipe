@@ -238,7 +238,7 @@ export const CsvImportWorkspace: React.FC<CsvImportWorkspaceProps> = ({
       showToast(
         'Import Error',
         err?.response?.data?.message ||
-          'Failed to import candidates. Please check your file and try again.',
+        'Failed to import candidates. Please check your file and try again.',
         'error'
       );
     } finally {
@@ -251,7 +251,7 @@ export const CsvImportWorkspace: React.FC<CsvImportWorkspaceProps> = ({
   return (
     <div className="space-y-4 text-xs">
       {lockedRequirement && (
-        <div className="px-4 py-2.5 rounded-lg bg-slate-50 border border-slate-200 border-l-2 border-l-brand-600 text-slate-700 flex items-center gap-2.5 text-xs">
+        <div className="px-4 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 flex items-center gap-2.5 text-xs">
           <Briefcase className="w-4 h-4 text-brand-600 shrink-0" />
           <span>
             Imported candidates will be saved to Consultants and attached directly to{' '}
@@ -272,9 +272,8 @@ export const CsvImportWorkspace: React.FC<CsvImportWorkspaceProps> = ({
             <label
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleFileDrop}
-              className={`border-2 border-dashed border-slate-300 rounded-xl ${
-                isModal ? 'p-8' : 'p-12'
-              } text-center bg-slate-50/60 cursor-pointer hover:border-brand-600 hover:bg-slate-50 transition-colors block`}
+              className={`border-2 border-dashed border-slate-300 rounded-xl ${isModal ? 'p-8' : 'p-12'
+                } text-center bg-slate-50/60 cursor-pointer hover:border-brand-600 hover:bg-slate-50 transition-colors block`}
             >
               <input
                 ref={fileInputRef}
@@ -437,7 +436,7 @@ export const CsvImportWorkspace: React.FC<CsvImportWorkspaceProps> = ({
             </div>
 
             {lockedRequirement && (
-              <div className="bg-slate-50 border border-slate-200 border-l-2 border-l-brand-600 rounded-lg p-3 flex items-center justify-between gap-2">
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-xs text-slate-700">
                   <Briefcase className="w-4 h-4 text-brand-600 shrink-0" />
                   <span>

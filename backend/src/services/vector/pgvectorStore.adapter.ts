@@ -245,12 +245,16 @@ export class PgVectorStoreAdapter implements VectorStoreAdapter {
       workAuthFilter,
       pipelineStageFilter,
       candidateIdsFilter,
+      excludeCandidateIds,
       limit = 50,
     } = params;
 
     const cleanSearch = String(searchFilter || '').trim();
     const cleanWorkAuth = String(workAuthFilter || '').trim();
     const cleanStage = String(pipelineStageFilter || '').trim();
+    const cleanExcludeIds = Array.isArray(excludeCandidateIds)
+      ? Array.from(new Set(excludeCandidateIds.map((id) => String(id || '').trim()).filter(Boolean)))
+      : [];
     const tsQueryStr = buildSafeTsQuery(skillTokens, queryText);
 
     const candidateConditions: Prisma.Sql[] = [
@@ -282,6 +286,12 @@ export class PgVectorStoreAdapter implements VectorStoreAdapter {
     if (Array.isArray(candidateIdsFilter) && candidateIdsFilter.length > 0) {
       candidateConditions.push(
         Prisma.sql`c."id" IN (${Prisma.join(candidateIdsFilter)})`
+      );
+    }
+
+    if (cleanExcludeIds.length > 0) {
+      candidateConditions.push(
+        Prisma.sql`c."id" NOT IN (${Prisma.join(cleanExcludeIds)})`
       );
     }
 

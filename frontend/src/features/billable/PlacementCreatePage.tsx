@@ -112,8 +112,8 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
     payRate: initialCandidate?.hourlyRate
       ? String(parseRateNumber(initialCandidate.hourlyRate, 0) || (initialRequirement?.targetPayRate || 85))
       : initialRequirement
-      ? String(initialRequirement.targetPayRate || 0)
-      : '85',
+        ? String(initialRequirement.targetPayRate || 0)
+        : '85',
     placementType: initialRequirement ? 'W2 Hourly' : 'C2C Subcontractor',
     vendorName: initialCandidate?.vendorName || '',
     purchaseOrderNumber: '',
@@ -172,41 +172,41 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
       initialCandidate ||
       (requestedCandidateId
         ? candidates.find((c) => c.id === requestedCandidateId) ||
-          explicitSub?.candidate ||
-          (explicitSub ? buildCandFromSub(explicitSub) : null)
+        explicitSub?.candidate ||
+        (explicitSub ? buildCandFromSub(explicitSub) : null)
         : null);
 
     // Only auto-pick a "Selected" / first applicant when no specific candidate was requested
     const preferredSub = requestedCandidateId
       ? explicitSub
       : reqSubmissions.find((s) => s.stage === 'Selected') ||
-        reqSubmissions.find((s) => s.stage !== 'Closed') ||
-        reqSubmissions[0];
+      reqSubmissions.find((s) => s.stage !== 'Closed') ||
+      reqSubmissions[0];
 
     const matchedCandidate =
       explicitCand ||
       (!requestedCandidateId
         ? (preferredSub?.candidateId
-            ? candidates.find((c) => c.id === preferredSub.candidateId)
-            : undefined) ||
-          preferredSub?.candidate ||
-          (preferredSub ? buildCandFromSub(preferredSub) : null) ||
-          candidates.find(
-            (c) =>
-              req?.resourceName &&
-              c.fullName.trim().toLowerCase() === req.resourceName.trim().toLowerCase()
-          ) ||
-          null
+          ? candidates.find((c) => c.id === preferredSub.candidateId)
+          : undefined) ||
+        preferredSub?.candidate ||
+        (preferredSub ? buildCandFromSub(preferredSub) : null) ||
+        candidates.find(
+          (c) =>
+            req?.resourceName &&
+            c.fullName.trim().toLowerCase() === req.resourceName.trim().toLowerCase()
+        ) ||
+        null
         : null);
 
     const matchedSubmission =
       explicitSub ||
       (matchedCandidate
         ? findSubForCandidate(matchedCandidate.id) ||
-          reqSubmissions.find(
-            (s) =>
-              s.fullName.trim().toLowerCase() === matchedCandidate.fullName.trim().toLowerCase()
-          )
+        reqSubmissions.find(
+          (s) =>
+            s.fullName.trim().toLowerCase() === matchedCandidate.fullName.trim().toLowerCase()
+        )
         : preferredSub);
 
     const effectiveHourlyRate =
@@ -231,14 +231,14 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
     const inferredType = candVendor
       ? 'C2C Subcontractor'
       : inferPlacementTypeFromRate(effectiveHourlyRate) ||
-        (req ? 'W2 Hourly' : 'C2C Subcontractor');
+      (req ? 'W2 Hourly' : 'C2C Subcontractor');
 
     const matchedClient = req?.companyName
       ? clients.find(
-          (c) =>
-            stripClientLocation(c.name).toLowerCase() ===
-            stripClientLocation(req.companyName).toLowerCase()
-        )
+        (c) =>
+          stripClientLocation(c.name).toLowerCase() ===
+          stripClientLocation(req.companyName).toLowerCase()
+      )
       : clients[0];
 
     const dates = getDefaultDates();
@@ -307,8 +307,14 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
     return () => document.removeEventListener('mousedown', onOutside);
   }, [consultantMenuOpen]);
 
+  const isRequirementLocked = Boolean(initialRequirement);
+  const selectableRequirements =
+    initialRequirement && !requirements.some((r) => r.id === initialRequirement.id)
+      ? [initialRequirement, ...requirements]
+      : requirements;
+
   const activeRequirement =
-    requirements.find((r) => r.id === form.requirementId) ||
+    selectableRequirements.find((r) => r.id === form.requirementId) ||
     (initialRequirement?.id === form.requirementId ? initialRequirement : null) ||
     null;
 
@@ -328,8 +334,8 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
     marginPct >= 20
       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
       : marginPct >= 10
-      ? 'bg-amber-50 text-amber-700 border-amber-200'
-      : 'bg-rose-50 text-rose-700 border-rose-200';
+        ? 'bg-amber-50 text-amber-700 border-amber-200'
+        : 'bg-rose-50 text-rose-700 border-rose-200';
 
   const contractWeeks = (() => {
     if (!form.startDate || !form.endDate) return 0;
@@ -374,8 +380,9 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
   };
 
   const handleSelectRequirement = (requirementId: string) => {
+    if (isRequirementLocked) return;
     userEditedRef.current = true;
-    const r = requirements.find((item) => item.id === requirementId);
+    const r = selectableRequirements.find((item) => item.id === requirementId);
     if (!r) {
       setForm((prev) => ({ ...prev, requirementId: '' }));
       setConsultantSource('roster');
@@ -496,35 +503,35 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
 
   const submittedList: Array<{ candidate: Candidate; stage: string }> = activeRequirement
     ? (activeRequirement.submissions || [])
-        .filter((s) => s.stage !== 'Closed')
-        .map((s) => {
-          const candObj =
-            s.candidate ||
-            candidates.find(
-              (c) =>
-                (s.candidateId && c.id === s.candidateId) ||
-                c.fullName.trim().toLowerCase() === s.fullName.trim().toLowerCase()
-            ) ||
-            ({
-              id: s.candidateId || s.id,
-              fullName: s.fullName,
-              email: s.email || '',
-              phone: s.phone || '',
-              currentTitle: s.currentTitle || '',
-              workAuth: s.workAuth || '',
-              education: '',
-              skillset: s.skillset || '',
-              hourlyRate: s.hourlyRate || '',
-              relocation: '',
-              assignedRecruiter: '',
-              pipelineStage: s.stage,
-            } as Candidate);
-          return { candidate: candObj, stage: s.stage };
-        })
-        .filter(
-          ({ candidate: c }) =>
-            !placedIds.has(c.id) && !placedNames.has(c.fullName.trim().toLowerCase())
-        )
+      .filter((s) => s.stage !== 'Closed')
+      .map((s) => {
+        const candObj =
+          s.candidate ||
+          candidates.find(
+            (c) =>
+              (s.candidateId && c.id === s.candidateId) ||
+              c.fullName.trim().toLowerCase() === s.fullName.trim().toLowerCase()
+          ) ||
+          ({
+            id: s.candidateId || s.id,
+            fullName: s.fullName,
+            email: s.email || '',
+            phone: s.phone || '',
+            currentTitle: s.currentTitle || '',
+            workAuth: s.workAuth || '',
+            education: '',
+            skillset: s.skillset || '',
+            hourlyRate: s.hourlyRate || '',
+            relocation: '',
+            assignedRecruiter: '',
+            pipelineStage: s.stage,
+          } as Candidate);
+        return { candidate: candObj, stage: s.stage };
+      })
+      .filter(
+        ({ candidate: c }) =>
+          !placedIds.has(c.id) && !placedNames.has(c.fullName.trim().toLowerCase())
+      )
     : [];
 
   const rosterList = candidates.map((c) => ({ candidate: c, stage: c.pipelineStage }));
@@ -547,28 +554,28 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
     rosterList.find(({ candidate: c }) => c.id === form.candidateId) ||
     (initialCandidate && initialCandidate.id === form.candidateId
       ? {
-          candidate: initialCandidate,
-          stage: initialCandidate.pipelineStage || 'Submitted',
-        }
+        candidate: initialCandidate,
+        stage: initialCandidate.pipelineStage || 'Submitted',
+      }
       : form.candidateId && form.resourceName.trim()
         ? {
-            candidate: {
-              id: form.candidateId,
-              fullName: form.resourceName.trim(),
-              currentTitle: form.skillRole || '',
-              email: form.email || '',
-              phone: form.phone || '',
-              workAuth: '',
-              education: '',
-              skillset: '',
-              hourlyRate: form.payRate || '',
-              relocation: '',
-              assignedRecruiter: form.recruiter || '',
-              pipelineStage: 'Submitted',
-              vendorName: form.vendorName || undefined,
-            } as Candidate,
-            stage: 'Submitted',
-          }
+          candidate: {
+            id: form.candidateId,
+            fullName: form.resourceName.trim(),
+            currentTitle: form.skillRole || '',
+            email: form.email || '',
+            phone: form.phone || '',
+            workAuth: '',
+            education: '',
+            skillset: '',
+            hourlyRate: form.payRate || '',
+            relocation: '',
+            assignedRecruiter: form.recruiter || '',
+            pipelineStage: 'Submitted',
+            vendorName: form.vendorName || undefined,
+          } as Candidate,
+          stage: 'Submitted',
+        }
         : undefined);
 
   const selectedVendor = vendors.find(
@@ -581,7 +588,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
 
   const isDirty = Boolean(
     userEditedRef.current ||
-      Object.values(customValues).some((v) => String(v || '').trim().length > 0)
+    Object.values(customValues).some((v) => String(v || '').trim().length > 0)
   );
   const { showLeaveModal, guardNavigation, confirmLeave, cancelLeave } = useFormShortcuts({
     isDirty,
@@ -627,11 +634,14 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
       />
 
       {isPositionsFull && activeRequirement && (
-        <div className="px-4 py-3 rounded-lg bg-slate-50 border border-slate-200 border-l-2 border-l-amber-500 text-slate-700 flex items-center gap-2.5 text-xs">
+        <div className="px-4 py-3 rounded-lg bg-amber-50/70 border border-amber-200 text-slate-700 flex items-center gap-2.5 text-xs">
           <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
           <span>
             All <strong className="text-slate-900">{openPositions}</strong> open position(s) on{' '}
-            <strong className="text-slate-900">{activeRequirement.code}</strong> are already placed. Switch to another requisition or unlink the requisition above to create a standalone placement.
+            <strong className="text-slate-900">{activeRequirement.code}</strong> are already placed.{' '}
+            {isRequirementLocked
+              ? 'Return to the requirement to increase open positions, or start a standalone placement from Billable Consultants.'
+              : 'Switch to another requisition or unlink the requisition below to create a standalone placement.'}
           </span>
         </div>
       )}
@@ -652,22 +662,20 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
                   <button
                     type="button"
                     onClick={() => setConsultantSource('submitted')}
-                    className={`px-2.5 py-1 rounded-md cursor-pointer transition-colors ${
-                      consultantSource === 'submitted'
-                        ? 'bg-white text-slate-900 shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                    className={`px-2.5 py-1 rounded-md cursor-pointer transition-colors ${consultantSource === 'submitted'
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                      }`}
                   >
                     Submitted ({submittedList.length})
                   </button>
                   <button
                     type="button"
                     onClick={() => setConsultantSource('roster')}
-                    className={`px-2.5 py-1 rounded-md cursor-pointer transition-colors ${
-                      consultantSource === 'roster'
-                        ? 'bg-white text-slate-900 shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                    className={`px-2.5 py-1 rounded-md cursor-pointer transition-colors ${consultantSource === 'roster'
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                      }`}
                   >
                     Full Roster ({rosterList.length})
                   </button>
@@ -677,18 +685,33 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-medium text-slate-700 mb-1">
-                  <Briefcase className="w-3.5 h-3.5 text-brand-600" />
-                  <span>Link Requisition (Optional)</span>
+                <label className="flex items-center justify-between gap-2 text-xs font-medium text-slate-700 mb-1">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Briefcase className="w-3.5 h-3.5 text-brand-600" />
+                    <span>{isRequirementLocked ? 'Linked Requisition' : 'Link Requisition (Optional)'}</span>
+                  </span>
+                  {isRequirementLocked && (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200/80 text-slate-600 text-[11px] font-semibold">
+                      <Lock className="w-2.5 h-2.5 text-slate-500" />
+                      <span>Locked</span>
+                    </span>
+                  )}
                 </label>
                 <CustomSelect
                   value={form.requirementId}
                   onChange={handleSelectRequirement}
-                  ariaLabel="Link Requisition"
+                  disabled={isRequirementLocked}
+                  ariaLabel={isRequirementLocked ? 'Linked Requisition (Locked)' : 'Link Requisition'}
+                  title={
+                    isRequirementLocked
+                      ? `Placement locked to ${activeRequirement?.code || initialRequirement?.code || 'this requirement'}`
+                      : undefined
+                  }
                   size="sm"
+                  className={isRequirementLocked ? '!bg-slate-50/90' : ''}
                   options={[
                     { value: '', label: '-- Standalone / No Requisition Link --' },
-                    ...requirements.map((r) => ({
+                    ...selectableRequirements.map((r) => ({
                       value: r.id,
                       label: `${r.code} — ${r.opportunityTitle} (${stripClientLocation(r.companyName)})`,
                     })),
@@ -725,9 +748,8 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
                       </span>
                     )}
                     <ChevronDown
-                      className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${
-                        consultantMenuOpen ? 'rotate-180' : ''
-                      }`}
+                      className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${consultantMenuOpen ? 'rotate-180' : ''
+                        }`}
                     />
                   </button>
 
@@ -779,9 +801,8 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
                                   setConsultantMenuOpen(false);
                                   setConsultantSearch('');
                                 }}
-                                className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between gap-2 transition-colors cursor-pointer ${
-                                  isSelected ? 'bg-brand-50/70' : 'hover:bg-slate-50'
-                                }`}
+                                className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between gap-2 transition-colors cursor-pointer ${isSelected ? 'bg-brand-50/70' : 'hover:bg-slate-50'
+                                  }`}
                               >
                                 <div className="flex items-center gap-2.5 min-w-0">
                                   <span className="w-6 h-6 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[11px] flex items-center justify-center shrink-0">
@@ -827,11 +848,10 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
                   value={form.resourceName}
                   onChange={(e) => updateForm({ resourceName: e.target.value })}
                   placeholder="e.g. Anand Verma"
-                  className={`w-full px-3 py-2 border rounded-lg text-xs font-bold text-slate-900 focus:outline-none ${
-                    isResourceInvalid
-                      ? INVALID_FIELD_CLASSES
-                      : 'border-slate-200 bg-white focus:border-brand-600'
-                  }`}
+                  className={`w-full px-3 py-2 border rounded-lg text-xs font-bold text-slate-900 focus:outline-none ${isResourceInvalid
+                    ? INVALID_FIELD_CLASSES
+                    : 'border-slate-200 bg-white focus:border-brand-600'
+                    }`}
                 />
               </div>
 
@@ -910,11 +930,10 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
                   }))}
                   placeholder="Select or type client company..."
                   wrapperClassName=""
-                  inputClassName={`w-full pl-3 pr-7 py-2 border rounded-lg text-xs font-semibold focus:outline-none ${
-                    isCustomerInvalid
-                      ? INVALID_FIELD_CLASSES
-                      : 'border-slate-200 bg-white focus:border-brand-600'
-                  }`}
+                  inputClassName={`w-full pl-3 pr-7 py-2 border rounded-lg text-xs font-semibold focus:outline-none ${isCustomerInvalid
+                    ? INVALID_FIELD_CLASSES
+                    : 'border-slate-200 bg-white focus:border-brand-600'
+                    }`}
                 />
               </div>
 
@@ -1028,9 +1047,8 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
             </div>
 
             <div
-              className={`grid grid-cols-1 ${
-                form.placementType === 'C2C Subcontractor' ? 'sm:grid-cols-2' : ''
-              } gap-4`}
+              className={`grid grid-cols-1 ${form.placementType === 'C2C Subcontractor' ? 'sm:grid-cols-2' : ''
+                } gap-4`}
             >
               {form.placementType === 'C2C Subcontractor' && (
                 <div>
@@ -1074,11 +1092,10 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
                   placeholder={
                     requirePoForPlacement ? 'e.g. PO-2026-8841 (Required)' : 'e.g. PO-2026-8841'
                   }
-                  className={`w-full px-3 py-2 border rounded-lg bg-white text-xs focus:outline-none ${
-                    poError
-                      ? 'border-rose-400 focus:border-rose-500 ring-1 ring-rose-200'
-                      : 'border-slate-200 focus:border-brand-600'
-                  }`}
+                  className={`w-full px-3 py-2 border rounded-lg bg-white text-xs focus:outline-none ${poError
+                    ? 'border-rose-400 focus:border-rose-500 ring-1 ring-rose-200'
+                    : 'border-slate-200 focus:border-brand-600'
+                    }`}
                 />
                 {poError ? (
                   <p className="mt-1 text-[11px] font-medium text-rose-600">{poError}</p>

@@ -14,6 +14,7 @@ interface CustomQuestionFieldInputProps {
   isInvalid?: boolean;
   placeholder?: string;
   previewMode?: boolean;
+  cleanSurface?: boolean;
 }
 
 function parseMultiSelectValues(raw: string): string[] {
@@ -37,12 +38,22 @@ export const CustomQuestionFieldInput: React.FC<CustomQuestionFieldInputProps> =
   isInvalid = false,
   placeholder,
   previewMode = false,
+  cleanSurface = false,
 }) => {
-  const baseInputClass = `w-full px-3 py-2 rounded-lg border text-xs focus:bg-white focus:outline-none ${
-    isInvalid
-      ? 'border-rose-300 bg-rose-50/40 text-rose-900 focus:border-rose-500'
-      : 'border-slate-200 bg-slate-50/50 text-slate-800 placeholder:text-slate-400 focus:border-brand-500'
-  } ${previewMode && !['DROPDOWN', 'MULTISELECT', 'BOOLEAN', 'RICH_TEXT'].includes(type) ? 'text-slate-500' : ''}`;
+  const cleanSelectClass = cleanSurface
+    ? '!rounded-md !border-slate-300 hover:!border-slate-400 !h-[34px] text-slate-900'
+    : '';
+  const baseInputClass = cleanSurface
+    ? `w-full px-3 py-2 rounded-md border text-xs bg-white focus:outline-none ${
+        isInvalid
+          ? 'border-rose-400 bg-rose-50/40 text-rose-900 focus:border-rose-500'
+          : 'border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-brand-600 focus:ring-1 focus:ring-brand-600'
+      }`
+    : `w-full px-3 py-2 rounded-lg border text-xs focus:bg-white focus:outline-none ${
+        isInvalid
+          ? 'border-rose-300 bg-rose-50/40 text-rose-900 focus:border-rose-500'
+          : 'border-slate-200 bg-slate-50/50 text-slate-800 placeholder:text-slate-400 focus:border-brand-500'
+      } ${previewMode && !['DROPDOWN', 'MULTISELECT', 'BOOLEAN', 'RICH_TEXT'].includes(type) ? 'text-slate-500' : ''}`;
 
   if (type === 'DROPDOWN') {
     const cleanOptions = options.length > 0 ? options : ['Option 1', 'Option 2'];
@@ -53,6 +64,7 @@ export const CustomQuestionFieldInput: React.FC<CustomQuestionFieldInputProps> =
         ariaLabel={label}
         placeholder={placeholder || `Select ${(label || 'option').toLowerCase()}...`}
         size="sm"
+        className={cleanSelectClass}
         options={[
           ...(required ? [] : [{ value: '', label: `Select ${(label || 'option').toLowerCase()}...` }]),
           ...cleanOptions.map((opt) => ({ value: opt, label: opt })),
@@ -74,10 +86,12 @@ export const CustomQuestionFieldInput: React.FC<CustomQuestionFieldInputProps> =
       <div
         role="group"
         aria-label={label}
-        className={`flex flex-wrap gap-1.5 p-2 rounded-lg border ${
+        className={`flex flex-wrap gap-1.5 p-2 ${cleanSurface ? 'rounded-md' : 'rounded-lg'} border ${
           isInvalid
             ? 'border-rose-300 bg-rose-50/40'
-            : 'border-slate-200 bg-slate-50/40'
+            : cleanSurface
+              ? 'border-slate-300 bg-white'
+              : 'border-slate-200 bg-slate-50/40'
         }`}
       >
         {cleanOptions.map((opt) => {
@@ -111,6 +125,7 @@ export const CustomQuestionFieldInput: React.FC<CustomQuestionFieldInputProps> =
         ariaLabel={label}
         placeholder="Select Yes or No..."
         size="sm"
+        className={cleanSelectClass}
         options={[
           ...(required ? [] : [{ value: '', label: 'Select Yes or No...' }]),
           { value: 'Yes', label: 'Yes' },

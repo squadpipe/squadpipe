@@ -2,7 +2,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Check, FileSpreadsheet, Loader2, Search, X } from 'lucide-react';
 import { AiIcon, AiTag } from '../shared/AiBrand';
 import { apiClient } from '../../config/api.config';
-import { Candidate, ClientDuplicateWarning, Requirement } from '../../types';
+import {
+  Candidate,
+  CapabilitySummary,
+  ClientDuplicateWarning,
+  Requirement,
+} from '../../types';
 import { useCurrency } from '../../utils/currency';
 import { useAiCapabilities } from '../../utils/workspaceBrand';
 import { useDebounce } from '../../utils/useDebounce';
@@ -12,7 +17,13 @@ import { useMasterTaxonomies } from '../shared/DynamicCustomFieldsSection';
 import { CustomSelect } from '../shared/CustomSelect';
 import { MaskedValue } from '../shared/MaskedValue';
 import { ActionButton } from '../shared/ActionButton';
+import { SegmentedControl } from '../shared/SegmentedControl';
+import { StatusBadge } from '../shared/StatusBadge';
 import { AnimatedDrawer } from '../shared/MotionPrimitives';
+import {
+  getCapabilityBadgeStyle,
+  hasEvaluatedFitScore,
+} from '../../features/requirements/RequirementDetailModals';
 
 const BENCH_PAGE_SIZE = 50;
 
@@ -102,7 +113,11 @@ export interface AttachBenchDrawerProps {
   allowRequirementSwitch?: boolean;
   candidates: Candidate[];
   rateMasked?: boolean;
-  onAttachCandidates?: (req: Requirement, candidateIds: string[]) => Promise<void> | void;
+  onAttachCandidates?: (
+    req: Requirement,
+    candidateIds: string[],
+    precomputedCapabilities?: Record<string, CapabilitySummary>
+  ) => Promise<void> | void;
   onAssignCandidate?: (req: Requirement, candidate: Candidate) => Promise<void> | void;
   onOpenCsvImport?: (req: Requirement) => void;
   onOpenResumeParser?: (req: Requirement) => void;
@@ -130,6 +145,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   const [selectedReqId, setSelectedReqId] = useState<string>(
     requirement?.id || requirements[0]?.id || ''
   );
+  const [drawerTab, setDrawerTab] = useState<'available' | 'attached'>('available');
   const [hydratedReqs, setHydratedReqs] = useState<Record<string, Requirement>>({});
   const [showAllReqSkills, setShowAllReqSkills] = useState(false);
   const [expandedCandSkillIds, setExpandedCandSkillIds] = useState<Record<string, boolean>>({});
@@ -137,11 +153,13 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   const [benchWorkAuth, setBenchWorkAuth] = useState('All');
   const debouncedBenchSearch = useDebounce(benchSearch, 250);
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
-  const [isAttaching, setIsAttaching] = useState(false);
+  const [attachingCandId, setAttachingCandId] = useState<string | null>(null);
+  const [isBatchAttaching, setIsBatchAttaching] = useState(false);
+  const isAttaching = Boolean(attachingCandId) || isBatchAttaching;
   const [isAiRanking, setIsAiRanking] = useState(false);
-  const [aiRankUsed, setAiRankUsed] = useState(false);
   const [aiRankError, setAiRankError] = useState('');
   const [aiRankScopeNote, setAiRankScopeNote] = useState('');
+  const [remainingUnrankedCount, setRemainingUnrankedCount] = useState<number | null>(null);
   const [aiRankMap, setAiRankMap] = useState<
     Record<
       string,
@@ -150,6 +168,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
         matchedHighlights: string[];
         gaps: string[];
         oneLineSummary: string;
+        aiEvaluated?: boolean;
       }
     >
   >({});
@@ -178,23 +197,33 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     setSelectedReqId(requirement?.id || requirements[0]?.id || '');
+    setDrawerTab('available');
     setShowAllReqSkills(false);
     setExpandedCandSkillIds({});
     setSelectedCandidateIds([]);
-    setIsAttaching(false);
+    setAttachingCandId(null);
+    setIsBatchAttaching(false);
     setBenchSearch('');
     setBenchWorkAuth('All');
     setClientDuplicateMap({});
     setAiRankMap({});
-    setAiRankUsed(false);
     setAiRankError('');
     setAiRankScopeNote('');
+    setRemainingUnrankedCount(null);
     setIsAiRanking(false);
     setBenchPage(1);
     setPagedCandidates(candidates.slice(0, BENCH_PAGE_SIZE));
     setTotalBenchCount(candidates.length);
     setHasMoreBench(candidates.length > BENCH_PAGE_SIZE);
   }, [isOpen, requirement?.id, selectedReqId]);
+
+  // Clear cached AI batch rankings when search or work-auth filters change
+  useEffect(() => {
+    setAiRankMap({});
+    setAiRankError('');
+    setAiRankScopeNote('');
+    setRemainingUnrankedCount(null);
+  }, [debouncedBenchSearch, benchWorkAuth]);
 
   const baseReq = useMemo(() => {
     if (allowRequirementSwitch && requirements.length > 0) {
@@ -377,75 +406,136 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
     };
   }, [isOpen, currentReq?.id, pagedCandidates, attachedStageByCandId]);
 
+  const loadNextBenchPage = useCallback(() => {
+    if (isLoadingBench || isLoadingMoreBench || !hasMoreBench) return;
+
+    const nextPage = benchPage + 1;
+    const searchTerm = debouncedBenchSearch.trim();
+    const filterKey = `${searchTerm}|${benchWorkAuth}`;
+    setIsLoadingMoreBench(true);
+
+    apiClient
+      .get('/candidates', {
+        params: {
+          page: nextPage,
+          limit: BENCH_PAGE_SIZE,
+          search: searchTerm || undefined,
+          workAuth: benchWorkAuth !== 'All' ? benchWorkAuth : undefined,
+        },
+      })
+      .then((res) => {
+        if (activeSearchRef.current !== filterKey) return;
+        const raw = Array.isArray(res.data?.data) ? res.data.data : [];
+        const mapped: Candidate[] = raw.map(mapCandidateFromApi);
+        for (const c of mapped) {
+          if (c?.id) knownCandidatesRef.current.set(c.id, c);
+        }
+        onCandidatesSeen?.(mapped);
+        const pagination = res.data?.pagination;
+        const total = typeof pagination?.total === 'number' ? pagination.total : undefined;
+        const totalPages =
+          typeof pagination?.totalPages === 'number' ? pagination.totalPages : nextPage;
+        setPagedCandidates((prev) => {
+          const seen = new Set(prev.map((p) => p.id));
+          const extra = mapped.filter((c) => !seen.has(c.id));
+          return [...prev, ...extra];
+        });
+        setBenchPage(nextPage);
+        if (typeof total === 'number') setTotalBenchCount(total);
+        setHasMoreBench(nextPage < totalPages);
+      })
+      .catch(() => {
+        if (activeSearchRef.current !== filterKey) return;
+        const nextSlice = filteredLocalCandidates.slice(0, nextPage * BENCH_PAGE_SIZE);
+        setPagedCandidates(nextSlice);
+        setBenchPage(nextPage);
+        setHasMoreBench(filteredLocalCandidates.length > nextSlice.length);
+      })
+      .finally(() => {
+        setIsLoadingMoreBench(false);
+      });
+  }, [
+    benchPage,
+    debouncedBenchSearch,
+    benchWorkAuth,
+    filteredLocalCandidates,
+    hasMoreBench,
+    isLoadingBench,
+    isLoadingMoreBench,
+    onCandidatesSeen,
+  ]);
+
   const handleBenchScroll = useCallback(
     (e: React.UIEvent<HTMLDivElement>) => {
       const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-      if (
-        scrollHeight - scrollTop - clientHeight > 48 ||
-        isLoadingBench ||
-        isLoadingMoreBench ||
-        !hasMoreBench
-      ) {
+      if (scrollHeight - scrollTop - clientHeight > 48) {
         return;
       }
-
-      const nextPage = benchPage + 1;
-      const searchTerm = debouncedBenchSearch.trim();
-      const filterKey = `${searchTerm}|${benchWorkAuth}`;
-      setIsLoadingMoreBench(true);
-
-      apiClient
-        .get('/candidates', {
-          params: {
-            page: nextPage,
-            limit: BENCH_PAGE_SIZE,
-            search: searchTerm || undefined,
-            workAuth: benchWorkAuth !== 'All' ? benchWorkAuth : undefined,
-          },
-        })
-        .then((res) => {
-          if (activeSearchRef.current !== filterKey) return;
-          const raw = Array.isArray(res.data?.data) ? res.data.data : [];
-          const mapped: Candidate[] = raw.map(mapCandidateFromApi);
-          for (const c of mapped) {
-            if (c?.id) knownCandidatesRef.current.set(c.id, c);
-          }
-          onCandidatesSeen?.(mapped);
-          const pagination = res.data?.pagination;
-          const total = typeof pagination?.total === 'number' ? pagination.total : undefined;
-          const totalPages =
-            typeof pagination?.totalPages === 'number' ? pagination.totalPages : nextPage;
-          setPagedCandidates((prev) => {
-            const seen = new Set(prev.map((p) => p.id));
-            const extra = mapped.filter((c) => !seen.has(c.id));
-            return [...prev, ...extra];
-          });
-          setBenchPage(nextPage);
-          if (typeof total === 'number') setTotalBenchCount(total);
-          setHasMoreBench(nextPage < totalPages);
-        })
-        .catch(() => {
-          if (activeSearchRef.current !== filterKey) return;
-          const nextSlice = filteredLocalCandidates.slice(0, nextPage * BENCH_PAGE_SIZE);
-          setPagedCandidates(nextSlice);
-          setBenchPage(nextPage);
-          setHasMoreBench(filteredLocalCandidates.length > nextSlice.length);
-        })
-        .finally(() => {
-          setIsLoadingMoreBench(false);
-        });
+      loadNextBenchPage();
     },
-    [
-      benchPage,
-      debouncedBenchSearch,
-      benchWorkAuth,
-      filteredLocalCandidates,
-      hasMoreBench,
-      isLoadingBench,
-      isLoadingMoreBench,
-      onCandidatesSeen,
-    ]
+    [loadNextBenchPage]
   );
+
+  const attachedEntries = useMemo(() => {
+    const subs = currentReq?.submissions || [];
+    const seen = new Set<string>();
+    const rows: Array<{
+      key: string;
+      candidate: Candidate;
+      stage: string;
+      capabilityScore?: number | null;
+      capabilitySummary?: CapabilitySummary | null;
+    }> = [];
+
+    for (const sub of subs) {
+      const candId = sub.candidateId || sub.id;
+      if (seen.has(candId)) continue;
+      seen.add(candId);
+
+      const base =
+        sub.candidate ||
+        candidates.find((c) => sub.candidateId && c.id === sub.candidateId) ||
+        (sub.candidateId ? knownCandidatesRef.current.get(sub.candidateId) : undefined);
+
+      const candObj: Candidate = base || {
+        id: candId,
+        fullName: sub.fullName,
+        email: sub.email || '',
+        phone: sub.phone || '',
+        currentTitle: sub.currentTitle || '',
+        workAuth: sub.workAuth || '',
+        education: '',
+        skillset: sub.skillset || '',
+        hourlyRate: sub.submittedRate || sub.hourlyRate || '',
+        relocation: '',
+        resumeName: sub.resumeName || '',
+        resumeFormat: sub.resumeFormat || 'PDF',
+        resumeFileUrl: sub.resumeFileUrl,
+        assignedRecruiter: sub.recruiterName || '',
+        pipelineStage: sub.stage,
+        vendorName: sub.submittedVendorName || undefined,
+      };
+
+      rows.push({
+        key: sub.id,
+        candidate: candObj,
+        stage: sub.stage,
+        capabilityScore: sub.capabilityScore,
+        capabilitySummary: sub.capabilitySummary,
+      });
+    }
+    return rows;
+  }, [currentReq?.submissions, candidates]);
+
+  const filteredAttachedEntries = useMemo(() => {
+    return attachedEntries.filter(({ candidate }) => {
+      const matchesSearch = matchesCandidateQuery(candidate, debouncedBenchSearch);
+      const matchesAuth =
+        benchWorkAuth === 'All' ||
+        (candidate.workAuth || '').toLowerCase().includes(benchWorkAuth.toLowerCase());
+      return matchesSearch && matchesAuth;
+    });
+  }, [attachedEntries, debouncedBenchSearch, benchWorkAuth]);
 
   const reqSkillList = useMemo(
     () =>
@@ -457,10 +547,12 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   );
 
   const aiModeEnabled = aiCapabilities.enabled;
-  const hasAiRankResults = Object.keys(aiRankMap).length > 0;
+  const aiRankedCount = Object.keys(aiRankMap).length;
+  const hasAiRankResults = aiRankedCount > 0;
 
-  const rankedCandidates = useMemo(() => {
-    const items = pagedCandidates.map((con, idx) => {
+  const availableRankedCandidates = useMemo(() => {
+    const unattached = pagedCandidates.filter((con) => !attachedStageByCandId.has(con.id));
+    const items = unattached.map((con, idx) => {
       const localMatch = computeCandidateSkillMatch(
         currentReq?.skillsRequired,
         con.skillset,
@@ -468,12 +560,14 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
       );
       const aiEntry = aiRankMap[con.id];
       const isAiRanked = Boolean(aiEntry);
+      const isRowAiEvaluated = Boolean(aiEntry?.aiEvaluated);
       const showMatch = aiModeEnabled ? isAiRanked : reqSkillList.length > 0;
 
       return {
         con,
         idx,
         isAiRanked,
+        isRowAiEvaluated,
         showMatch,
         oneLineSummary: aiEntry?.oneLineSummary || '',
         match: aiEntry
@@ -511,6 +605,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
     return items;
   }, [
     pagedCandidates,
+    attachedStageByCandId,
     currentReq?.skillsRequired,
     reqSkillList.length,
     aiRankMap,
@@ -518,22 +613,59 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
     hasAiRankResults,
   ]);
 
-  const handleAiRankTopMatches = async () => {
-    if (!currentReq?.id || isAiRanking || totalBenchCount === 0) return;
+  const availableTabCount = Math.max(
+    availableRankedCandidates.length,
+    totalBenchCount - filteredAttachedEntries.length
+  );
+
+  // If every consultant on the currently loaded page is already attached, automatically load the next page
+  useEffect(() => {
+    if (
+      isOpen &&
+      drawerTab === 'available' &&
+      !isLoadingBench &&
+      !isLoadingMoreBench &&
+      hasMoreBench &&
+      availableRankedCandidates.length === 0
+    ) {
+      loadNextBenchPage();
+    }
+  }, [
+    isOpen,
+    drawerTab,
+    isLoadingBench,
+    isLoadingMoreBench,
+    hasMoreBench,
+    availableRankedCandidates.length,
+    loadNextBenchPage,
+  ]);
+
+  const handleAiRankTopMatches = async (appendNextBatch = false) => {
+    if (!currentReq?.id || isAiRanking || availableTabCount === 0) return;
     setIsAiRanking(true);
     setAiRankError('');
     try {
+      const excludeCandidateIds = Array.from(
+        new Set([
+          ...Array.from(attachedStageByCandId.keys()),
+          ...(appendNextBatch ? Object.keys(aiRankMap) : []),
+        ])
+      );
       const res = await apiClient.post('/match-skills', {
         requirementId: currentReq.id,
         skillsRequired: currentReq.skillsRequired,
         search: benchSearch.trim() || undefined,
         workAuth: benchWorkAuth !== 'All' ? benchWorkAuth : undefined,
+        excludeCandidateIds,
       });
       const rankings = res.data?.data?.rankings;
       const rawMatchedCandidates = res.data?.data?.candidates;
       const used = Boolean(res.data?.data?.aiUsed);
-      const retrievalMethod = String(res.data?.data?.retrievalMethod || '');
-      const poolCount = Number(res.data?.data?.totalTenantPool ?? totalBenchCount);
+      const quotaNotice = String(res.data?.data?.quotaNotice || '').trim();
+      const remainingFromApi =
+        typeof res.data?.data?.remainingUnrankedCount === 'number'
+          ? res.data.data.remainingUnrankedCount
+          : null;
 
       if (Array.isArray(rawMatchedCandidates) && rawMatchedCandidates.length > 0) {
         const hydratedTop: Candidate[] = rawMatchedCandidates.map(mapCandidateFromApi);
@@ -551,32 +683,46 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
       if (Array.isArray(rankings)) {
         const nextMap: Record<
           string,
-          { fitScore: number; matchedHighlights: string[]; gaps: string[]; oneLineSummary: string }
+          {
+            fitScore: number;
+            matchedHighlights: string[];
+            gaps: string[];
+            oneLineSummary: string;
+            aiEvaluated?: boolean;
+          }
         > = {};
         for (const row of rankings) {
           if (row?.candidateId) {
+            const rowAiEvaluated =
+              typeof row.aiEvaluated === 'boolean' ? row.aiEvaluated : used;
             nextMap[row.candidateId] = {
               fitScore: Number(row.fitScore ?? 0),
               matchedHighlights: Array.isArray(row.matchedHighlights) ? row.matchedHighlights : [],
               gaps: Array.isArray(row.gaps) ? row.gaps : [],
               oneLineSummary: String(row.oneLineSummary || ''),
+              aiEvaluated: rowAiEvaluated,
             };
           }
         }
-        setAiRankMap(nextMap);
-        setAiRankUsed(used);
-        if (poolCount > 0) {
-          const modeLabel =
-            retrievalMethod === 'pgvector_hybrid'
-              ? used
-                ? 'pgvector + AI'
-                : 'pgvector semantic search'
-              : used
-                ? 'full-text + AI'
-                : 'full-text search';
-          setAiRankScopeNote(`Searched ${poolCount} consultants (${modeLabel})`);
+        const mergedMap = appendNextBatch ? { ...aiRankMap, ...nextMap } : nextMap;
+        const evaluatedCount = aiModeEnabled
+          ? Object.values(mergedMap).filter((entry) => entry.aiEvaluated).length
+          : Object.keys(mergedMap).length;
+        setAiRankMap(mergedMap);
+        setRemainingUnrankedCount(remainingFromApi);
+        if (quotaNotice && !used) {
+          setAiRankError(quotaNotice);
         }
-        benchListRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+        setAiRankScopeNote(
+          `${evaluatedCount} ${evaluatedCount === 1 ? 'candidate' : 'candidates'} evaluated${
+            remainingFromApi && remainingFromApi > 0
+              ? ` · ${remainingFromApi} more available`
+              : ''
+          }`
+        );
+        if (!appendNextBatch) {
+          benchListRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+        }
       }
     } catch (err: any) {
       setAiRankError(
@@ -585,6 +731,36 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
     } finally {
       setIsAiRanking(false);
     }
+  };
+
+  const buildPrecomputedCapabilities = (
+    candIds: string[]
+  ): Record<string, CapabilitySummary> | undefined => {
+    const out: Record<string, CapabilitySummary> = {};
+    const nowIso = new Date().toISOString();
+    for (const id of candIds) {
+      const entry = aiRankMap[id];
+      if (!entry || !entry.aiEvaluated) continue;
+      const score = Math.max(0, Math.min(100, Math.round(Number(entry.fitScore ?? 0))));
+      const rec =
+        score >= 80
+          ? 'STRONG_FIT'
+          : score >= 65
+            ? 'GOOD_FIT'
+            : score >= 45
+              ? 'PARTIAL_FIT'
+              : 'LOW_FIT';
+      out[id] = {
+        fitScore: score,
+        recommendation: rec,
+        verdict: entry.oneLineSummary || '',
+        strengths: entry.matchedHighlights || [],
+        gaps: entry.gaps || [],
+        evaluatedWithAi: true,
+        evaluatedAt: nowIso,
+      };
+    }
+    return Object.keys(out).length > 0 ? out : undefined;
   };
 
   const openPositions = currentReq?.openPositions || 1;
@@ -596,26 +772,30 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   };
 
   const handleQuickSingleAttach = async (cand: Candidate) => {
-    if (!currentReq || attachedStageByCandId.has(cand.id)) return;
-    setIsAttaching(true);
+    if (!currentReq || isAttaching || attachedStageByCandId.has(cand.id)) return;
+    setAttachingCandId(cand.id);
     try {
+      const precomputed = buildPrecomputedCapabilities([cand.id]);
       if (onAttachCandidates) {
-        await onAttachCandidates(currentReq, [cand.id]);
+        await onAttachCandidates(currentReq, [cand.id], precomputed);
       } else if (onAssignCandidate) {
         await onAssignCandidate(currentReq, cand);
       }
       setSelectedCandidateIds((prev) => prev.filter((id) => id !== cand.id));
+    } catch {
+      // Parent handler surfaces feedback toast
     } finally {
-      setIsAttaching(false);
+      setAttachingCandId(null);
     }
   };
 
   const handleBatchAttach = async () => {
-    if (!currentReq || selectedCandidateIds.length === 0) return;
-    setIsAttaching(true);
+    if (!currentReq || isAttaching || selectedCandidateIds.length === 0) return;
+    setIsBatchAttaching(true);
     try {
+      const precomputed = buildPrecomputedCapabilities(selectedCandidateIds);
       if (onAttachCandidates) {
-        await onAttachCandidates(currentReq, selectedCandidateIds);
+        await onAttachCandidates(currentReq, selectedCandidateIds, precomputed);
       } else if (onAssignCandidate) {
         for (const id of selectedCandidateIds) {
           const cand =
@@ -625,8 +805,10 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
       }
       setSelectedCandidateIds([]);
       onClose();
+    } catch {
+      // Parent handler surfaces feedback toast
     } finally {
-      setIsAttaching(false);
+      setIsBatchAttaching(false);
     }
   };
 
@@ -772,106 +954,205 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-[11px] font-medium text-slate-500">
-                {pagedCandidates.length < totalBenchCount ? (
-                  <>
-                    Showing <strong className="font-semibold text-slate-700">{pagedCandidates.length}</strong> of{' '}
-                    <strong className="font-semibold text-slate-700">{totalBenchCount}</strong> bench consultants
-                  </>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 flex-wrap">
-                    <span>
-                      <strong className="font-semibold text-slate-700">{totalBenchCount}</strong> bench consultant
-                      {totalBenchCount === 1 ? '' : 's'}
-                    </span>
-                    {aiRankScopeNote && (
-                      <span className="text-[11px] font-medium text-teal-800 bg-teal-50 border border-teal-200/80 px-2 py-0.5 rounded-full">
-                        {aiRankScopeNote}
-                      </span>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <SegmentedControl<'available' | 'attached'>
+                value={drawerTab}
+                onChange={setDrawerTab}
+                ariaLabel="Switch between available and attached candidates"
+                options={[
+                  { value: 'available', label: `Available (${availableTabCount})` },
+                  { value: 'attached', label: `Attached (${attachedEntries.length})` },
+                ]}
+              />
+
+              {drawerTab === 'available' && availableTabCount > 0 && (
+                hasAiRankResults && (remainingUnrankedCount ?? 0) > 0 ? (
+                  <button
+                    type="button"
+                    disabled={isAiRanking || isLoadingBench || isAttaching}
+                    onClick={() => void handleAiRankTopMatches(true)}
+                    title={`Rank the next ${Math.min(30, remainingUnrankedCount!)} unattached consultants (${remainingUnrankedCount} remaining)`}
+                    className="px-2.5 py-1 rounded-lg border border-teal-200 bg-teal-50/80 hover:bg-teal-100 text-teal-800 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
+                  >
+                    {isAiRanking ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <AiIcon className="w-3 h-3 text-teal-600" />
                     )}
+                    <span>
+                      {isAiRanking
+                        ? 'Ranking Next Batch...'
+                        : `Rank Next ${Math.min(30, remainingUnrankedCount!)} (${remainingUnrankedCount} left)`}
+                    </span>
+                  </button>
+                ) : hasAiRankResults && remainingUnrankedCount === 0 ? (
+                  <span className="px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-200/80 text-teal-800 text-[11px] font-semibold inline-flex items-center gap-1">
+                    <AiIcon className="w-3 h-3 text-teal-600" />
+                    <span>All {aiRankedCount} Ranked</span>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={isAiRanking || isLoadingBench || isAttaching}
+                    onClick={() => void handleAiRankTopMatches(false)}
+                    className="px-2.5 py-1 rounded-lg border border-teal-200 bg-teal-50/80 hover:bg-teal-100 text-teal-800 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
+                  >
+                    {isAiRanking ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <AiIcon className="w-3 h-3 text-teal-600" />
+                    )}
+                    <span>
+                      {isAiRanking
+                        ? 'Ranking Best Fits...'
+                        : aiCapabilities.enabled
+                          ? 'PipeAI Rank'
+                          : 'Rank Top Matches'}
+                    </span>
+                  </button>
+                )
+              )}
+            </div>
+
+            {drawerTab === 'available' && (availableRankedCandidates.length < availableTabCount || aiRankScopeNote) && (
+              <div className="flex items-center justify-between gap-2 text-[11px] font-medium text-slate-500 flex-wrap">
+                <span>
+                  {availableRankedCandidates.length < availableTabCount ? (
+                    <>
+                      Showing <strong className="font-semibold text-slate-700">{availableRankedCandidates.length}</strong> of{' '}
+                      <strong className="font-semibold text-slate-700">{availableTabCount}</strong> available consultants
+                    </>
+                  ) : (
+                    <>
+                      <strong className="font-semibold text-slate-700">{availableTabCount}</strong> available consultant
+                      {availableTabCount === 1 ? '' : 's'}
+                    </>
+                  )}
+                </span>
+                {aiRankScopeNote && (
+                  <span className="text-[11px] font-medium text-teal-800 bg-teal-50 border border-teal-200/80 px-2 py-0.5 rounded-full">
+                    {aiRankScopeNote}
                   </span>
                 )}
               </div>
-
-              {pagedCandidates.length > 0 && (
-                <button
-                  type="button"
-                  disabled={isAiRanking || isLoadingBench}
-                  onClick={handleAiRankTopMatches}
-                  className="px-2.5 py-1 rounded-lg border border-teal-200 bg-teal-50/80 hover:bg-teal-100 text-teal-800 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
-                >
-                  {isAiRanking ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <AiIcon className="w-3 h-3 text-teal-600" />
-                  )}
-                  <span>
-                    {isAiRanking
-                      ? 'Ranking Best Fits...'
-                      : aiCapabilities.enabled
-                        ? 'PipeAI Rank'
-                        : 'Rank Top Matches'}
-                  </span>
-                </button>
-              )}
-            </div>
+            )}
           </div>
 
-          {/* Scrollable Ranked Candidate List */}
+          {/* Scrollable Candidate List */}
           <div
             ref={benchListRef}
-            onScroll={handleBenchScroll}
+            onScroll={drawerTab === 'available' ? handleBenchScroll : undefined}
             className="p-4 overflow-y-auto space-y-2 flex-1 min-h-0"
           >
-            {aiRankError && (
+            {drawerTab === 'available' && aiRankError && (
               <div className="px-3 py-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-medium">
                 {aiRankError}
               </div>
             )}
-            {isLoadingBench && pagedCandidates.length === 0 ? (
+            {drawerTab === 'attached' ? (
+              filteredAttachedEntries.length === 0 ? (
+                <div className="py-10 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                  {attachedEntries.length === 0
+                    ? 'No consultants attached to this requirement yet. Switch to Available to attach.'
+                    : 'No attached consultants match your filter.'}
+                </div>
+              ) : (
+                filteredAttachedEntries.map(({ key, candidate: con, stage, capabilityScore, capabilitySummary }) => {
+                  const hasScore = hasEvaluatedFitScore(capabilityScore, capabilitySummary, aiModeEnabled);
+                  const badgeMeta = hasScore
+                    ? getCapabilityBadgeStyle(Math.round(capabilityScore!), capabilitySummary)
+                    : null;
+                  const usedAi = Boolean(capabilitySummary?.evaluatedWithAi && aiModeEnabled);
+
+                  return (
+                    <div
+                      key={key}
+                      className="p-3 rounded-xl border border-emerald-200/80 bg-emerald-50/35 flex items-center justify-between gap-2.5"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="w-4 h-4 rounded bg-emerald-600 border border-emerald-600 text-white flex items-center justify-center flex-shrink-0">
+                          <Check className="w-3 h-3" strokeWidth={3} />
+                        </span>
+                        <div className="min-w-0">
+                          <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5 flex-wrap">
+                            <span className="truncate">{con.fullName}</span>
+                            {con.workAuth && (
+                              <span className="text-[11px] font-normal text-slate-400">
+                                ({con.workAuth})
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-500 mt-0.5 truncate">
+                            {con.currentTitle || 'Consultant'} &bull;{' '}
+                            <MaskedValue value={formatRate(con.hourlyRate)} isMasked={rateMasked} />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {badgeMeta ? (
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] font-bold tabular-nums ${badgeMeta.badgeClass}`}
+                          >
+                            {usedAi && <AiIcon className="w-3 h-3 shrink-0" />}
+                            <span>
+                              {Math.round(capabilityScore!)}% &middot; {badgeMeta.label}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 text-[11px] font-medium">
+                            Fit Not Checked
+                          </span>
+                        )}
+                        <StatusBadge stage={stage} size="xs" />
+                      </div>
+                    </div>
+                  );
+                })
+              )
+            ) : (isLoadingBench && pagedCandidates.length === 0) ||
+              (isLoadingMoreBench && availableRankedCandidates.length === 0) ? (
               <div className="py-10 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                Loading consultants...
+                Loading available consultants...
               </div>
-            ) : rankedCandidates.length === 0 ? (
+            ) : availableRankedCandidates.length === 0 ? (
               <div className="py-10 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                 {benchSearch.trim() || benchWorkAuth !== 'All'
-                  ? 'No consultants match your filter.'
-                  : 'No bench consultants available to assign yet.'}
+                  ? 'No unattached consultants match your filter.'
+                  : attachedEntries.length > 0
+                    ? 'All matching consultants are already attached to this requirement.'
+                    : 'No bench consultants available to assign yet.'}
               </div>
             ) : (
               <>
-                {rankedCandidates.map(({ con, match, isAiRanked, showMatch, oneLineSummary }) => {
-                  const attachedStage = attachedStageByCandId.get(con.id);
-                  const alreadyAttached = Boolean(attachedStage);
-                  const isChecked = alreadyAttached || selectedCandidateIds.includes(con.id);
-                  const dupWarnings = !alreadyAttached ? clientDuplicateMap[con.id] || [] : [];
+                {availableRankedCandidates.map(({ con, match, isAiRanked, isRowAiEvaluated, showMatch, oneLineSummary }, rowIndex) => {
+                  const isChecked = selectedCandidateIds.includes(con.id);
+                  const dupWarnings = clientDuplicateMap[con.id] || [];
                   const latestDup = dupWarnings[0];
                   const cvExcerpt = benchSearch.trim()
                     ? extractResumeMatchExcerpt(con.rawSnippet, benchSearch)
                     : null;
+                  const nextRow = availableRankedCandidates[rowIndex + 1];
+                  const isLastAiRankedRow =
+                    hasAiRankResults && isAiRanked && (!nextRow || !nextRow.isAiRanked);
 
                   return (
+                    <React.Fragment key={con.id}>
                     <div
-                      key={con.id}
-                      onClick={() => !alreadyAttached && toggleCandidateSelection(con.id)}
-                      className={`p-3 rounded-xl border flex flex-col gap-1.5 transition-all ${alreadyAttached
-                        ? 'bg-emerald-50/40 border-emerald-200/70 opacity-85 cursor-default'
-                        : isChecked
-                          ? 'bg-brand-50/60 border-brand-500 cursor-pointer'
-                          : latestDup
-                            ? 'bg-amber-50/30 border-amber-200 hover:border-amber-400 cursor-pointer'
-                            : 'bg-white border-slate-200 hover:border-brand-400 cursor-pointer'
+                      onClick={() => !isAttaching && toggleCandidateSelection(con.id)}
+                      className={`p-3 rounded-xl border flex flex-col gap-1.5 transition-all cursor-pointer ${isChecked
+                        ? 'bg-brand-50/60 border-brand-500'
+                        : latestDup
+                          ? 'bg-amber-50/30 border-amber-200 hover:border-amber-400'
+                          : 'bg-white border-slate-200 hover:border-brand-400'
                         }`}
                     >
                       <div className="flex items-center justify-between gap-2.5">
                         <div className="flex items-center gap-2.5 min-w-0">
                           <span
-                            className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${alreadyAttached
-                              ? 'bg-emerald-600 border-emerald-600 text-white'
-                              : isChecked
-                                ? 'bg-brand-600 border-brand-600 text-white'
-                                : 'bg-white border-slate-300'
+                            className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${isChecked
+                              ? 'bg-brand-600 border-brand-600 text-white'
+                              : 'bg-white border-slate-300'
                               }`}
                           >
                             {isChecked && <Check className="w-3 h-3" strokeWidth={3} />}
@@ -897,12 +1178,12 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                                 match.score
                               )}`}
                               title={
-                                isAiRanked && aiRankUsed
-                                  ? 'AI capability ranking'
+                                isRowAiEvaluated
+                                  ? 'Evaluated by PipeAI'
                                   : `${match.matched.length} of ${reqSkillList.length} required skills matched`
                               }
                             >
-                              {isAiRanked && aiRankUsed && <AiIcon className="w-3 h-3 text-teal-600" />}
+                              {isRowAiEvaluated && <AiIcon className="w-3 h-3 text-teal-600" />}
                               <span>
                                 {match.score === 0 && !isAiRanked
                                   ? 'No Skill Overlap'
@@ -910,23 +1191,24 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                               </span>
                             </span>
                           )}
-                          {alreadyAttached ? (
-                            <span className="px-2 py-0.5 rounded bg-emerald-500/[0.1] text-emerald-800 text-[11px] font-semibold">
-                              Attached{attachedStage ? ` (${attachedStage})` : ''}
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={isAttaching}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleQuickSingleAttach(con);
-                              }}
-                              className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-semibold transition-colors cursor-pointer"
-                            >
-                              {latestDup ? 'Attach Anyway' : 'Quick Attach'}
-                            </button>
-                          )}
+                          <ActionButton
+                            type="button"
+                            loading={attachingCandId === con.id}
+                            loadingText="Attaching..."
+                            disabled={isAttaching}
+                            spinnerClassName="w-3 h-3 animate-spin shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleQuickSingleAttach(con);
+                            }}
+                            className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors cursor-pointer ${
+                              attachingCandId === con.id
+                                ? 'bg-brand-50 border-brand-200 text-brand-700'
+                                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                            }`}
+                          >
+                            {latestDup ? 'Attach Anyway' : 'Quick Attach'}
+                          </ActionButton>
                         </div>
                       </div>
 
@@ -1060,6 +1342,32 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                         </div>
                       )}
                     </div>
+                    {isLastAiRankedRow && (remainingUnrankedCount ?? 0) > 0 && (
+                      <div className="p-3 rounded-xl border border-teal-200/80 bg-teal-50/50 flex items-center justify-between gap-3 flex-wrap">
+                        <div className="text-[11px] text-slate-700 font-medium">
+                          Ranked top <strong className="font-semibold text-slate-900">{aiRankedCount}</strong> available &bull;{' '}
+                          <strong className="font-semibold text-teal-800">{remainingUnrankedCount}</strong> more remaining
+                        </div>
+                        <button
+                          type="button"
+                          disabled={isAiRanking || isLoadingBench || isAttaching}
+                          onClick={() => void handleAiRankTopMatches(true)}
+                          className="px-3 py-1.5 rounded-lg border border-teal-200 bg-white hover:bg-teal-50 text-teal-800 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
+                        >
+                          {isAiRanking ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <AiIcon className="w-3 h-3 text-teal-600" />
+                          )}
+                          <span>
+                            {isAiRanking
+                              ? 'Ranking Next Batch...'
+                              : `Rank Next ${Math.min(30, remainingUnrankedCount!)}`}
+                          </span>
+                        </button>
+                      </div>
+                    )}
+                    </React.Fragment>
                   );
                 })}
                 {isLoadingMoreBench && (
@@ -1069,7 +1377,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                 )}
                 {!isLoadingMoreBench && hasMoreBench && (
                   <div className="py-1.5 text-center text-[11px] text-slate-400">
-                    Scroll to load more ({pagedCandidates.length} of {totalBenchCount})
+                    Scroll to load more ({availableRankedCandidates.length} of {availableTabCount})
                   </div>
                 )}
               </>
@@ -1078,7 +1386,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
 
           {/* Footer */}
           <div className="bg-slate-50 border-t border-slate-200 flex-shrink-0">
-            {selectedDupCount > 0 && (
+            {drawerTab === 'available' && selectedDupCount > 0 && (
               <div className="px-5 py-2 bg-amber-50 border-b border-amber-200 flex items-center gap-2 text-[11px] text-amber-900 font-medium">
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
                 <span>
@@ -1089,48 +1397,75 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
               </div>
             )}
             <div className="px-5 py-3.5 flex items-center justify-between gap-3">
-              <span className="text-xs font-medium text-slate-600">
-                {selectedCandidateIds.length > 0
-                  ? `${selectedCandidateIds.length} consultant${selectedCandidateIds.length === 1 ? '' : 's'
-                  } selected`
-                  : 'Select one or more candidates'}
-              </span>
-              <div className="flex items-center gap-2">
-                {selectedCandidateIds.length > 0 && (
-                  <button
-                    type="button"
-                    disabled={isAttaching}
-                    onClick={() => setSelectedCandidateIds([])}
-                    className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition-colors cursor-pointer"
-                  >
-                    Clear
-                  </button>
-                )}
-                <button
-                  type="button"
-                  disabled={isAttaching}
-                  onClick={onClose}
-                  className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <ActionButton
-                  type="button"
-                  loading={isAttaching}
-                  loadingText="Attaching..."
-                  disabled={selectedCandidateIds.length === 0}
-                  onClick={handleBatchAttach}
-                  className={`px-4 py-1.5 rounded-lg disabled:opacity-50 text-white text-xs font-semibold transition-colors cursor-pointer ${selectedDupCount > 0
-                    ? 'bg-amber-600 hover:bg-amber-700'
-                    : 'bg-brand-600 hover:bg-brand-700'
-                    }`}
-                >
-                  {selectedDupCount > 0
-                    ? `Attach Anyway (${selectedCandidateIds.length})`
-                    : `Attach ${selectedCandidateIds.length || ''} Applicant${selectedCandidateIds.length === 1 ? '' : 's'
-                    }`}
-                </ActionButton>
-              </div>
+              {drawerTab === 'attached' ? (
+                <>
+                  <span className="text-xs font-medium text-slate-600">
+                    {attachedEntries.length} applicant{attachedEntries.length === 1 ? '' : 's'} attached to{' '}
+                    <strong className="font-semibold text-slate-800">{currentReq.code}</strong>
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDrawerTab('available')}
+                      className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      Browse Available ({availableTabCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span className="text-xs font-medium text-slate-600">
+                    {selectedCandidateIds.length > 0
+                      ? `${selectedCandidateIds.length} consultant${selectedCandidateIds.length === 1 ? '' : 's'
+                      } selected`
+                      : 'Select one or more candidates'}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {selectedCandidateIds.length > 0 && (
+                      <button
+                        type="button"
+                        disabled={isAttaching}
+                        onClick={() => setSelectedCandidateIds([])}
+                        className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition-colors cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={isAttaching}
+                      onClick={onClose}
+                      className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <ActionButton
+                      type="button"
+                      loading={isBatchAttaching}
+                      loadingText="Attaching..."
+                      disabled={isAttaching || selectedCandidateIds.length === 0}
+                      onClick={handleBatchAttach}
+                      className={`px-4 py-1.5 rounded-lg disabled:opacity-50 text-white text-xs font-semibold transition-colors cursor-pointer ${selectedDupCount > 0
+                        ? 'bg-amber-600 hover:bg-amber-700'
+                        : 'bg-brand-600 hover:bg-brand-700'
+                        }`}
+                    >
+                      {selectedDupCount > 0
+                        ? `Attach Anyway (${selectedCandidateIds.length})`
+                        : `Attach ${selectedCandidateIds.length || ''} Applicant${selectedCandidateIds.length === 1 ? '' : 's'
+                        }`}
+                    </ActionButton>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </>

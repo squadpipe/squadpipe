@@ -103,7 +103,10 @@ router.post('/auth/accept-invite', sensitiveAuthRateLimiter, authController.acce
 // Public Requirement CV Intake Form routes (unauthenticated, token-gated)
 router.get('/public/apply/:token', authRateLimiter, async (req: Request, res: Response) => {
   try {
-    const publicReq = await publicIntakeService.getPublicRequirementByToken(req.params.token);
+    const publicReq = await publicIntakeService.getPublicRequirementByToken(req.params.token, {
+      preview: typeof req.query.preview === 'string' ? req.query.preview : undefined,
+      templateId: typeof req.query.templateId === 'string' ? req.query.templateId : undefined,
+    });
     res.json({ success: true, data: publicReq });
   } catch (error: any) {
     const status = error?.statusCode || 404;
@@ -123,6 +126,8 @@ router.post(
       const parsed = await publicIntakeService.parsePublicResumeBasic({
         token: req.params.token,
         file: req.file,
+        preview: typeof req.query.preview === 'string' ? req.query.preview : undefined,
+        templateId: typeof req.query.templateId === 'string' ? req.query.templateId : undefined,
       });
       res.json({ success: true, data: parsed });
     } catch (error: any) {
@@ -500,7 +505,16 @@ router.post('/parse-email', async (req: Request, res: Response) => {
 router.post('/match-skills', async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
-    const { requirementId, skillsRequired, search, workAuth, candidateIds, candidates } = req.body || {};
+    const {
+      requirementId,
+      skillsRequired,
+      search,
+      workAuth,
+      candidateIds,
+      excludeCandidateIds,
+      excludeAttached,
+      candidates,
+    } = req.body || {};
 
     if (!requirementId) {
       return res.status(400).json({ success: false, message: 'requirementId is required' });
@@ -514,6 +528,8 @@ router.post('/match-skills', async (req: Request, res: Response) => {
       search: search ? String(search) : undefined,
       workAuth: workAuth ? String(workAuth) : undefined,
       candidateIds: Array.isArray(candidateIds) ? candidateIds : undefined,
+      excludeCandidateIds: Array.isArray(excludeCandidateIds) ? excludeCandidateIds : undefined,
+      excludeAttached: typeof excludeAttached === 'boolean' ? excludeAttached : true,
       candidates: Array.isArray(candidates) ? candidates : undefined,
       rateMasked: Boolean(req.user?.rateMasked),
     });
@@ -549,6 +565,25 @@ router.post('/requirements/:id/public-form', async (req: Request, res: Response)
     res.status(status).json({
       success: false,
       message: error?.message || 'Failed to update public form settings',
+    });
+  }
+});
+router.post('/requirements/:id/public-form-preview', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const templateId =
+      typeof req.body?.templateId === 'string' ? req.body.templateId.trim() : undefined;
+    const result = await publicIntakeService.issueRequirementPublicFormPreview({
+      requirementId: req.params.id,
+      tenantId,
+      templateId,
+    });
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    const status = error?.statusCode || 500;
+    res.status(status).json({
+      success: false,
+      message: error?.message || 'Failed to prepare application form preview',
     });
   }
 });
@@ -592,6 +627,7 @@ router.post('/submissions', async (req: Request, res: Response) => {
       requirementId,
       candidateId,
       candidateIds,
+      precomputedCapabilities,
       pitchEmailSubject,
       pitchEmailBody,
       pitchTone,
@@ -603,6 +639,11 @@ router.post('/submissions', async (req: Request, res: Response) => {
       requirementId,
       candidateId,
       candidateIds,
+      precomputedCapabilities:
+        precomputedCapabilities && typeof precomputedCapabilities === 'object'
+          ? precomputedCapabilities
+          : undefined,
+      rateMasked: Boolean(req.user?.rateMasked),
       pitchEmailSubject,
       pitchEmailBody,
       pitchTone,

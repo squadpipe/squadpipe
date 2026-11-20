@@ -9,6 +9,7 @@ export interface HybridSearchQuery {
   workAuthFilter?: string;
   pipelineStageFilter?: string;
   candidateIdsFilter?: string[];
+  excludeCandidateIds?: string[];
   limit?: number;
 }
 

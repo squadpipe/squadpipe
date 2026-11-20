@@ -94,7 +94,11 @@ interface RequirementDetailPageProps {
   placements?: BillablePlacement[];
   rateMasked?: boolean;
   onAssignCandidate: (req: Requirement, candidate: Candidate) => void;
-  onAttachCandidates?: (req: Requirement, candidateIds: string[]) => Promise<void> | void;
+  onAttachCandidates?: (
+    req: Requirement,
+    candidateIds: string[],
+    precomputedCapabilities?: Record<string, import('../../types').CapabilitySummary>
+  ) => Promise<void> | void;
   onUpdateSubmissionStage?: (
     req: Requirement,
     submissionId: string,
@@ -279,6 +283,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   const [draftPublicDesc, setDraftPublicDesc] = useState('');
   const [copiedPublicLink, setCopiedPublicLink] = useState(false);
   const [publicFormError, setPublicFormError] = useState('');
+  const [isOpeningPreview, setIsOpeningPreview] = useState(false);
   const [applicationForms, setApplicationForms] =
     useState<ApplicationFormTemplate[]>(DEFAULT_APPLICATION_FORMS);
   const knownCandidatesRef = useRef<Map<string, Candidate>>(new Map());
@@ -317,9 +322,20 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     setPublicFormError('');
   }, [requirement?.id]);
 
+  const requirementSubmissionsSig = useMemo(
+    () =>
+      (requirement?.submissions || [])
+        .map(
+          (s) =>
+            `${s.id}:${s.stage}:${s.capabilityScore ?? ''}:${s.capabilitySummary?.evaluatedWithAi ? 1 : 0}`
+        )
+        .join('|'),
+    [requirement?.submissions]
+  );
+
   useEffect(() => {
     setHydratedReq(null);
-  }, [requirement?.id]);
+  }, [requirement?.id, requirementSubmissionsSig]);
 
   useEffect(() => {
     if (!requirement?.id) return;
@@ -350,6 +366,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     applicantsSort.sortParams,
     requirement?.submissions?.length,
     requirement?.submissionCount,
+    requirementSubmissionsSig,
   ]);
 
   useEffect(() => {
@@ -426,6 +443,55 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
       setTimeout(() => setCopiedPublicLink(false), 2000);
     } catch {
       setPublicFormError('Could not copy link automatically. Copy it directly from the field.');
+    }
+  };
+
+  const handleOpenPublicFormPreview = async () => {
+    if (!effectiveRequirement || isOpeningPreview) return;
+    setIsOpeningPreview(true);
+    setPublicFormError('');
+    const previewWin = typeof window !== 'undefined' ? window.open('', '_blank') : null;
+    if (previewWin) {
+      previewWin.opener = null;
+      previewWin.document.write(
+        '<p style="font-family:system-ui,sans-serif;padding:24px;color:#475569;font-size:13px">Loading application form preview...</p>'
+      );
+    }
+
+    try {
+      const res = await apiClient.post(
+        `/requirements/${effectiveRequirement.id}/public-form-preview`,
+        { templateId: activeApplicationForm.id }
+      );
+      const data = res.data?.data;
+      if (data?.requirement) {
+        const mapped = mapRequirementFromApi(data.requirement);
+        setHydratedReq(mapped);
+        onRequirementUpdated?.(mapped);
+      }
+
+      const previewUrl =
+        data?.previewPath && typeof window !== 'undefined'
+          ? `${window.location.origin}${data.previewPath}`
+          : '';
+      if (!previewUrl) {
+        previewWin?.close();
+        setPublicFormError('Could not generate application form preview link.');
+        return;
+      }
+
+      if (previewWin && !previewWin.closed) {
+        previewWin.location.replace(previewUrl);
+      } else if (typeof window !== 'undefined') {
+        window.open(previewUrl, '_blank', 'noopener,noreferrer');
+      }
+    } catch (err: any) {
+      previewWin?.close();
+      setPublicFormError(
+        err?.response?.data?.message || err?.message || 'Failed to open application form preview.'
+      );
+    } finally {
+      setIsOpeningPreview(false);
     }
   };
 
@@ -1002,8 +1068,8 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
         <button
           type="button"
           disabled={isChecking}
-          onClick={() => handleEvaluateSubmissiPipeAI
-          title={aiCapabilities.enabled ? 'Run SquadPipe AI Fit Score Check' : 'Run Skill Fit Score Check'}
+          onClick={() => handleEvaluateSubmission(sub)}
+          title={aiCapabilities.enabled ? 'Run PipeAI Fit Score Check' : 'Run Skill Fit Score Check'}
           className="group inline-flex flex-col items-start gap-1 text-left px-1.5 py-1 -mx-1.5 rounded-md hover:bg-teal-50/80 transition-colors cursor-pointer disabled:opacity-60 whitespace-nowrap"
         >
           <span className="inline-flex items-center gap-1.5 text-[12px] leading-none">
@@ -2167,12 +2233,17 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                     </div>
                     <button
                       type="button"
-                      onClick={() => onPreviewApplicationForm?.(reqView, activeApplicationForm.id)}
-                      title="Open dedicated form preview page"
-                      className="px-2.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-brand-50 hover:border-brand-200 text-slate-700 hover:text-brand-700 text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                      disabled={isOpeningPreview}
+                      onClick={() => void handleOpenPublicFormPreview()}
+                      title="Open live application form preview in a new tab"
+                      className="px-2.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-brand-50 hover:border-brand-200 text-slate-700 hover:text-brand-700 text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 disabled:opacity-60"
                     >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>Preview</span>
+                      {isOpeningPreview ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Eye className="w-3.5 h-3.5" />
+                      )}
+                      <span>{isOpeningPreview ? 'Opening...' : 'Preview'}</span>
                     </button>
                   </div>
                 </div>
