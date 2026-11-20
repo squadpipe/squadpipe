@@ -39,7 +39,7 @@ import { BulkResumeQueueController } from '../../hooks/useBulkResumeQueue';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { SearchableSelectInput } from '../../components/shared/SearchableSelectInput';
 import { StatusBadge } from '../../components/shared/StatusBadge';
-import { AiBadge } from '../../components/shared/AiBrand';
+import { AiBadge, AiIcon } from '../../components/shared/AiBrand';
 import { ActionButton } from '../../components/shared/ActionButton';
 
 export interface ResumeApproveOptions {
@@ -548,8 +548,16 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
           >
             <div className="flex items-center gap-3 flex-wrap">
               <label className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold flex items-center gap-2 cursor-pointer transition-all">
-                <CloudUpload className="w-4 h-4" />
-                <span>Upload Candidate Resume (.pdf / .docx)</span>
+                {aiCapabilities.enabled ? (
+                  <AiIcon className="w-4 h-4 text-teal-200" />
+                ) : (
+                  <CloudUpload className="w-4 h-4" />
+                )}
+                <span>
+                  {aiCapabilities.enabled
+                    ? 'Parse Resume with AI (.pdf / .docx)'
+                    : 'Upload Candidate Resume (.pdf / .docx)'}
+                </span>
                 <input
                   type="file"
                   multiple

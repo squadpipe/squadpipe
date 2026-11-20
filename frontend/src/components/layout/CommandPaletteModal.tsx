@@ -5,7 +5,6 @@ import {
   Buildings,
   ChartPieSlice,
   Columns,
-  Envelope,
   FileText,
   FileXls,
   Handshake,
@@ -20,6 +19,7 @@ import {
 import { Candidate, Client, Requirement, Vendor } from '../../types';
 import { AnimatedModal } from '../shared/MotionPrimitives';
 import { StatusBadge } from '../shared/StatusBadge';
+import { AiIcon } from '../shared/AiBrand';
 
 interface CommandItem {
   id: string;
@@ -117,9 +117,10 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         id: 'act_req_email',
         group: 'Quick Actions',
         label: 'Create Job from Client Email',
-        subtitle: 'Parse hiring manager email into requirement',
-        keywords: 'parse email import jd requirement',
-        icon: <Envelope className="w-4 h-4 text-slate-500" />,
+        subtitle: 'Parse hiring manager email into requirement with SquadPipe AI',
+        badge: 'AI',
+        keywords: 'parse email import jd requirement ai',
+        icon: <AiIcon className="w-4 h-4 text-teal-600" />,
         onSelect: () => onOpenWorkflowPage('requirement_from_email'),
       },
       ...(canCreatePlacement
@@ -139,9 +140,10 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         id: 'act_parse_resume',
         group: 'Quick Actions',
         label: 'Parse Resumes (Single or Bulk)',
-        subtitle: 'Upload PDF/DOCX CVs to add candidates',
-        keywords: 'resume cv upload parse pdf docx',
-        icon: <UploadSimple className="w-4 h-4 text-slate-500" />,
+        subtitle: 'Upload PDF/DOCX CVs for SquadPipe AI extraction',
+        badge: 'AI',
+        keywords: 'resume cv upload parse pdf docx ai',
+        icon: <AiIcon className="w-4 h-4 text-teal-600" />,
         onSelect: () => onOpenWorkflowPage('import_resume'),
       },
       ...(canManageDataOperations

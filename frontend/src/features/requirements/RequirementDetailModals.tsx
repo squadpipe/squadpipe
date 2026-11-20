@@ -809,6 +809,13 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
                   )}
                 </div>
               </div>
+              <div className="w-full h-2 rounded-full bg-slate-200/80 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${badgeMeta.barClass}`}
+                  style={{ width: `${score ?? 0}%` }}
+                />
+              </div>
+            </div>
 
               {/* Verdict */}
               <div className="space-y-1.5">
@@ -891,20 +898,20 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
                   type="button"
                   disabled={isEvaluating}
                   onClick={onRunAiCheck}
-                  className="px-3 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100/80 text-indigo-700 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
+                  className="px-3 py-1.5 rounded-lg border border-teal-200 bg-teal-50/90 hover:bg-teal-100/80 text-teal-800 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
                 >
                   {isEvaluating ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <Sparkles className="w-3.5 h-3.5" />
+                    <AiIcon className="w-3.5 h-3.5 text-teal-600" />
                   )}
                   <span>
                     {isEvaluating
                       ? 'Evaluating...'
                       : aiEnabled
                         ? usedAi
-                          ? 'Re-run AI Check'
-                          : 'Run AI Check'
+                          ? 'Re-run SquadPipe AI Check'
+                          : 'Run SquadPipe AI Check'
                         : hasScore
                           ? 'Re-run Fit Check'
                           : 'Run Fit Check'}
@@ -918,29 +925,14 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
               <button
                 type="button"
                 disabled={isEvaluating}
-                onClick={onRunAiCheck}
-                className="px-3 py-1.5 rounded-lg border border-teal-200 bg-teal-50/90 hover:bg-teal-100/80 text-teal-800 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
+                onClick={onClose}
+                className="px-4 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60 cursor-pointer transition-colors"
               >
-                {isEvaluating ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <AiIcon className="w-3.5 h-3.5 text-teal-600" />
-                )}
-                <span>
-                  {isEvaluating
-                    ? 'Evaluating...'
-                    : aiEnabled
-                      ? usedAi
-                        ? 'Re-run SquadPipe AI Check'
-                        : 'Run SquadPipe AI Check'
-                      : hasScore
-                        ? 'Re-run Fit Check'
-                        : 'Run Fit Check'}
-                </span>
+                Close
               </button>
             </div>
           </>
       )}
-        </AnimatedModal>
-      );
+    </AnimatedModal>
+  );
 };

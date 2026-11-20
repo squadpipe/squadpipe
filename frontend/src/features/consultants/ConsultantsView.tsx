@@ -4,7 +4,6 @@ import {
   ArrowRight,
   ChevronRight,
   FileSpreadsheet,
-  FileText,
   Pencil,
   Plus,
   Search,

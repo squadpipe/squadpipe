@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Briefcase, MailOpen } from 'lucide-react';
+import { ArrowLeft, Briefcase } from 'lucide-react';
 import { Client, Requirement, User } from '../../types';
 import { parseRateNumber, useCurrency } from '../../utils/currency';
 import { buildClientSafeSummaryHtml } from '../../utils/richText';
@@ -21,6 +21,7 @@ import { DetailBreadcrumb } from '../../components/shared/DetailPageShell';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { FormField } from '../../components/shared/FormField';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { AiIcon, AiTag } from '../../components/shared/AiBrand';
 import { buildRequirementStageOptions, getStageDotClass, getStageIndex } from '../../utils/stageStyles';
 import { UnsavedChangesModal, useFormShortcuts } from '../../hooks/useFormShortcuts';
 
@@ -282,8 +283,9 @@ export const RequirementFormPage: React.FC<RequirementFormPageProps> = ({
               onClick={() => guardNavigation(onOpenFromEmail)}
               className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 hover:text-slate-900 px-2.5 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 transition-colors cursor-pointer"
             >
-              <MailOpen className="w-3.5 h-3.5 text-brand-600" />
-              <span>Parse from Email Instead</span>
+              <AiIcon className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+              <span>Parse from Email</span>
+              <AiTag />
             </button>
           ) : undefined
         }

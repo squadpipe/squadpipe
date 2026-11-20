@@ -35,7 +35,6 @@ import {
   FileSpreadsheet,
   List,
   Lock,
-  MailOpen,
   Pencil,
   Plus,
   Search,
@@ -43,6 +42,7 @@ import {
   UsersRound,
   X,
 } from 'lucide-react';
+import { AiIcon, AiTag } from '../../components/shared/AiBrand';
 import { apiClient } from '../../config/api.config';
 import { Requirement, Candidate } from '../../types';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
@@ -1120,8 +1120,9 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             onClick={onOpenEmailParser}
             className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <MailOpen className="w-3.5 h-3.5 text-brand-600" />
-            <span>Import from Email</span>
+            <AiIcon className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+            <span>Parse Email</span>
+            {aiCapabilities.enabled && <AiTag />}
           </button>
           {onOpenAddReq && (
             <button

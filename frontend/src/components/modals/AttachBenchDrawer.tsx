@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Check, FileSpreadsheet, FileUp, Loader2, Search, X } from 'lucide-react';
-import { AiIcon } from '../shared/AiBrand';
+import { AlertTriangle, Check, FileSpreadsheet, Loader2, Search, X } from 'lucide-react';
+import { AiIcon, AiTag } from '../shared/AiBrand';
 import { apiClient } from '../../config/api.config';
 import { Candidate, ClientDuplicateWarning, Requirement } from '../../types';
 import { useCurrency } from '../../utils/currency';
@@ -682,8 +682,9 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                       }`}
                       title="Upload & parse resumes (PDF/DOCX) to add candidates"
                     >
-                      <FileUp className="w-3.5 h-3.5 text-brand-600" />
+                      <AiIcon className="w-3.5 h-3.5 text-teal-600" />
                       <span>Parse Resumes</span>
+                      {aiCapabilities.enabled && <AiTag />}
                     </button>
                   )}
                   {onOpenCsvImport && (

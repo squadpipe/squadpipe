@@ -22,7 +22,7 @@ import { RoleSummaryField } from '../../components/shared/RichTextEditor';
 import { DetailBreadcrumb } from '../../components/shared/DetailPageShell';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatusBadge } from '../../components/shared/StatusBadge';
-import { AiBadge } from '../../components/shared/AiBrand';
+import { AiBadge, AiIcon } from '../../components/shared/AiBrand';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { UnsavedChangesModal, useFormShortcuts } from '../../hooks/useFormShortcuts';
 
@@ -500,14 +500,19 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
         title="Create Job from Client Email"
         subtitle="Paste any hiring manager email on the left to populate client, role, skills, rates, and a client-safe public job description."
         badges={
-          marginSpread > 0 ? (
-            <StatusBadge
-              tone="emerald"
-              size="xs"
-              label={`Est. Spread: +${currencySymbol}${marginSpread}/hr`}
-              className="tabular-nums"
-            />
-          ) : undefined
+          <>
+            {aiCapabilities.enabled && (
+              <AiBadge label="SquadPipe AI Extractor" size="xs" />
+            )}
+            {marginSpread > 0 && (
+              <StatusBadge
+                tone="emerald"
+                size="xs"
+                label={`Est. Spread: +${currencySymbol}${marginSpread}/hr`}
+                className="tabular-nums"
+              />
+            )}
+          </>
         }
         actions={
           <>
@@ -549,8 +554,9 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
         {/* Left Column: Raw Email Input */}
         <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 p-5 card-shadow space-y-3 lg:sticky lg:top-4">
           <div className="flex items-center justify-between gap-2">
-            <label className="text-sm font-semibold text-slate-900">
-              Client email source
+            <label className="text-sm font-semibold text-slate-900 inline-flex items-center gap-1.5">
+              <AiIcon className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+              <span>Client email source</span>
             </label>
             <div className="flex items-center gap-2">
               {isParsing ? (
@@ -588,9 +594,10 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
                 type="button"
                 disabled={isParsing}
                 onClick={() => parseEmailText(rawEmailText, true)}
-                className="text-[11px] font-semibold text-brand-600 hover:text-brand-700 cursor-pointer disabled:opacity-50"
+                className="text-[11px] font-semibold text-brand-600 hover:text-brand-700 inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
               >
-                Re-run Extraction
+                <AiIcon className="w-3 h-3 text-teal-600" />
+                <span>Re-run {aiCapabilities.enabled ? 'AI ' : ''}Extraction</span>
               </button>
             )}
           </div>

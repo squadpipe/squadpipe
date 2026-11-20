@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { CheckCircle2, Loader2, X } from 'lucide-react';
 import { AppIcon } from './components/shared/AppIcon';
+import { AiBadge } from './components/shared/AiBrand';
 import { AnimatedToast } from './components/shared/MotionPrimitives';
 import { useBulkResumeQueue } from './hooks/useBulkResumeQueue';
 import { apiClient, AUTH_EXPIRED_EVENT, USER_SESSION_SYNC_EVENT } from './config/api.config';
@@ -3009,6 +3010,7 @@ export const App: React.FC = () => {
                     <span>
                       {bulkResumeQueue.isRunning ? 'Parsing Resumes' : 'Bulk Upload Complete'}
                     </span>
+                    <AiBadge label="SquadPipe AI" size="xs" variant="dark" />
                     {batchReq && (
                       <span className="px-1.5 py-0.5 rounded bg-white/10 text-[11px] font-mono text-emerald-300">
                         {batchReq.code}
