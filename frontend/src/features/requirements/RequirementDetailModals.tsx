@@ -798,7 +798,7 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
                     {!hasScore
                       ? 'Awaiting Evaluation'
                       : usedAi
-                        ? 'SquadPipe AI Evaluated'
+                        ? 'PipeAI Evaluated'
                         : 'Skill Match Check'}
                   </span>
                   {evaluatedAtLabel && (
@@ -817,121 +817,121 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
               </div>
             </div>
 
-              {/* Verdict */}
-              <div className="space-y-1.5">
-                <h5 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Assessment Verdict
-                </h5>
-                {summary?.verdict ? (
-                  <p className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/80 text-xs text-slate-700 font-medium leading-relaxed">
-                    {summary.verdict}
-                  </p>
-                ) : (
-                  <p className="p-3.5 rounded-xl bg-slate-50/70 border border-dashed border-slate-200 text-xs text-slate-500 leading-relaxed">
-                    {hasScore
-                      ? 'No detailed verdict is available yet for this applicant.'
-                      : 'No fit evaluation has been run yet. Click below to compare this applicant against required skills.'}
-                  </p>
-                )}
-              </div>
-
-              {/* Strengths */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <h5 className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 inline-flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Matched Strengths</span>
-                  </h5>
-                  <span className="text-[11px] font-semibold text-slate-500">
-                    {strengths.length}
-                  </span>
-                </div>
-                {strengths.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {strengths.map((item, idx) => (
-                      <span
-                        key={idx}
-                        className="px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-[11px] font-medium"
-                      >
-                        {item}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-[11px] text-slate-400 italic">
-                    No matching skills highlighted in this evaluation.
-                  </p>
-                )}
-              </div>
-
-              {/* Gaps */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <h5 className="text-[11px] font-bold uppercase tracking-wider text-amber-800 inline-flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    <span>Skill &amp; Experience Gaps</span>
-                  </h5>
-                  <span className="text-[11px] font-semibold text-slate-500">{gaps.length}</span>
-                </div>
-                {gaps.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {gaps.map((item, idx) => (
-                      <span
-                        key={idx}
-                        className="px-2.5 py-1 rounded-md bg-amber-50 border border-amber-200/80 text-amber-800 text-[11px] font-medium"
-                      >
-                        {item}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-[11px] text-slate-400 italic">
-                    No significant skill gaps identified.
-                  </p>
-                )}
-              </div>
+            {/* Verdict */}
+            <div className="space-y-1.5">
+              <h5 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Assessment Verdict
+              </h5>
+              {summary?.verdict ? (
+                <p className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/80 text-xs text-slate-700 font-medium leading-relaxed">
+                  {summary.verdict}
+                </p>
+              ) : (
+                <p className="p-3.5 rounded-xl bg-slate-50/70 border border-dashed border-slate-200 text-xs text-slate-500 leading-relaxed">
+                  {hasScore
+                    ? 'No detailed verdict is available yet for this applicant.'
+                    : 'No fit evaluation has been run yet. Click below to compare this applicant against required skills.'}
+                </p>
+              )}
             </div>
 
-            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
-              {onRunAiCheck ? (
-                <button
-                  type="button"
-                  disabled={isEvaluating}
-                  onClick={onRunAiCheck}
-                  className="px-3 py-1.5 rounded-lg border border-teal-200 bg-teal-50/90 hover:bg-teal-100/80 text-teal-800 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
-                >
-                  {isEvaluating ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <AiIcon className="w-3.5 h-3.5 text-teal-600" />
-                  )}
-                  <span>
-                    {isEvaluating
-                      ? 'Evaluating...'
-                      : aiEnabled
-                        ? usedAi
-                          ? 'Re-run SquadPipe AI Check'
-                          : 'Run SquadPipe AI Check'
-                        : hasScore
-                          ? 'Re-run Fit Check'
-                          : 'Run Fit Check'}
-                  </span>
-                </button>
-              ) : (
-                <span className="text-[11px] text-slate-400">
-                  Compared against {requirement.code} required skills
+            {/* Strengths */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <h5 className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 inline-flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Matched Strengths</span>
+                </h5>
+                <span className="text-[11px] font-semibold text-slate-500">
+                  {strengths.length}
                 </span>
+              </div>
+              {strengths.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {strengths.map((item, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-[11px] font-medium"
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-slate-400 italic">
+                  No matching skills highlighted in this evaluation.
+                </p>
               )}
+            </div>
+
+            {/* Gaps */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <h5 className="text-[11px] font-bold uppercase tracking-wider text-amber-800 inline-flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>Skill &amp; Experience Gaps</span>
+                </h5>
+                <span className="text-[11px] font-semibold text-slate-500">{gaps.length}</span>
+              </div>
+              {gaps.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {gaps.map((item, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2.5 py-1 rounded-md bg-amber-50 border border-amber-200/80 text-amber-800 text-[11px] font-medium"
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-slate-400 italic">
+                  No significant skill gaps identified.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
+            {onRunAiCheck ? (
               <button
                 type="button"
                 disabled={isEvaluating}
-                onClick={onClose}
-                className="px-4 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60 cursor-pointer transition-colors"
+                onClick={onRunAiCheck}
+                className="px-3 py-1.5 rounded-lg border border-teal-200 bg-teal-50/90 hover:bg-teal-100/80 text-teal-800 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
               >
-                Close
+                {isEvaluating ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <AiIcon className="w-3.5 h-3.5 text-teal-600" />
+                )}
+                <span>
+                  {isEvaluating
+                    ? 'Evaluating...'
+                    : aiEnabled
+                      ? usedAi
+                        ? 'Re-run PipeAI Check'
+                        : 'Run PipeAI Check'
+                      : hasScore
+                        ? 'Re-run Fit Check'
+                        : 'Run Fit Check'}
+                </span>
               </button>
-            </div>
-          </>
+            ) : (
+              <span className="text-[11px] text-slate-400">
+                Compared against {requirement.code} required skills
+              </span>
+            )}
+            <button
+              type="button"
+              disabled={isEvaluating}
+              onClick={onClose}
+              className="px-4 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60 cursor-pointer transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </>
       )}
     </AnimatedModal>
   );

@@ -241,22 +241,22 @@ const normalizePlacement = (p: any): BillablePlacement => {
     depRaw === 'OFFSHORE'
       ? 'Offshore'
       : depRaw === 'NEARSHORE'
-      ? 'Nearshore'
-      : depRaw === 'ONSHORE'
-      ? 'Onshore'
-      : p.deployment || 'Onshore';
+        ? 'Nearshore'
+        : depRaw === 'ONSHORE'
+          ? 'Onshore'
+          : p.deployment || 'Onshore';
 
   const typeRaw = String(p.placementType || 'C2C Subcontractor').toUpperCase();
   const placementType =
     typeRaw === 'W2_HOURLY'
       ? 'W2 Hourly'
       : typeRaw === 'TEN_NINETY_NINE'
-      ? '1099'
-      : typeRaw === 'FULL_TIME'
-      ? 'Full-Time'
-      : typeRaw === 'C2C_SUBCONTRACTOR'
-      ? 'C2C Subcontractor'
-      : p.placementType || 'C2C Subcontractor';
+        ? '1099'
+        : typeRaw === 'FULL_TIME'
+          ? 'Full-Time'
+          : typeRaw === 'C2C_SUBCONTRACTOR'
+            ? 'C2C Subcontractor'
+            : p.placementType || 'C2C Subcontractor';
 
   const statusRaw = String(p.status || 'Active').toUpperCase().replace(/\s+/g, '_');
   const statusMap: Record<string, BillablePlacement['status']> = {
@@ -471,8 +471,8 @@ export const App: React.FC = () => {
     const nextPath = buildAppPath(nextView, options?.entityId, options?.query);
     const cleanedQuery = options?.query
       ? (Object.fromEntries(
-          Object.entries(options.query).filter(([, v]) => Boolean(v && String(v).trim()))
-        ) as Record<string, string>)
+        Object.entries(options.query).filter(([, v]) => Boolean(v && String(v).trim()))
+      ) as Record<string, string>)
       : undefined;
     const historyState: BrowserHistoryRouteState = {
       view: nextView,
@@ -906,7 +906,7 @@ export const App: React.FC = () => {
 
   // Track loaded entities to support view-scoped lazy loading without duplicate requests
   const loadedEntities = React.useRef<Set<string>>(new Set());
-  const resetBulkResumeRef = React.useRef<() => void>(() => {});
+  const resetBulkResumeRef = React.useRef<() => void>(() => { });
 
   const resetWorkspaceState = () => {
     resetBulkResumeRef.current();
@@ -1170,9 +1170,9 @@ export const App: React.FC = () => {
             id: lg.id,
             timestamp: lg.createdAt
               ? new Date(lg.createdAt).toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
+                hour: '2-digit',
+                minute: '2-digit',
+              })
               : lg.timestamp || 'Just now',
             ruleName: lg.ruleName,
             target: lg.target,
@@ -1203,17 +1203,17 @@ export const App: React.FC = () => {
             f.type === 'NUMBER'
               ? `Currency (${getCurrencySymbol()})`
               : f.type === 'DROPDOWN'
-              ? 'Dropdown'
-              : f.type === 'DATE'
-              ? 'Date'
-              : 'Text',
+                ? 'Dropdown'
+                : f.type === 'DATE'
+                  ? 'Date'
+                  : 'Text',
           options: Array.isArray(f.options)
             ? f.options.join(', ')
             : typeof f.options === 'object' && f.options?.values
-            ? f.options.values
-            : typeof f.options === 'string'
-            ? f.options
-            : 'Standard Format',
+              ? f.options.values
+              : typeof f.options === 'string'
+                ? f.options
+                : 'Standard Format',
           required: !!f.required,
           active: f.active ?? true,
         }));
@@ -1418,17 +1418,17 @@ export const App: React.FC = () => {
             apiClient
               .get(`/candidates/${candId}`)
               .then((r) => r.data?.data && setSelectedCandForDetail(mapCandidateFromApi(r.data.data)))
-              .catch(() => {});
+              .catch(() => { });
           } else if (currentViewRef.current === 'requirement_detail' && reqId) {
             apiClient
               .get(`/requirements/${reqId}`)
               .then((r) => r.data?.data && setSelectedReqForDetail(mapRequirementFromApi(r.data.data)))
-              .catch(() => {});
+              .catch(() => { });
           } else if (currentViewRef.current === 'placement_detail' && placementId) {
             apiClient
               .get(`/placements/${placementId}`)
               .then((r) => r.data?.data && setSelectedPlacementForDetail(normalizePlacement(r.data.data)))
-              .catch(() => {});
+              .catch(() => { });
           }
         }
       }
@@ -1642,12 +1642,12 @@ export const App: React.FC = () => {
         ) {
           routeHandlersRef.current.handleOpenWorkflowPage(
             parsed.view as
-              | 'requirement_new'
-              | 'requirement_from_email'
-              | 'consultant_new'
-              | 'import_resume'
-              | 'import_csv'
-              | 'placement_new',
+            | 'requirement_new'
+            | 'requirement_from_email'
+            | 'consultant_new'
+            | 'import_resume'
+            | 'import_csv'
+            | 'placement_new',
             {
               requirementId: parsed.query?.requirementId,
               candidateId: parsed.query?.candidateId,
@@ -1999,11 +1999,11 @@ export const App: React.FC = () => {
 
     const reqFromState = targetReqId
       ? (placementLaunchContext?.requirement?.id === targetReqId
-          ? placementLaunchContext.requirement
-          : null) ||
-        (selectedReqForDetail?.id === targetReqId ? selectedReqForDetail : null) ||
-        requirements.find((r) => r.id === targetReqId) ||
-        null
+        ? placementLaunchContext.requirement
+        : null) ||
+      (selectedReqForDetail?.id === targetReqId ? selectedReqForDetail : null) ||
+      requirements.find((r) => r.id === targetReqId) ||
+      null
       : null;
 
     if (targetReqId && !hasHydratedReq(reqFromState)) {
@@ -2022,24 +2022,24 @@ export const App: React.FC = () => {
               : [mappedReq, ...prev]
           );
         })
-        .catch(() => {});
+        .catch(() => { });
     }
 
     const candFromSub = targetCandId
       ? (reqFromState?.submissions || []).find(
-          (s) =>
-            s.candidateId === targetCandId ||
-            s.candidate?.id === targetCandId ||
-            s.id === targetCandId
-        )?.candidate || null
+        (s) =>
+          s.candidateId === targetCandId ||
+          s.candidate?.id === targetCandId ||
+          s.id === targetCandId
+      )?.candidate || null
       : null;
 
     const hasCand = Boolean(
       !targetCandId ||
-        placementLaunchContext?.candidate?.id === targetCandId ||
-        candidates.some((c) => c.id === targetCandId) ||
-        selectedCandForDetail?.id === targetCandId ||
-        candFromSub
+      placementLaunchContext?.candidate?.id === targetCandId ||
+      candidates.some((c) => c.id === targetCandId) ||
+      selectedCandForDetail?.id === targetCandId ||
+      candFromSub
     );
 
     if (targetCandId && !hasCand && !targetCandId.startsWith('legacy_')) {
@@ -2058,7 +2058,7 @@ export const App: React.FC = () => {
               : [mappedCand, ...prev]
           );
         })
-        .catch(() => {});
+        .catch(() => { });
     }
 
     return () => {
@@ -2081,14 +2081,14 @@ export const App: React.FC = () => {
   );
   const avgHourlyMarginSpread = placements.length
     ? (
-        placements.reduce((sum, p) => sum + (Number(p.hourlySpread) || 0), 0) /
-        placements.length
-      ).toFixed(2)
+      placements.reduce((sum, p) => sum + (Number(p.hourlySpread) || 0), 0) /
+      placements.length
+    ).toFixed(2)
     : '0.00';
   const avgMarginPercent = placements.length
     ? (
-        placements.reduce((sum, p) => sum + (Number(p.marginPct) || 0), 0) / placements.length
-      ).toFixed(1)
+      placements.reduce((sum, p) => sum + (Number(p.marginPct) || 0), 0) / placements.length
+    ).toFixed(1)
     : '0.0';
 
   const expiringPlacementsCount = placements.filter((p) => {
@@ -2182,8 +2182,8 @@ export const App: React.FC = () => {
     if (!incoming || incoming.length === 0) return;
     const normalized = markSubmitted
       ? incoming.map((c) =>
-          c.pipelineStage === 'Available / Bench' ? { ...c, pipelineStage: 'Submitted' } : c
-        )
+        c.pipelineStage === 'Available / Bench' ? { ...c, pipelineStage: 'Submitted' } : c
+      )
       : incoming;
     setCandidates((prev) => {
       const byId = new Map(normalized.map((c) => [c.id, c]));
@@ -2256,8 +2256,8 @@ export const App: React.FC = () => {
     const reqObj =
       typeof reqOrId === 'string'
         ? requirements.find((r) => r.id === reqOrId) ||
-          (selectedReqForDetail?.id === reqOrId ? selectedReqForDetail : null) ||
-          (inlineImportTargetReq?.id === reqOrId ? inlineImportTargetReq : null)
+        (selectedReqForDetail?.id === reqOrId ? selectedReqForDetail : null) ||
+        (inlineImportTargetReq?.id === reqOrId ? inlineImportTargetReq : null)
         : reqOrId;
     const reqId = typeof reqOrId === 'string' ? reqOrId : reqOrId.id;
 
@@ -2273,13 +2273,13 @@ export const App: React.FC = () => {
 
     const backOrigin =
       fromViewOverride &&
-      ![
-        'requirement_detail',
-        'requirement_from_email',
-        'import_resume',
-        'import_csv',
-        'placement_new',
-      ].includes(fromViewOverride)
+        ![
+          'requirement_detail',
+          'requirement_from_email',
+          'import_resume',
+          'import_csv',
+          'placement_new',
+        ].includes(fromViewOverride)
         ? fromViewOverride
         : reqDetailReturnView || 'pipeline';
 
@@ -2505,7 +2505,7 @@ export const App: React.FC = () => {
       setCandidates((prev) =>
         prev.map((c) =>
           (savedPlacement.candidateId && c.id === savedPlacement.candidateId) ||
-          c.fullName.trim().toLowerCase() === targetName
+            c.fullName.trim().toLowerCase() === targetName
             ? { ...c, pipelineStage: 'Billable' }
             : c
         )
@@ -2627,7 +2627,7 @@ export const App: React.FC = () => {
     setCandidates((prev) =>
       prev.map((c) =>
         (targetPlacement.candidateId && c.id === targetPlacement.candidateId) ||
-        c.fullName.trim().toLowerCase() === targetName
+          c.fullName.trim().toLowerCase() === targetName
           ? { ...c, pipelineStage: nextStage }
           : c
       )
@@ -2766,8 +2766,8 @@ export const App: React.FC = () => {
         setCandidates((prev) =>
           prev.map((c) =>
             c.pipelineStage === 'Billable' &&
-            ((placement.candidateId && c.id === placement.candidateId) ||
-              c.fullName.trim().toLowerCase() === targetName)
+              ((placement.candidateId && c.id === placement.candidateId) ||
+                c.fullName.trim().toLowerCase() === targetName)
               ? { ...c, pipelineStage: 'Available / Bench' }
               : c
           )
@@ -2891,7 +2891,7 @@ export const App: React.FC = () => {
   };
 
   const handleSignOut = () => {
-    apiClient.post('/auth/logout').catch(() => {});
+    apiClient.post('/auth/logout').catch(() => { });
     clearAuthSession();
     resetWorkspaceState();
     setCurrentUser(null);
@@ -2941,11 +2941,11 @@ export const App: React.FC = () => {
       });
       const savedUser: User = res.data?.data
         ? {
-            ...updated,
-            ...res.data.data,
-            role: formatUserRole(res.data.data.role || updated.role),
-            status: formatUserStatus(res.data.data.status || updated.status),
-          }
+          ...updated,
+          ...res.data.data,
+          role: formatUserRole(res.data.data.role || updated.role),
+          status: formatUserStatus(res.data.data.status || updated.status),
+        }
         : updated;
       setCurrentUser(savedUser);
       updateStoredCurrentUser(savedUser);
@@ -3099,9 +3099,8 @@ export const App: React.FC = () => {
 
         return (
           <div
-            className={`fixed bottom-5 left-1/2 -translate-x-1/2 ${
-              sidebarCollapsed ? 'md:left-[calc(50%+36px)]' : 'md:left-[calc(50%+128px)]'
-            } z-[65] w-[560px] max-w-[calc(100vw-2rem)] bg-[#141615] text-white border border-white/15 rounded-xl shadow-2xl px-4 py-3 space-y-2.5 transition-all`}
+            className={`fixed bottom-5 left-1/2 -translate-x-1/2 ${sidebarCollapsed ? 'md:left-[calc(50%+36px)]' : 'md:left-[calc(50%+128px)]'
+              } z-[65] w-[560px] max-w-[calc(100vw-2rem)] bg-[#141615] text-white border border-white/15 rounded-xl shadow-2xl px-4 py-3 space-y-2.5 transition-all`}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2 min-w-0">
@@ -3114,7 +3113,7 @@ export const App: React.FC = () => {
                   <div className="text-xs font-bold text-white flex items-center gap-1.5 flex-wrap">
                     <span>
                       {bulkResumeQueue.isRunning ? 'Parsing Resumes' : 'Bulk Upload Complete'}
-                    </span>
+                    </span>PipeAI
                     <AiBadge label="SquadPipe AI" size="xs" variant="dark" />
                     {batchReq && (
                       <span className="px-1.5 py-0.5 rounded bg-white/10 text-[11px] font-mono text-emerald-300">
@@ -3143,9 +3142,8 @@ export const App: React.FC = () => {
 
             <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
               <div
-                className={`h-full transition-all duration-300 ${
-                  bulkResumeQueue.isRunning ? 'bg-brand-500' : 'bg-emerald-500'
-                }`}
+                className={`h-full transition-all duration-300 ${bulkResumeQueue.isRunning ? 'bg-brand-500' : 'bg-emerald-500'
+                  }`}
                 style={{ width: `${pct}%` }}
               />
             </div>
@@ -3189,51 +3187,51 @@ export const App: React.FC = () => {
       <Sidebar
         currentView={
           currentView === 'requirement_new' ||
-          currentView === 'requirement_edit' ||
-          currentView === 'requirement_form_preview' ||
-          currentView === 'requirement_from_email'
+            currentView === 'requirement_edit' ||
+            currentView === 'requirement_form_preview' ||
+            currentView === 'requirement_from_email'
             ? 'pipeline'
             : currentView === 'consultant_new' || currentView === 'consultant_edit'
               ? 'consultants'
               : currentView === 'requirement_detail'
-            ? reqDetailReturnView === 'dashboard'
-              ? 'dashboard'
-              : reqDetailReturnView === 'client_detail'
-                ? 'clients'
-                : reqDetailReturnView === 'consultant_detail'
-                  ? 'consultants'
-                  : 'pipeline'
-            : currentView === 'consultant_detail'
-              ? candDetailReturnView === 'dashboard'
-                ? 'dashboard'
-                : candDetailReturnView === 'requirement_detail'
-                  ? 'pipeline'
-                  : candDetailReturnView === 'vendor_detail'
-                    ? 'vendors'
-                    : candDetailReturnView === 'placement_detail'
-                      ? 'billable'
-                      : 'consultants'
-              : currentView === 'client_detail'
-                ? 'clients'
-                : currentView === 'vendor_detail'
-                  ? vendorDetailReturnView === 'consultant_detail'
-                    ? 'consultants'
-                    : vendorDetailReturnView === 'placement_detail'
-                      ? 'billable'
-                      : 'vendors'
-                  : currentView === 'placement_detail'
-                    ? placementDetailReturnView === 'client_detail'
-                      ? 'clients'
-                      : placementDetailReturnView === 'vendor_detail'
+                ? reqDetailReturnView === 'dashboard'
+                  ? 'dashboard'
+                  : reqDetailReturnView === 'client_detail'
+                    ? 'clients'
+                    : reqDetailReturnView === 'consultant_detail'
+                      ? 'consultants'
+                      : 'pipeline'
+                : currentView === 'consultant_detail'
+                  ? candDetailReturnView === 'dashboard'
+                    ? 'dashboard'
+                    : candDetailReturnView === 'requirement_detail'
+                      ? 'pipeline'
+                      : candDetailReturnView === 'vendor_detail'
                         ? 'vendors'
-                        : placementDetailReturnView === 'consultant_detail'
-                          ? 'consultants'
-                          : placementDetailReturnView === 'requirement_detail'
-                            ? 'pipeline'
-                            : placementDetailReturnView === 'dashboard'
-                              ? 'dashboard'
-                              : 'billable'
-                    : currentView
+                        : candDetailReturnView === 'placement_detail'
+                          ? 'billable'
+                          : 'consultants'
+                  : currentView === 'client_detail'
+                    ? 'clients'
+                    : currentView === 'vendor_detail'
+                      ? vendorDetailReturnView === 'consultant_detail'
+                        ? 'consultants'
+                        : vendorDetailReturnView === 'placement_detail'
+                          ? 'billable'
+                          : 'vendors'
+                      : currentView === 'placement_detail'
+                        ? placementDetailReturnView === 'client_detail'
+                          ? 'clients'
+                          : placementDetailReturnView === 'vendor_detail'
+                            ? 'vendors'
+                            : placementDetailReturnView === 'consultant_detail'
+                              ? 'consultants'
+                              : placementDetailReturnView === 'requirement_detail'
+                                ? 'pipeline'
+                                : placementDetailReturnView === 'dashboard'
+                                  ? 'dashboard'
+                                  : 'billable'
+                        : currentView
         }
         onNavigate={handleNavigateView}
         counts={computedSidebarCounts}
@@ -3297,539 +3295,539 @@ export const App: React.FC = () => {
             {isResolvingCurrentDetail && <PageSkeleton variant="detail" />}
 
             {currentView === 'dashboard' && (
-            <DashboardView
-              requirements={requirements}
-              candidates={candidates}
-              placements={placements}
-              slaTasks={slaTasks}
-              rateMasked={rateMasked}
-              onNavigate={handleNavigateView}
-              onOpenCreateReq={() =>
-                handleOpenWorkflowPage('requirement_new', { fromView: 'dashboard' })
-              }
-              onSelectReq={(r) => handleOpenRequirementDetail(r, 'dashboard')}
-              onEditReq={(r) => handleOpenRequirementEdit(r, 'dashboard')}
-              onUpdateReq={handleUpdateRequirement}
-              onDeleteReq={canManageDataOperations ? handleDeleteRequirement : undefined}
-              onPreviewResumeByName={(candName) => {
-                const c = candidates.find((cand) => cand.fullName === candName);
-                if (c) handleOpenConsultantDetail(c, false, 'dashboard');
-              }}
-              onStatusChange={handleStatusChange}
-              onOpenMatcher={(req) => {
-                setActiveReq(req);
-                setIsMatcherModalOpen(true);
-              }}
-              onOpenSlaDrawer={() => setIsSlaOpen(true)}
-              onTaskAction={handleTaskAction}
-              onRefreshSla={async () => {
-                await Promise.all([fetchSlaTasks(), fetchAutomations(), fetchSidebarCounts()]);
-              }}
-              showToast={showToast}
-            />
-          )}
+              <DashboardView
+                requirements={requirements}
+                candidates={candidates}
+                placements={placements}
+                slaTasks={slaTasks}
+                rateMasked={rateMasked}
+                onNavigate={handleNavigateView}
+                onOpenCreateReq={() =>
+                  handleOpenWorkflowPage('requirement_new', { fromView: 'dashboard' })
+                }
+                onSelectReq={(r) => handleOpenRequirementDetail(r, 'dashboard')}
+                onEditReq={(r) => handleOpenRequirementEdit(r, 'dashboard')}
+                onUpdateReq={handleUpdateRequirement}
+                onDeleteReq={canManageDataOperations ? handleDeleteRequirement : undefined}
+                onPreviewResumeByName={(candName) => {
+                  const c = candidates.find((cand) => cand.fullName === candName);
+                  if (c) handleOpenConsultantDetail(c, false, 'dashboard');
+                }}
+                onStatusChange={handleStatusChange}
+                onOpenMatcher={(req) => {
+                  setActiveReq(req);
+                  setIsMatcherModalOpen(true);
+                }}
+                onOpenSlaDrawer={() => setIsSlaOpen(true)}
+                onTaskAction={handleTaskAction}
+                onRefreshSla={async () => {
+                  await Promise.all([fetchSlaTasks(), fetchAutomations(), fetchSidebarCounts()]);
+                }}
+                showToast={showToast}
+              />
+            )}
 
-          {currentView === 'pipeline' && (
-            <PipelineView
-              requirements={requirements}
-              candidates={candidates}
-              rateMasked={rateMasked}
-              onStatusChange={handleStatusChange}
-              onOpenEmailParser={() =>
-                handleOpenWorkflowPage('requirement_from_email', { fromView: 'pipeline' })
-              }
-              onOpenMatcher={(req) => {
-                setActiveReq(req);
-                setIsMatcherModalOpen(true);
-              }}
-              onOpenPlacementWizard={(req) =>
-                handleOpenPlacementPage(req, null, 'pipeline')
-              }
-              onSelectReq={(r) => handleOpenRequirementDetail(r, 'pipeline')}
-              onOpenAddReq={() =>
-                handleOpenWorkflowPage('requirement_new', { fromView: 'pipeline' })
-              }
-              onEditReq={(r) => handleOpenRequirementEdit(r, 'pipeline')}
-              onUpdateReq={handleUpdateRequirement}
-              onDeleteReq={canManageDataOperations ? handleDeleteRequirement : undefined}
-            />
-          )}
+            {currentView === 'pipeline' && (
+              <PipelineView
+                requirements={requirements}
+                candidates={candidates}
+                rateMasked={rateMasked}
+                onStatusChange={handleStatusChange}
+                onOpenEmailParser={() =>
+                  handleOpenWorkflowPage('requirement_from_email', { fromView: 'pipeline' })
+                }
+                onOpenMatcher={(req) => {
+                  setActiveReq(req);
+                  setIsMatcherModalOpen(true);
+                }}
+                onOpenPlacementWizard={(req) =>
+                  handleOpenPlacementPage(req, null, 'pipeline')
+                }
+                onSelectReq={(r) => handleOpenRequirementDetail(r, 'pipeline')}
+                onOpenAddReq={() =>
+                  handleOpenWorkflowPage('requirement_new', { fromView: 'pipeline' })
+                }
+                onEditReq={(r) => handleOpenRequirementEdit(r, 'pipeline')}
+                onUpdateReq={handleUpdateRequirement}
+                onDeleteReq={canManageDataOperations ? handleDeleteRequirement : undefined}
+              />
+            )}
 
-          {currentView === 'requirement_new' && (
-            <RequirementFormPage
-              mode="create"
-              clients={clients}
-              users={users}
-              backLabel={
-                workflowReturnView === 'dashboard' ? 'Back to Dashboard' : 'Back to Pipeline'
-              }
-              onBack={() => handleReturnFromWorkflowPage('pipeline')}
-              onOpenFromEmail={() =>
-                handleOpenWorkflowPage('requirement_from_email', {
-                  fromView: workflowReturnView,
-                  replaceHistory: true,
-                })
-              }
-              onSaveCreate={async (r) => {
-                const res = await apiClient.post('/requirements', r);
-                const saved = res.data?.data ? mapRequirementFromApi(res.data.data) : r;
-                fetchClients();
-                fetchSidebarCounts();
-                fetchSlaTasks();
-                fetchAutomations();
-                setRequirements((prev) => [saved, ...prev]);
-                handleOpenRequirementDetail(saved, 'pipeline');
-                return saved;
-              }}
-              showToast={showToast}
-            />
-          )}
-
-          {currentView === 'requirement_edit' && !isResolvingCurrentDetail && (() => {
-            const editingReq =
-              requirements.find((r) => r.id === (selectedReqForDetail?.id || routeTarget.entityId)) ||
-              selectedReqForDetail;
-            return (
+            {currentView === 'requirement_new' && (
               <RequirementFormPage
-                mode="edit"
-                initialRequirement={editingReq}
+                mode="create"
                 clients={clients}
                 users={users}
                 backLabel={
-                  workflowReturnView === 'pipeline'
-                    ? 'Back to Pipeline'
-                    : workflowReturnView === 'dashboard'
-                      ? 'Back to Dashboard'
-                      : editingReq?.code
-                        ? `Back to ${editingReq.code}`
-                        : 'Back to Requirement'
+                  workflowReturnView === 'dashboard' ? 'Back to Dashboard' : 'Back to Pipeline'
                 }
-                onBack={() => {
-                  if (
-                    !editingReq ||
-                    workflowReturnView === 'pipeline' ||
-                    workflowReturnView === 'dashboard'
-                  ) {
-                    handleNavigateView(workflowReturnView === 'dashboard' ? 'dashboard' : 'pipeline');
-                    return;
-                  }
-                  handleReturnFromWorkflowPage('requirement_detail');
-                }}
-                onSaveEdit={async (updated) => {
-                  const saved = await handleUpdateRequirement(updated);
-                  handleOpenRequirementDetail(saved || updated, reqDetailReturnView || 'pipeline');
+                onBack={() => handleReturnFromWorkflowPage('pipeline')}
+                onOpenFromEmail={() =>
+                  handleOpenWorkflowPage('requirement_from_email', {
+                    fromView: workflowReturnView,
+                    replaceHistory: true,
+                  })
+                }
+                onSaveCreate={async (r) => {
+                  const res = await apiClient.post('/requirements', r);
+                  const saved = res.data?.data ? mapRequirementFromApi(res.data.data) : r;
+                  fetchClients();
+                  fetchSidebarCounts();
+                  fetchSlaTasks();
+                  fetchAutomations();
+                  setRequirements((prev) => [saved, ...prev]);
+                  handleOpenRequirementDetail(saved, 'pipeline');
+                  return saved;
                 }}
                 showToast={showToast}
               />
-            );
-          })()}
+            )}
 
-          {currentView === 'requirement_from_email' && (
-            <RequirementFromEmailPage
-              clients={clients}
-              users={users}
-              backLabel={
-                workflowReturnView === 'dashboard' ? 'Back to Dashboard' : 'Back to Pipeline'
-              }
-              onBack={() => handleReturnFromWorkflowPage('pipeline')}
-              onApprove={(req) => {
-                setRequirements((prev) => [req, ...prev]);
-                fetchClients();
-                fetchSidebarCounts();
-                fetchSlaTasks();
-                fetchAutomations();
-                handleOpenRequirementDetail(req, 'pipeline');
-              }}
-              showToast={showToast}
-            />
-          )}
-
-          {currentView === 'requirement_detail' && !isResolvingCurrentDetail && (
-            <RequirementDetailPage
-              requirement={
-                requirements.find((r) => r.id === selectedReqForDetail?.id) ||
-                selectedReqForDetail
-              }
-              backLabel={
-                reqDetailReturnView === 'dashboard'
-                  ? 'Back to Dashboard'
-                  : reqDetailReturnView === 'client_detail'
-                    ? 'Back to Client'
-                    : reqDetailReturnView === 'consultant_detail'
-                      ? 'Back to Consultant'
-                      : reqDetailReturnView === 'placement_detail'
-                        ? 'Back to Placement'
-                        : 'Back to Pipeline'
-              }
-              onBack={() => handleNavigateView(reqDetailReturnView)}
-              candidates={candidates}
-              placements={placements}
-              rateMasked={rateMasked}
-              onAssignCandidate={handleAssignCandidate}
-              onAttachCandidates={handleAttachCandidates}
-              onUpdateSubmissionStage={handleUpdateSubmissionStage}
-              onUpdateSubmissionNotes={handleUpdateSubmissionNotes}
-              onDetachSubmission={handleDetachSubmission}
-              onOpenResumePreview={(cand) =>
-                handleOpenConsultantDetail(cand, false, 'requirement_detail')
-              }
-              onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'requirement_detail')}
-              onOpenPlacementWizard={(req, cand) =>
-                handleOpenPlacementPage(req, cand || null, 'requirement_detail')
-              }
-              onEditReq={(req) => handleOpenRequirementEdit(req, 'requirement_detail')}
-              onUpdateReq={handleUpdateRequirement}
-              onRequirementUpdated={syncUpdatedRequirement}
-              onOpenCsvImport={
-                canManageDataOperations
-                  ? (req) => handleOpenInlineCsvPopup(req)
-                  : undefined
-              }
-              onOpenResumeParser={
-                canManageDataOperations
-                  ? (req) => handleOpenInlineResumePopup(req)
-                  : undefined
-              }
-              onPreviewApplicationForm={(req, templateId) =>
-                handleOpenRequirementFormPreview(req, templateId, reqDetailReturnView)
-              }
-              benchPickerCloseToken={benchPickerCloseToken}
-            />
-          )}
-
-          {currentView === 'requirement_form_preview' && (
-            <RequirementFormPreviewPage
-              requirement={
+            {currentView === 'requirement_edit' && !isResolvingCurrentDetail && (() => {
+              const editingReq =
                 requirements.find((r) => r.id === (selectedReqForDetail?.id || routeTarget.entityId)) ||
-                selectedReqForDetail
-              }
-              initialTemplateId={routeTarget.query?.templateId}
-              isLoading={isResolvingCurrentDetail}
-              isAdmin={isAdmin}
-              agencyName={currentUser?.agencyName}
-              onBack={() => {
-                const targetReq =
-                  requirements.find((r) => r.id === (selectedReqForDetail?.id || routeTarget.entityId)) ||
-                  selectedReqForDetail;
-                if (targetReq) {
-                  handleOpenRequirementDetail(targetReq, reqDetailReturnView || 'pipeline');
-                  return;
-                }
-                handleNavigateView('pipeline');
-              }}
-              onEditTemplate={
-                isAdmin
-                  ? (formId) => handleOpenApplicationFormPage({ mode: 'edit', formId })
-                  : undefined
-              }
-              showToast={showToast}
-            />
-          )}
+                selectedReqForDetail;
+              return (
+                <RequirementFormPage
+                  mode="edit"
+                  initialRequirement={editingReq}
+                  clients={clients}
+                  users={users}
+                  backLabel={
+                    workflowReturnView === 'pipeline'
+                      ? 'Back to Pipeline'
+                      : workflowReturnView === 'dashboard'
+                        ? 'Back to Dashboard'
+                        : editingReq?.code
+                          ? `Back to ${editingReq.code}`
+                          : 'Back to Requirement'
+                  }
+                  onBack={() => {
+                    if (
+                      !editingReq ||
+                      workflowReturnView === 'pipeline' ||
+                      workflowReturnView === 'dashboard'
+                    ) {
+                      handleNavigateView(workflowReturnView === 'dashboard' ? 'dashboard' : 'pipeline');
+                      return;
+                    }
+                    handleReturnFromWorkflowPage('requirement_detail');
+                  }}
+                  onSaveEdit={async (updated) => {
+                    const saved = await handleUpdateRequirement(updated);
+                    handleOpenRequirementDetail(saved || updated, reqDetailReturnView || 'pipeline');
+                  }}
+                  showToast={showToast}
+                />
+              );
+            })()}
 
-          {currentView === 'consultants' && (
-            <ConsultantsView
-              candidates={candidates}
-              placements={placements}
-              vendors={vendors}
-              rateMasked={rateMasked}
-              onOpenResumeParser={() =>
-                handleOpenWorkflowPage('import_resume', { fromView: 'consultants' })
-              }
-              onPreviewResume={(c, startEditing) =>
-                handleOpenConsultantDetail(c, Boolean(startEditing), 'consultants')
-              }
-              onOpenAddConsultant={() =>
-                handleOpenWorkflowPage('consultant_new', { fromView: 'consultants' })
-              }
-              onOpenCsvImport={
-                canManageDataOperations
-                  ? () => handleOpenWorkflowPage('import_csv', { fromView: 'consultants' })
-                  : undefined
-              }
-              onNavigateToBillable={() => handleNavigateView('billable')}
-              canEditCandidate={canManageDataOperations}
-              onEditCandidate={
-                canManageDataOperations
-                  ? (cand) => handleOpenConsultantEdit(cand, 'consultants')
-                  : undefined
-              }
-              onUpdateCandidate={canManageDataOperations ? handleUpdateCandidate : undefined}
-              onDeleteCandidate={canManageDataOperations ? handleDeleteCandidate : undefined}
-            />
-          )}
-
-          {currentView === 'consultant_new' && (
-            <ConsultantCreatePage
-              users={users}
-              vendors={vendors}
-              backLabel={
-                workflowReturnView === 'dashboard' ? 'Back to Dashboard' : 'Back to Consultants'
-              }
-              onBack={() => handleReturnFromWorkflowPage('consultants')}
-              onOpenResumeParser={() =>
-                handleOpenWorkflowPage('import_resume', {
-                  fromView: 'consultant_new',
-                })
-              }
-              onSave={async (c, cvFile) => {
-                const payload = {
-                  fullName: c.fullName,
-                  email: c.email,
-                  phone: c.phone,
-                  currentTitle: c.currentTitle,
-                  workAuth: c.workAuth,
-                  education: c.education,
-                  skillset: c.skillset,
-                  hourlyRateDisplay: c.hourlyRate,
-                  relocation: c.relocation,
-                  assignedRecruiter: c.assignedRecruiter,
-                  pipelineStage: c.pipelineStage,
-                  vendorId: c.vendorId || undefined,
-                  vendorName: c.vendorName || undefined,
-                  resumeFileName: cvFile ? cvFile.name : c.resumeName,
-                  resumeFormat: cvFile ? undefined : c.resumeFormat,
-                  customFields: c.customFields,
-                };
-                const requestBody = cvFile ? buildCandidateFormData(payload, cvFile) : payload;
-                const res = await apiClient.post('/candidates', requestBody);
-                const saved = res.data?.data ? mapCandidateFromApi(res.data.data) : c;
-                fetchSidebarCounts();
-                setCandidates((prev) => [saved, ...prev]);
-                handleOpenConsultantDetail(saved, false, 'consultants');
-                return saved;
-              }}
-              showToast={showToast}
-            />
-          )}
-
-          {currentView === 'consultant_edit' && !isResolvingCurrentDetail && (() => {
-            const editingCand =
-              candidates.find((c) => c.id === (selectedCandForDetail?.id || routeTarget.entityId)) ||
-              selectedCandForDetail;
-            return (
-              <ConsultantCreatePage
-                mode="edit"
-                initialCandidate={editingCand}
+            {currentView === 'requirement_from_email' && (
+              <RequirementFromEmailPage
+                clients={clients}
                 users={users}
+                backLabel={
+                  workflowReturnView === 'dashboard' ? 'Back to Dashboard' : 'Back to Pipeline'
+                }
+                onBack={() => handleReturnFromWorkflowPage('pipeline')}
+                onApprove={(req) => {
+                  setRequirements((prev) => [req, ...prev]);
+                  fetchClients();
+                  fetchSidebarCounts();
+                  fetchSlaTasks();
+                  fetchAutomations();
+                  handleOpenRequirementDetail(req, 'pipeline');
+                }}
+                showToast={showToast}
+              />
+            )}
+
+            {currentView === 'requirement_detail' && !isResolvingCurrentDetail && (
+              <RequirementDetailPage
+                requirement={
+                  requirements.find((r) => r.id === selectedReqForDetail?.id) ||
+                  selectedReqForDetail
+                }
+                backLabel={
+                  reqDetailReturnView === 'dashboard'
+                    ? 'Back to Dashboard'
+                    : reqDetailReturnView === 'client_detail'
+                      ? 'Back to Client'
+                      : reqDetailReturnView === 'consultant_detail'
+                        ? 'Back to Consultant'
+                        : reqDetailReturnView === 'placement_detail'
+                          ? 'Back to Placement'
+                          : 'Back to Pipeline'
+                }
+                onBack={() => handleNavigateView(reqDetailReturnView)}
+                candidates={candidates}
+                placements={placements}
+                rateMasked={rateMasked}
+                onAssignCandidate={handleAssignCandidate}
+                onAttachCandidates={handleAttachCandidates}
+                onUpdateSubmissionStage={handleUpdateSubmissionStage}
+                onUpdateSubmissionNotes={handleUpdateSubmissionNotes}
+                onDetachSubmission={handleDetachSubmission}
+                onOpenResumePreview={(cand) =>
+                  handleOpenConsultantDetail(cand, false, 'requirement_detail')
+                }
+                onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'requirement_detail')}
+                onOpenPlacementWizard={(req, cand) =>
+                  handleOpenPlacementPage(req, cand || null, 'requirement_detail')
+                }
+                onEditReq={(req) => handleOpenRequirementEdit(req, 'requirement_detail')}
+                onUpdateReq={handleUpdateRequirement}
+                onRequirementUpdated={syncUpdatedRequirement}
+                onOpenCsvImport={
+                  canManageDataOperations
+                    ? (req) => handleOpenInlineCsvPopup(req)
+                    : undefined
+                }
+                onOpenResumeParser={
+                  canManageDataOperations
+                    ? (req) => handleOpenInlineResumePopup(req)
+                    : undefined
+                }
+                onPreviewApplicationForm={(req, templateId) =>
+                  handleOpenRequirementFormPreview(req, templateId, reqDetailReturnView)
+                }
+                benchPickerCloseToken={benchPickerCloseToken}
+              />
+            )}
+
+            {currentView === 'requirement_form_preview' && (
+              <RequirementFormPreviewPage
+                requirement={
+                  requirements.find((r) => r.id === (selectedReqForDetail?.id || routeTarget.entityId)) ||
+                  selectedReqForDetail
+                }
+                initialTemplateId={routeTarget.query?.templateId}
+                isLoading={isResolvingCurrentDetail}
+                isAdmin={isAdmin}
+                agencyName={currentUser?.agencyName}
+                onBack={() => {
+                  const targetReq =
+                    requirements.find((r) => r.id === (selectedReqForDetail?.id || routeTarget.entityId)) ||
+                    selectedReqForDetail;
+                  if (targetReq) {
+                    handleOpenRequirementDetail(targetReq, reqDetailReturnView || 'pipeline');
+                    return;
+                  }
+                  handleNavigateView('pipeline');
+                }}
+                onEditTemplate={
+                  isAdmin
+                    ? (formId) => handleOpenApplicationFormPage({ mode: 'edit', formId })
+                    : undefined
+                }
+                showToast={showToast}
+              />
+            )}
+
+            {currentView === 'consultants' && (
+              <ConsultantsView
+                candidates={candidates}
+                placements={placements}
                 vendors={vendors}
                 rateMasked={rateMasked}
-                backLabel={
-                  workflowReturnView === 'consultants'
-                    ? 'Back to Consultants'
-                    : editingCand?.fullName
-                      ? `Back to ${editingCand.fullName}`
-                      : 'Back to Profile'
+                onOpenResumeParser={() =>
+                  handleOpenWorkflowPage('import_resume', { fromView: 'consultants' })
                 }
-                onBack={() => {
-                  if (workflowReturnView === 'consultants' || !editingCand) {
-                    handleNavigateView('consultants');
-                    return;
-                  }
-                  handleOpenConsultantDetail(
-                    editingCand,
-                    false,
-                    candDetailReturnView || 'consultants'
-                  );
-                }}
-                onSaveEdit={async (updated, cvFile) => {
-                  const saved = await handleUpdateCandidate(updated, cvFile);
-                  const nextCand = saved || updated;
-                  handleOpenConsultantDetail(
-                    nextCand,
-                    false,
-                    candDetailReturnView || 'consultants'
-                  );
+                onPreviewResume={(c, startEditing) =>
+                  handleOpenConsultantDetail(c, Boolean(startEditing), 'consultants')
+                }
+                onOpenAddConsultant={() =>
+                  handleOpenWorkflowPage('consultant_new', { fromView: 'consultants' })
+                }
+                onOpenCsvImport={
+                  canManageDataOperations
+                    ? () => handleOpenWorkflowPage('import_csv', { fromView: 'consultants' })
+                    : undefined
+                }
+                onNavigateToBillable={() => handleNavigateView('billable')}
+                canEditCandidate={canManageDataOperations}
+                onEditCandidate={
+                  canManageDataOperations
+                    ? (cand) => handleOpenConsultantEdit(cand, 'consultants')
+                    : undefined
+                }
+                onUpdateCandidate={canManageDataOperations ? handleUpdateCandidate : undefined}
+                onDeleteCandidate={canManageDataOperations ? handleDeleteCandidate : undefined}
+              />
+            )}
+
+            {currentView === 'consultant_new' && (
+              <ConsultantCreatePage
+                users={users}
+                vendors={vendors}
+                backLabel={
+                  workflowReturnView === 'dashboard' ? 'Back to Dashboard' : 'Back to Consultants'
+                }
+                onBack={() => handleReturnFromWorkflowPage('consultants')}
+                onOpenResumeParser={() =>
+                  handleOpenWorkflowPage('import_resume', {
+                    fromView: 'consultant_new',
+                  })
+                }
+                onSave={async (c, cvFile) => {
+                  const payload = {
+                    fullName: c.fullName,
+                    email: c.email,
+                    phone: c.phone,
+                    currentTitle: c.currentTitle,
+                    workAuth: c.workAuth,
+                    education: c.education,
+                    skillset: c.skillset,
+                    hourlyRateDisplay: c.hourlyRate,
+                    relocation: c.relocation,
+                    assignedRecruiter: c.assignedRecruiter,
+                    pipelineStage: c.pipelineStage,
+                    vendorId: c.vendorId || undefined,
+                    vendorName: c.vendorName || undefined,
+                    resumeFileName: cvFile ? cvFile.name : c.resumeName,
+                    resumeFormat: cvFile ? undefined : c.resumeFormat,
+                    customFields: c.customFields,
+                  };
+                  const requestBody = cvFile ? buildCandidateFormData(payload, cvFile) : payload;
+                  const res = await apiClient.post('/candidates', requestBody);
+                  const saved = res.data?.data ? mapCandidateFromApi(res.data.data) : c;
+                  fetchSidebarCounts();
+                  setCandidates((prev) => [saved, ...prev]);
+                  handleOpenConsultantDetail(saved, false, 'consultants');
+                  return saved;
                 }}
                 showToast={showToast}
               />
-            );
-          })()}
+            )}
 
-          {currentView === 'consultant_detail' && !isResolvingCurrentDetail && (
-            <ConsultantDetailPage
-              candidate={
-                candidates.find((c) => c.id === selectedCandForDetail?.id) ||
-                selectedCandForDetail
-              }
-              backLabel={
-                candDetailReturnView === 'dashboard'
-                  ? 'Back to Dashboard'
-                  : candDetailReturnView === 'requirement_detail'
-                    ? 'Back to Requirement'
-                    : candDetailReturnView === 'vendor_detail'
-                      ? 'Back to Vendor'
-                      : candDetailReturnView === 'placement_detail'
-                        ? 'Back to Placement'
-                        : 'Back to Consultants'
-              }
-              onBack={() => handleNavigateView(candDetailReturnView)}
-              requirements={requirements}
-              placements={placements}
-              vendors={vendors}
-              rateMasked={rateMasked}
-              initialEditing={candDetailInitialEdit}
-              onSubmitToReq={(cand, req) => handleAssignCandidate(req, cand)}
-              onOpenRequirement={(req) => handleOpenRequirementDetail(req, 'consultant_detail')}
-              onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'consultant_detail')}
-              onOpenVendor={(v) => handleOpenVendorDetail(v, false, 'consultant_detail')}
-              onEditCandidate={
-                canManageDataOperations
-                  ? (cand) => handleOpenConsultantEdit(cand, 'consultant_detail')
-                  : undefined
-              }
-              onUpdateCandidate={canManageDataOperations ? handleUpdateCandidate : undefined}
-              onDeleteCandidate={canManageDataOperations ? handleDeleteCandidate : undefined}
-              onNavigateToBillable={() => handleNavigateView('billable')}
-              showToast={showToast}
-            />
-          )}
+            {currentView === 'consultant_edit' && !isResolvingCurrentDetail && (() => {
+              const editingCand =
+                candidates.find((c) => c.id === (selectedCandForDetail?.id || routeTarget.entityId)) ||
+                selectedCandForDetail;
+              return (
+                <ConsultantCreatePage
+                  mode="edit"
+                  initialCandidate={editingCand}
+                  users={users}
+                  vendors={vendors}
+                  rateMasked={rateMasked}
+                  backLabel={
+                    workflowReturnView === 'consultants'
+                      ? 'Back to Consultants'
+                      : editingCand?.fullName
+                        ? `Back to ${editingCand.fullName}`
+                        : 'Back to Profile'
+                  }
+                  onBack={() => {
+                    if (workflowReturnView === 'consultants' || !editingCand) {
+                      handleNavigateView('consultants');
+                      return;
+                    }
+                    handleOpenConsultantDetail(
+                      editingCand,
+                      false,
+                      candDetailReturnView || 'consultants'
+                    );
+                  }}
+                  onSaveEdit={async (updated, cvFile) => {
+                    const saved = await handleUpdateCandidate(updated, cvFile);
+                    const nextCand = saved || updated;
+                    handleOpenConsultantDetail(
+                      nextCand,
+                      false,
+                      candDetailReturnView || 'consultants'
+                    );
+                  }}
+                  showToast={showToast}
+                />
+              );
+            })()}
 
-          {currentView === 'clients' && (
-            <ClientsView
-              clients={clients}
-              requirements={requirements}
-              placements={placements}
-              onOpenAddClient={() => setActiveCreateModal('client')}
-              onSelectClient={(client, startEditing) =>
-                handleOpenClientDetail(client, Boolean(startEditing), 'clients')
-              }
-              onClientUpdated={(updatedClient) => {
-                setClients((prev) =>
-                  prev.map((c) => (c.id === updatedClient.id ? updatedClient : c))
-                );
-                setSelectedClientForDetail((prev) =>
-                  prev && prev.id === updatedClient.id ? updatedClient : prev
-                );
-              }}
-              onDeleteClient={isAdmin ? handleDeleteClient : undefined}
-              showToast={showToast}
-            />
-          )}
+            {currentView === 'consultant_detail' && !isResolvingCurrentDetail && (
+              <ConsultantDetailPage
+                candidate={
+                  candidates.find((c) => c.id === selectedCandForDetail?.id) ||
+                  selectedCandForDetail
+                }
+                backLabel={
+                  candDetailReturnView === 'dashboard'
+                    ? 'Back to Dashboard'
+                    : candDetailReturnView === 'requirement_detail'
+                      ? 'Back to Requirement'
+                      : candDetailReturnView === 'vendor_detail'
+                        ? 'Back to Vendor'
+                        : candDetailReturnView === 'placement_detail'
+                          ? 'Back to Placement'
+                          : 'Back to Consultants'
+                }
+                onBack={() => handleNavigateView(candDetailReturnView)}
+                requirements={requirements}
+                placements={placements}
+                vendors={vendors}
+                rateMasked={rateMasked}
+                initialEditing={candDetailInitialEdit}
+                onSubmitToReq={(cand, req) => handleAssignCandidate(req, cand)}
+                onOpenRequirement={(req) => handleOpenRequirementDetail(req, 'consultant_detail')}
+                onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'consultant_detail')}
+                onOpenVendor={(v) => handleOpenVendorDetail(v, false, 'consultant_detail')}
+                onEditCandidate={
+                  canManageDataOperations
+                    ? (cand) => handleOpenConsultantEdit(cand, 'consultant_detail')
+                    : undefined
+                }
+                onUpdateCandidate={canManageDataOperations ? handleUpdateCandidate : undefined}
+                onDeleteCandidate={canManageDataOperations ? handleDeleteCandidate : undefined}
+                onNavigateToBillable={() => handleNavigateView('billable')}
+                showToast={showToast}
+              />
+            )}
 
-          {currentView === 'client_detail' && !isResolvingCurrentDetail && (
-            <ClientDetailPage
-              client={
-                clients.find((c) => c.id === selectedClientForDetail?.id) ||
-                selectedClientForDetail
-              }
-              backLabel={
-                clientDetailReturnView === 'placement_detail'
-                  ? 'Back to Placement'
-                  : 'Back to Clients'
-              }
-              onBack={() => handleNavigateView(clientDetailReturnView)}
-              requirements={requirements}
-              placements={placements}
-              rateMasked={rateMasked}
-              initialEditing={clientDetailInitialEdit}
-              onClientUpdated={(updatedClient) => {
-                setClients((prev) =>
-                  prev.map((c) => (c.id === updatedClient.id ? updatedClient : c))
-                );
-                setSelectedClientForDetail((prev) =>
-                  prev && prev.id === updatedClient.id ? updatedClient : prev
-                );
-              }}
-              onOpenRequirement={(req) => handleOpenRequirementDetail(req, 'client_detail')}
-              onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'client_detail')}
-              onDeleteClient={isAdmin ? handleDeleteClient : undefined}
-              showToast={showToast}
-            />
-          )}
+            {currentView === 'clients' && (
+              <ClientsView
+                clients={clients}
+                requirements={requirements}
+                placements={placements}
+                onOpenAddClient={() => setActiveCreateModal('client')}
+                onSelectClient={(client, startEditing) =>
+                  handleOpenClientDetail(client, Boolean(startEditing), 'clients')
+                }
+                onClientUpdated={(updatedClient) => {
+                  setClients((prev) =>
+                    prev.map((c) => (c.id === updatedClient.id ? updatedClient : c))
+                  );
+                  setSelectedClientForDetail((prev) =>
+                    prev && prev.id === updatedClient.id ? updatedClient : prev
+                  );
+                }}
+                onDeleteClient={isAdmin ? handleDeleteClient : undefined}
+                showToast={showToast}
+              />
+            )}
 
-          {currentView === 'vendors' && (
-            <VendorsView
-              vendors={vendors}
-              onOpenAddVendor={() => setActiveCreateModal('vendor')}
-              onSelectVendor={(vendor, startEditing) =>
-                handleOpenVendorDetail(vendor, Boolean(startEditing), 'vendors')
-              }
-              canEditVendor={canManageDataOperations}
-              onUpdateVendor={canManageDataOperations ? handleUpdateVendor : undefined}
-              onDeleteVendor={isAdmin ? handleDeleteVendor : undefined}
-            />
-          )}
-
-          {currentView === 'vendor_detail' && !isResolvingCurrentDetail && (
-            <VendorDetailPage
-              vendor={
-                vendors.find((v) => v.id === selectedVendorForDetail?.id) ||
-                selectedVendorForDetail
-              }
-              backLabel={
-                vendorDetailReturnView === 'dashboard'
-                  ? 'Back to Dashboard'
-                  : vendorDetailReturnView === 'placement_detail'
+            {currentView === 'client_detail' && !isResolvingCurrentDetail && (
+              <ClientDetailPage
+                client={
+                  clients.find((c) => c.id === selectedClientForDetail?.id) ||
+                  selectedClientForDetail
+                }
+                backLabel={
+                  clientDetailReturnView === 'placement_detail'
                     ? 'Back to Placement'
-                    : vendorDetailReturnView === 'consultant_detail'
-                      ? 'Back to Consultant'
-                      : 'Back to Vendors'
-              }
-              onBack={() => handleNavigateView(vendorDetailReturnView)}
-              candidates={candidates}
-              placements={placements}
-              rateMasked={rateMasked}
-              initialEditing={vendorDetailInitialEdit}
-              initialTab={vendorDetailInitialTab}
-              initialAuditTask={vendorDetailAuditTask}
-              onClearAuditTask={() => setVendorDetailAuditTask(null)}
-              onSelectCandidate={(c) => handleOpenConsultantDetail(c, false, 'vendor_detail')}
-              onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'vendor_detail')}
-              onUpdateVendor={canManageDataOperations ? handleUpdateVendor : undefined}
-              onDeleteVendor={isAdmin ? handleDeleteVendor : undefined}
-            />
-          )}
+                    : 'Back to Clients'
+                }
+                onBack={() => handleNavigateView(clientDetailReturnView)}
+                requirements={requirements}
+                placements={placements}
+                rateMasked={rateMasked}
+                initialEditing={clientDetailInitialEdit}
+                onClientUpdated={(updatedClient) => {
+                  setClients((prev) =>
+                    prev.map((c) => (c.id === updatedClient.id ? updatedClient : c))
+                  );
+                  setSelectedClientForDetail((prev) =>
+                    prev && prev.id === updatedClient.id ? updatedClient : prev
+                  );
+                }}
+                onOpenRequirement={(req) => handleOpenRequirementDetail(req, 'client_detail')}
+                onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'client_detail')}
+                onDeleteClient={isAdmin ? handleDeleteClient : undefined}
+                showToast={showToast}
+              />
+            )}
 
-          {currentView === 'billable' && (
-            <BillablePlacementsView
-              placements={placements}
-              vendors={vendors}
-              rateMasked={rateMasked}
-              onOpenNewPlacement={
-                !rateMasked
-                  ? () => handleOpenWorkflowPage('placement_new', { fromView: 'billable' })
-                  : undefined
-              }
-              onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'billable')}
-              onExtendContract={!rateMasked ? handleExtendContract : undefined}
-              onUpdatePlacement={!rateMasked ? handleUpdatePlacement : undefined}
-              onDeletePlacement={isAdmin && !rateMasked ? handleDeletePlacement : undefined}
-              showToast={showToast}
-            />
-          )}
+            {currentView === 'vendors' && (
+              <VendorsView
+                vendors={vendors}
+                onOpenAddVendor={() => setActiveCreateModal('vendor')}
+                onSelectVendor={(vendor, startEditing) =>
+                  handleOpenVendorDetail(vendor, Boolean(startEditing), 'vendors')
+                }
+                canEditVendor={canManageDataOperations}
+                onUpdateVendor={canManageDataOperations ? handleUpdateVendor : undefined}
+                onDeleteVendor={isAdmin ? handleDeleteVendor : undefined}
+              />
+            )}
 
-          {currentView === 'placement_new' &&
-            (() => {
-              const reqId = routeTarget.query?.requirementId || workflowReturnReqId || undefined;
-              const reqFromList = reqId ? requirements.find((r) => r.id === reqId) || null : null;
-              const reqFromDetail =
-                reqId && selectedReqForDetail?.id === reqId ? selectedReqForDetail : null;
-              const reqFromLaunch =
-                reqId && placementLaunchContext?.requirement?.id === reqId
-                  ? placementLaunchContext.requirement
-                  : null;
-              const matchedReq = reqId
-                ? reqFromLaunch ||
+            {currentView === 'vendor_detail' && !isResolvingCurrentDetail && (
+              <VendorDetailPage
+                vendor={
+                  vendors.find((v) => v.id === selectedVendorForDetail?.id) ||
+                  selectedVendorForDetail
+                }
+                backLabel={
+                  vendorDetailReturnView === 'dashboard'
+                    ? 'Back to Dashboard'
+                    : vendorDetailReturnView === 'placement_detail'
+                      ? 'Back to Placement'
+                      : vendorDetailReturnView === 'consultant_detail'
+                        ? 'Back to Consultant'
+                        : 'Back to Vendors'
+                }
+                onBack={() => handleNavigateView(vendorDetailReturnView)}
+                candidates={candidates}
+                placements={placements}
+                rateMasked={rateMasked}
+                initialEditing={vendorDetailInitialEdit}
+                initialTab={vendorDetailInitialTab}
+                initialAuditTask={vendorDetailAuditTask}
+                onClearAuditTask={() => setVendorDetailAuditTask(null)}
+                onSelectCandidate={(c) => handleOpenConsultantDetail(c, false, 'vendor_detail')}
+                onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'vendor_detail')}
+                onUpdateVendor={canManageDataOperations ? handleUpdateVendor : undefined}
+                onDeleteVendor={isAdmin ? handleDeleteVendor : undefined}
+              />
+            )}
+
+            {currentView === 'billable' && (
+              <BillablePlacementsView
+                placements={placements}
+                vendors={vendors}
+                rateMasked={rateMasked}
+                onOpenNewPlacement={
+                  !rateMasked
+                    ? () => handleOpenWorkflowPage('placement_new', { fromView: 'billable' })
+                    : undefined
+                }
+                onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'billable')}
+                onExtendContract={!rateMasked ? handleExtendContract : undefined}
+                onUpdatePlacement={!rateMasked ? handleUpdatePlacement : undefined}
+                onDeletePlacement={isAdmin && !rateMasked ? handleDeletePlacement : undefined}
+                showToast={showToast}
+              />
+            )}
+
+            {currentView === 'placement_new' &&
+              (() => {
+                const reqId = routeTarget.query?.requirementId || workflowReturnReqId || undefined;
+                const reqFromList = reqId ? requirements.find((r) => r.id === reqId) || null : null;
+                const reqFromDetail =
+                  reqId && selectedReqForDetail?.id === reqId ? selectedReqForDetail : null;
+                const reqFromLaunch =
+                  reqId && placementLaunchContext?.requirement?.id === reqId
+                    ? placementLaunchContext.requirement
+                    : null;
+                const matchedReq = reqId
+                  ? reqFromLaunch ||
                   (reqFromDetail &&
-                  ((reqFromDetail.submissions?.length || 0) >=
-                    (reqFromList?.submissions?.length || 0) ||
-                    !reqFromList)
+                    ((reqFromDetail.submissions?.length || 0) >=
+                      (reqFromList?.submissions?.length || 0) ||
+                      !reqFromList)
                     ? reqFromDetail
                     : reqFromList) ||
                   null
-                : null;
+                  : null;
 
-              const candId = routeTarget.query?.candidateId;
-              const matchedSub = candId
-                ? (matchedReq?.submissions || []).find(
+                const candId = routeTarget.query?.candidateId;
+                const matchedSub = candId
+                  ? (matchedReq?.submissions || []).find(
                     (s) =>
                       s.candidateId === candId ||
                       s.candidate?.id === candId ||
                       s.id === candId
                   )
-                : undefined;
-              const matchedCandFromSub = matchedSub
-                ? (() => {
+                  : undefined;
+                const matchedCandFromSub = matchedSub
+                  ? (() => {
                     const base =
                       matchedSub.candidate ||
                       candidates.find(
@@ -3861,386 +3859,385 @@ export const App: React.FC = () => {
                       vendorName: matchedSub.submittedVendorName || undefined,
                     } as Candidate;
                   })()
-                : null;
+                  : null;
 
-              const matchedCand = candId
-                ? (placementLaunchContext?.candidate?.id === candId
+                const matchedCand = candId
+                  ? (placementLaunchContext?.candidate?.id === candId
                     ? placementLaunchContext.candidate
                     : null) ||
                   matchedCandFromSub ||
                   candidates.find((c) => c.id === candId) ||
                   (selectedCandForDetail?.id === candId ? selectedCandForDetail : null) ||
                   null
-                : null;
-              const placementBackLabel =
-                workflowReturnView === 'requirement_detail'
-                  ? matchedReq?.code
-                    ? `Back to ${matchedReq.code}`
-                    : 'Back to Requirement'
-                  : workflowReturnView === 'pipeline'
-                    ? 'Back to Pipeline'
-                    : workflowReturnView === 'dashboard'
-                      ? 'Back to Dashboard'
-                      : 'Back to Billable Consultants';
+                  : null;
+                const placementBackLabel =
+                  workflowReturnView === 'requirement_detail'
+                    ? matchedReq?.code
+                      ? `Back to ${matchedReq.code}`
+                      : 'Back to Requirement'
+                    : workflowReturnView === 'pipeline'
+                      ? 'Back to Pipeline'
+                      : workflowReturnView === 'dashboard'
+                        ? 'Back to Dashboard'
+                        : 'Back to Billable Consultants';
 
-              if (rateMasked) {
+                if (rateMasked) {
+                  return (
+                    <AccessRestrictedView
+                      moduleName="Billable Placement Creation"
+                      description="Commercial billing rates and SOW activation are masked for your current workspace role."
+                      currentRole={normalizedUserRole}
+                      requiredRoles={[
+                        'Administrator',
+                        'Senior Recruiter',
+                        'Account Executive',
+                        'Bench Sales Lead',
+                      ]}
+                      onBackToDashboard={() => handleReturnFromWorkflowPage('dashboard')}
+                    />
+                  );
+                }
+
                 return (
-                  <AccessRestrictedView
-                    moduleName="Billable Placement Creation"
-                    description="Commercial billing rates and SOW activation are masked for your current workspace role."
-                    currentRole={normalizedUserRole}
-                    requiredRoles={[
-                      'Administrator',
-                      'Senior Recruiter',
-                      'Account Executive',
-                      'Bench Sales Lead',
-                    ]}
-                    onBackToDashboard={() => handleReturnFromWorkflowPage('dashboard')}
+                  <PlacementCreatePage
+                    key={`${reqId || 'none'}:${candId || 'none'}`}
+                    initialRequirement={matchedReq}
+                    initialCandidate={matchedCand}
+                    requestedCandidateId={candId}
+                    candidates={candidates}
+                    clients={clients}
+                    vendors={vendors}
+                    requirements={requirements}
+                    users={users}
+                    backLabel={placementBackLabel}
+                    onBack={() => handleReturnFromWorkflowPage('billable')}
+                    onCreatePlacement={async (newPlacement, targetReqId) => {
+                      await handleConfirmPlacement(newPlacement, targetReqId);
+                      if (targetReqId) {
+                        navigateToSpecificReqPage(targetReqId, workflowReturnView);
+                      } else {
+                        handleNavigateView('billable');
+                      }
+                    }}
+                    showToast={showToast}
                   />
                 );
-              }
+              })()}
 
-              return (
-                <PlacementCreatePage
-                  key={`${reqId || 'none'}:${candId || 'none'}`}
-                  initialRequirement={matchedReq}
-                  initialCandidate={matchedCand}
-                  requestedCandidateId={candId}
-                  candidates={candidates}
-                  clients={clients}
-                  vendors={vendors}
-                  requirements={requirements}
+            {currentView === 'placement_detail' && !isResolvingCurrentDetail && (
+              <PlacementDetailPage
+                placement={
+                  placements.find((p) => p.id === selectedPlacementForDetail?.id) ||
+                  selectedPlacementForDetail
+                }
+                backLabel={
+                  placementDetailReturnView === 'client_detail'
+                    ? 'Back to Client'
+                    : placementDetailReturnView === 'vendor_detail'
+                      ? 'Back to Vendor'
+                      : placementDetailReturnView === 'consultant_detail'
+                        ? 'Back to Consultant'
+                        : placementDetailReturnView === 'requirement_detail'
+                          ? 'Back to Requirement'
+                          : placementDetailReturnView === 'dashboard'
+                            ? 'Back to Dashboard'
+                            : 'Back to Billable Consultants'
+                }
+                onBack={() => handleNavigateView(placementDetailReturnView)}
+                candidates={candidates}
+                clients={clients}
+                vendors={vendors}
+                requirements={requirements}
+                rateMasked={rateMasked}
+                onExtendContract={!rateMasked ? handleExtendContract : undefined}
+                onUpdatePlacement={!rateMasked ? handleUpdatePlacement : undefined}
+                onDeletePlacement={isAdmin && !rateMasked ? handleDeletePlacement : undefined}
+                onOpenConsultant={(cand) =>
+                  handleOpenConsultantDetail(cand, false, 'placement_detail')
+                }
+                onOpenClient={(cl) =>
+                  handleOpenClientDetail(cl, false, 'placement_detail')
+                }
+                onOpenVendor={(v) =>
+                  handleOpenVendorDetail(v, false, 'placement_detail')
+                }
+                onOpenRequirement={(req) =>
+                  handleOpenRequirementDetail(req, 'placement_detail')
+                }
+              />
+            )}
+
+            {currentView === 'user_management' &&
+              (isAdmin ? (
+                <UserManagementView
                   users={users}
-                  backLabel={placementBackLabel}
-                  onBack={() => handleReturnFromWorkflowPage('billable')}
-                  onCreatePlacement={async (newPlacement, targetReqId) => {
-                    await handleConfirmPlacement(newPlacement, targetReqId);
-                    if (targetReqId) {
-                      navigateToSpecificReqPage(targetReqId, workflowReturnView);
-                    } else {
-                      handleNavigateView('billable');
+                  onToggleRateMask={async (user) => {
+                    try {
+                      await apiClient.patch(`/users/${user.id}/rate-mask`);
+                      setUsers((prev) =>
+                        prev.map((u) => (u.id === user.id ? { ...u, rateMasked: !u.rateMasked } : u))
+                      );
+                      showToast(
+                        'Clearance Updated',
+                        `${user.name}'s billing rate visibility is now ${!user.rateMasked ? 'Masked (••••)' : 'Visible'
+                        }.`
+                      );
+                    } catch (e: any) {
+                      console.warn('API toggle rate-mask:', e);
+                      showApiErrorToast(e, 'Action Not Allowed', `Could not update rate visibility for ${user.name}.`);
+                    }
+                  }}
+                  onInviteUser={async (newUser) => {
+                    if (!newUser.name || !newUser.email) return;
+                    const name: string = newUser.name;
+                    const email: string = newUser.email;
+                    let invitedUser: User = {
+                      id: 'usr_' + Date.now(),
+                      name,
+                      email,
+                      role: newUser.role || 'Technical Recruiter',
+                      desk: newUser.desk || 'US IT Contract (C2C & W2)',
+                      rateMasked: newUser.rateMasked ?? true,
+                      workload: '0 Requisitions • 0 Submissions',
+                      status: 'Invited',
+                      lastActive: 'Active Now',
+                    };
+                    try {
+                      const res = await apiClient.post('/users/invite', newUser);
+                      if (res.data?.data) {
+                        const u = res.data.data;
+                        invitedUser = {
+                          id: u.id,
+                          name: u.fullName || name,
+                          email: u.email || email,
+                          role: formatUserRole(u.role),
+                          desk: u.desk || invitedUser.desk,
+                          rateMasked: u.rateMasked ?? invitedUser.rateMasked,
+                          workload: u.workload || invitedUser.workload,
+                          status: formatUserStatus(u.status),
+                          isSuperAdmin: Boolean(u.isSuperAdmin),
+                          lastActive: 'Invited',
+                        };
+                      }
+                      setUsers((prev) => [...prev, invitedUser]);
+                      fetchSidebarCounts();
+                    } catch (e: any) {
+                      console.warn('API invite user failed:', e);
+                      showApiErrorToast(e, 'Invitation Failed', `Could not invite ${email}.`);
+                      throw e;
+                    }
+                  }}
+                  onResendInvite={async (user) => {
+                    try {
+                      const res = await apiClient.post(`/users/${user.id}/resend-invite`);
+                      const emailDelivered = res.data?.delivered !== false;
+                      const inviteUrl = res.data?.inviteUrl;
+                      if (!emailDelivered && inviteUrl && typeof navigator !== 'undefined' && navigator.clipboard) {
+                        await navigator.clipboard.writeText(inviteUrl).catch(() => { });
+                      }
+                      showToast(
+                        emailDelivered ? 'Invitation Resent' : 'Fresh Invite Link Copied',
+                        emailDelivered
+                          ? `Sent a fresh onboarding invite link to ${user.email}.`
+                          : `SMTP unavailable — copied fresh invite link for ${user.email} to clipboard.`,
+                        emailDelivered ? 'success' : 'warning'
+                      );
+                    } catch (e: any) {
+                      console.warn('API resend invite failed:', e);
+                      showApiErrorToast(
+                        e,
+                        'Resend Failed',
+                        `Could not resend invitation link for ${user.email}.`
+                      );
+                    }
+                  }}
+                  onToggleUserStatus={async (user) => {
+                    try {
+                      const res = await apiClient.patch(`/users/${user.id}/status`);
+                      const newStatus = res.data?.data?.status === 'SUSPENDED' ? 'Suspended' : 'Active';
+                      setUsers((prev) =>
+                        prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u))
+                      );
+                      showToast('Status Updated', `${user.name} is now ${newStatus}.`, 'shield');
+                    } catch (e: any) {
+                      console.warn('API toggle status failed:', e);
+                      showApiErrorToast(e, 'Status Update Failed', `Could not update status for ${user.name}.`);
+                    }
+                  }}
+                  onUpdateUser={handleUpdateUser}
+                  onDeleteUser={async (user) => {
+                    try {
+                      await apiClient.delete(`/users/${user.id}`);
+                      setUsers((prev) => prev.filter((u) => u.id !== user.id));
+                      showToast('Member Removed', `${user.name} has been removed from agency roster.`, 'delete');
+                    } catch (e: any) {
+                      console.warn('API delete user failed:', e);
+                      showApiErrorToast(e, 'Remove Failed', `Could not remove ${user.name}.`);
+                      throw e;
                     }
                   }}
                   showToast={showToast}
                 />
-              );
-            })()}
+              ) : (
+                <AccessRestrictedView
+                  moduleName="User Management & Team Permissions"
+                  description="Inviting team members, changing workspace roles, and controlling billing rate visibility are restricted to workspace Administrators."
+                  currentRole={normalizedUserRole}
+                  requiredRoles={['Administrator']}
+                  onBackToDashboard={() => handleNavigateView('dashboard')}
+                />
+              ))}
 
-          {currentView === 'placement_detail' && !isResolvingCurrentDetail && (
-            <PlacementDetailPage
-              placement={
-                placements.find((p) => p.id === selectedPlacementForDetail?.id) ||
-                selectedPlacementForDetail
-              }
-              backLabel={
-                placementDetailReturnView === 'client_detail'
-                  ? 'Back to Client'
-                  : placementDetailReturnView === 'vendor_detail'
-                    ? 'Back to Vendor'
-                    : placementDetailReturnView === 'consultant_detail'
-                      ? 'Back to Consultant'
-                      : placementDetailReturnView === 'requirement_detail'
-                        ? 'Back to Requirement'
-                        : placementDetailReturnView === 'dashboard'
-                          ? 'Back to Dashboard'
-                          : 'Back to Billable Consultants'
-              }
-              onBack={() => handleNavigateView(placementDetailReturnView)}
-              candidates={candidates}
-              clients={clients}
-              vendors={vendors}
-              requirements={requirements}
-              rateMasked={rateMasked}
-              onExtendContract={!rateMasked ? handleExtendContract : undefined}
-              onUpdatePlacement={!rateMasked ? handleUpdatePlacement : undefined}
-              onDeletePlacement={isAdmin && !rateMasked ? handleDeletePlacement : undefined}
-              onOpenConsultant={(cand) =>
-                handleOpenConsultantDetail(cand, false, 'placement_detail')
-              }
-              onOpenClient={(cl) =>
-                handleOpenClientDetail(cl, false, 'placement_detail')
-              }
-              onOpenVendor={(v) =>
-                handleOpenVendorDetail(v, false, 'placement_detail')
-              }
-              onOpenRequirement={(req) =>
-                handleOpenRequirementDetail(req, 'placement_detail')
-              }
-            />
-          )}
+            {(currentView === 'application_forms' ||
+              currentView === 'application_form_new' ||
+              currentView === 'application_form_edit' ||
+              currentView === 'custom_fields' ||
+              currentView === 'dropdown_lists') &&
+              (isAdmin ? (
+                <CustomFieldsView
+                  pageMode={
+                    currentView === 'application_forms'
+                      ? 'forms'
+                      : currentView === 'application_form_new'
+                        ? 'form_create'
+                        : currentView === 'application_form_edit'
+                          ? 'form_edit'
+                          : currentView === 'dropdown_lists'
+                            ? 'dropdowns'
+                            : 'fields'
+                  }
+                  editingFormId={
+                    currentView === 'application_form_edit' ? routeTarget.entityId : null
+                  }
+                  onNavigateForms={(target) => handleOpenApplicationFormPage(target)}
+                  customFields={customFields}
+                  onAddCustomField={(f) => setCustomFields((prev) => [...prev, f])}
+                  showToast={showToast}
+                />
+              ) : (
+                <AccessRestrictedView
+                  moduleName={
+                    currentView === 'application_forms' ||
+                      currentView === 'application_form_new' ||
+                      currentView === 'application_form_edit'
+                      ? 'Application Forms'
+                      : currentView === 'dropdown_lists'
+                        ? 'Master Dropdown Lists'
+                        : 'Custom Form Fields'
+                  }
+                  description="Creating or editing application forms, custom fields, and master dropdown taxonomies is restricted to workspace Administrators."
+                  currentRole={normalizedUserRole}
+                  requiredRoles={['Administrator']}
+                  onBackToDashboard={() => handleNavigateView('dashboard')}
+                />
+              ))}
 
-          {currentView === 'user_management' &&
-            (isAdmin ? (
-              <UserManagementView
-                users={users}
-                onToggleRateMask={async (user) => {
-                  try {
-                    await apiClient.patch(`/users/${user.id}/rate-mask`);
-                    setUsers((prev) =>
-                      prev.map((u) => (u.id === user.id ? { ...u, rateMasked: !u.rateMasked } : u))
-                    );
-                    showToast(
-                      'Clearance Updated',
-                      `${user.name}'s billing rate visibility is now ${
-                        !user.rateMasked ? 'Masked (••••)' : 'Visible'
-                      }.`
-                    );
-                  } catch (e: any) {
-                    console.warn('API toggle rate-mask:', e);
-                    showApiErrorToast(e, 'Action Not Allowed', `Could not update rate visibility for ${user.name}.`);
-                  }
+            {currentView === 'automation' && (
+              <AutomationsView
+                rules={rules}
+                auditLogs={auditLogs}
+                tenantId={currentUser?.tenantId || 'squadpipe-agency'}
+                canManageRules={isAdmin}
+                onToggleRule={(id) => {
+                  setRules((prev) =>
+                    prev.map((r) => (r.id === id ? { ...r, active: !r.active } : r))
+                  );
                 }}
-                onInviteUser={async (newUser) => {
-                  if (!newUser.name || !newUser.email) return;
-                  const name: string = newUser.name;
-                  const email: string = newUser.email;
-                  let invitedUser: User = {
-                    id: 'usr_' + Date.now(),
-                    name,
-                    email,
-                    role: newUser.role || 'Technical Recruiter',
-                    desk: newUser.desk || 'US IT Contract (C2C & W2)',
-                    rateMasked: newUser.rateMasked ?? true,
-                    workload: '0 Requisitions • 0 Submissions',
-                    status: 'Invited',
-                    lastActive: 'Active Now',
-                  };
-                  try {
-                    const res = await apiClient.post('/users/invite', newUser);
-                    if (res.data?.data) {
-                      const u = res.data.data;
-                      invitedUser = {
-                        id: u.id,
-                        name: u.fullName || name,
-                        email: u.email || email,
-                        role: formatUserRole(u.role),
-                        desk: u.desk || invitedUser.desk,
-                        rateMasked: u.rateMasked ?? invitedUser.rateMasked,
-                        workload: u.workload || invitedUser.workload,
-                        status: formatUserStatus(u.status),
-                        isSuperAdmin: Boolean(u.isSuperAdmin),
-                        lastActive: 'Invited',
-                      };
-                    }
-                    setUsers((prev) => [...prev, invitedUser]);
-                    fetchSidebarCounts();
-                  } catch (e: any) {
-                    console.warn('API invite user failed:', e);
-                    showApiErrorToast(e, 'Invitation Failed', `Could not invite ${email}.`);
-                    throw e;
-                  }
-                }}
-                onResendInvite={async (user) => {
-                  try {
-                    const res = await apiClient.post(`/users/${user.id}/resend-invite`);
-                    const emailDelivered = res.data?.delivered !== false;
-                    const inviteUrl = res.data?.inviteUrl;
-                    if (!emailDelivered && inviteUrl && typeof navigator !== 'undefined' && navigator.clipboard) {
-                      await navigator.clipboard.writeText(inviteUrl).catch(() => {});
-                    }
-                    showToast(
-                      emailDelivered ? 'Invitation Resent' : 'Fresh Invite Link Copied',
-                      emailDelivered
-                        ? `Sent a fresh onboarding invite link to ${user.email}.`
-                        : `SMTP unavailable — copied fresh invite link for ${user.email} to clipboard.`,
-                      emailDelivered ? 'success' : 'warning'
-                    );
-                  } catch (e: any) {
-                    console.warn('API resend invite failed:', e);
-                    showApiErrorToast(
-                      e,
-                      'Resend Failed',
-                      `Could not resend invitation link for ${user.email}.`
-                    );
-                  }
-                }}
-                onToggleUserStatus={async (user) => {
-                  try {
-                    const res = await apiClient.patch(`/users/${user.id}/status`);
-                    const newStatus = res.data?.data?.status === 'SUSPENDED' ? 'Suspended' : 'Active';
-                    setUsers((prev) =>
-                      prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u))
-                    );
-                    showToast('Status Updated', `${user.name} is now ${newStatus}.`, 'shield');
-                  } catch (e: any) {
-                    console.warn('API toggle status failed:', e);
-                    showApiErrorToast(e, 'Status Update Failed', `Could not update status for ${user.name}.`);
-                  }
-                }}
-                onUpdateUser={handleUpdateUser}
-                onDeleteUser={async (user) => {
-                  try {
-                    await apiClient.delete(`/users/${user.id}`);
-                    setUsers((prev) => prev.filter((u) => u.id !== user.id));
-                    showToast('Member Removed', `${user.name} has been removed from agency roster.`, 'delete');
-                  } catch (e: any) {
-                    console.warn('API delete user failed:', e);
-                    showApiErrorToast(e, 'Remove Failed', `Could not remove ${user.name}.`);
-                    throw e;
-                  }
+                onRefreshAutomations={() => {
+                  fetchAutomations();
+                  fetchSlaTasks();
+                  fetchSidebarCounts();
                 }}
                 showToast={showToast}
               />
-            ) : (
-              <AccessRestrictedView
-                moduleName="User Management & Team Permissions"
-                description="Inviting team members, changing workspace roles, and controlling billing rate visibility are restricted to workspace Administrators."
-                currentRole={normalizedUserRole}
-                requiredRoles={['Administrator']}
-                onBackToDashboard={() => handleNavigateView('dashboard')}
-              />
-            ))}
+            )}
 
-          {(currentView === 'application_forms' ||
-            currentView === 'application_form_new' ||
-            currentView === 'application_form_edit' ||
-            currentView === 'custom_fields' ||
-            currentView === 'dropdown_lists') &&
-            (isAdmin ? (
-              <CustomFieldsView
-                pageMode={
-                  currentView === 'application_forms'
-                    ? 'forms'
-                    : currentView === 'application_form_new'
-                      ? 'form_create'
-                      : currentView === 'application_form_edit'
-                        ? 'form_edit'
-                        : currentView === 'dropdown_lists'
-                          ? 'dropdowns'
-                          : 'fields'
-                }
-                editingFormId={
-                  currentView === 'application_form_edit' ? routeTarget.entityId : null
-                }
-                onNavigateForms={(target) => handleOpenApplicationFormPage(target)}
-                customFields={customFields}
-                onAddCustomField={(f) => setCustomFields((prev) => [...prev, f])}
-                showToast={showToast}
-              />
-            ) : (
-              <AccessRestrictedView
-                moduleName={
-                  currentView === 'application_forms' ||
-                  currentView === 'application_form_new' ||
-                  currentView === 'application_form_edit'
-                    ? 'Application Forms'
-                    : currentView === 'dropdown_lists'
-                      ? 'Master Dropdown Lists'
-                      : 'Custom Form Fields'
-                }
-                description="Creating or editing application forms, custom fields, and master dropdown taxonomies is restricted to workspace Administrators."
-                currentRole={normalizedUserRole}
-                requiredRoles={['Administrator']}
-                onBackToDashboard={() => handleNavigateView('dashboard')}
-              />
-            ))}
+            {currentView === 'import_data' &&
+              (canManageDataOperations ? (
+                <ImportDataView
+                  onOpenResumeParser={() =>
+                    handleOpenWorkflowPage('import_resume', { fromView: 'import_data' })
+                  }
+                  onOpenCsvImport={() =>
+                    handleOpenWorkflowPage('import_csv', { fromView: 'import_data' })
+                  }
+                  showToast={showToast}
+                />
+              ) : (
+                <AccessRestrictedView
+                  moduleName="Bulk CSV / Excel Import"
+                  description="Bulk candidate spreadsheet imports are restricted to leadership and senior recruiting roles to maintain clean workspace data. You can still add candidates or parse individual resumes in Consultants."
+                  currentRole={normalizedUserRole}
+                  requiredRoles={[
+                    'Administrator',
+                    'Senior Recruiter',
+                    'Account Executive',
+                    'Bench Sales Lead',
+                  ]}
+                  onBackToDashboard={() => handleNavigateView('dashboard')}
+                  secondaryAction={{
+                    label: 'Go to Consultants',
+                    onClick: () => handleNavigateView('consultants'),
+                  }}
+                />
+              ))}
 
-          {currentView === 'automation' && (
-            <AutomationsView
-              rules={rules}
-              auditLogs={auditLogs}
-              tenantId={currentUser?.tenantId || 'squadpipe-agency'}
-              canManageRules={isAdmin}
-              onToggleRule={(id) => {
-                setRules((prev) =>
-                  prev.map((r) => (r.id === id ? { ...r, active: !r.active } : r))
-                );
-              }}
-              onRefreshAutomations={() => {
-                fetchAutomations();
-                fetchSlaTasks();
-                fetchSidebarCounts();
-              }}
-              showToast={showToast}
-            />
-          )}
-
-          {currentView === 'import_data' &&
-            (canManageDataOperations ? (
-              <ImportDataView
-                onOpenResumeParser={() =>
-                  handleOpenWorkflowPage('import_resume', { fromView: 'import_data' })
-                }
-                onOpenCsvImport={() =>
-                  handleOpenWorkflowPage('import_csv', { fromView: 'import_data' })
-                }
-                showToast={showToast}
-              />
-            ) : (
-              <AccessRestrictedView
-                moduleName="Bulk CSV / Excel Import"
-                description="Bulk candidate spreadsheet imports are restricted to leadership and senior recruiting roles to maintain clean workspace data. You can still add candidates or parse individual resumes in Consultants."
-                currentRole={normalizedUserRole}
-                requiredRoles={[
-                  'Administrator',
-                  'Senior Recruiter',
-                  'Account Executive',
-                  'Bench Sales Lead',
-                ]}
-                onBackToDashboard={() => handleNavigateView('dashboard')}
-                secondaryAction={{
-                  label: 'Go to Consultants',
-                  onClick: () => handleNavigateView('consultants'),
-                }}
-              />
-            ))}
-
-          {currentView === 'import_resume' &&
-            (() => {
-              const reqId = routeTarget.query?.requirementId || workflowReturnReqId || undefined;
-              const lockedReq = reqId
-                ? requirements.find((r) => r.id === reqId) ||
+            {currentView === 'import_resume' &&
+              (() => {
+                const reqId = routeTarget.query?.requirementId || workflowReturnReqId || undefined;
+                const lockedReq = reqId
+                  ? requirements.find((r) => r.id === reqId) ||
                   (selectedReqForDetail?.id === reqId ? selectedReqForDetail : null) ||
                   null
-                : null;
-              const resumeBackLabel =
-                workflowReturnView === 'requirement_detail'
-                  ? lockedReq?.code
-                    ? `Back to ${lockedReq.code}`
-                    : 'Back to Requirement'
-                  : workflowReturnView === 'consultant_new'
-                    ? 'Back to Add Consultant'
-                    : workflowReturnView === 'consultants'
-                      ? 'Back to Consultants'
-                      : workflowReturnView === 'pipeline'
-                        ? 'Back to Pipeline'
-                        : workflowReturnView === 'dashboard'
-                          ? 'Back to Dashboard'
-                          : 'Back to Import Data';
+                  : null;
+                const resumeBackLabel =
+                  workflowReturnView === 'requirement_detail'
+                    ? lockedReq?.code
+                      ? `Back to ${lockedReq.code}`
+                      : 'Back to Requirement'
+                    : workflowReturnView === 'consultant_new'
+                      ? 'Back to Add Consultant'
+                      : workflowReturnView === 'consultants'
+                        ? 'Back to Consultants'
+                        : workflowReturnView === 'pipeline'
+                          ? 'Back to Pipeline'
+                          : workflowReturnView === 'dashboard'
+                            ? 'Back to Dashboard'
+                            : 'Back to Import Data';
 
-              return (
-                <ResumeImportPage
-                  lockedRequirement={lockedReq}
-                  users={users}
-                  bulkQueue={bulkResumeQueue}
-                  backLabel={resumeBackLabel}
-                  onBack={() => handleReturnFromWorkflowPage('import_data')}
-                  onApprove={async (savedCand, opts) => {
-                    const updatedReq = await handleResumeCandidateApproved(savedCand, opts);
-                    if (!opts?.stayOnPage) {
-                      if (updatedReq || opts?.targetRequirement) {
-                        navigateToSpecificReqPage(
-                          (updatedReq || opts?.targetRequirement)!,
-                          workflowReturnView
-                        );
-                      } else if (workflowReturnView === 'consultant_new') {
-                        handleNavigateView(
-                          consultantNewReturnViewRef.current === 'dashboard'
-                            ? 'dashboard'
-                            : 'consultants'
-                        );
-                      } else {
-                        handleReturnFromWorkflowPage('consultants');
+                return (
+                  <ResumeImportPage
+                    lockedRequirement={lockedReq}
+                    users={users}
+                    bulkQueue={bulkResumeQueue}
+                    backLabel={resumeBackLabel}
+                    onBack={() => handleReturnFromWorkflowPage('import_data')}
+                    onApprove={async (savedCand, opts) => {
+                      const updatedReq = await handleResumeCandidateApproved(savedCand, opts);
+                      if (!opts?.stayOnPage) {
+                        if (updatedReq || opts?.targetRequirement) {
+                          navigateToSpecificReqPage(
+                            (updatedReq || opts?.targetRequirement)!,
+                            workflowReturnView
+                          );
+                        } else if (workflowReturnView === 'consultant_new') {
+                          handleNavigateView(
+                            consultantNewReturnViewRef.current === 'dashboard'
+                              ? 'dashboard'
+                              : 'consultants'
+                          );
+                        } else {
+                          handleReturnFromWorkflowPage('consultants');
+                        }
                       }
-                    }
-                  }}
-                  onBulkDone={
-                    lockedReq
-                      ? () => {
+                    }}
+                    onBulkDone={
+                      lockedReq
+                        ? () => {
                           bulkResumeQueue.dismissBanner();
                           navigateToSpecificReqPage(lockedReq, workflowReturnView);
                         }
-                      : (_, batchReq) => {
+                        : (_, batchReq) => {
                           if (batchReq) {
                             bulkResumeQueue.dismissBanner();
                             navigateToSpecificReqPage(batchReq, workflowReturnView);
@@ -4257,86 +4254,86 @@ export const App: React.FC = () => {
                             }
                           }
                         }
-                  }
-                  onSwitchToCsvImport={
-                    canManageDataOperations
-                      ? () =>
+                    }
+                    onSwitchToCsvImport={
+                      canManageDataOperations
+                        ? () =>
                           handleOpenWorkflowPage('import_csv', {
                             requirementId: reqId,
                             fromView: workflowReturnView,
                             returnReqId: workflowReturnReqId || reqId,
                           })
-                      : undefined
-                  }
-                  showToast={showToast}
-                />
-              );
-            })()}
-
-          {currentView === 'import_csv' &&
-            (canManageDataOperations ? (
-              (() => {
-                const reqId = routeTarget.query?.requirementId || workflowReturnReqId || undefined;
-                const lockedReq = reqId
-                  ? requirements.find((r) => r.id === reqId) ||
-                    (selectedReqForDetail?.id === reqId ? selectedReqForDetail : null) ||
-                    null
-                  : null;
-                const csvBackLabel =
-                  workflowReturnView === 'requirement_detail'
-                    ? lockedReq?.code
-                      ? `Back to ${lockedReq.code}`
-                      : 'Back to Requirement'
-                    : workflowReturnView === 'consultants'
-                      ? 'Back to Consultants'
-                      : workflowReturnView === 'pipeline'
-                        ? 'Back to Pipeline'
-                        : workflowReturnView === 'dashboard'
-                          ? 'Back to Dashboard'
-                          : 'Back to Import Data';
-
-                return (
-                  <CsvImportPage
-                    lockedRequirement={lockedReq}
-                    backLabel={csvBackLabel}
-                    onBack={() => handleReturnFromWorkflowPage('import_data')}
-                    onImportComplete={async (result) => {
-                      await handleCsvImportCompleted(result);
-                      const targetReq = result.updatedRequirement || lockedReq;
-                      if (targetReq) {
-                        navigateToSpecificReqPage(targetReq, workflowReturnView);
-                      }
-                    }}
-                    onSwitchToResumeParser={() =>
-                      handleOpenWorkflowPage('import_resume', {
-                        requirementId: reqId,
-                        fromView: workflowReturnView,
-                        returnReqId: workflowReturnReqId || reqId,
-                      })
+                        : undefined
                     }
-                    onNavigate={(view) => handleNavigateView(view)}
                     showToast={showToast}
                   />
                 );
-              })()
-            ) : (
-              <AccessRestrictedView
-                moduleName="Bulk CSV / Excel Import"
-                description="Bulk candidate spreadsheet imports are restricted to leadership and senior recruiting roles to maintain clean workspace data. You can still add candidates or parse individual resumes in Consultants."
-                currentRole={normalizedUserRole}
-                requiredRoles={[
-                  'Administrator',
-                  'Senior Recruiter',
-                  'Account Executive',
-                  'Bench Sales Lead',
-                ]}
-                onBackToDashboard={() => handleNavigateView('dashboard')}
-                secondaryAction={{
-                  label: 'Go to Consultants',
-                  onClick: () => handleNavigateView('consultants'),
-                }}
-              />
-            ))}
+              })()}
+
+            {currentView === 'import_csv' &&
+              (canManageDataOperations ? (
+                (() => {
+                  const reqId = routeTarget.query?.requirementId || workflowReturnReqId || undefined;
+                  const lockedReq = reqId
+                    ? requirements.find((r) => r.id === reqId) ||
+                    (selectedReqForDetail?.id === reqId ? selectedReqForDetail : null) ||
+                    null
+                    : null;
+                  const csvBackLabel =
+                    workflowReturnView === 'requirement_detail'
+                      ? lockedReq?.code
+                        ? `Back to ${lockedReq.code}`
+                        : 'Back to Requirement'
+                      : workflowReturnView === 'consultants'
+                        ? 'Back to Consultants'
+                        : workflowReturnView === 'pipeline'
+                          ? 'Back to Pipeline'
+                          : workflowReturnView === 'dashboard'
+                            ? 'Back to Dashboard'
+                            : 'Back to Import Data';
+
+                  return (
+                    <CsvImportPage
+                      lockedRequirement={lockedReq}
+                      backLabel={csvBackLabel}
+                      onBack={() => handleReturnFromWorkflowPage('import_data')}
+                      onImportComplete={async (result) => {
+                        await handleCsvImportCompleted(result);
+                        const targetReq = result.updatedRequirement || lockedReq;
+                        if (targetReq) {
+                          navigateToSpecificReqPage(targetReq, workflowReturnView);
+                        }
+                      }}
+                      onSwitchToResumeParser={() =>
+                        handleOpenWorkflowPage('import_resume', {
+                          requirementId: reqId,
+                          fromView: workflowReturnView,
+                          returnReqId: workflowReturnReqId || reqId,
+                        })
+                      }
+                      onNavigate={(view) => handleNavigateView(view)}
+                      showToast={showToast}
+                    />
+                  );
+                })()
+              ) : (
+                <AccessRestrictedView
+                  moduleName="Bulk CSV / Excel Import"
+                  description="Bulk candidate spreadsheet imports are restricted to leadership and senior recruiting roles to maintain clean workspace data. You can still add candidates or parse individual resumes in Consultants."
+                  currentRole={normalizedUserRole}
+                  requiredRoles={[
+                    'Administrator',
+                    'Senior Recruiter',
+                    'Account Executive',
+                    'Bench Sales Lead',
+                  ]}
+                  onBackToDashboard={() => handleNavigateView('dashboard')}
+                  secondaryAction={{
+                    label: 'Go to Consultants',
+                    onClick: () => handleNavigateView('consultants'),
+                  }}
+                />
+              ))}
 
             {currentView === 'team_performance' &&
               (isAdmin ? (
@@ -4485,9 +4482,9 @@ export const App: React.FC = () => {
         onSwitchToCsvImport={
           canManageDataOperations
             ? () => {
-                setIsInlineResumeModalOpen(false);
-                setIsInlineCsvModalOpen(true);
-              }
+              setIsInlineResumeModalOpen(false);
+              setIsInlineCsvModalOpen(true);
+            }
             : undefined
         }
         onOpenFullPage={() => {

@@ -339,7 +339,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
           setHydratedReq(mapRequirementFromApi(res.data.data));
         }
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       active = false;
     };
@@ -523,10 +523,10 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
       await onUpdateSubmissionNotes(requirement, liveSub.id, {
         ...(cleanText
           ? {
-              action: editingNoteId ? 'edit' : 'add',
-              ...(editingNoteId ? { noteId: editingNoteId } : {}),
-              noteText: cleanText,
-            }
+            action: editingNoteId ? 'edit' : 'add',
+            ...(editingNoteId ? { noteId: editingNoteId } : {}),
+            noteText: cleanText,
+          }
           : {}),
         ...(dateChanged ? { interviewDate: draftInterviewDate || null } : {}),
       });
@@ -777,8 +777,8 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   const assignedRecruiterLabel =
     typeof reqView.assignedRecruiter === 'object' && reqView.assignedRecruiter !== null
       ? (reqView.assignedRecruiter as any).fullName ||
-        (reqView.assignedRecruiter as any).name ||
-        'Desk Sourcing Specialist'
+      (reqView.assignedRecruiter as any).name ||
+      'Desk Sourcing Specialist'
       : reqView.assignedRecruiter || 'Desk Sourcing Specialist';
 
   const customFieldEntries = Object.entries(reqView.customFields || {}).filter(
@@ -875,11 +875,10 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   }: PreparedApplicantRow) => (
     <div className="flex items-start gap-3.5 min-w-0">
       <div
-        className={`w-9 h-9 rounded-full border flex items-center justify-center font-bold text-[11px] flex-shrink-0 ${
-          placed
+        className={`w-9 h-9 rounded-full border flex items-center justify-center font-bold text-[11px] flex-shrink-0 ${placed
             ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
             : 'bg-slate-100 border-slate-200/80 text-slate-700'
-        }`}
+          }`}
       >
         {initials}
       </div>
@@ -1003,7 +1002,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
         <button
           type="button"
           disabled={isChecking}
-          onClick={() => handleEvaluateSubmission(sub)}
+          onClick={() => handleEvaluateSubmissiPipeAI
           title={aiCapabilities.enabled ? 'Run SquadPipe AI Fit Score Check' : 'Run Skill Fit Score Check'}
           className="group inline-flex flex-col items-start gap-1 text-left px-1.5 py-1 -mx-1.5 rounded-md hover:bg-teal-50/80 transition-colors cursor-pointer disabled:opacity-60 whitespace-nowrap"
         >
@@ -1019,9 +1018,8 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
           </span>
           <span className="w-24 h-1 rounded-full bg-teal-100/90 overflow-hidden block">
             <span
-              className={`block h-full rounded-full bg-teal-600 transition-all duration-200 ${
-                isChecking ? 'w-2/3 animate-pulse' : 'w-0 group-hover:w-1/2'
-              }`}
+              className={`block h-full rounded-full bg-teal-600 transition-all duration-200 ${isChecking ? 'w-2/3 animate-pulse' : 'w-0 group-hover:w-1/2'
+                }`}
             />
           </span>
         </button>
@@ -1209,11 +1207,10 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                     : `Add note for ${displayName}`
                 }
                 aria-label={`Notes for ${displayName}`}
-                className={`px-2 h-full inline-flex items-center justify-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer ${
-                  editingNotesSub?.id === sub.id || subNotes.length > 0
+                className={`px-2 h-full inline-flex items-center justify-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer ${editingNotesSub?.id === sub.id || subNotes.length > 0
                     ? 'text-brand-700 bg-brand-50/60 hover:bg-brand-100/70'
                     : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-                }`}
+                  }`}
               >
                 <MessageSquare className="w-3.5 h-3.5" />
                 {subNotes.length > 0 && <span className="tabular-nums">{subNotes.length}</span>}
@@ -1441,9 +1438,8 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
             </div>
             <div className="w-full h-1.5 rounded-full bg-slate-200/80 overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all ${
-                  isPositionsFull ? 'bg-emerald-500' : 'bg-brand-600'
-                }`}
+                className={`h-full rounded-full transition-all ${isPositionsFull ? 'bg-emerald-500' : 'bg-brand-600'
+                  }`}
                 style={{ width: `${fillPercent}%` }}
               />
             </div>
@@ -1498,15 +1494,15 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
             onEdit={
               onEditReq || onUpdateReq
                 ? () => {
-                    if (onEditReq) {
-                      onEditReq(reqView);
-                      return;
-                    }
-                    setEditForm(reqView);
-                    setEditOpenPositions(String(reqView.openPositions || 1));
-                    setEditOpenPosError('');
-                    setIsEditing(true);
+                  if (onEditReq) {
+                    onEditReq(reqView);
+                    return;
                   }
+                  setEditForm(reqView);
+                  setEditOpenPositions(String(reqView.openPositions || 1));
+                  setEditOpenPosError('');
+                  setIsEditing(true);
+                }
                 : undefined
             }
           />
@@ -1550,11 +1546,10 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                       key={t.id}
                       type="button"
                       onClick={() => setApplicantTab(t.id)}
-                      className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
-                        applicantTab === t.id
+                      className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${applicantTab === t.id
                           ? 'bg-white text-slate-900 shadow-sm font-semibold'
                           : 'text-slate-500 hover:text-slate-800'
-                      }`}
+                        }`}
                     >
                       {t.id} ({t.count})
                     </button>
@@ -1872,11 +1867,10 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                               ? () => onSelectPlacement(p)
                               : undefined
                           }
-                          className={`transition-colors ${
-                            !p.isSummaryOnly && onSelectPlacement
+                          className={`transition-colors ${!p.isSummaryOnly && onSelectPlacement
                               ? 'hover:bg-slate-50/80 cursor-pointer group'
                               : 'hover:bg-slate-50/50'
-                          }`}
+                            }`}
                         >
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3.5 min-w-0">
@@ -2046,14 +2040,12 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                   aria-label="Toggle public CV form"
                   disabled={isUpdatingPublicForm}
                   onClick={() => updatePublicFormConfig({ enabled: !publicFormEnabled })}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer disabled:opacity-50 shrink-0 ${
-                    publicFormEnabled ? 'bg-emerald-600' : 'bg-slate-300'
-                  }`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer disabled:opacity-50 shrink-0 ${publicFormEnabled ? 'bg-emerald-600' : 'bg-slate-300'
+                    }`}
                 >
                   <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      publicFormEnabled ? 'translate-x-6' : 'translate-x-1'
-                    }`}
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${publicFormEnabled ? 'translate-x-6' : 'translate-x-1'
+                      }`}
                   />
                 </button>
               </div>

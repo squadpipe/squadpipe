@@ -245,22 +245,22 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
       const savedCandidate: Candidate = res.data?.data
         ? mapCandidateFromApi(res.data.data)
         : {
-            id: 'con_' + Date.now(),
-            fullName: payload.fullName,
-            phone: payload.phone,
-            email: payload.email,
-            workAuth: payload.workAuth,
-            education: payload.education,
-            currentTitle: payload.currentTitle,
-            skillset: payload.skillset,
-            hourlyRate: payload.hourlyRateDisplay,
-            relocation: payload.relocation,
-            resumeName: fallbackResumeName,
-            resumeFormat: payload.resumeFormat,
-            assignedRecruiter: profile.recruiter || 'Assigned Recruiter',
-            pipelineStage: 'Available / Bench',
-            rawSnippet: payload.rawSnippet,
-          };
+          id: 'con_' + Date.now(),
+          fullName: payload.fullName,
+          phone: payload.phone,
+          email: payload.email,
+          workAuth: payload.workAuth,
+          education: payload.education,
+          currentTitle: payload.currentTitle,
+          skillset: payload.skillset,
+          hourlyRate: payload.hourlyRateDisplay,
+          relocation: payload.relocation,
+          resumeName: fallbackResumeName,
+          resumeFormat: payload.resumeFormat,
+          assignedRecruiter: profile.recruiter || 'Assigned Recruiter',
+          pipelineStage: 'Available / Bench',
+          rawSnippet: payload.rawSnippet,
+        };
 
       showToast(
         'Consultant Approved',
@@ -318,9 +318,8 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
           <div
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
-            className={`${
-              isModal ? 'bg-slate-50 p-5' : 'bg-white p-7 card-shadow'
-            } border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-xl text-center space-y-3 transition-colors`}
+            className={`${isModal ? 'bg-slate-50 p-5' : 'bg-white p-7 card-shadow'
+              } border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-xl text-center space-y-3 transition-colors`}
           >
             <div className="flex flex-col items-center gap-2">
               <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-brand-600">
@@ -336,11 +335,10 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
 
             <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
               <label
-                className={`px-4 py-2 rounded-lg text-white text-xs font-semibold inline-flex items-center gap-2 transition-all ${
-                  isBulkRunning
+                className={`px-4 py-2 rounded-lg text-white text-xs font-semibold inline-flex items-center gap-2 transition-all ${isBulkRunning
                     ? 'bg-slate-400 cursor-not-allowed'
                     : 'bg-brand-600 hover:bg-brand-700 cursor-pointer'
-                }`}
+                  }`}
               >
                 <Upload className="w-3.5 h-3.5" />
                 <span>{isBulkRunning ? 'Processing Batch...' : 'Select Multiple CVs'}</span>
@@ -411,9 +409,8 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
               </div>
 
               <div
-                className={`divide-y divide-slate-100 overflow-y-auto border border-slate-200 rounded-lg ${
-                  isModal ? 'max-h-64' : 'max-h-[420px]'
-                }`}
+                className={`divide-y divide-slate-100 overflow-y-auto border border-slate-200 rounded-lg ${isModal ? 'max-h-64' : 'max-h-[420px]'
+                  }`}
               >
                 {bulkItems.map((item) => (
                   <div
@@ -429,7 +426,7 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
                           {(item.file.size / 1024).toFixed(0)} KB
                         </span>
                         {item.aiUsed && aiCapabilities.enabled && (
-                          <AiBadge label="SquadPipe AI" size="xs" />
+                          <AiBadge label="PipeAI" size="xs" />
                         )}
                       </div>
                       <div className="text-[11px] text-slate-500 mt-0.5 truncate">
@@ -483,9 +480,8 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
           )}
 
           <div
-            className={`flex items-center ${
-              isModal && onSwitchToCsvImport ? 'justify-between' : 'justify-end'
-            } gap-2 pt-1 flex-wrap`}
+            className={`flex items-center ${isModal && onSwitchToCsvImport ? 'justify-between' : 'justify-end'
+              } gap-2 pt-1 flex-wrap`}
           >
             {isModal && onSwitchToCsvImport && (
               <button
@@ -542,9 +538,8 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
         <div className="space-y-4">
           {/* Upload Bar */}
           <div
-            className={`${
-              isModal ? 'bg-slate-50 p-3.5' : 'bg-white p-4 card-shadow'
-            } rounded-xl border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3`}
+            className={`${isModal ? 'bg-slate-50 p-3.5' : 'bg-white p-4 card-shadow'
+              } rounded-xl border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3`}
           >
             <div className="flex items-center gap-3 flex-wrap">
               <label className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold flex items-center gap-2 cursor-pointer transition-all">
@@ -607,9 +602,8 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
             {/* Left: Source Document */}
             <div
-              className={`lg:col-span-5 ${
-                isModal ? 'bg-slate-50 p-4' : 'bg-white p-5 card-shadow lg:sticky lg:top-4'
-              } rounded-xl border border-slate-200 space-y-3`}
+              className={`lg:col-span-5 ${isModal ? 'bg-slate-50 p-4' : 'bg-white p-5 card-shadow lg:sticky lg:top-4'
+                } rounded-xl border border-slate-200 space-y-3`}
             >
               <div className="flex items-center justify-between border-b border-slate-200/70 pb-2">
                 <div className="flex items-center gap-1.5">
@@ -617,17 +611,15 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
                   <span className="font-bold text-slate-800 text-xs">Source Document</span>
                 </div>
                 <span
-                  className={`text-[11px] px-2 py-0.5 rounded font-medium flex items-center gap-1 ${
-                    hasParsedFile && profile.fileName
+                  className={`text-[11px] px-2 py-0.5 rounded font-medium flex items-center gap-1 ${hasParsedFile && profile.fileName
                       ? 'text-brand-800 bg-brand-500/[0.08]'
                       : 'text-slate-500 bg-slate-100'
-                  }`}
+                    }`}
                 >
                   {hasParsedFile && profile.fileName ? (
                     <FileText
-                      className={`w-3 h-3 ${
-                        profile.fileName.endsWith('.docx') ? 'text-brand-600' : 'text-rose-500'
-                      }`}
+                      className={`w-3 h-3 ${profile.fileName.endsWith('.docx') ? 'text-brand-600' : 'text-rose-500'
+                        }`}
                     />
                   ) : (
                     <File className="w-3 h-3 text-slate-400" />
@@ -665,9 +657,8 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
               )}
 
               <div
-                className={`p-3 bg-white rounded-lg border border-slate-200 text-[11px] text-slate-600 space-y-2 overflow-y-auto leading-relaxed ${
-                  isModal ? 'max-h-52' : 'max-h-[340px]'
-                }`}
+                className={`p-3 bg-white rounded-lg border border-slate-200 text-[11px] text-slate-600 space-y-2 overflow-y-auto leading-relaxed ${isModal ? 'max-h-52' : 'max-h-[340px]'
+                  }`}
               >
                 <div className="whitespace-pre-line">
                   {profile.rawSnippet ||
@@ -717,7 +708,7 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
                 </div>
                 {hasParsedFile &&
                   (aiUsed && aiCapabilities.enabled ? (
-                    <AiBadge label="SquadPipe AI Parsed" size="xs" />
+                    <AiBadge label="PipeAI Parsed" size="xs" />
                   ) : (
                     <StatusBadge tone="emerald" size="xs" label="Pattern Matched" />
                   ))}
@@ -750,11 +741,10 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
                     type="text"
                     value={profile.fullName}
                     onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
-                    className={`w-full px-3 py-1.5 text-xs border rounded-lg font-medium focus:bg-white focus:outline-none ${
-                      showFullNameError
+                    className={`w-full px-3 py-1.5 text-xs border rounded-lg font-medium focus:bg-white focus:outline-none ${showFullNameError
                         ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/25 focus:border-rose-500'
                         : 'border-slate-200 bg-white focus:border-brand-500'
-                    }`}
+                      }`}
                   />
                 </div>
                 <div>
@@ -817,11 +807,10 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
                     type="email"
                     value={profile.email}
                     onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                    className={`w-full px-3 py-1.5 text-xs border rounded-lg focus:bg-white focus:outline-none ${
-                      showEmailError
+                    className={`w-full px-3 py-1.5 text-xs border rounded-lg focus:bg-white focus:outline-none ${showEmailError
                         ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/25 focus:border-rose-500'
                         : 'border-slate-200 bg-white focus:border-brand-500'
-                    }`}
+                      }`}
                   />
                 </div>
                 <div>

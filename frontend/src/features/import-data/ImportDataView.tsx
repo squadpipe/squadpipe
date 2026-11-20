@@ -77,7 +77,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
               <AiMark size="xs" />
               <span>Parse Candidate Resumes</span>
             </h3>
-            {aiCapabilities.enabled && <AiBadge label="SquadPipe AI" size="xs" />}
+            {aiCapabilities.enabled && <AiBadge label="PipeAI" size="xs" />}
           </div>
           <p className="text-xs text-slate-500 leading-relaxed">
             Upload a PDF or Word resume to automatically extract the candidate&apos;s name, contact details, skills, education, and job title.

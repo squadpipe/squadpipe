@@ -181,15 +181,15 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
         const parsedBillRate = Number(d.billRate || d.targetBillRate || 0);
         const parsedPayRate = Number(
           d.payRate ||
-            d.targetPayRate ||
-            (parsedBillRate > 0 ? Math.round(parsedBillRate * 0.75) : 0)
+          d.targetPayRate ||
+          (parsedBillRate > 0 ? Math.round(parsedBillRate * 0.75) : 0)
         );
         const rawWorkModel = String(d.workModel || d.location || '').toLowerCase();
         const detectedWorkModel: 'Remote' | 'Hybrid' | 'Onsite' = rawWorkModel.includes('hybrid')
           ? 'Hybrid'
           : rawWorkModel.includes('onsite')
-          ? 'Onsite'
-          : 'Remote';
+            ? 'Onsite'
+            : 'Remote';
         const parsedCompany = stripClientLocation(cleanField(d.companyName || d.clientName));
         const matchedClient = findMatchingClient(parsedCompany, clientsRef.current, cleanInput);
         const resolvedCompany = matchedClient
@@ -478,8 +478,8 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
 
   const isDirty = Boolean(
     rawEmailText.trim() ||
-      extractedReq.opportunityTitle.trim() ||
-      extractedReq.companyName.trim()
+    extractedReq.opportunityTitle.trim() ||
+    extractedReq.companyName.trim()
   );
   const { showLeaveModal, guardNavigation, confirmLeave, cancelLeave } = useFormShortcuts({
     isDirty,
@@ -502,7 +502,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
         badges={
           <>
             {aiCapabilities.enabled && (
-              <AiBadge label="SquadPipe AI Extractor" size="xs" />
+              <AiBadge label="PipeAI Extractor" size="xs" />
             )}
             {marginSpread > 0 && (
               <StatusBadge
@@ -610,7 +610,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
               <span>Extracted requirement details</span>
               {hasParsed && aiUsed && aiCapabilities.enabled && (
-                <AiBadge label="SquadPipe AI Extracted" size="xs" />
+                <AiBadge label="PipeAI Extracted" size="xs" />
               )}
             </div>
             <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
@@ -653,11 +653,10 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
                 placeholder="Select or type client company..."
                 emptyLabel="No saved clients — type company name"
                 newOptionBadge="Auto-saved on create"
-                inputClassName={`w-full pl-2.5 pr-7 py-2 text-xs rounded-lg text-slate-800 font-bold focus:outline-none border ${
-                  showCompanyError
+                inputClassName={`w-full pl-2.5 pr-7 py-2 text-xs rounded-lg text-slate-800 font-bold focus:outline-none border ${showCompanyError
                     ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/25 focus:border-rose-500'
                     : 'bg-white border-slate-200 focus:border-brand-600'
-                }`}
+                  }`}
               />
               {extractedReq.companyName.trim() &&
                 !clients.some(
@@ -689,11 +688,10 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
                   setExtractedReq({ ...extractedReq, opportunityTitle: e.target.value })
                 }
                 placeholder="e.g. Senior Java Architect"
-                className={`mt-0.5 w-full px-3 py-2 text-xs border rounded-lg text-slate-800 font-semibold focus:outline-none ${
-                  showTitleError
+                className={`mt-0.5 w-full px-3 py-2 text-xs border rounded-lg text-slate-800 font-semibold focus:outline-none ${showTitleError
                     ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/25 focus:border-rose-500'
                     : 'bg-white border-slate-200 focus:border-brand-600'
-                }`}
+                  }`}
               />
             </div>
           </div>
@@ -764,13 +762,12 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
                   setExtractedReq({ ...extractedReq, openPositions: e.target.value })
                 }
                 placeholder="e.g. 2"
-                className={`mt-0.5 w-full px-3 py-2 text-xs border rounded-lg text-slate-800 font-semibold focus:outline-none ${
-                  showOpenPosError
+                className={`mt-0.5 w-full px-3 py-2 text-xs border rounded-lg text-slate-800 font-semibold focus:outline-none ${showOpenPosError
                     ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/25 focus:border-rose-500'
                     : !extractedReq.openPositions
-                    ? 'border-amber-300 bg-amber-50/30 focus:border-brand-600'
-                    : 'bg-white border-slate-200 focus:border-brand-600'
-                }`}
+                      ? 'border-amber-300 bg-amber-50/30 focus:border-brand-600'
+                      : 'bg-white border-slate-200 focus:border-brand-600'
+                  }`}
               />
             </div>
             <div>
@@ -791,11 +788,10 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
                     type="button"
                     key={wm}
                     onClick={() => setExtractedReq({ ...extractedReq, workModel: wm })}
-                    className={`py-2 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer ${
-                      extractedReq.workModel === wm
+                    className={`py-2 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer ${extractedReq.workModel === wm
                         ? 'bg-slate-900 text-white border-slate-900'
                         : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                    }`}
+                      }`}
                   >
                     {wm}
                   </button>
@@ -958,11 +954,10 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
                             handleAddSkillTag(suggestion);
                             setHighlightedSkillIdx(-1);
                           }}
-                          className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
-                            idx === highlightedSkillIdx
+                          className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${idx === highlightedSkillIdx
                               ? 'bg-[#141615] text-white border-[#141615]'
                               : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                          }`}
+                            }`}
                         >
                           + {suggestion}
                         </button>

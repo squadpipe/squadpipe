@@ -677,9 +677,8 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                       onClick={() => {
                         onOpenResumeParser(currentReq);
                       }}
-                      className={`px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 ${
-                        onOpenCsvImport ? 'border-r border-slate-200' : ''
-                      }`}
+                      className={`px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 ${onOpenCsvImport ? 'border-r border-slate-200' : ''
+                        }`}
                       title="Upload & parse resumes (PDF/DOCX) to add candidates"
                     >
                       <AiIcon className="w-3.5 h-3.5 text-teal-600" />
@@ -811,7 +810,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                     {isAiRanking
                       ? 'Ranking Best Fits...'
                       : aiCapabilities.enabled
-                        ? 'SquadPipe AI Rank'
+                        ? 'PipeAI Rank'
                         : 'Rank Top Matches'}
                   </span>
                 </button>
@@ -979,9 +978,8 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                                 {match.missing.length > 0 && (
                                   <>
                                     <span
-                                      className={`text-[11px] font-medium text-slate-400 ${
-                                        match.matched.length > 0 ? 'ml-1.5' : ''
-                                      }`}
+                                      className={`text-[11px] font-medium text-slate-400 ${match.matched.length > 0 ? 'ml-1.5' : ''
+                                        }`}
                                     >
                                       Missing:
                                     </span>

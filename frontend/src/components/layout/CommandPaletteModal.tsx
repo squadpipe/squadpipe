@@ -117,7 +117,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         id: 'act_req_email',
         group: 'Quick Actions',
         label: 'Create Job from Client Email',
-        subtitle: 'Parse hiring manager email into requirement with SquadPipe AI',
+        subtitle: 'Parse hiring manager email into requirement with PipeAI',
         badge: 'AI',
         keywords: 'parse email import jd requirement ai',
         icon: <AiIcon className="w-4 h-4 text-teal-600" />,
@@ -125,22 +125,22 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       },
       ...(canCreatePlacement
         ? [
-            {
-              id: 'act_placement_new',
-              group: 'Quick Actions' as const,
-              label: 'New Billable Placement',
-              subtitle: 'Activate SOW and bill/pay spread',
-              keywords: 'placement billable sow margin contract',
-              icon: <FileXls className="w-4 h-4 text-emerald-600" />,
-              onSelect: () => onOpenWorkflowPage('placement_new'),
-            },
-          ]
+          {
+            id: 'act_placement_new',
+            group: 'Quick Actions' as const,
+            label: 'New Billable Placement',
+            subtitle: 'Activate SOW and bill/pay spread',
+            keywords: 'placement billable sow margin contract',
+            icon: <FileXls className="w-4 h-4 text-emerald-600" />,
+            onSelect: () => onOpenWorkflowPage('placement_new'),
+          },
+        ]
         : []),
       {
         id: 'act_parse_resume',
         group: 'Quick Actions',
         label: 'Parse Resumes (Single or Bulk)',
-        subtitle: 'Upload PDF/DOCX CVs for SquadPipe AI extraction',
+        subtitle: 'Upload PDF/DOCX CVs for PipeAI extraction',
         badge: 'AI',
         keywords: 'resume cv upload parse pdf docx ai',
         icon: <AiIcon className="w-4 h-4 text-teal-600" />,
@@ -148,16 +148,16 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       },
       ...(canManageDataOperations
         ? [
-            {
-              id: 'act_csv_import',
-              group: 'Quick Actions' as const,
-              label: 'Import Spreadsheet Candidates',
-              subtitle: 'CSV / Excel bulk candidate migration',
-              keywords: 'csv excel spreadsheet bulk import',
-              icon: <FileXls className="w-4 h-4 text-slate-500" />,
-              onSelect: () => onOpenWorkflowPage('import_csv'),
-            },
-          ]
+          {
+            id: 'act_csv_import',
+            group: 'Quick Actions' as const,
+            label: 'Import Spreadsheet Candidates',
+            subtitle: 'CSV / Excel bulk candidate migration',
+            keywords: 'csv excel spreadsheet bulk import',
+            icon: <FileXls className="w-4 h-4 text-slate-500" />,
+            onSelect: () => onOpenWorkflowPage('import_csv'),
+          },
+        ]
         : []),
       {
         id: 'act_client_new',
@@ -236,31 +236,31 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       },
       ...(isAdmin
         ? [
-            {
-              id: 'nav_forms',
-              group: 'Pages' as const,
-              label: 'Application Forms',
-              keywords: 'public application forms builder templates',
-              icon: <FileText className="w-4 h-4 text-slate-500" />,
-              onSelect: () => onNavigate('application_forms'),
-            },
-            {
-              id: 'nav_custom_fields',
-              group: 'Pages' as const,
-              label: 'Custom Form Fields',
-              keywords: 'custom fields attributes schema',
-              icon: <Columns className="w-4 h-4 text-slate-500" />,
-              onSelect: () => onNavigate('custom_fields'),
-            },
-            {
-              id: 'nav_settings',
-              group: 'Pages' as const,
-              label: 'General Settings',
-              keywords: 'settings branding policies workspace',
-              icon: <SlidersHorizontal className="w-4 h-4 text-slate-500" />,
-              onSelect: () => onNavigate('settings_general'),
-            },
-          ]
+          {
+            id: 'nav_forms',
+            group: 'Pages' as const,
+            label: 'Application Forms',
+            keywords: 'public application forms builder templates',
+            icon: <FileText className="w-4 h-4 text-slate-500" />,
+            onSelect: () => onNavigate('application_forms'),
+          },
+          {
+            id: 'nav_custom_fields',
+            group: 'Pages' as const,
+            label: 'Custom Form Fields',
+            keywords: 'custom fields attributes schema',
+            icon: <Columns className="w-4 h-4 text-slate-500" />,
+            onSelect: () => onNavigate('custom_fields'),
+          },
+          {
+            id: 'nav_settings',
+            group: 'Pages' as const,
+            label: 'General Settings',
+            keywords: 'settings branding policies workspace',
+            icon: <SlidersHorizontal className="w-4 h-4 text-slate-500" />,
+            onSelect: () => onNavigate('settings_general'),
+          },
+        ]
         : []),
     ];
 
@@ -424,9 +424,8 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
                     onClose();
                     item.onSelect();
                   }}
-                  className={`w-full px-2.5 py-2 rounded-lg text-left flex items-center justify-between gap-3 transition-colors cursor-pointer ${
-                    isSelected ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-50'
-                  }`}
+                  className={`w-full px-2.5 py-2 rounded-lg text-left flex items-center justify-between gap-3 transition-colors cursor-pointer ${isSelected ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span className="shrink-0">{item.icon}</span>

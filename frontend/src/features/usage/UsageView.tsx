@@ -264,9 +264,8 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
             {storageUsedPct !== null ? (
               <div className="w-full h-1.5 rounded-full bg-slate-200 overflow-hidden">
                 <div
-                  className={`h-full rounded-full ${
-                    storageUsedPct >= 90 ? 'bg-amber-500' : 'bg-brand-600'
-                  }`}
+                  className={`h-full rounded-full ${storageUsedPct >= 90 ? 'bg-amber-500' : 'bg-brand-600'
+                    }`}
                   style={{ width: `${storageUsedPct}%` }}
                 />
               </div>
@@ -305,20 +304,16 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
             <div className="text-xs font-medium text-slate-500">Accounts &amp; Dispatch Logs</div>
             <div className="text-lg font-bold text-slate-900 tabular-nums">
               {storage
-                ? `${storage.recordCounts.clients} ${
-                    storage.recordCounts.clients === 1 ? 'Client' : 'Clients'
-                  } · ${storage.recordCounts.vendors} ${
-                    storage.recordCounts.vendors === 1 ? 'Vendor' : 'Vendors'
-                  }`
+                ? `${storage.recordCounts.clients} ${storage.recordCounts.clients === 1 ? 'Client' : 'Clients'
+                } · ${storage.recordCounts.vendors} ${storage.recordCounts.vendors === 1 ? 'Vendor' : 'Vendors'
+                }`
                 : '0 Clients · 0 Vendors'}
             </div>
             <div className="text-[11px] text-slate-500">
               {storage
-                ? `${storage.recordCounts.placements} ${
-                    storage.recordCounts.placements === 1 ? 'Placement' : 'Placements'
-                  } · ${storage.recordCounts.emailLogs} ${
-                    storage.recordCounts.emailLogs === 1 ? 'Email' : 'Emails'
-                  }`
+                ? `${storage.recordCounts.placements} ${storage.recordCounts.placements === 1 ? 'Placement' : 'Placements'
+                } · ${storage.recordCounts.emailLogs} ${storage.recordCounts.emailLogs === 1 ? 'Email' : 'Emails'
+                }`
                 : 'Directory & notifications'}
             </div>
           </div>
@@ -481,7 +476,7 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
             <div className="flex items-center gap-3">
               <AiMark size="sm" />
               <div>
-                <h2 className="text-sm font-bold text-slate-900">SquadPipe AI Usage &amp; Metering</h2>
+                <h2 className="text-sm font-bold text-slate-900">PipeAI Usage &amp; Metering</h2>
                 <p className="text-[11px] text-slate-500">
                   Monthly metered AI requests, token breakdown, active models, and workspace budget caps.
                 </p>
@@ -532,9 +527,8 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
                 {aiUsage.actionLimit > 0 ? (
                   <div className="w-full h-1.5 rounded-full bg-slate-200 overflow-hidden">
                     <div
-                      className={`h-full rounded-full ${
-                        aiUsage.quotaExceeded ? 'bg-amber-500' : 'bg-brand-600'
-                      }`}
+                      className={`h-full rounded-full ${aiUsage.quotaExceeded ? 'bg-amber-500' : 'bg-brand-600'
+                        }`}
                       style={{
                         width: `${Math.min(
                           100,
@@ -573,11 +567,10 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
                   {Object.entries(aiUsage.byFeature).map(([feature, stats]) => (
                     <span
                       key={feature}
-                      className={`px-2 py-0.5 rounded text-[11px] font-medium border ${
-                        stats.actions > 0
+                      className={`px-2 py-0.5 rounded text-[11px] font-medium border ${stats.actions > 0
                           ? 'bg-white border-slate-200 text-slate-800 font-semibold'
                           : 'bg-slate-100/70 border-slate-200/60 text-slate-400'
-                      }`}
+                        }`}
                     >
                       {AI_FEATURE_LABELS[feature] || feature}: {stats.actions}
                     </span>

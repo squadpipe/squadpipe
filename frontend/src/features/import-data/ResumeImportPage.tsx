@@ -87,7 +87,7 @@ export const ResumeImportPage: React.FC<ResumeImportPageProps> = ({
             ? `Drop or select up to ${MAX_BULK_CV_FILES} CVs to parse and import into your consultant roster.`
             : 'Upload a PDF or Word (.docx) resume to inspect source text and edit extracted details side-by-side.'
         }
-        badges={aiCapabilities.enabled ? <AiBadge label="SquadPipe AI Parser" size="xs" /> : undefined}
+        badges={aiCapabilities.enabled ? <AiBadge label="PipeAI Parser" size="xs" /> : undefined}
         actions={
           <SegmentedControl<'single' | 'bulk'>
             value={mode}

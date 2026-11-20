@@ -5,7 +5,7 @@ interface AiIconProps {
 }
 
 /**
- * Official SquadPipe AI precision geometric emblem: symmetrical 4-point neural star
+ * Official PipeAI precision geometric emblem: symmetrical 4-point neural star
  * with orbital spark facet and micro node, built to stay razor-sharp from 10px to 24px.
  */
 export const AiIcon: React.FC<AiIconProps> = ({ className = 'w-4 h-4' }) => (
@@ -41,7 +41,7 @@ const MARK_SIZE_CLASSES = {
 } as const;
 
 /**
- * Branded obsidian + teal container badge featuring the SquadPipe AI emblem,
+ * Branded obsidian + teal container badge featuring the PipeAI emblem,
  * harmonizing directly with the official SquadPipe BrandMark.
  */
 export const AiMark: React.FC<AiMarkProps> = ({ size = 'sm', className = '' }) => {
@@ -64,11 +64,11 @@ interface AiBadgeProps {
 }
 
 /**
- * Consistent SquadPipe AI pill indicator used across parsed records,
+ * Consistent PipeAI pill indicator used across parsed records,
  * AI evaluations, drafts, and workspace capabilities.
  */
 export const AiBadge: React.FC<AiBadgeProps> = ({
-  label = 'SquadPipe AI',
+  label = 'PipeAI',
   size = 'xs',
   variant = 'subtle',
   title,
@@ -89,9 +89,8 @@ export const AiBadge: React.FC<AiBadgeProps> = ({
       className={`inline-flex items-center rounded-full border font-semibold whitespace-nowrap leading-none ${sizeClass} ${variantClass} ${className}`}
     >
       <AiIcon
-        className={`shrink-0 ${variant === 'dark' ? 'text-teal-400' : 'text-teal-600'} ${
-          size === 'xs' ? 'w-3 h-3' : 'w-3.5 h-3.5'
-        }`}
+        className={`shrink-0 ${variant === 'dark' ? 'text-teal-400' : 'text-teal-600'} ${size === 'xs' ? 'w-3 h-3' : 'w-3.5 h-3.5'
+          }`}
       />
       <span>{label}</span>
     </span>

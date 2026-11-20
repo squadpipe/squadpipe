@@ -434,7 +434,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <AiMark size="sm" />
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  SquadPipe AI &middot; Bring Your Own Key (BYO Key)
+                  PipeAI &middot; Bring Your Own Key (BYO Key)
                 </h3>
                 <p className="text-[11px] text-slate-500">
                   Credentials are encrypted at rest before storage and override the shared platform key. View token metrics on the Usage page once active.
