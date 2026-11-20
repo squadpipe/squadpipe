@@ -414,6 +414,10 @@ export const App: React.FC = () => {
   const [workflowReturnReqId, setWorkflowReturnReqId] = useState<string | null>(
     () => initialRoute.query?.requirementId || null
   );
+  const [placementLaunchContext, setPlacementLaunchContext] = useState<{
+    requirement?: Requirement | null;
+    candidate?: Candidate | null;
+  } | null>(null);
   const consultantNewReturnViewRef = React.useRef<string>(
     initialRoute.view === 'consultant_new' && initialRoute.query?.from
       ? initialRoute.query.from
@@ -782,6 +786,23 @@ export const App: React.FC = () => {
         replace: options?.replaceHistory,
       });
     }
+  };
+
+  const handleOpenPlacementPage = (
+    req?: Requirement | null,
+    cand?: Candidate | null,
+    fromViewOverride?: string
+  ) => {
+    setPlacementLaunchContext({
+      requirement: req || null,
+      candidate: cand || null,
+    });
+    handleOpenWorkflowPage('placement_new', {
+      requirementId: req?.id,
+      candidateId: cand?.id,
+      fromView: fromViewOverride || currentView,
+      returnReqId: req?.id,
+    });
   };
 
   const handleReturnFromWorkflowPage = (fallbackView?: string) => {
@@ -1964,6 +1985,95 @@ export const App: React.FC = () => {
     }
   }, [currentView, isInlineResumeModalOpen, showCommandPalette, authToken]);
 
+  // Hydrate target requirement/candidate on direct URL load or refresh of /placements/new
+  useEffect(() => {
+    if (publicApplyToken || (!authToken && !currentUser)) return;
+    if (currentView !== 'placement_new') return;
+
+    const targetReqId = routeTarget.query?.requirementId || workflowReturnReqId || undefined;
+    const targetCandId = routeTarget.query?.candidateId;
+    let cancelled = false;
+
+    const hasHydratedReq = (req?: Requirement | null) =>
+      Boolean(req && req.id === targetReqId && Array.isArray(req.submissions));
+
+    const reqFromState = targetReqId
+      ? (placementLaunchContext?.requirement?.id === targetReqId
+          ? placementLaunchContext.requirement
+          : null) ||
+        (selectedReqForDetail?.id === targetReqId ? selectedReqForDetail : null) ||
+        requirements.find((r) => r.id === targetReqId) ||
+        null
+      : null;
+
+    if (targetReqId && !hasHydratedReq(reqFromState)) {
+      apiClient
+        .get(`/requirements/${encodeURIComponent(targetReqId)}`)
+        .then((res) => {
+          if (cancelled || !res.data?.data) return;
+          const mappedReq = mapRequirementFromApi(res.data.data);
+          setPlacementLaunchContext((prev) => ({
+            requirement: mappedReq,
+            candidate: prev?.candidate ?? null,
+          }));
+          setRequirements((prev) =>
+            prev.some((r) => r.id === mappedReq.id)
+              ? prev.map((r) => (r.id === mappedReq.id ? mappedReq : r))
+              : [mappedReq, ...prev]
+          );
+        })
+        .catch(() => {});
+    }
+
+    const candFromSub = targetCandId
+      ? (reqFromState?.submissions || []).find(
+          (s) =>
+            s.candidateId === targetCandId ||
+            s.candidate?.id === targetCandId ||
+            s.id === targetCandId
+        )?.candidate || null
+      : null;
+
+    const hasCand = Boolean(
+      !targetCandId ||
+        placementLaunchContext?.candidate?.id === targetCandId ||
+        candidates.some((c) => c.id === targetCandId) ||
+        selectedCandForDetail?.id === targetCandId ||
+        candFromSub
+    );
+
+    if (targetCandId && !hasCand && !targetCandId.startsWith('legacy_')) {
+      apiClient
+        .get(`/candidates/${encodeURIComponent(targetCandId)}`)
+        .then((res) => {
+          if (cancelled || !res.data?.data) return;
+          const mappedCand = mapCandidateFromApi(res.data.data);
+          setPlacementLaunchContext((prev) => ({
+            requirement: prev?.requirement ?? reqFromState,
+            candidate: mappedCand,
+          }));
+          setCandidates((prev) =>
+            prev.some((c) => c.id === mappedCand.id)
+              ? prev.map((c) => (c.id === mappedCand.id ? mappedCand : c))
+              : [mappedCand, ...prev]
+          );
+        })
+        .catch(() => {});
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    currentView,
+    routeTarget.query?.requirementId,
+    routeTarget.query?.candidateId,
+    workflowReturnReqId,
+    authToken,
+    currentUser,
+    publicApplyToken,
+  ]);
+
   // Financial KPI calculations
   const totalMonthlyGrossProfit = placements.reduce(
     (sum, p) => sum + (Number(p.hourlySpread) || 0) * 160,
@@ -2030,12 +2140,7 @@ export const App: React.FC = () => {
               (req.resourceName && c.fullName === req.resourceName)
           ) ||
           null;
-        handleOpenWorkflowPage('placement_new', {
-          requirementId: req.id,
-          candidateId: targetCandidate?.id,
-          fromView: currentView,
-          returnReqId: req.id,
-        });
+        handleOpenPlacementPage(req, targetCandidate, currentView);
         return;
       }
     }
@@ -3238,10 +3343,7 @@ export const App: React.FC = () => {
                 setIsMatcherModalOpen(true);
               }}
               onOpenPlacementWizard={(req) =>
-                handleOpenWorkflowPage('placement_new', {
-                  requirementId: req.id,
-                  fromView: 'pipeline',
-                })
+                handleOpenPlacementPage(req, null, 'pipeline')
               }
               onSelectReq={(r) => handleOpenRequirementDetail(r, 'pipeline')}
               onOpenAddReq={() =>
@@ -3373,12 +3475,7 @@ export const App: React.FC = () => {
               }
               onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'requirement_detail')}
               onOpenPlacementWizard={(req, cand) =>
-                handleOpenWorkflowPage('placement_new', {
-                  requirementId: req.id,
-                  candidateId: cand?.id,
-                  fromView: 'requirement_detail',
-                  returnReqId: req.id,
-                })
+                handleOpenPlacementPage(req, cand || null, 'requirement_detail')
               }
               onEditReq={(req) => handleOpenRequirementEdit(req, 'requirement_detail')}
               onUpdateReq={handleUpdateRequirement}
@@ -3704,14 +3801,74 @@ export const App: React.FC = () => {
           {currentView === 'placement_new' &&
             (() => {
               const reqId = routeTarget.query?.requirementId || workflowReturnReqId || undefined;
+              const reqFromList = reqId ? requirements.find((r) => r.id === reqId) || null : null;
+              const reqFromDetail =
+                reqId && selectedReqForDetail?.id === reqId ? selectedReqForDetail : null;
+              const reqFromLaunch =
+                reqId && placementLaunchContext?.requirement?.id === reqId
+                  ? placementLaunchContext.requirement
+                  : null;
               const matchedReq = reqId
-                ? requirements.find((r) => r.id === reqId) ||
-                  (selectedReqForDetail?.id === reqId ? selectedReqForDetail : null) ||
+                ? reqFromLaunch ||
+                  (reqFromDetail &&
+                  ((reqFromDetail.submissions?.length || 0) >=
+                    (reqFromList?.submissions?.length || 0) ||
+                    !reqFromList)
+                    ? reqFromDetail
+                    : reqFromList) ||
                   null
                 : null;
+
               const candId = routeTarget.query?.candidateId;
+              const matchedSub = candId
+                ? (matchedReq?.submissions || []).find(
+                    (s) =>
+                      s.candidateId === candId ||
+                      s.candidate?.id === candId ||
+                      s.id === candId
+                  )
+                : undefined;
+              const matchedCandFromSub = matchedSub
+                ? (() => {
+                    const base =
+                      matchedSub.candidate ||
+                      candidates.find(
+                        (c) =>
+                          (matchedSub.candidateId && c.id === matchedSub.candidateId) ||
+                          c.id === candId
+                      ) ||
+                      (selectedCandForDetail?.id === candId ? selectedCandForDetail : null);
+                    if (base) {
+                      return {
+                        ...base,
+                        hourlyRate: matchedSub.submittedRate || base.hourlyRate || matchedSub.hourlyRate || '',
+                        vendorName: matchedSub.submittedVendorName || base.vendorName,
+                      };
+                    }
+                    return {
+                      id: matchedSub.candidateId || matchedSub.id,
+                      fullName: matchedSub.fullName,
+                      email: matchedSub.email || '',
+                      phone: matchedSub.phone || '',
+                      currentTitle: matchedSub.currentTitle || '',
+                      workAuth: matchedSub.workAuth || '',
+                      education: '',
+                      skillset: matchedSub.skillset || '',
+                      hourlyRate: matchedSub.submittedRate || matchedSub.hourlyRate || '',
+                      relocation: '',
+                      assignedRecruiter: matchedSub.recruiterName || '',
+                      pipelineStage: matchedSub.stage,
+                      vendorName: matchedSub.submittedVendorName || undefined,
+                    } as Candidate;
+                  })()
+                : null;
+
               const matchedCand = candId
-                ? candidates.find((c) => c.id === candId) ||
+                ? (placementLaunchContext?.candidate?.id === candId
+                    ? placementLaunchContext.candidate
+                    : null) ||
+                  matchedCandFromSub ||
+                  candidates.find((c) => c.id === candId) ||
                   (selectedCandForDetail?.id === candId ? selectedCandForDetail : null) ||
                   null
                 : null;
@@ -3745,8 +3902,10 @@ export const App: React.FC = () => {
 
               return (
                 <PlacementCreatePage
+                  key={`${reqId || 'none'}:${candId || 'none'}`}
                   initialRequirement={matchedReq}
                   initialCandidate={matchedCand}
+                  requestedCandidateId={candId}
                   candidates={candidates}
                   clients={clients}
                   vendors={vendors}

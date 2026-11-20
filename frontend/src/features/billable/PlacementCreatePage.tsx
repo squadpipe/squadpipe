@@ -32,6 +32,7 @@ import { UnsavedChangesModal, useFormShortcuts } from '../../hooks/useFormShortc
 interface PlacementCreatePageProps {
   initialRequirement?: Requirement | null;
   initialCandidate?: Candidate | null;
+  requestedCandidateId?: string;
   candidates?: Candidate[];
   clients?: Client[];
   vendors?: Vendor[];
@@ -67,6 +68,7 @@ const getDefaultDates = () => ({
 export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
   initialRequirement = null,
   initialCandidate = null,
+  requestedCandidateId,
   candidates = [],
   clients = [],
   vendors = [],
@@ -94,7 +96,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
   const hydratedContextKeyRef = useRef<string>('');
 
   const [form, setForm] = useState(() => ({
-    candidateId: initialCandidate?.id || '',
+    candidateId: initialCandidate?.id || requestedCandidateId || '',
     requirementId: initialRequirement?.id || '',
     resourceName: initialCandidate?.fullName || '',
     customer: stripClientLocation(initialRequirement?.companyName) || clients[0]?.name || '',
@@ -126,39 +128,96 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
   }, []);
 
   // Re-hydrate initial context once async entities load on direct URL visit or param changes
-  const incomingKey = `${initialRequirement?.id || ''}:${initialCandidate?.id || ''}:${clients.length > 0 ? 'c' : ''}:${users.length > 0 ? 'u' : ''}:${candidates.length > 0 ? 'k' : ''}`;
+  const incomingKey = `${initialRequirement?.id || ''}:${requestedCandidateId || ''}:${initialCandidate?.id || ''}:${clients.length > 0 ? 'c' : ''}:${users.length > 0 ? 'u' : ''}:${candidates.length > 0 ? 'k' : ''}`;
   useEffect(() => {
     if (userEditedRef.current) return;
     if (hydratedContextKeyRef.current === incomingKey) return;
     hydratedContextKeyRef.current = incomingKey;
 
     const req = initialRequirement;
+    const reqSubmissions = req?.submissions || [];
     const reqSubCandIds = new Set(
-      (req?.submissions || []).map((s) => s.candidateId).filter(Boolean)
+      reqSubmissions.map((s) => s.candidateId).filter(Boolean)
     );
-    const preferredSub =
-      req?.submissions?.find((s) => s.stage === 'Selected') ||
-      req?.submissions?.find((s) => s.stage !== 'Closed') ||
-      req?.submissions?.[0];
+
+    const findSubForCandidate = (targetId: string) =>
+      reqSubmissions.find(
+        (s) =>
+          s.candidateId === targetId ||
+          s.candidate?.id === targetId ||
+          s.id === targetId
+      );
+
+    const buildCandFromSub = (s: NonNullable<typeof reqSubmissions[number]>): Candidate => ({
+      id: s.candidateId || s.id,
+      fullName: s.fullName,
+      email: s.email || '',
+      phone: s.phone || '',
+      currentTitle: s.currentTitle || '',
+      workAuth: s.workAuth || '',
+      education: '',
+      skillset: s.skillset || '',
+      hourlyRate: s.submittedRate || s.hourlyRate || '',
+      relocation: '',
+      resumeName: s.resumeName || '',
+      resumeFormat: s.resumeFormat || 'PDF',
+      resumeFileUrl: s.resumeFileUrl,
+      assignedRecruiter: s.recruiterName || '',
+      pipelineStage: s.stage,
+      vendorName: s.submittedVendorName || undefined,
+    });
+
+    const explicitSub = requestedCandidateId ? findSubForCandidate(requestedCandidateId) : undefined;
+    const explicitCand =
+      initialCandidate ||
+      (requestedCandidateId
+        ? candidates.find((c) => c.id === requestedCandidateId) ||
+          explicitSub?.candidate ||
+          (explicitSub ? buildCandFromSub(explicitSub) : null)
+        : null);
+
+    // Only auto-pick a "Selected" / first applicant when no specific candidate was requested
+    const preferredSub = requestedCandidateId
+      ? explicitSub
+      : reqSubmissions.find((s) => s.stage === 'Selected') ||
+        reqSubmissions.find((s) => s.stage !== 'Closed') ||
+        reqSubmissions[0];
 
     const matchedCandidate =
-      initialCandidate ||
-      (preferredSub?.candidateId
-        ? candidates.find((c) => c.id === preferredSub.candidateId)
-        : undefined) ||
-      preferredSub?.candidate ||
-      candidates.find(
-        (c) =>
-          (preferredSub?.fullName &&
-            c.fullName.trim().toLowerCase() === preferredSub.fullName.trim().toLowerCase()) ||
-          (req?.resourceName &&
-            c.fullName.trim().toLowerCase() === req.resourceName.trim().toLowerCase())
-      ) ||
-      null;
+      explicitCand ||
+      (!requestedCandidateId
+        ? (preferredSub?.candidateId
+            ? candidates.find((c) => c.id === preferredSub.candidateId)
+            : undefined) ||
+          preferredSub?.candidate ||
+          (preferredSub ? buildCandFromSub(preferredSub) : null) ||
+          candidates.find(
+            (c) =>
+              req?.resourceName &&
+              c.fullName.trim().toLowerCase() === req.resourceName.trim().toLowerCase()
+          ) ||
+          null
+        : null);
 
-    const candPay = matchedCandidate?.hourlyRate
-      ? parseRateNumber(matchedCandidate.hourlyRate, 0)
-      : 0;
+    const matchedSubmission =
+      explicitSub ||
+      (matchedCandidate
+        ? findSubForCandidate(matchedCandidate.id) ||
+          reqSubmissions.find(
+            (s) =>
+              s.fullName.trim().toLowerCase() === matchedCandidate.fullName.trim().toLowerCase()
+          )
+        : preferredSub);
+
+    const effectiveHourlyRate =
+      matchedSubmission?.submittedRate ||
+      matchedCandidate?.hourlyRate ||
+      matchedSubmission?.hourlyRate ||
+      '';
+    const effectiveVendorName =
+      matchedSubmission?.submittedVendorName || matchedCandidate?.vendorName || '';
+
+    const candPay = effectiveHourlyRate ? parseRateNumber(effectiveHourlyRate, 0) : 0;
     const resolvedPay =
       candPay > 0 ? candPay : req ? req.targetPayRate || 0 : 85;
     const resolvedBill = req ? req.targetBillRate || 0 : 115;
@@ -167,11 +226,11 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
       (matchedCandidate?.vendorId
         ? vendors.find((v) => v.id === matchedCandidate.vendorId)
         : undefined) ||
-      (matchedCandidate?.vendorName ? { name: matchedCandidate.vendorName } : undefined);
+      (effectiveVendorName ? { name: effectiveVendorName } : undefined);
 
     const inferredType = candVendor
       ? 'C2C Subcontractor'
-      : inferPlacementTypeFromRate(matchedCandidate?.hourlyRate) ||
+      : inferPlacementTypeFromRate(effectiveHourlyRate) ||
         (req ? 'W2 Hourly' : 'C2C Subcontractor');
 
     const matchedClient = req?.companyName
@@ -184,17 +243,34 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
 
     const dates = getDefaultDates();
 
+    // Ensure the consultant picker opens on Roster if an explicitly chosen candidate isn't in Submitted
+    if (matchedCandidate && reqSubmissions.length > 0) {
+      const inSubmitted = reqSubmissions.some(
+        (s) =>
+          s.stage !== 'Closed' &&
+          (s.candidateId === matchedCandidate.id ||
+            s.candidate?.id === matchedCandidate.id ||
+            s.id === matchedCandidate.id ||
+            s.fullName.trim().toLowerCase() === matchedCandidate.fullName.trim().toLowerCase())
+      );
+      if (!inSubmitted) {
+        setConsultantSource('roster');
+      }
+    }
+
     setForm((prev) => ({
       ...prev,
       candidateId:
         matchedCandidate?.id ||
-        (reqSubCandIds.size === 1 ? Array.from(reqSubCandIds)[0] || '' : prev.candidateId),
+        requestedCandidateId ||
+        (!requestedCandidateId && reqSubCandIds.size === 1
+          ? Array.from(reqSubCandIds)[0] || ''
+          : prev.candidateId),
       requirementId: req?.id || prev.requirementId,
       resourceName:
         matchedCandidate?.fullName ||
-        preferredSub?.fullName ||
-        req?.resourceName ||
-        prev.resourceName,
+        matchedSubmission?.fullName ||
+        (!requestedCandidateId ? req?.resourceName || prev.resourceName : prev.resourceName),
       customer:
         stripClientLocation(req?.companyName) ||
         stripClientLocation(matchedClient?.name) ||
@@ -203,8 +279,8 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
         getContactStr(req?.clientContact) ||
         matchedClient?.contacts?.[0]?.name ||
         prev.customerContact,
-      phone: matchedCandidate?.phone || preferredSub?.phone || prev.phone,
-      email: matchedCandidate?.email || preferredSub?.email || prev.email,
+      phone: matchedCandidate?.phone || matchedSubmission?.phone || prev.phone,
+      email: matchedCandidate?.email || matchedSubmission?.email || prev.email,
       skillRole:
         req?.opportunityTitle || matchedCandidate?.currentTitle || prev.skillRole,
       startDate: dates.startDate,
@@ -218,7 +294,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
         users[0]?.name ||
         prev.recruiter,
     }));
-  }, [incomingKey, initialRequirement, initialCandidate, candidates, clients, vendors, users]);
+  }, [incomingKey, initialRequirement, initialCandidate, requestedCandidateId, candidates, clients, vendors, users]);
 
   useEffect(() => {
     if (!consultantMenuOpen) return;
@@ -468,7 +544,32 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
 
   const selectedEntry =
     submittedList.find(({ candidate: c }) => c.id === form.candidateId) ||
-    rosterList.find(({ candidate: c }) => c.id === form.candidateId);
+    rosterList.find(({ candidate: c }) => c.id === form.candidateId) ||
+    (initialCandidate && initialCandidate.id === form.candidateId
+      ? {
+          candidate: initialCandidate,
+          stage: initialCandidate.pipelineStage || 'Submitted',
+        }
+      : form.candidateId && form.resourceName.trim()
+        ? {
+            candidate: {
+              id: form.candidateId,
+              fullName: form.resourceName.trim(),
+              currentTitle: form.skillRole || '',
+              email: form.email || '',
+              phone: form.phone || '',
+              workAuth: '',
+              education: '',
+              skillset: '',
+              hourlyRate: form.payRate || '',
+              relocation: '',
+              assignedRecruiter: form.recruiter || '',
+              pipelineStage: 'Submitted',
+              vendorName: form.vendorName || undefined,
+            } as Candidate,
+            stage: 'Submitted',
+          }
+        : undefined);
 
   const selectedVendor = vendors.find(
     (v) => v.name.trim().toLowerCase() === form.vendorName.trim().toLowerCase()

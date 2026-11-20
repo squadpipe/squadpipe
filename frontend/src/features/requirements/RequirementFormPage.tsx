@@ -277,17 +277,25 @@ export const RequirementFormPage: React.FC<RequirementFormPageProps> = ({
         }
         codePill={isEdit ? initialRequirement?.code || 'Edit' : 'New Order'}
         rightSlot={
-          !isEdit && onOpenFromEmail ? (
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => guardNavigation(onOpenFromEmail)}
-              className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 hover:text-slate-900 px-2.5 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 transition-colors cursor-pointer"
+              disabled={isSaving}
+              onClick={() => guardNavigation(onBack)}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
             >
-              <AiIcon className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-              <span>Parse from Email</span>
-              <AiTag />
+              Cancel
             </button>
-          ) : undefined
+            <ActionButton
+              type="button"
+              onClick={() => handleSubmit()}
+              loading={isSaving}
+              loadingText={isEdit ? 'Saving...' : 'Creating...'}
+              className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold transition-colors cursor-pointer"
+            >
+              {isEdit ? 'Save Changes' : 'Create Requirement'}
+            </ActionButton>
+          </div>
         }
       />
 
@@ -314,25 +322,17 @@ export const RequirementFormPage: React.FC<RequirementFormPageProps> = ({
           </>
         }
         actions={
-          <>
+          !isEdit && onOpenFromEmail ? (
             <button
               type="button"
-              disabled={isSaving}
-              onClick={() => guardNavigation(onBack)}
-              className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold cursor-pointer disabled:opacity-50"
+              onClick={() => guardNavigation(onOpenFromEmail)}
+              className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-teal-200 text-slate-700 hover:text-slate-900 font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              Cancel
+              <AiIcon className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+              <span>Parse from Email</span>
+              <AiTag />
             </button>
-            <ActionButton
-              type="button"
-              onClick={() => handleSubmit()}
-              loading={isSaving}
-              loadingText={isEdit ? 'Saving...' : 'Creating...'}
-              className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold cursor-pointer"
-            >
-              {isEdit ? 'Save Changes' : 'Create Requirement'}
-            </ActionButton>
-          </>
+          ) : undefined
         }
       />
 

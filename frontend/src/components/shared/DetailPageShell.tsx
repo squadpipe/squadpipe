@@ -41,7 +41,7 @@ export const DetailBreadcrumb: React.FC<DetailBreadcrumbProps> = ({
       )}
       <span className="text-[11px] font-semibold text-slate-800 truncate">{title}</span>
     </div>
-    {rightSlot && <div className="hidden sm:flex items-center gap-2 shrink-0">{rightSlot}</div>}
+    {rightSlot && <div className="flex items-center gap-2 shrink-0">{rightSlot}</div>}
   </div>
 );
 

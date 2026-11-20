@@ -720,16 +720,49 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   const locationLabel = formatLocationDisplay(reqView.location, workModelLabel);
 
   const resolveCandidateForSubmission = (sub: RequirementSubmission): Candidate | null => {
+    if (sub.candidate) return sub.candidate;
+    if (sub.candidateId) {
+      const byId =
+        candidates.find((c) => c.id === sub.candidateId) ||
+        knownCandidatesRef.current.get(sub.candidateId);
+      if (byId) return byId;
+    }
     return (
-      sub.candidate ||
-      candidates.find(
-        (c) =>
-          (sub.candidateId && c.id === sub.candidateId) ||
-          c.fullName.toLowerCase() === sub.fullName.toLowerCase()
-      ) ||
-      (sub.candidateId ? knownCandidatesRef.current.get(sub.candidateId) : undefined) ||
+      candidates.find((c) => c.fullName.trim().toLowerCase() === sub.fullName.trim().toLowerCase()) ||
       null
     );
+  };
+
+  const resolvePlacementCandidateForSubmission = (
+    sub: RequirementSubmission,
+    resolvedBase?: Candidate | null
+  ): Candidate => {
+    const base = resolvedBase ?? resolveCandidateForSubmission(sub);
+    if (base) {
+      return {
+        ...base,
+        hourlyRate: sub.submittedRate || base.hourlyRate || sub.hourlyRate || '',
+        vendorName: sub.submittedVendorName || base.vendorName,
+      };
+    }
+    return {
+      id: sub.candidateId || sub.id,
+      fullName: sub.fullName,
+      email: sub.email || '',
+      phone: sub.phone || '',
+      currentTitle: sub.currentTitle || '',
+      workAuth: sub.workAuth || '',
+      education: '',
+      skillset: sub.skillset || '',
+      hourlyRate: sub.submittedRate || sub.hourlyRate || '',
+      relocation: '',
+      resumeName: sub.resumeName || '',
+      resumeFormat: sub.resumeFormat || 'PDF',
+      resumeFileUrl: sub.resumeFileUrl,
+      assignedRecruiter: sub.recruiterName || '',
+      pipelineStage: sub.stage,
+      vendorName: sub.submittedVendorName || undefined,
+    };
   };
 
   const skills = reqView.skillsRequired
@@ -1099,7 +1132,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
           const nextStage = nextVal as RequirementSubmission['stage'];
           const nextLower = nextStage.trim().toLowerCase();
           if (nextLower === 'onboarding' && !placed) {
-            onOpenPlacementWizard(reqView, candObj);
+            onOpenPlacementWizard(reqView, resolvePlacementCandidateForSubmission(sub, candObj));
             return;
           }
           setBusySubId(sub.id);
@@ -1143,7 +1176,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
         {!placed && !isPositionsFull && (
           <button
             type="button"
-            onClick={() => onOpenPlacementWizard(reqView, candObj)}
+            onClick={() => onOpenPlacementWizard(reqView, resolvePlacementCandidateForSubmission(sub, candObj))}
             title="Start placement onboarding for this candidate"
             className="h-7 px-2.5 rounded-lg border border-emerald-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 text-emerald-700 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
           >
@@ -1292,12 +1325,14 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
             <button
               type="button"
               onClick={() => {
-                const firstCandidate = resolveCandidateForSubmission(
+                const preferredSub =
                   submissions.find((s) => s.stage === 'Selected') ||
-                    submissions.find((s) => s.stage !== 'Closed') ||
-                    submissions[0]
+                  submissions.find((s) => s.stage !== 'Closed') ||
+                  submissions[0];
+                onOpenPlacementWizard(
+                  reqView,
+                  preferredSub ? resolvePlacementCandidateForSubmission(preferredSub) : null
                 );
-                onOpenPlacementWizard(reqView, firstCandidate);
               }}
               className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
             >
@@ -1716,7 +1751,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                     submissions.find((s) => s.stage === 'Selected' && !isPlacedApplicant(s)) ||
                     submissions.find((s) => s.stage !== 'Closed' && !isPlacedApplicant(s)) ||
                     submissions[0];
-                  onOpenPlacementWizard(reqView, resolveCandidateForSubmission(preferred));
+                  onOpenPlacementWizard(reqView, resolvePlacementCandidateForSubmission(preferred));
                 }}
                 className="px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto"
               >
@@ -1746,7 +1781,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                     <button
                       type="button"
                       onClick={() =>
-                        onOpenPlacementWizard(reqView, resolveCandidateForSubmission(submissions[0]))
+                        onOpenPlacementWizard(reqView, resolvePlacementCandidateForSubmission(submissions[0]))
                       }
                       className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold transition-colors cursor-pointer"
                     >
