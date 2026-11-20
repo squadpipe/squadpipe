@@ -13,6 +13,7 @@ import { RecruiterPerformanceRow } from '../../types';
 import { formatUserRole } from '../../utils/entityMappers';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { SegmentedControl } from '../../components/shared/SegmentedControl';
+import { StatusBadge } from '../../components/shared/StatusBadge';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { useClientPagination } from '../../utils/usePagination';
@@ -89,7 +90,7 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
           );
         }
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => {
         if (active) setIsLoading(false);
       });
@@ -100,13 +101,13 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
 
   const filteredTeam = search.trim()
     ? team.filter((row) => {
-        const q = search.toLowerCase();
-        return (
-          row.fullName.toLowerCase().includes(q) ||
-          formatUserRole(row.role).toLowerCase().includes(q) ||
-          (row.desk || '').toLowerCase().includes(q)
-        );
-      })
+      const q = search.toLowerCase();
+      return (
+        row.fullName.toLowerCase().includes(q) ||
+        formatUserRole(row.role).toLowerCase().includes(q) ||
+        (row.desk || '').toLowerCase().includes(q)
+      );
+    })
     : team;
 
   const pg = useClientPagination(
@@ -365,17 +366,17 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
                         {row.placements}
                       </td>
                       <td className="pl-4 pr-6 py-3.5 text-right whitespace-nowrap tabular-nums">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold border ${
+                        <StatusBadge
+                          tone={
                             placementRate >= 15
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              ? 'emerald'
                               : placementRate > 0
-                                ? 'bg-brand-50 text-brand-700 border-brand-200'
-                                : 'bg-slate-100 text-slate-500 border-slate-200'
-                          }`}
-                        >
-                          {placementRate}%
-                        </span>
+                                ? 'brand'
+                                : 'slate'
+                          }
+                          size="xs"
+                          label={`${placementRate}%`}
+                        />
                       </td>
                     </tr>
                   );

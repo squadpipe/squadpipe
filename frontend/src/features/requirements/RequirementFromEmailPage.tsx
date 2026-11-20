@@ -178,8 +178,8 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
     const parsedBillRate = Number(d.billRate || d.targetBillRate || 0);
     const parsedPayRate = Number(
       d.payRate ||
-        d.targetPayRate ||
-        (parsedBillRate > 0 ? Math.round(parsedBillRate * 0.75) : 0)
+      d.targetPayRate ||
+      (parsedBillRate > 0 ? Math.round(parsedBillRate * 0.75) : 0)
     );
     const rawWorkModel = String(d.workModel || d.location || '').toLowerCase();
     const detectedWorkModel: 'Remote' | 'Hybrid' | 'Onsite' = rawWorkModel.includes('hybrid')
@@ -656,11 +656,10 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
               handleRequirementFileSelected(dropped);
             }
           }}
-          className={`lg:col-span-5 bg-white rounded-xl border p-5 card-shadow space-y-3 lg:sticky lg:top-4 transition-colors ${
-            isDragOverFile
-              ? 'border-brand-600 ring-2 ring-brand-500/15 bg-brand-50/15'
-              : 'border-slate-200/90'
-          }`}
+          className={`lg:col-span-5 bg-white rounded-xl border p-5 card-shadow space-y-3 lg:sticky lg:top-4 transition-colors ${isDragOverFile
+            ? 'border-brand-600 ring-2 ring-brand-500/15 bg-brand-50/15'
+            : 'border-slate-200/90'
+            }`}
         >
           <input
             ref={fileInputRef}
@@ -698,8 +697,8 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
 
           {uploadedFileName ? (
             <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50/60">
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white border border-emerald-300 text-emerald-700 text-[11px] font-medium min-w-0">
-                <FileText className="w-3 h-3 shrink-0" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white border border-slate-200/90 text-slate-700 text-[11px] font-medium min-w-0 leading-none">
+                <FileText className="w-3 h-3 text-emerald-600 shrink-0" />
                 <span className="truncate">{uploadedFileName}</span>
               </span>
               <button
@@ -817,8 +816,8 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
                 emptyLabel="No saved clients — type company name"
                 newOptionBadge="Auto-saved on create"
                 inputClassName={`w-full pl-2.5 pr-7 py-2 text-xs rounded-lg text-slate-800 font-bold focus:outline-none border ${showCompanyError
-                    ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/25 focus:border-rose-500'
-                    : 'bg-white border-slate-200 focus:border-brand-600'
+                  ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/25 focus:border-rose-500'
+                  : 'bg-white border-slate-200 focus:border-brand-600'
                   }`}
               />
               {extractedReq.companyName.trim() &&
@@ -828,7 +827,8 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
                     extractedReq.companyName.trim().toLowerCase()
                 ) && (
                   <div className="mt-1">
-                    <span className="inline-block text-[11px] font-medium text-brand-700 bg-white border border-brand-300 px-1.5 py-0.5 rounded">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-700 bg-white border border-slate-200/90 px-2 py-0.5 rounded-full leading-none">
+                      <span className="w-1.5 h-1.5 rounded-full bg-brand-600" />
                       New client (auto-saved on create)
                     </span>
                   </div>
@@ -852,8 +852,8 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
                 }
                 placeholder="e.g. Senior Java Architect"
                 className={`mt-0.5 w-full px-3 py-2 text-xs border rounded-lg text-slate-800 font-semibold focus:outline-none ${showTitleError
-                    ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/25 focus:border-rose-500'
-                    : 'bg-white border-slate-200 focus:border-brand-600'
+                  ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/25 focus:border-rose-500'
+                  : 'bg-white border-slate-200 focus:border-brand-600'
                   }`}
               />
             </div>
@@ -926,10 +926,10 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
                 }
                 placeholder="e.g. 2"
                 className={`mt-0.5 w-full px-3 py-2 text-xs border rounded-lg text-slate-800 font-semibold focus:outline-none ${showOpenPosError
-                    ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/25 focus:border-rose-500'
-                    : !extractedReq.openPositions
-                      ? 'border-amber-300 bg-amber-50/30 focus:border-brand-600'
-                      : 'bg-white border-slate-200 focus:border-brand-600'
+                  ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/25 focus:border-rose-500'
+                  : !extractedReq.openPositions
+                    ? 'border-amber-300 bg-amber-50/30 focus:border-brand-600'
+                    : 'bg-white border-slate-200 focus:border-brand-600'
                   }`}
               />
             </div>
@@ -952,8 +952,8 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
                     key={wm}
                     onClick={() => setExtractedReq({ ...extractedReq, workModel: wm })}
                     className={`h-7 rounded-md text-[11px] font-semibold border transition-all cursor-pointer ${extractedReq.workModel === wm
-                        ? 'bg-white text-slate-900 border-slate-200/90'
-                        : 'text-slate-500 border-transparent hover:text-slate-800'
+                      ? 'bg-white text-slate-900 border-slate-200/90'
+                      : 'text-slate-500 border-transparent hover:text-slate-800'
                       }`}
                   >
                     {wm}
@@ -1118,8 +1118,8 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
                             setHighlightedSkillIdx(-1);
                           }}
                           className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${idx === highlightedSkillIdx
-                              ? 'bg-brand-50 text-brand-800 border-brand-300'
-                              : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200/90'
+                            ? 'bg-brand-50 text-brand-800 border-brand-300'
+                            : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200/90'
                             }`}
                         >
                           + {suggestion}

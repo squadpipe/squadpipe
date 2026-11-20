@@ -937,16 +937,17 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               <span>{req.code}</span>
             </button>
 
-            <span
-              className={`px-1.5 py-0.5 rounded text-[11px] font-semibold tabular-nums whitespace-nowrap ${filledPos >= openPos
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/70'
-                : filledPos > 0
-                  ? 'bg-brand-50 text-brand-700 border border-brand-200/70'
-                  : 'bg-white border border-slate-200/90 text-slate-600'
-                }`}
-            >
-              {filledPos > 0 ? `${filledPos}/${openPos} Filled` : `${openPos} Open`}
-            </span>
+            <StatusBadge
+              tone={
+                filledPos >= openPos
+                  ? 'emerald'
+                  : filledPos > 0
+                    ? 'brand'
+                    : 'slate'
+              }
+              size="xs"
+              label={filledPos > 0 ? `${filledPos}/${openPos} Filled` : `${openPos} Open`}
+            />
           </div>
 
           {!rateMasked && Boolean(req.targetBillRate) && (
@@ -1422,14 +1423,11 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                           return (
                             <div className="space-y-1">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span
-                                  className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium ${filledPos >= openPos
-                                    ? 'bg-emerald-500/[0.08] text-emerald-800'
-                                    : 'bg-white border border-slate-200/90 text-slate-600'
-                                    }`}
-                                >
-                                  {filledPos > 0 ? `${filledPos}/${openPos} Filled` : `${openPos} Open`}
-                                </span>
+                                <StatusBadge
+                                  tone={filledPos >= openPos ? 'emerald' : 'slate'}
+                                  size="xs"
+                                  label={filledPos > 0 ? `${filledPos}/${openPos} Filled` : `${openPos} Open`}
+                                />
                                 <span className="text-[11px] font-medium text-slate-500">
                                   {activeSubs.length} {activeSubs.length === 1 ? 'Applicant' : 'Applicants'}
                                 </span>
@@ -1745,13 +1743,12 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                       {activePlacementList.length > 0 && (
                         <div className="pt-1 flex flex-wrap gap-1.5">
                           {activePlacementList.map((pl) => (
-                            <span
+                            <StatusBadge
                               key={pl.id}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-amber-300 text-[11px] font-semibold text-amber-800"
-                            >
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                              <span>{pl.resourceName}</span>
-                            </span>
+                              tone="emerald"
+                              size="xs"
+                              label={pl.resourceName}
+                            />
                           ))}
                         </div>
                       )}

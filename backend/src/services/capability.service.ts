@@ -347,7 +347,7 @@ export class CapabilityService {
       excludeAttached = true,
       candidates: suppliedCandidates,
       rateMasked = false,
-      maxShortlist = 30,
+      maxShortlist = 20,
       aiSvc = aiService,
     } = params;
 
@@ -415,15 +415,24 @@ export class CapabilityService {
           .slice(0, 150)
       : undefined;
 
-    const batchLimit = Math.max(1, Math.min(30, maxShortlist));
+    const batchLimit = Math.max(1, Math.min(20, maxShortlist));
     let candidatePool: CapabilityCandidateInput[] = [];
     const fullRowById = new Map<string, any>();
     let retrievalMethod: 'pgvector_hybrid' | 'pg_fts' | 'in_memory' = 'pg_fts';
     let totalTenantPool = 0;
 
     try {
-      // Ensure unchunked active consultants in this tenant are immediately searchable
-      await candidateIndexingService.ensureTenantIndexedForSearch(tenantId);
+      // Sync FTS chunks fast locally; run heavy embedding backfill asynchronously so interactive search stays responsive
+      await candidateIndexingService.ensureTenantIndexedForSearch(tenantId, {
+        maxChunkSync: 250,
+        maxEmbedChunks: 0,
+      });
+      void candidateIndexingService
+        .ensureTenantIndexedForSearch(tenantId, {
+          maxChunkSync: 0,
+          maxEmbedChunks: 24,
+        })
+        .catch(() => {});
 
       const { queryText, skillTokens } = buildRequirementSearchQuery({
         opportunityTitle: effectiveReq.opportunityTitle,
@@ -434,7 +443,10 @@ export class CapabilityService {
         rawEmailText: effectiveReq.rawEmailText,
       });
 
-      const queryEmbedded = await embeddingService.embedTexts([queryText], { tenantId });
+      const queryEmbedded = await embeddingService.embedTexts([queryText], {
+        tenantId,
+        timeoutMs: 3500,
+      });
       const queryVector = queryEmbedded?.vectors?.[0] ?? null;
       const vectorStore = getVectorStore();
 

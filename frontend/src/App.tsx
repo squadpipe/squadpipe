@@ -5,7 +5,7 @@ import { AppIcon } from './components/shared/AppIcon';
 import { AiBadge } from './components/shared/AiBrand';
 import { AnimatedToast } from './components/shared/MotionPrimitives';
 import { useBulkResumeQueue } from './hooks/useBulkResumeQueue';
-import { apiClient, AUTH_EXPIRED_EVENT, USER_SESSION_SYNC_EVENT } from './config/api.config';
+import { apiClient, APP_TOAST_EVENT, AUTH_EXPIRED_EVENT, USER_SESSION_SYNC_EVENT } from './config/api.config';
 import {
   clearAuthSession,
   getStoredAuthToken,
@@ -89,9 +89,19 @@ const ClientDetailPage = React.lazy(() =>
     default: m.ClientDetailPage,
   }))
 );
+const ClientEditPage = React.lazy(() =>
+  import('./features/clients/ClientEditPage').then((m) => ({
+    default: m.ClientEditPage,
+  }))
+);
 const VendorDetailPage = React.lazy(() =>
   import('./features/vendors/VendorDetailPage').then((m) => ({
     default: m.VendorDetailPage,
+  }))
+);
+const VendorEditPage = React.lazy(() =>
+  import('./features/vendors/VendorEditPage').then((m) => ({
+    default: m.VendorEditPage,
   }))
 );
 const PlacementDetailPage = React.lazy(() =>
@@ -433,10 +443,12 @@ export const App: React.FC = () => {
   const [candDetailInitialEdit, setCandDetailInitialEdit] = useState<boolean>(false);
   const [selectedClientForDetail, setSelectedClientForDetail] = useState<Client | null>(null);
   const [clientDetailReturnView, setClientDetailReturnView] = useState<string>('clients');
-  const [clientDetailInitialEdit, setClientDetailInitialEdit] = useState<boolean>(false);
+  const [clientEditFocusSection, setClientEditFocusSection] = useState<'account' | 'contacts'>('account');
   const [selectedVendorForDetail, setSelectedVendorForDetail] = useState<Vendor | null>(null);
   const [vendorDetailReturnView, setVendorDetailReturnView] = useState<string>('vendors');
-  const [vendorDetailInitialEdit, setVendorDetailInitialEdit] = useState<boolean>(false);
+  const [vendorEditFocusSection, setVendorEditFocusSection] = useState<
+    'profile' | 'contacts' | 'compliance'
+  >('profile');
   const [vendorDetailInitialTab, setVendorDetailInitialTab] = useState<
     'consultants' | 'contacts' | 'placements' | 'terms'
   >('consultants');
@@ -603,22 +615,76 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleOpenClientEdit = (
+    client: Client,
+    fromView?: string,
+    focusSection: 'account' | 'contacts' = 'account',
+    options?: { skipHistory?: boolean }
+  ) => {
+    const originView =
+      fromView || (currentView !== 'client_edit' ? currentView : clientDetailReturnView);
+    if (originView && originView !== 'client_edit') {
+      setClientDetailReturnView(originView);
+    }
+    setSelectedClientForDetail(client);
+    setClientEditFocusSection(focusSection);
+    setResolvingRouteId(null);
+    setRouteTarget({ view: 'client_edit', entityId: client.id });
+    setCurrentView('client_edit');
+    if (!options?.skipHistory) {
+      pushRouteUrl('client_edit', {
+        entityId: client.id,
+        returnView: originView || 'clients',
+      });
+    }
+  };
+
   const handleOpenClientDetail = (
     client: Client,
     startEditing = false,
     fromView?: string,
     options?: { skipHistory?: boolean }
   ) => {
+    if (startEditing) {
+      handleOpenClientEdit(client, fromView, 'account', options);
+      return;
+    }
     const returnView =
-      fromView || (currentView !== 'client_detail' ? currentView : clientDetailReturnView);
+      fromView || (currentView !== 'client_detail' && currentView !== 'client_edit'
+        ? currentView
+        : clientDetailReturnView);
     setClientDetailReturnView(returnView);
     setSelectedClientForDetail(client);
-    setClientDetailInitialEdit(Boolean(startEditing));
     setResolvingRouteId(null);
     setRouteTarget({ view: 'client_detail', entityId: client.id });
     setCurrentView('client_detail');
     if (!options?.skipHistory) {
       pushRouteUrl('client_detail', { entityId: client.id, returnView });
+    }
+  };
+
+  const handleOpenVendorEdit = (
+    vendor: Vendor,
+    fromView?: string,
+    focusSection: 'profile' | 'contacts' | 'compliance' = 'profile',
+    options?: { skipHistory?: boolean }
+  ) => {
+    const originView =
+      fromView || (currentView !== 'vendor_edit' ? currentView : vendorDetailReturnView);
+    if (originView && originView !== 'vendor_edit') {
+      setVendorDetailReturnView(originView);
+    }
+    setSelectedVendorForDetail(vendor);
+    setVendorEditFocusSection(focusSection);
+    setVendorDetailAuditTask(null);
+    setResolvingRouteId(null);
+    setRouteTarget({ view: 'vendor_edit', entityId: vendor.id });
+    setCurrentView('vendor_edit');
+    if (!options?.skipHistory) {
+      pushRouteUrl('vendor_edit', {
+        entityId: vendor.id,
+        returnView: originView || 'vendors',
+      });
     }
   };
 
@@ -632,13 +698,23 @@ export const App: React.FC = () => {
       skipHistory?: boolean;
     }
   ) => {
+    if (startEditing || options?.auditTask) {
+      handleOpenVendorEdit(
+        vendor,
+        fromView,
+        options?.auditTask ? 'compliance' : 'profile',
+        { skipHistory: options?.skipHistory }
+      );
+      return;
+    }
     const returnView =
-      fromView || (currentView !== 'vendor_detail' ? currentView : vendorDetailReturnView);
+      fromView || (currentView !== 'vendor_detail' && currentView !== 'vendor_edit'
+        ? currentView
+        : vendorDetailReturnView);
     setVendorDetailReturnView(returnView);
     setSelectedVendorForDetail(vendor);
-    setVendorDetailInitialEdit(Boolean(startEditing));
-    setVendorDetailInitialTab(options?.initialTab || (options?.auditTask ? 'terms' : 'consultants'));
-    setVendorDetailAuditTask(options?.auditTask || null);
+    setVendorDetailInitialTab(options?.initialTab || 'consultants');
+    setVendorDetailAuditTask(null);
     setResolvingRouteId(null);
     setRouteTarget({ view: 'vendor_detail', entityId: vendor.id });
     setCurrentView('vendor_detail');
@@ -665,20 +741,18 @@ export const App: React.FC = () => {
   };
 
   const handleNavigateView = (nextView: string, options?: { skipHistory?: boolean }) => {
-    if (!['requirement_detail', 'consultant_detail', 'placement_detail'].includes(nextView)) {
+    if (!['requirement_detail', 'requirement_edit', 'consultant_detail', 'placement_detail'].includes(nextView)) {
       setSelectedReqForDetail(null);
     }
-    if (!['consultant_detail', 'placement_detail'].includes(nextView)) {
+    if (!['consultant_detail', 'consultant_edit', 'placement_detail'].includes(nextView)) {
       setSelectedCandForDetail(null);
       setCandDetailInitialEdit(false);
     }
-    if (!['client_detail', 'requirement_detail', 'placement_detail'].includes(nextView)) {
+    if (!['client_detail', 'client_edit', 'requirement_detail', 'placement_detail'].includes(nextView)) {
       setSelectedClientForDetail(null);
-      setClientDetailInitialEdit(false);
     }
-    if (!['vendor_detail', 'placement_detail'].includes(nextView)) {
+    if (!['vendor_detail', 'vendor_edit', 'placement_detail'].includes(nextView)) {
       setSelectedVendorForDetail(null);
-      setVendorDetailInitialEdit(false);
       setVendorDetailAuditTask(null);
       setVendorDetailInitialTab('consultants');
     }
@@ -686,9 +760,13 @@ export const App: React.FC = () => {
       ![
         'placement_detail',
         'client_detail',
+        'client_edit',
         'vendor_detail',
+        'vendor_edit',
         'consultant_detail',
+        'consultant_edit',
         'requirement_detail',
+        'requirement_edit',
       ].includes(nextView)
     ) {
       setSelectedPlacementForDetail(null);
@@ -840,6 +918,7 @@ export const App: React.FC = () => {
   const [toast, setToast] = useState<{ title: string; message: string; icon?: string } | null>(
     null
   );
+  const toastTimerRef = React.useRef<number | null>(null);
 
   const sanitizeToastMessage = (rawMessage: string): string => {
     const internalPatterns = [
@@ -871,9 +950,13 @@ export const App: React.FC = () => {
     icon = 'success'
   ) => {
     setToast({ title, message: sanitizeToastMessage(message), icon });
-    setTimeout(() => {
+    if (toastTimerRef.current !== null) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = window.setTimeout(() => {
       setToast(null);
-    }, 3500);
+      toastTimerRef.current = null;
+    }, icon === 'error' ? 4800 : 3500);
   };
 
   const showApiErrorToast = (e: any, title: string, fallback: string) => {
@@ -949,6 +1032,17 @@ export const App: React.FC = () => {
     };
     window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
     return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+  }, []);
+
+  useEffect(() => {
+    const handleAppToast = (event: Event) => {
+      const detail = (event as CustomEvent<{ title?: string; message?: string; icon?: string }>).detail;
+      if (detail?.message) {
+        showToast(detail.title || 'Notice', detail.message, detail.icon || 'info');
+      }
+    };
+    window.addEventListener(APP_TOAST_EVENT, handleAppToast);
+    return () => window.removeEventListener(APP_TOAST_EVENT, handleAppToast);
   }, []);
 
   // Dedicated, view-scoped fetch functions
@@ -1531,7 +1625,9 @@ export const App: React.FC = () => {
     handleOpenConsultantDetail,
     handleOpenConsultantEdit,
     handleOpenClientDetail,
+    handleOpenClientEdit,
     handleOpenVendorDetail,
+    handleOpenVendorEdit,
     handleOpenPlacementDetail,
     handleOpenWorkflowPage,
   });
@@ -1543,7 +1639,9 @@ export const App: React.FC = () => {
     handleOpenConsultantDetail,
     handleOpenConsultantEdit,
     handleOpenClientDetail,
+    handleOpenClientEdit,
     handleOpenVendorDetail,
+    handleOpenVendorEdit,
     handleOpenPlacementDetail,
     handleOpenWorkflowPage,
   };
@@ -1599,10 +1697,22 @@ export const App: React.FC = () => {
         currentView === 'consultant_edit'
           ? `Edit ${selectedCandForDetail.fullName}`
           : selectedCandForDetail.fullName;
-    } else if (currentView === 'client_detail' && selectedClientForDetail) {
-      recordLabel = selectedClientForDetail.name;
-    } else if (currentView === 'vendor_detail' && selectedVendorForDetail) {
-      recordLabel = selectedVendorForDetail.name;
+    } else if (
+      (currentView === 'client_detail' || currentView === 'client_edit') &&
+      selectedClientForDetail
+    ) {
+      recordLabel =
+        currentView === 'client_edit'
+          ? `Edit ${selectedClientForDetail.name}`
+          : selectedClientForDetail.name;
+    } else if (
+      (currentView === 'vendor_detail' || currentView === 'vendor_edit') &&
+      selectedVendorForDetail
+    ) {
+      recordLabel =
+        currentView === 'vendor_edit'
+          ? `Edit ${selectedVendorForDetail.name}`
+          : selectedVendorForDetail.name;
     } else if (currentView === 'placement_detail' && selectedPlacementForDetail) {
       recordLabel =
         selectedPlacementForDetail.resourceName || selectedPlacementForDetail.deployment;
@@ -1720,6 +1830,16 @@ export const App: React.FC = () => {
         }
         if (returnView) setCandDetailReturnView(returnView);
         setSelectedCandForDetail(null);
+      } else if (parsed.view === 'client_edit') {
+        const matched = stateSnapshot.clients.find((c) => c.id === entityId);
+        if (matched) {
+          routeHandlersRef.current.handleOpenClientEdit(matched, returnView, 'account', {
+            skipHistory: true,
+          });
+          return;
+        }
+        if (returnView && returnView !== 'client_edit') setClientDetailReturnView(returnView);
+        setSelectedClientForDetail(null);
       } else if (parsed.view === 'client_detail') {
         const matched = stateSnapshot.clients.find((c) => c.id === entityId);
         if (matched) {
@@ -1730,6 +1850,16 @@ export const App: React.FC = () => {
         }
         if (returnView) setClientDetailReturnView(returnView);
         setSelectedClientForDetail(null);
+      } else if (parsed.view === 'vendor_edit') {
+        const matched = stateSnapshot.vendors.find((v) => v.id === entityId);
+        if (matched) {
+          routeHandlersRef.current.handleOpenVendorEdit(matched, returnView, 'profile', {
+            skipHistory: true,
+          });
+          return;
+        }
+        if (returnView && returnView !== 'vendor_edit') setVendorDetailReturnView(returnView);
+        setSelectedVendorForDetail(null);
       } else if (parsed.view === 'vendor_detail') {
         const matched = stateSnapshot.vendors.find((v) => v.id === entityId);
         if (matched) {
@@ -1780,10 +1910,10 @@ export const App: React.FC = () => {
       ((routeTarget.view === 'consultant_detail' || routeTarget.view === 'consultant_edit') &&
         (snapshot.selectedCandForDetail?.id === targetId ||
           snapshot.candidates.some((c) => c.id === targetId))) ||
-      (routeTarget.view === 'client_detail' &&
+      ((routeTarget.view === 'client_detail' || routeTarget.view === 'client_edit') &&
         (snapshot.selectedClientForDetail?.id === targetId ||
           snapshot.clients.some((c) => c.id === targetId))) ||
-      (routeTarget.view === 'vendor_detail' &&
+      ((routeTarget.view === 'vendor_detail' || routeTarget.view === 'vendor_edit') &&
         (snapshot.selectedVendorForDetail?.id === targetId ||
           snapshot.vendors.some((v) => v.id === targetId))) ||
       (routeTarget.view === 'placement_detail' &&
@@ -1833,20 +1963,38 @@ export const App: React.FC = () => {
           }
           return;
         }
-      } else if (routeTarget.view === 'client_detail' && !snapshot.selectedClientForDetail) {
+      } else if (
+        (routeTarget.view === 'client_detail' || routeTarget.view === 'client_edit') &&
+        !snapshot.selectedClientForDetail
+      ) {
         const cached = snapshot.clients.find((c) => c.id === targetId);
         if (cached) {
-          routeHandlersRef.current.handleOpenClientDetail(cached, false, undefined, {
-            skipHistory: true,
-          });
+          if (routeTarget.view === 'client_edit') {
+            routeHandlersRef.current.handleOpenClientEdit(cached, undefined, 'account', {
+              skipHistory: true,
+            });
+          } else {
+            routeHandlersRef.current.handleOpenClientDetail(cached, false, undefined, {
+              skipHistory: true,
+            });
+          }
           return;
         }
-      } else if (routeTarget.view === 'vendor_detail' && !snapshot.selectedVendorForDetail) {
+      } else if (
+        (routeTarget.view === 'vendor_detail' || routeTarget.view === 'vendor_edit') &&
+        !snapshot.selectedVendorForDetail
+      ) {
         const cached = snapshot.vendors.find((v) => v.id === targetId);
         if (cached) {
-          routeHandlersRef.current.handleOpenVendorDetail(cached, false, undefined, {
-            skipHistory: true,
-          });
+          if (routeTarget.view === 'vendor_edit') {
+            routeHandlersRef.current.handleOpenVendorEdit(cached, undefined, 'profile', {
+              skipHistory: true,
+            });
+          } else {
+            routeHandlersRef.current.handleOpenVendorDetail(cached, false, undefined, {
+              skipHistory: true,
+            });
+          }
           return;
         }
       } else if (routeTarget.view === 'placement_detail' && !snapshot.selectedPlacementForDetail) {
@@ -1916,21 +2064,33 @@ export const App: React.FC = () => {
               });
             }
           }
-        } else if (routeTarget.view === 'client_detail') {
+        } else if (routeTarget.view === 'client_detail' || routeTarget.view === 'client_edit') {
           const loaded = await fetchClients();
           const matched = loaded.find((c) => c.id === targetId);
           if (!cancelled && matched) {
-            routeHandlersRef.current.handleOpenClientDetail(matched, false, undefined, {
-              skipHistory: true,
-            });
+            if (routeTarget.view === 'client_edit') {
+              routeHandlersRef.current.handleOpenClientEdit(matched, undefined, 'account', {
+                skipHistory: true,
+              });
+            } else {
+              routeHandlersRef.current.handleOpenClientDetail(matched, false, undefined, {
+                skipHistory: true,
+              });
+            }
           }
-        } else if (routeTarget.view === 'vendor_detail') {
+        } else if (routeTarget.view === 'vendor_detail' || routeTarget.view === 'vendor_edit') {
           const loaded = await fetchVendors();
           const matched = loaded.find((v) => v.id === targetId);
           if (!cancelled && matched) {
-            routeHandlersRef.current.handleOpenVendorDetail(matched, false, undefined, {
-              skipHistory: true,
-            });
+            if (routeTarget.view === 'vendor_edit') {
+              routeHandlersRef.current.handleOpenVendorEdit(matched, undefined, 'profile', {
+                skipHistory: true,
+              });
+            } else {
+              routeHandlersRef.current.handleOpenVendorDetail(matched, false, undefined, {
+                skipHistory: true,
+              });
+            }
           }
         } else if (routeTarget.view === 'placement_detail') {
           const loaded = await fetchPlacements();
@@ -2609,7 +2769,7 @@ export const App: React.FC = () => {
       showToast('Vendor Updated', `${saved.name} details saved.`, 'success');
     } catch (e: any) {
       console.warn('API update vendor failed:', e);
-      showToast('Update Failed', e?.response?.data?.error || `Could not update ${updated.name}.`, 'error');
+      showToast('Update Failed', e?.response?.data?.message || e?.response?.data?.error || `Could not update ${updated.name}.`, 'error');
       throw e;
     }
   };
@@ -3052,10 +3212,10 @@ export const App: React.FC = () => {
       ((currentView === 'consultant_detail' || currentView === 'consultant_edit') &&
         !candidates.some((c) => c.id === resolvingRouteId) &&
         selectedCandForDetail?.id !== resolvingRouteId) ||
-      (currentView === 'client_detail' &&
+      ((currentView === 'client_detail' || currentView === 'client_edit') &&
         !clients.some((c) => c.id === resolvingRouteId) &&
         selectedClientForDetail?.id !== resolvingRouteId) ||
-      (currentView === 'vendor_detail' &&
+      ((currentView === 'vendor_detail' || currentView === 'vendor_edit') &&
         !vendors.some((v) => v.id === resolvingRouteId) &&
         selectedVendorForDetail?.id !== resolvingRouteId) ||
       (currentView === 'placement_detail' &&
@@ -3218,9 +3378,9 @@ export const App: React.FC = () => {
                         : candDetailReturnView === 'placement_detail'
                           ? 'billable'
                           : 'consultants'
-                  : currentView === 'client_detail'
+                  : currentView === 'client_detail' || currentView === 'client_edit'
                     ? 'clients'
-                    : currentView === 'vendor_detail'
+                    : currentView === 'vendor_detail' || currentView === 'vendor_edit'
                       ? vendorDetailReturnView === 'consultant_detail'
                         ? 'consultants'
                         : vendorDetailReturnView === 'placement_detail'
@@ -3281,7 +3441,7 @@ export const App: React.FC = () => {
         />
 
         {/* Dynamic View Body */}
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        <main className="flex-1 overflow-y-auto px-2 py-4 space-y-5">
           <React.Suspense
             fallback={
               <PageSkeleton
@@ -3498,6 +3658,7 @@ export const App: React.FC = () => {
                 onPreviewApplicationForm={(req, templateId) =>
                   handleOpenRequirementFormPreview(req, templateId, reqDetailReturnView)
                 }
+                showToast={showToast}
                 benchPickerCloseToken={benchPickerCloseToken}
               />
             )}
@@ -3698,6 +3859,9 @@ export const App: React.FC = () => {
                 onSelectClient={(client, startEditing) =>
                   handleOpenClientDetail(client, Boolean(startEditing), 'clients')
                 }
+                onEditClient={(client) =>
+                  handleOpenClientEdit(client, 'clients', 'account')
+                }
                 onClientUpdated={(updatedClient) => {
                   setClients((prev) =>
                     prev.map((c) => (c.id === updatedClient.id ? updatedClient : c))
@@ -3726,21 +3890,53 @@ export const App: React.FC = () => {
                 requirements={requirements}
                 placements={placements}
                 rateMasked={rateMasked}
-                initialEditing={clientDetailInitialEdit}
-                onClientUpdated={(updatedClient) => {
-                  setClients((prev) =>
-                    prev.map((c) => (c.id === updatedClient.id ? updatedClient : c))
-                  );
-                  setSelectedClientForDetail((prev) =>
-                    prev && prev.id === updatedClient.id ? updatedClient : prev
-                  );
-                }}
+                onEditClient={(client, section) =>
+                  handleOpenClientEdit(client, 'client_detail', section || 'account')
+                }
                 onOpenRequirement={(req) => handleOpenRequirementDetail(req, 'client_detail')}
                 onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'client_detail')}
                 onDeleteClient={isAdmin ? handleDeleteClient : undefined}
-                showToast={showToast}
               />
             )}
+
+            {currentView === 'client_edit' && !isResolvingCurrentDetail && (() => {
+              const editingClient =
+                clients.find((c) => c.id === (selectedClientForDetail?.id || routeTarget.entityId)) ||
+                selectedClientForDetail;
+              return (
+                <ClientEditPage
+                  client={editingClient}
+                  requirements={requirements}
+                  placements={placements}
+                  backLabel={
+                    clientDetailReturnView === 'clients'
+                      ? 'Back to Clients'
+                      : editingClient?.name
+                        ? `Back to ${editingClient.name}`
+                        : 'Back to Client Details'
+                  }
+                  initialFocusSection={clientEditFocusSection}
+                  onBack={() => {
+                    if (editingClient && clientDetailReturnView !== 'clients') {
+                      handleOpenClientDetail(editingClient, false, 'clients');
+                    } else if (editingClient && currentView === 'client_edit' && clientDetailReturnView === 'client_detail') {
+                      handleOpenClientDetail(editingClient, false, 'clients');
+                    } else {
+                      handleNavigateView(clientDetailReturnView || 'clients');
+                    }
+                  }}
+                  onClientUpdated={(updatedClient) => {
+                    setClients((prev) =>
+                      prev.map((c) => (c.id === updatedClient.id ? updatedClient : c))
+                    );
+                    setSelectedClientForDetail((prev) =>
+                      prev && prev.id === updatedClient.id ? updatedClient : prev
+                    );
+                  }}
+                  showToast={showToast}
+                />
+              );
+            })()}
 
             {currentView === 'vendors' && (
               <VendorsView
@@ -3750,6 +3946,11 @@ export const App: React.FC = () => {
                   handleOpenVendorDetail(vendor, Boolean(startEditing), 'vendors')
                 }
                 canEditVendor={canManageDataOperations}
+                onEditVendor={
+                  canManageDataOperations
+                    ? (vendor) => handleOpenVendorEdit(vendor, 'vendors', 'profile')
+                    : undefined
+                }
                 onUpdateVendor={canManageDataOperations ? handleUpdateVendor : undefined}
                 onDeleteVendor={isAdmin ? handleDeleteVendor : undefined}
               />
@@ -3774,16 +3975,56 @@ export const App: React.FC = () => {
                 candidates={candidates}
                 placements={placements}
                 rateMasked={rateMasked}
-                initialEditing={vendorDetailInitialEdit}
                 initialTab={vendorDetailInitialTab}
                 initialAuditTask={vendorDetailAuditTask}
                 onClearAuditTask={() => setVendorDetailAuditTask(null)}
                 onSelectCandidate={(c) => handleOpenConsultantDetail(c, false, 'vendor_detail')}
                 onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'vendor_detail')}
+                onEditVendor={
+                  canManageDataOperations
+                    ? (vendor, section) =>
+                        handleOpenVendorEdit(vendor, 'vendor_detail', section || 'profile')
+                    : undefined
+                }
                 onUpdateVendor={canManageDataOperations ? handleUpdateVendor : undefined}
                 onDeleteVendor={isAdmin ? handleDeleteVendor : undefined}
               />
             )}
+
+            {currentView === 'vendor_edit' && !isResolvingCurrentDetail && (() => {
+              const editingVendor =
+                vendors.find((v) => v.id === (selectedVendorForDetail?.id || routeTarget.entityId)) ||
+                selectedVendorForDetail;
+              return (
+                <VendorEditPage
+                  vendor={editingVendor}
+                  candidates={candidates}
+                  placements={placements}
+                  backLabel={
+                    vendorDetailReturnView === 'vendors'
+                      ? 'Back to Vendors'
+                      : editingVendor?.name
+                        ? `Back to ${editingVendor.name}`
+                        : 'Back to Vendor Details'
+                  }
+                  initialFocusSection={vendorEditFocusSection}
+                  onBack={() => {
+                    if (editingVendor && vendorDetailReturnView === 'vendor_detail') {
+                      handleOpenVendorDetail(editingVendor, false, 'vendors');
+                    } else {
+                      handleNavigateView(vendorDetailReturnView || 'vendors');
+                    }
+                  }}
+                  onUpdateVendor={async (updatedVendor) => {
+                    await handleUpdateVendor(updatedVendor);
+                    setSelectedVendorForDetail((prev) =>
+                      prev && prev.id === updatedVendor.id ? updatedVendor : prev
+                    );
+                  }}
+                  showToast={showToast}
+                />
+              );
+            })()}
 
             {currentView === 'billable' && (
               <BillablePlacementsView

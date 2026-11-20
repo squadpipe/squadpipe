@@ -71,7 +71,8 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
           aiCapabilities.enabled ? (
             <AiBadge label="PipeAI" size="xs" />
           ) : (
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-white text-emerald-700 border border-emerald-300 px-2 py-0.5 rounded-full">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium bg-white text-slate-700 border border-slate-200/90 px-2.5 py-0.5 rounded-full leading-none">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               Auto-Fill
             </span>
           )

@@ -405,7 +405,8 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
             )}
           </div>
           <div className="space-y-1.5">
-            <span className="inline-block text-[11px] font-semibold border px-2.5 py-0.5 rounded-full text-emerald-700 bg-white border-emerald-300">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium border px-2.5 py-0.5 rounded-full text-slate-700 bg-white border-slate-200/90 leading-none">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               {isPreviewSubmission ? 'Preview Complete' : 'Application Submitted'}
             </span>
             <h1 className="text-xl font-bold text-slate-900 pt-1">
@@ -539,7 +540,7 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                   {roleDetails.publicLinkEnabled ? 'Live link active' : 'Draft mode'} &middot; Submissions aren&rsquo;t saved
                 </span>
               </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-brand-300 text-[11px] font-semibold text-brand-700 tracking-tight">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white border border-slate-200/90 text-[11px] font-medium text-slate-700 tracking-tight leading-none">
                 <Eye className="w-3 h-3 text-brand-600 shrink-0" />
                 <span>Preview</span>
               </span>

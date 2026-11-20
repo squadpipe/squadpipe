@@ -16,7 +16,6 @@ import { SortableTableHeader } from '../../components/shared/SortableTableHeader
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ConfirmDeleteModal } from '../../components/shared/ConfirmDeleteModal';
-import { EditClientModal } from '../../components/modals/edit/EditClientModal';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapClientFromApi } from '../../utils/entityMappers';
 import { sortArrayByColumn, useTableSort } from '../../utils/tableSort';
@@ -27,6 +26,7 @@ interface ClientsViewProps {
   placements: BillablePlacement[];
   onOpenAddClient: () => void;
   onSelectClient: (client: Client, startEditing?: boolean) => void;
+  onEditClient?: (client: Client) => void;
   onClientUpdated?: (updatedClient: Client) => void;
   onDeleteClient?: (client: Client) => Promise<void> | void;
   showToast: (title: string, message: string, icon?: string) => void;
@@ -38,9 +38,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   placements,
   onOpenAddClient,
   onSelectClient,
-  onClientUpdated,
+  onEditClient,
   onDeleteClient,
-  showToast,
 }) => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -49,7 +48,6 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   const [serverClients, setServerClients] = useState<Client[]>([]);
   const [totalClients, setTotalClients] = useState(clients.length);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
-  const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
 
   const debouncedSearch = useDebounce(search, 300);
@@ -288,22 +286,18 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="text-[11px] px-2 py-0.5 rounded font-medium bg-white border border-slate-300 text-slate-700">
-                          {clientReqs.length} {clientReqs.length === 1 ? 'Req' : 'Reqs'}
-                        </span>
+                        <StatusBadge
+                          tone="slate"
+                          size="xs"
+                          label={`${clientReqs.length} ${clientReqs.length === 1 ? 'Req' : 'Reqs'}`}
+                        />
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        {clientPlacements.length > 0 ? (
-                          <StatusBadge
-                            label={`${clientPlacements.length} Active`}
-                            tone="emerald"
-                            size="xs"
-                          />
-                        ) : (
-                          <span className="text-[11px] px-2 py-0.5 rounded font-medium bg-white border border-slate-200 text-slate-500">
-                            0 Active
-                          </span>
-                        )}
+                        <StatusBadge
+                          label={`${clientPlacements.length} Active`}
+                          tone={clientPlacements.length > 0 ? 'emerald' : 'slate'}
+                          size="xs"
+                        />
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         <div className="inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -318,7 +312,9 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                           </button>
                           <button
                             type="button"
-                            onClick={() => setEditingClient(client)}
+                            onClick={() =>
+                              onEditClient ? onEditClient(client) : onSelectClient(client, true)
+                            }
                             title="Edit client"
                             className="p-1.5 rounded text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors cursor-pointer"
                           >
@@ -357,17 +353,6 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
           pageSizeOptions={[10, 20, 50]}
         />
       </div>
-
-      <EditClientModal
-        client={editingClient}
-        isOpen={Boolean(editingClient)}
-        onClose={() => setEditingClient(null)}
-        onClientUpdated={(updated) => {
-          setServerClients((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
-          if (onClientUpdated) onClientUpdated(updated);
-        }}
-        showToast={showToast}
-      />
 
       {onDeleteClient && (
         <ConfirmDeleteModal

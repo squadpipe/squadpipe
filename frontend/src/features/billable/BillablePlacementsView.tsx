@@ -535,15 +535,15 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                       {/* Placement Model & Status */}
                       <td className="px-3.5 py-3 space-y-1.5">
                         <div>
-                          <span
-                            className={`inline-block px-2 py-0.5 rounded text-[11px] font-medium ${
+                          <StatusBadge
+                            tone={
                               p.placementType && p.placementType.includes('W2')
-                                ? 'bg-brand-500/[0.08] text-brand-800'
-                                : 'bg-slate-100 text-slate-700'
-                            }`}
-                          >
-                            {p.placementType || 'C2C Subcontractor'}
-                          </span>
+                                ? 'emerald'
+                                : 'slate'
+                            }
+                            size="xs"
+                            label={p.placementType || 'C2C Subcontractor'}
+                          />
                         </div>
                         <div>{getStatusBadge(p)}</div>
                       </td>

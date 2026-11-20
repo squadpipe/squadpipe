@@ -332,10 +332,10 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
 
   const marginBadgeClass =
     marginPct >= 20
-      ? 'bg-white text-emerald-700 border-emerald-300'
+      ? 'bg-white text-slate-700 border-slate-200/90'
       : marginPct >= 10
-        ? 'bg-white text-amber-700 border-amber-300'
-        : 'bg-white text-rose-700 border-rose-300';
+        ? 'bg-white text-slate-700 border-slate-200/90'
+        : 'bg-white text-slate-700 border-slate-200/90';
 
   const contractWeeks = (() => {
     if (!form.startDate || !form.endDate) return 0;

@@ -71,7 +71,7 @@ export function getCapabilityBadgeStyle(
   if (rec === 'STRONG_FIT' || (!rec && score >= 80)) {
     return {
       label: explicitLabel || 'Strong Fit',
-      badgeClass: 'bg-white text-emerald-700 border-emerald-300 hover:bg-emerald-50/40',
+      badgeClass: 'bg-white text-slate-700 border-slate-200/90 hover:bg-slate-50',
       barClass: 'bg-emerald-500',
       scoreTextClass: 'text-emerald-700',
     };
@@ -79,7 +79,7 @@ export function getCapabilityBadgeStyle(
   if (rec === 'GOOD_FIT' || (!rec && score >= 65)) {
     return {
       label: explicitLabel || 'Good Fit',
-      badgeClass: 'bg-white text-brand-700 border-brand-300 hover:bg-brand-50/40',
+      badgeClass: 'bg-white text-slate-700 border-slate-200/90 hover:bg-slate-50',
       barClass: 'bg-brand-600',
       scoreTextClass: 'text-brand-700',
     };
@@ -87,14 +87,14 @@ export function getCapabilityBadgeStyle(
   if (rec === 'PARTIAL_FIT' || (!rec && score >= 45)) {
     return {
       label: explicitLabel || 'Partial Fit',
-      badgeClass: 'bg-white text-amber-700 border-amber-300 hover:bg-amber-50/40',
+      badgeClass: 'bg-white text-slate-700 border-slate-200/90 hover:bg-slate-50',
       barClass: 'bg-amber-500',
       scoreTextClass: 'text-amber-700',
     };
   }
   return {
     label: explicitLabel || 'Low Fit',
-    badgeClass: 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50',
+    badgeClass: 'bg-white text-slate-700 border-slate-200/90 hover:bg-slate-50',
     barClass: 'bg-slate-400',
     scoreTextClass: 'text-slate-700',
   };
@@ -359,7 +359,8 @@ export const RequirementNotesModal: React.FC<RequirementNotesModalProps> = ({
                               {noteTime && <span className="whitespace-nowrap">&middot; {noteTime}</span>}
                               {note.updatedAt && <span className="whitespace-nowrap">(edited)</span>}
                               {isNoteClosed && (
-                                <span className="px-1.5 py-0.5 rounded bg-white border border-rose-300 text-rose-700 font-medium whitespace-nowrap">
+                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white border border-slate-200/90 text-slate-700 font-medium whitespace-nowrap leading-none">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                                   Rejection Feedback
                                 </span>
                               )}

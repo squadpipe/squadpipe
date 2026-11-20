@@ -904,15 +904,26 @@ router.post('/clients/:id/contacts', async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'Client account not found' });
     }
     const { fullName, name, designation, role, email, phone, isPrimary } = req.body;
-    const contact = await prisma.clientContact.create({
-      data: {
-        clientId: client.id,
-        fullName: (fullName || name || 'Hiring Manager').trim(),
-        designation: (designation || role || 'Hiring Manager').trim(),
-        email: (email || '').trim().toLowerCase(),
-        phone: (phone || '').trim(),
-        isPrimary: Boolean(isPrimary)
+    const trimmedEmail = (email || '').trim().toLowerCase();
+    const contact = await prisma.$transaction(async (tx) => {
+      const existingCount = await tx.clientContact.count({ where: { clientId: client.id } });
+      const makePrimary = Boolean(isPrimary) || existingCount === 0;
+      if (makePrimary) {
+        await tx.clientContact.updateMany({
+          where: { clientId: client.id, isPrimary: true },
+          data: { isPrimary: false }
+        });
       }
+      return tx.clientContact.create({
+        data: {
+          clientId: client.id,
+          fullName: (fullName || name || 'Hiring Manager').trim(),
+          designation: (designation || role || 'Hiring Manager').trim(),
+          email: trimmedEmail,
+          phone: (phone || '').trim(),
+          isPrimary: makePrimary
+        }
+      });
     });
     res.status(201).json({ success: true, data: contact });
   } catch (error: any) {

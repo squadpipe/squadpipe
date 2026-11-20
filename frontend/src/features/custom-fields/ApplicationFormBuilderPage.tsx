@@ -30,6 +30,7 @@ import {
   X,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
+import { StatusBadge } from '../../components/shared/StatusBadge';
 import {
   ApplicationFormCustomField,
   ApplicationFormFieldWidth,
@@ -99,37 +100,37 @@ const QUICK_QUESTION_PRESETS: Array<{
   required: boolean;
   options?: string[];
 }> = [
-  {
-    label: 'Earliest start date',
-    name: 'Earliest start date',
-    type: 'DROPDOWN',
-    width: 'half',
-    required: false,
-    options: ['Immediate', '2 Weeks Notice', '30 Days Notice', 'Negotiable'],
-  },
-  {
-    label: 'Open to relocation?',
-    name: 'Open to relocation?',
-    type: 'BOOLEAN',
-    width: 'half',
-    required: false,
-  },
-  {
-    label: 'Technical skills stack',
-    name: 'Technical skills stack',
-    type: 'MULTISELECT',
-    width: 'full',
-    required: false,
-    options: ['React', 'TypeScript', 'Node.js', 'AWS', 'Kubernetes', 'Python'],
-  },
-  {
-    label: 'Portfolio / GitHub URL',
-    name: 'Portfolio / GitHub URL',
-    type: 'URL',
-    width: 'half',
-    required: false,
-  },
-];
+    {
+      label: 'Earliest start date',
+      name: 'Earliest start date',
+      type: 'DROPDOWN',
+      width: 'half',
+      required: false,
+      options: ['Immediate', '2 Weeks Notice', '30 Days Notice', 'Negotiable'],
+    },
+    {
+      label: 'Open to relocation?',
+      name: 'Open to relocation?',
+      type: 'BOOLEAN',
+      width: 'half',
+      required: false,
+    },
+    {
+      label: 'Technical skills stack',
+      name: 'Technical skills stack',
+      type: 'MULTISELECT',
+      width: 'full',
+      required: false,
+      options: ['React', 'TypeScript', 'Node.js', 'AWS', 'Kubernetes', 'Python'],
+    },
+    {
+      label: 'Portfolio / GitHub URL',
+      name: 'Portfolio / GitHub URL',
+      type: 'URL',
+      width: 'half',
+      required: false,
+    },
+  ];
 
 function supportsOptionsType(type: CustomQuestionFieldType): boolean {
   return type === 'DROPDOWN' || type === 'MULTISELECT';
@@ -268,13 +269,12 @@ const SortableFieldRow: React.FC<SortableFieldRowProps> = ({
     <div
       ref={setCombinedRef}
       style={style}
-      className={`transition-colors ${
-        isDragging
-          ? 'relative z-20 bg-white shadow-lg ring-1 ring-brand-500/40'
-          : isExpanded
-            ? 'bg-slate-50/40'
-            : 'bg-white hover:bg-slate-50/40'
-      }`}
+      className={`transition-colors ${isDragging
+        ? 'relative z-20 bg-white shadow-lg ring-1 ring-brand-500/40'
+        : isExpanded
+          ? 'bg-slate-50/40'
+          : 'bg-white hover:bg-slate-50/40'
+        }`}
     >
       {/* Compact Table Row */}
       <div className="px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2.5 sm:grid sm:grid-cols-[minmax(0,1fr)_96px_92px_96px] sm:items-center sm:gap-3">
@@ -306,9 +306,8 @@ const SortableFieldRow: React.FC<SortableFieldRowProps> = ({
                   {title}
                 </span>
                 <ChevronDown
-                  className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${
-                    isExpanded ? 'rotate-180 text-slate-600' : ''
-                  }`}
+                  className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${isExpanded ? 'rotate-180 text-slate-600' : ''
+                    }`}
                 />
               </div>
               <div className="text-[11px] text-slate-500 truncate">{subtitle}</div>
@@ -337,11 +336,10 @@ const SortableFieldRow: React.FC<SortableFieldRowProps> = ({
             onClick={() => onSetRequired(!entry.required)}
             aria-pressed={entry.required}
             title={entry.required ? 'Click to make optional' : 'Click to make required'}
-            className={`w-[80px] px-2.5 py-1 rounded-lg border text-[11px] font-semibold text-center transition-colors cursor-pointer shrink-0 ${
-              entry.required
-                ? 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50/40'
-                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-            }`}
+            className={`w-[80px] px-2.5 py-1 rounded-lg border text-[11px] font-semibold text-center transition-colors cursor-pointer shrink-0 ${entry.required
+              ? 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50/40'
+              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
           >
             {entry.required ? 'Required' : 'Optional'}
           </button>
@@ -411,7 +409,7 @@ const SortableFieldRow: React.FC<SortableFieldRowProps> = ({
                       ? { width: 'full' }
                       : {}),
                     ...(supportsOptionsType(nextType) &&
-                    (!entry.field.options || entry.field.options.length === 0)
+                      (!entry.field.options || entry.field.options.length === 0)
                       ? { options: ['Immediate', '30 days', '60 days'] }
                       : {}),
                   });
@@ -778,8 +776,8 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
       name: cf.name.trim(),
       ...(supportsOptionsType(cf.type)
         ? {
-            options: (cf.options || []).map((o) => o.trim()).filter(Boolean),
-          }
+          options: (cf.options || []).map((o) => o.trim()).filter(Boolean),
+        }
         : { options: undefined }),
     }));
 
@@ -919,13 +917,13 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
         subtitle="Arrange fields, set their width and whether they are required. Switch to Preview anytime to inspect the live applicant form."
         badges={
           <>
-            <span className="px-2.5 py-0.5 rounded-full bg-white border border-emerald-200 text-[11px] font-medium text-emerald-700 tabular-nums">
-              {totalDraftFieldCount} active fields
-            </span>
+            <StatusBadge
+              tone="emerald"
+              size="xs"
+              label={`${totalDraftFieldCount} active fields`}
+            />
             {editingOriginalIsDefault && (
-              <span className="px-2.5 py-0.5 rounded-full bg-white border border-slate-200/90 text-[11px] font-medium text-slate-600">
-                Workspace default
-              </span>
+              <StatusBadge tone="slate" size="xs" label="Workspace default" />
             )}
           </>
         }
@@ -1027,9 +1025,8 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                   value={draft.name}
                   onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                   placeholder="e.g. Direct Candidate Quick Apply"
-                  className={`w-full px-3 py-2 rounded-lg border focus:outline-none ${
-                    isNameInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 focus:border-brand-600'
-                  }`}
+                  className={`w-full px-3 py-2 rounded-lg border focus:outline-none ${isNameInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 focus:border-brand-600'
+                    }`}
                 />
               </div>
 
@@ -1257,7 +1254,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
               <span className="hidden sm:inline text-xs text-slate-500">
                 Form preview &middot; Submissions aren&rsquo;t saved
               </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-brand-300 text-[11px] font-semibold text-brand-700">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white border border-slate-200/90 text-[11px] font-medium text-slate-700 leading-none">
                 <Eye className="w-3 h-3 text-brand-600 shrink-0" />
                 <span>Preview</span>
               </span>

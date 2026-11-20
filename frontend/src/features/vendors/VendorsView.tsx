@@ -6,7 +6,6 @@ import { SortableTableHeader } from '../../components/shared/SortableTableHeader
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ConfirmDeleteModal } from '../../components/shared/ConfirmDeleteModal';
-import { EditVendorModal } from '../../components/modals/edit/EditVendorModal';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapVendorFromApi } from '../../utils/entityMappers';
 import { sortArrayByColumn, useTableSort } from '../../utils/tableSort';
@@ -16,6 +15,7 @@ interface VendorsViewProps {
   onOpenAddVendor: () => void;
   onSelectVendor: (vendor: Vendor, startEditing?: boolean) => void;
   canEditVendor?: boolean;
+  onEditVendor?: (vendor: Vendor) => void;
   onUpdateVendor?: (vendor: Vendor) => Promise<void> | void;
   onDeleteVendor?: (vendor: Vendor) => Promise<void> | void;
 }
@@ -25,7 +25,7 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
   onOpenAddVendor,
   onSelectVendor,
   canEditVendor = true,
-  onUpdateVendor,
+  onEditVendor,
   onDeleteVendor,
 }) => {
   const [search, setSearch] = useState('');
@@ -43,7 +43,6 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
   const [tableRows, setTableRows] = useState<Vendor[]>(() => vendors.slice(0, 10));
   const [totalRows, setTotalRows] = useState(vendors.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
-  const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [vendorToDelete, setVendorToDelete] = useState<Vendor | null>(null);
 
   const debouncedSearch = useDebounce(search, 150);
@@ -317,10 +316,12 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                             <span>View</span>
                             <ChevronRight className="w-3 h-3" />
                           </button>
-                          {canEditVendor && onUpdateVendor && (
+                          {canEditVendor && (
                             <button
                               type="button"
-                              onClick={() => setEditingVendor(v)}
+                              onClick={() =>
+                                onEditVendor ? onEditVendor(v) : onSelectVendor(v, true)
+                              }
                               title="Edit vendor"
                               className="p-1.5 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer"
                             >
@@ -359,15 +360,6 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
           isLoading={isLoadingRows}
         />
       </div>
-
-      {onUpdateVendor && (
-        <EditVendorModal
-          vendor={editingVendor}
-          isOpen={Boolean(editingVendor)}
-          onClose={() => setEditingVendor(null)}
-          onUpdateVendor={onUpdateVendor}
-        />
-      )}
 
       {onDeleteVendor && (
         <ConfirmDeleteModal

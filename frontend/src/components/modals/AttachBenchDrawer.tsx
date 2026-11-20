@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Check, FileSpreadsheet, Loader2, Search, X } from 'lucide-react';
+import { AlertTriangle, Check, FileSpreadsheet, Loader2, RotateCcw, Search, X } from 'lucide-react';
 import { AiIcon, AiTag } from '../shared/AiBrand';
-import { apiClient } from '../../config/api.config';
+import { apiClient, emitAppToast } from '../../config/api.config';
 import {
   Candidate,
   CapabilitySummary,
@@ -95,18 +95,15 @@ export function computeCandidateSkillMatch(
   return { score, matched, missing };
 }
 
-function getMatchScoreBadgeClass(score: number): string {
-  if (score >= 70) {
-    return 'bg-white text-emerald-700 border-emerald-300';
-  }
-  if (score >= 40) {
-    return 'bg-white text-brand-700 border-brand-300';
-  }
-  return 'bg-white text-slate-600 border-slate-300';
+function getMatchScoreDotClass(score: number): string {
+  if (score >= 70) return 'bg-emerald-500';
+  if (score >= 40) return 'bg-brand-600';
+  return 'bg-slate-400';
 }
 
 interface RankingProgressBodyProps {
   progress: number;
+  elapsedSec?: number;
   aiEnabled: boolean;
   isNextBatch?: boolean;
   skeletonCount?: number;
@@ -114,24 +111,32 @@ interface RankingProgressBodyProps {
 
 const RankingProgressBody: React.FC<RankingProgressBodyProps> = ({
   progress,
+  elapsedSec = 0,
   aiEnabled,
   isNextBatch = false,
   skeletonCount = 6,
 }) => {
+  const smoothWidth = Math.max(8, Math.min(100, progress));
   const pct = Math.max(8, Math.min(100, Math.round(progress)));
   const stageText =
-    pct < 35
-      ? 'Scanning bench resumes and skill profiles...'
-      : pct < 70
-        ? 'Evaluating experience and role fit criteria...'
-        : 'Scoring and ordering top matching candidates...';
+    pct >= 100
+      ? 'Top candidate rankings ready!'
+      : pct < 30
+        ? 'Scanning bench resumes and skill profiles...'
+        : pct < 60
+          ? 'Evaluating experience and role fit criteria...'
+          : pct < 85
+            ? 'Scoring strengths, gaps, and domain alignment...'
+            : elapsedSec >= 9
+              ? 'Still wrapping up final AI candidate scores...'
+              : 'Ordering best-fit candidates for this role...';
 
   return (
     <div className="space-y-2.5">
-      <div className="p-3.5 rounded-xl border border-teal-200/90 bg-white shadow-sm space-y-2.5">
+      <div className="p-3.5 rounded-xl border border-slate-200/90 bg-white shadow-sm space-y-2.5">
         <div className="flex items-center justify-between gap-2.5">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-white border border-teal-300 flex items-center justify-center shrink-0">
+            <div className="w-7 h-7 rounded-lg bg-white border border-slate-200/90 flex items-center justify-center shrink-0">
               <AiIcon className="w-3.5 h-3.5 text-teal-600 animate-pulse" />
             </div>
             <div className="min-w-0">
@@ -147,7 +152,8 @@ const RankingProgressBody: React.FC<RankingProgressBodyProps> = ({
               <div className="text-[11px] text-slate-500 truncate">{stageText}</div>
             </div>
           </div>
-          <span className="px-2 py-0.5 rounded-md bg-white border border-teal-300 text-teal-700 text-[11px] font-bold tabular-nums shrink-0">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white border border-slate-200/90 text-slate-700 text-[11px] font-semibold tabular-nums shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-pulse" />
             {pct}%
           </span>
         </div>
@@ -160,8 +166,8 @@ const RankingProgressBody: React.FC<RankingProgressBodyProps> = ({
           className="w-full h-2 rounded-full bg-slate-100 overflow-hidden"
         >
           <div
-            className="h-full rounded-full bg-teal-600 transition-all duration-300 ease-out"
-            style={{ width: `${pct}%` }}
+            className="h-full rounded-full bg-teal-600 transition-[width] duration-150 ease-out"
+            style={{ width: `${smoothWidth}%` }}
           />
         </div>
       </div>
@@ -213,6 +219,7 @@ export interface AttachBenchDrawerProps {
   onOpenCsvImport?: (req: Requirement) => void;
   onOpenResumeParser?: (req: Requirement) => void;
   onCandidatesSeen?: (loaded: Candidate[]) => void;
+  showToast?: (title: string, message: string, icon?: string) => void;
 }
 
 export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
@@ -229,10 +236,26 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   onOpenCsvImport,
   onOpenResumeParser,
   onCandidatesSeen,
+  showToast,
 }) => {
   const { formatRate } = useCurrency();
   const aiCapabilities = useAiCapabilities();
   const taxonomies = useMasterTaxonomies(isOpen);
+
+  const notifyToast = useCallback(
+    (
+      title: string,
+      message: string,
+      icon: 'success' | 'error' | 'warning' | 'info' = 'info'
+    ) => {
+      if (showToast) {
+        showToast(title, message, icon);
+      } else {
+        emitAppToast(title, message, icon);
+      }
+    },
+    [showToast]
+  );
 
   const [selectedReqId, setSelectedReqId] = useState<string>(
     requirement?.id || requirements[0]?.id || ''
@@ -251,6 +274,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   const [isAiRanking, setIsAiRanking] = useState(false);
   const [aiRankBatchMode, setAiRankBatchMode] = useState<'initial' | 'next'>('initial');
   const [aiRankProgress, setAiRankProgress] = useState(0);
+  const [aiRankElapsedSec, setAiRankElapsedSec] = useState(0);
   const [benchReadyForAutoRank, setBenchReadyForAutoRank] = useState(false);
   const [aiRankError, setAiRankError] = useState('');
   const [aiRankScopeNote, setAiRankScopeNote] = useState('');
@@ -282,6 +306,8 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   const activeSearchRef = useRef<string>('');
   const autoRankTriggeredRef = useRef<boolean>(false);
   const benchListRef = useRef<HTMLDivElement | null>(null);
+  const rankAbortRef = useRef<AbortController | null>(null);
+  const rankCompleteTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     for (const c of candidates) {
@@ -291,11 +317,19 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
 
   // Reset picker filters & selection on open or external target change
   useEffect(() => {
+    rankAbortRef.current?.abort();
+    rankAbortRef.current = null;
+    if (rankCompleteTimerRef.current !== null) {
+      window.clearTimeout(rankCompleteTimerRef.current);
+      rankCompleteTimerRef.current = null;
+    }
+
     if (!isOpen) {
       autoRankTriggeredRef.current = false;
       setBenchReadyForAutoRank(false);
       setIsAiRanking(false);
       setAiRankProgress(0);
+      setAiRankElapsedSec(0);
       return;
     }
     autoRankTriggeredRef.current = false;
@@ -317,6 +351,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
     setIsAiRanking(false);
     setAiRankBatchMode('initial');
     setAiRankProgress(0);
+    setAiRankElapsedSec(0);
     setBenchPage(1);
     setPagedCandidates(candidates.slice(0, BENCH_PAGE_SIZE));
     setTotalBenchCount(candidates.length);
@@ -325,22 +360,29 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
 
   useEffect(() => {
     if (!isAiRanking) {
-      setAiRankProgress(0);
+      setAiRankElapsedSec(0);
       return;
     }
-    setAiRankProgress((prev) => (prev > 12 ? prev : 14));
-    const timer = setInterval(() => {
+    const startedAt = Date.now();
+    setAiRankProgress((prev) => (prev > 12 && prev < 100 ? prev : 12));
+    const timer = window.setInterval(() => {
+      const elapsedMs = Date.now() - startedAt;
+      setAiRankElapsedSec(Math.floor(elapsedMs / 1000));
       setAiRankProgress((prev) => {
-        if (prev >= 92) return 92;
-        const step = Math.max(2, (92 - prev) * 0.16);
-        return Math.min(92, prev + step);
+        if (prev >= 100) return 100;
+        const target = 12 + 85 * (1 - Math.exp(-elapsedMs / 3200));
+        return Math.min(97, Math.max(prev, target));
       });
-    }, 260);
-    return () => clearInterval(timer);
+    }, 90);
+    return () => window.clearInterval(timer);
   }, [isAiRanking]);
 
-  // Clear cached AI batch rankings when search or work-auth filters change
+  // Clear cached AI batch rankings and abort stale ranking request when filters change
   useEffect(() => {
+    rankAbortRef.current?.abort();
+    rankAbortRef.current = null;
+    setIsAiRanking(false);
+    setAiRankProgress(0);
     setAiRankMap({});
     setAiRankError('');
     setAiRankScopeNote('');
@@ -769,9 +811,19 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
 
   const handleAiRankTopMatches = async (appendNextBatch = false) => {
     if (!currentReq?.id || isAiRanking || availableTabCount === 0) return;
+    rankAbortRef.current?.abort();
+    const controller = new AbortController();
+    rankAbortRef.current = controller;
+    if (rankCompleteTimerRef.current !== null) {
+      window.clearTimeout(rankCompleteTimerRef.current);
+      rankCompleteTimerRef.current = null;
+    }
+
     setAiRankBatchMode(appendNextBatch ? 'next' : 'initial');
     setIsAiRanking(true);
     setAiRankError('');
+    let finishedCleanly = false;
+
     try {
       const excludeCandidateIds = Array.from(
         new Set([
@@ -779,13 +831,22 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
           ...(appendNextBatch ? Object.keys(aiRankMap) : []),
         ])
       );
-      const res = await apiClient.post('/match-skills', {
-        requirementId: currentReq.id,
-        skillsRequired: currentReq.skillsRequired,
-        search: benchSearch.trim() || undefined,
-        workAuth: benchWorkAuth !== 'All' ? benchWorkAuth : undefined,
-        excludeCandidateIds,
-      });
+      const res = await apiClient.post(
+        '/match-skills',
+        {
+          requirementId: currentReq.id,
+          skillsRequired: currentReq.skillsRequired,
+          search: benchSearch.trim() || undefined,
+          workAuth: benchWorkAuth !== 'All' ? benchWorkAuth : undefined,
+          excludeCandidateIds,
+        },
+        {
+          signal: controller.signal,
+          timeout: 35000,
+        }
+      );
+      if (controller.signal.aborted) return;
+
       const rankings = res.data?.data?.rankings;
       const rawMatchedCandidates = res.data?.data?.candidates;
       const used = Boolean(res.data?.data?.aiUsed);
@@ -840,6 +901,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
         setRemainingUnrankedCount(remainingFromApi);
         if (quotaNotice && !used) {
           setAiRankError(quotaNotice);
+          notifyToast('PipeAI Notice', quotaNotice, 'warning');
         }
         setAiRankScopeNote(
           `${evaluatedCount} ${evaluatedCount === 1 ? 'candidate' : 'candidates'} evaluated${
@@ -852,12 +914,42 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
           benchListRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
         }
       }
+
+      finishedCleanly = true;
+      setAiRankProgress(100);
+      rankCompleteTimerRef.current = window.setTimeout(() => {
+        rankCompleteTimerRef.current = null;
+        if (!controller.signal.aborted) {
+          setIsAiRanking(false);
+          setAiRankProgress(0);
+        }
+      }, 160);
     } catch (err: any) {
-      setAiRankError(
-        err?.response?.data?.message || err?.message || 'Could not rank candidates right now.'
-      );
+      if (
+        controller.signal.aborted ||
+        err?.code === 'ERR_CANCELED' ||
+        err?.name === 'CanceledError' ||
+        err?.name === 'AbortError'
+      ) {
+        return;
+      }
+      const errMsg =
+        err?.code === 'ECONNABORTED'
+          ? 'PipeAI search timed out before finishing. Please try again.'
+          : err?.response?.data?.message ||
+            err?.response?.data?.error ||
+            err?.message ||
+            'Could not rank candidates right now.';
+      setAiRankError(errMsg);
+      notifyToast('PipeAI Search Failed', errMsg, 'error');
     } finally {
-      setIsAiRanking(false);
+      if (rankAbortRef.current === controller) {
+        rankAbortRef.current = null;
+      }
+      if (!finishedCleanly) {
+        setIsAiRanking(false);
+        setAiRankProgress(0);
+      }
     }
   };
 
@@ -1002,13 +1094,13 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <h4 className="text-sm font-semibold text-slate-900">Attach Bench Candidates</h4>
-                <div className="flex items-center gap-1.5 text-[11px] font-semibold">
-                  <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200/90 text-slate-700">
-                    {openPositions} Open
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md bg-white text-emerald-700 border border-emerald-300">
-                    {attachedStageByCandId.size} Attached
-                  </span>
+                <div className="flex items-center gap-1.5">
+                  <StatusBadge tone="slate" size="xs" label={`${openPositions} Open`} />
+                  <StatusBadge
+                    tone="emerald"
+                    size="xs"
+                    label={`${attachedStageByCandId.size} Attached`}
+                  />
                 </div>
               </div>
               <p className="text-[11px] text-slate-500 leading-snug break-words mt-1">
@@ -1141,7 +1233,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                     type="button"
                     disabled={isAiRanking || isAutoRankWaiting || isLoadingBench || isAttaching}
                     onClick={() => void handleAiRankTopMatches(true)}
-                    title={`Rank the next ${Math.min(30, remainingUnrankedCount!)} unattached consultants (${remainingUnrankedCount} remaining)`}
+                    title={`Rank the next ${Math.min(20, remainingUnrankedCount!)} unattached consultants (${remainingUnrankedCount} remaining)`}
                     className="px-2.5 py-1 rounded-lg border border-teal-300 bg-white hover:bg-teal-50/50 text-teal-700 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
                   >
                     {isAiRanking ? (
@@ -1152,14 +1244,16 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                     <span>
                       {isAiRanking
                         ? 'Ranking Next Batch...'
-                        : `Rank Next ${Math.min(30, remainingUnrankedCount!)} (${remainingUnrankedCount} left)`}
+                        : `Rank Next ${Math.min(20, remainingUnrankedCount!)} (${remainingUnrankedCount} left)`}
                     </span>
                   </button>
                 ) : hasAiRankResults && remainingUnrankedCount === 0 ? (
-                  <span className="px-2.5 py-1 rounded-lg bg-white border border-teal-300 text-teal-700 text-[11px] font-semibold inline-flex items-center gap-1">
-                    <AiIcon className="w-3 h-3 text-teal-600" />
-                    <span>All {aiRankedCount} Ranked</span>
-                  </span>
+                  <StatusBadge
+                    tone="emerald"
+                    size="xs"
+                    icon={<AiIcon className="w-3 h-3 text-teal-600 shrink-0" />}
+                    label={`All ${aiRankedCount} Ranked`}
+                  />
                 ) : (
                   <button
                     type="button"
@@ -1200,9 +1294,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                   )}
                 </span>
                 {aiRankScopeNote && (
-                  <span className="text-[11px] font-medium text-teal-700 bg-white border border-teal-300 px-2 py-0.5 rounded-full">
-                    {aiRankScopeNote}
-                  </span>
+                  <StatusBadge tone="emerald" size="xs" label={aiRankScopeNote} />
                 )}
               </div>
             )}
@@ -1215,8 +1307,17 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
             className="p-4 overflow-y-auto space-y-2 flex-1 min-h-0"
           >
             {drawerTab === 'available' && aiRankError && (
-              <div className="px-3 py-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-medium">
-                {aiRankError}
+              <div className="px-3 py-2 rounded-lg bg-rose-50/80 border border-rose-200 text-rose-800 text-[11px] font-medium flex items-center justify-between gap-2.5">
+                <span className="min-w-0 leading-snug">{aiRankError}</span>
+                <button
+                  type="button"
+                  disabled={isAiRanking || isLoadingBench || isAttaching}
+                  onClick={() => void handleAiRankTopMatches(false)}
+                  className="px-2 py-1 rounded-md bg-white border border-rose-200 hover:bg-rose-50 text-rose-700 font-semibold text-[11px] inline-flex items-center gap-1 shrink-0 cursor-pointer disabled:opacity-50"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Retry</span>
+                </button>
               </div>
             )}
             {drawerTab === 'attached' ? (
@@ -1270,9 +1371,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                             </span>
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-md bg-white border border-slate-300 text-slate-500 text-[11px] font-medium">
-                            Fit Not Checked
-                          </span>
+                          <StatusBadge tone="slate" size="xs" label="Fit Not Checked" />
                         )}
                         <StatusBadge stage={stage} size="xs" />
                       </div>
@@ -1283,6 +1382,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
             ) : isAutoRankWaiting || (isAiRanking && aiRankBatchMode === 'initial') ? (
               <RankingProgressBody
                 progress={isAiRanking ? aiRankProgress : 10}
+                elapsedSec={aiRankElapsedSec}
                 aiEnabled={aiModeEnabled}
                 skeletonCount={6}
               />
@@ -1358,16 +1458,22 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                         <div className="flex items-center gap-2 flex-shrink-0">
                           {showMatch && (
                             <span
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] font-bold tabular-nums ${getMatchScoreBadgeClass(
-                                match.score
-                              )}`}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white border border-slate-200/90 text-slate-700 text-[11px] font-medium tabular-nums whitespace-nowrap leading-none"
                               title={
                                 isRowAiEvaluated
                                   ? 'Evaluated by PipeAI'
                                   : `${match.matched.length} of ${reqSkillList.length} required skills matched`
                               }
                             >
-                              {isRowAiEvaluated && <AiIcon className="w-3 h-3 text-teal-600" />}
+                              {isRowAiEvaluated ? (
+                                <AiIcon className="w-3 h-3 text-teal-600 shrink-0" />
+                              ) : (
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${getMatchScoreDotClass(
+                                    match.score
+                                  )}`}
+                                />
+                              )}
                               <span>
                                 {match.score === 0 && !isAiRanked
                                   ? 'No Skill Overlap'

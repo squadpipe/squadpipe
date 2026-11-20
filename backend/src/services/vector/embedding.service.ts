@@ -113,7 +113,7 @@ export class EmbeddingService {
 
   async embedTexts(
     texts: string[],
-    options: { tenantId?: string; configOverride?: ResolvedAiConfig } = {}
+    options: { tenantId?: string; configOverride?: ResolvedAiConfig; timeoutMs?: number } = {}
   ): Promise<EmbeddingBatchResult | null> {
     const cleanInputs = texts.map((t) => String(t || '').trim().slice(0, 6000)).filter(Boolean);
     if (cleanInputs.length === 0) return null;
@@ -125,6 +125,7 @@ export class EmbeddingService {
       config = runtime.config;
     }
     if (!config.configured) return null;
+    const reqTimeoutMs = options.timeoutMs ?? config.timeoutMs;
 
     // Gemini native REST batchEmbedContents supports outputDimensionality=768
     const geminiKey =
@@ -154,7 +155,7 @@ export class EmbeddingService {
               outputDimensionality: EMBEDDING_DIMENSIONS,
             })),
           }),
-          signal: AbortSignal.timeout(config.timeoutMs),
+          signal: AbortSignal.timeout(reqTimeoutMs),
         });
         if (!res.ok) return null;
         const json: any = await res.json();

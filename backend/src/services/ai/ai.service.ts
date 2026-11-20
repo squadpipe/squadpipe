@@ -45,6 +45,64 @@ function truncateInput(text: string | null | undefined, maxChars: number): strin
 }
 
 /**
+ * Normalizes noisy upstream provider errors (429 JSON blobs, auth errors, timeouts)
+ * into concise, user-actionable messages and appropriate HTTP status codes.
+ */
+function formatAiProviderError(
+  err: any,
+  fallback = 'PipeAI evaluation failed. Please try again.'
+): { message: string; statusCode: number } {
+  const raw = String(err?.message || '').trim();
+  const lower = raw.toLowerCase();
+
+  if (
+    lower.includes('neurons') ||
+    lower.includes('daily free allocation') ||
+    lower.includes('insufficient_quota')
+  ) {
+    return {
+      message:
+        'PipeAI daily provider quota reached. Upgrade your AI provider plan or switch keys in Settings -> PipeAI.',
+      statusCode: 429,
+    };
+  }
+  if (lower.includes('status 429') || lower.includes('rate limit') || lower.includes('resource_exhausted')) {
+    return {
+      message: 'PipeAI rate limit reached on the active provider. Wait a moment and try again.',
+      statusCode: 429,
+    };
+  }
+  if (
+    lower.includes('status 401') ||
+    lower.includes('status 403') ||
+    lower.includes('invalid api key') ||
+    lower.includes('incorrect api key') ||
+    lower.includes('unauthorized')
+  ) {
+    return {
+      message: 'PipeAI authentication failed. Verify your API key in Settings -> PipeAI.',
+      statusCode: 401,
+    };
+  }
+  if (
+    lower.includes('timed out') ||
+    lower.includes('timeout') ||
+    lower.includes('aborted') ||
+    err?.name === 'TimeoutError'
+  ) {
+    return {
+      message: 'PipeAI request timed out before finishing. Please try again.',
+      statusCode: 504,
+    };
+  }
+
+  return {
+    message: raw ? raw.slice(0, 220) : fallback,
+    statusCode: typeof err?.statusCode === 'number' ? err.statusCode : 502,
+  };
+}
+
+/**
  * Scrubs explicit hourly/currency rate strings before sending free-text JDs or snippets to LLMs
  * when the requesting user has financial rates masked.
  */
@@ -797,7 +855,10 @@ export class AiService {
         },
       };
     } catch (err: any) {
-      if (!config.fallbackToOffline) throw err;
+      if (!config.fallbackToOffline) {
+        const formatted = formatAiProviderError(err, 'PipeAI capability check failed.');
+        throw Object.assign(new Error(formatted.message), { statusCode: formatted.statusCode });
+      }
       console.warn(
         '[AI] evaluateSubmissionCapability fallback to offline baseline:',
         err?.message || err
@@ -821,15 +882,15 @@ export class AiService {
       const safeCandidates = chunk.map((c) =>
         buildPiiSafeCandidatePromptData(c, {
           rateMasked: params.rateMasked,
-          maxSnippetChars: 650,
-          maxMatchedChunkChars: 850,
+          maxSnippetChars: 450,
+          maxMatchedChunkChars: 650,
           includeHourlyRate: false,
         })
       );
 
       const result = await completeValidatedJson({
         adapter: params.adapter,
-        tier: 'smart',
+        tier: 'fast',
         schema: BatchRankAiSchema,
         maxTokens: params.maxTokens,
         timeoutMs: params.timeoutMs,
@@ -908,13 +969,13 @@ export class AiService {
     }
 
     try {
-      // Split into compact parallel chunks of 5 so each LLM call returns all candidates reliably without timing out
+      // Split into compact parallel chunks of 5 on the fast model tier for low-latency ranking
       const BATCH_CHUNK_SIZE = 5;
-      const chunkTimeoutMs = Math.max(config.timeoutMs, 45000);
+      const chunkTimeoutMs = Math.min(Math.max(config.timeoutMs, 15000), 25000);
       const safeReq = buildRateSafeRequirementPromptData(
         requirement,
         rateMasked,
-        Math.min(config.maxInputChars, 2800)
+        Math.min(config.maxInputChars, 2200)
       );
 
       const toChunks = (list: CapabilityCandidateInput[]) => {
@@ -983,23 +1044,31 @@ export class AiService {
             adapter,
             rateMasked,
             timeoutMs: chunkTimeoutMs,
-            maxTokens: 2500,
+            maxTokens: 1500,
             allowChunkSkipOnError: true,
           })
         )
       );
       collectChunkResults(firstPassResults);
 
-      // Retry once for any candidateIds omitted by the model or dropped by a transient chunk error
+      const firstErrText = String(acc.firstError?.message || '').toLowerCase();
+      const isFatalQuotaOrAuth =
+        firstErrText.includes('status 429') ||
+        firstErrText.includes('status 401') ||
+        firstErrText.includes('status 403') ||
+        firstErrText.includes('neurons') ||
+        firstErrText.includes('insufficient_quota');
+
+      // Retry once for any candidateIds omitted by a transient chunk failure (skip on quota/auth errors)
       const missingAfterFirstPass = clippedCandidates.filter((c) => !seenRanked.has(c.id));
-      if (missingAfterFirstPass.length > 0 && ranked.length > 0) {
+      if (missingAfterFirstPass.length > 0 && ranked.length > 0 && !isFatalQuotaOrAuth) {
         const retryResults = await Promise.all(
           toChunks(missingAfterFirstPass).map((chunk) =>
             this.rankCandidateChunk(chunk, safeReq, {
               adapter,
               rateMasked,
               timeoutMs: chunkTimeoutMs,
-              maxTokens: 2500,
+              maxTokens: 1500,
               allowChunkSkipOnError: true,
             })
           )
@@ -1009,10 +1078,11 @@ export class AiService {
 
       if (ranked.length === 0 || !acc.meta) {
         if (!config.fallbackToOffline) {
-          throw Object.assign(
-            new Error(acc.firstError?.message || 'PipeAI ranking failed to evaluate candidates.'),
-            { statusCode: 502 }
+          const formatted = formatAiProviderError(
+            acc.firstError,
+            'PipeAI ranking failed to evaluate candidates.'
           );
+          throw Object.assign(new Error(formatted.message), { statusCode: formatted.statusCode });
         }
         return { rankings: buildOfflineRankings(clippedCandidates), aiUsed: false };
       }

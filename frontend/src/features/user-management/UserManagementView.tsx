@@ -424,18 +424,15 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                             <div className="font-semibold text-slate-900 flex items-center gap-1.5 flex-wrap">
                               <span>{u.name}</span>
                               {u.isSuperAdmin && (
-                                <span
+                                <StatusBadge
+                                  tone="amber"
+                                  size="xs"
                                   title="Protected Workspace Super Admin"
-                                  className="inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-white border border-amber-300 text-amber-700"
-                                >
-                                  <ShieldCheck className="w-3 h-3 text-amber-600" />
-                                  <span>Super Admin</span>
-                                </span>
+                                  label="Super Admin"
+                                />
                               )}
                               {u.isCurrentUser && (
-                                <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-white border border-slate-200/90 text-slate-600">
-                                  You
-                                </span>
+                                <StatusBadge tone="slate" size="xs" label="You" />
                               )}
                             </div>
                             <div className="text-[11px] text-slate-500">{u.email}</div>

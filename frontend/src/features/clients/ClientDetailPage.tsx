@@ -12,23 +12,14 @@ import {
   MapPin,
   Pencil,
   Phone,
-  Plus,
   Search,
   Trash2,
   Users,
 } from 'lucide-react';
-import { apiClient } from '../../config/api.config';
 import { BillablePlacement, Client, Requirement } from '../../types';
 import { StatusBadge } from '../../components/shared/StatusBadge';
-import { ActionButton } from '../../components/shared/ActionButton';
 import { ConfirmDeleteModal } from '../../components/shared/ConfirmDeleteModal';
-import {
-  formatMissingFieldsMessage,
-  getMissingFieldLabels,
-  INVALID_FIELD_CLASSES,
-} from '../../utils/formValidation';
 import { getInitials } from '../../utils/entityMappers';
-import { AnimatedModal, ModalHeader } from '../../components/shared/MotionPrimitives';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { MaskedValue } from '../../components/shared/MaskedValue';
@@ -37,7 +28,6 @@ import {
   DetailTabItem,
   DetailUnderlineTabs,
 } from '../../components/shared/DetailPageShell';
-import { EditClientModal } from '../../components/modals/edit/EditClientModal';
 import { getStageDotClass } from '../../utils/stageStyles';
 import { useClientPagination } from '../../utils/usePagination';
 import {
@@ -53,12 +43,10 @@ interface ClientDetailPageProps {
   requirements: Requirement[];
   placements: BillablePlacement[];
   rateMasked?: boolean;
-  initialEditing?: boolean;
-  onClientUpdated?: (updatedClient: Client) => void;
+  onEditClient?: (client: Client, focusSection?: 'account' | 'contacts') => void;
   onOpenRequirement?: (req: Requirement) => void;
   onSelectPlacement?: (placement: BillablePlacement) => void;
   onDeleteClient?: (client: Client) => Promise<void> | void;
-  showToast: (title: string, message: string, icon?: string) => void;
 }
 
 export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
@@ -68,26 +56,11 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
   requirements,
   placements,
   rateMasked = false,
-  initialEditing = false,
-  onClientUpdated,
+  onEditClient,
   onOpenRequirement,
   onSelectPlacement,
   onDeleteClient,
-  showToast,
 }) => {
-  const [isEditingClient, setIsEditingClient] = useState(initialEditing);
-
-  const [showAddContact, setShowAddContact] = useState(false);
-  const [isSavingContact, setIsSavingContact] = useState(false);
-  const [contactValidationAttempted, setContactValidationAttempted] = useState(false);
-  const [contactForm, setContactForm] = useState({
-    name: '',
-    designation: 'Hiring Manager',
-    email: '',
-    phone: '',
-    isPrimary: false,
-  });
-
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [workspaceTab, setWorkspaceTab] = useState<'requisitions' | 'contacts' | 'placements' | 'account'>('requisitions');
   const [reqFilter, setReqFilter] = useState<'All' | 'Open' | 'Closed'>('All');
@@ -97,8 +70,6 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
   const placementsSort = useTableSort<'resourceName' | 'skillRole' | 'startDate' | 'billing' | 'status'>();
 
   useEffect(() => {
-    setIsEditingClient(Boolean(initialEditing));
-    setShowAddContact(false);
     setShowDeleteModal(false);
     setWorkspaceTab('requisitions');
     setReqFilter('All');
@@ -106,7 +77,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
     contactsSort.resetSort();
     reqsSort.resetSort();
     placementsSort.resetSort();
-  }, [client?.id, initialEditing]);
+  }, [client?.id]);
 
   const clientReqs = client
     ? requirements.filter((r) => r.companyName.toLowerCase() === client.name.toLowerCase())
@@ -206,74 +177,6 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
     ([, v]) => v !== null && v !== undefined && String(v).trim() !== ''
   );
 
-  const isContactNameInvalid = contactValidationAttempted && !contactForm.name.trim();
-  const isContactEmailInvalid = contactValidationAttempted && !contactForm.email.trim();
-
-  const handleSaveContact = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const missingFields = getMissingFieldLabels([
-      { label: 'Contact Name', valid: Boolean(contactForm.name.trim()) },
-      { label: 'Email', valid: Boolean(contactForm.email.trim()) },
-    ]);
-    if (missingFields.length > 0) {
-      setContactValidationAttempted(true);
-      showToast(
-        'Missing Fields',
-        formatMissingFieldsMessage(missingFields),
-        'error'
-      );
-      return;
-    }
-    setContactValidationAttempted(false);
-    setIsSavingContact(true);
-    try {
-      const res = await apiClient.post(`/clients/${client.id}/contacts`, {
-        fullName: contactForm.name.trim(),
-        designation: contactForm.designation.trim(),
-        email: contactForm.email.trim(),
-        phone: contactForm.phone.trim(),
-        isPrimary: contactForm.isPrimary,
-      });
-      const created = res.data?.data;
-      const newContact = {
-        name: created?.fullName || contactForm.name.trim(),
-        designation: created?.designation || contactForm.designation.trim(),
-        email: created?.email || contactForm.email.trim(),
-        phone: created?.phone || contactForm.phone.trim(),
-        isPrimary: created?.isPrimary ?? contactForm.isPrimary,
-      };
-      const existingContacts = newContact.isPrimary
-        ? client.contacts.map((c) => ({ ...c, isPrimary: false }))
-        : client.contacts;
-      const updatedClient: Client = {
-        ...client,
-        contacts: [...existingContacts, newContact],
-      };
-      if (onClientUpdated) onClientUpdated(updatedClient);
-      setContactForm({
-        name: '',
-        designation: 'Hiring Manager',
-        email: '',
-        phone: '',
-        isPrimary: false,
-      });
-      setShowAddContact(false);
-      showToast(
-        'Contact Added',
-        `${newContact.name} saved to ${client.name}.`,
-        'success'
-      );
-    } catch (err: any) {
-      showToast(
-        'Save Failed',
-        err?.response?.data?.message || 'Could not add contact.',
-        'error'
-      );
-    } finally {
-      setIsSavingContact(false);
-    }
-  };
-
   const primaryContact =
     client.contacts.find((c) => c.isPrimary) || client.contacts[0];
   const primaryContactName =
@@ -348,25 +251,27 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
-          <button
-            type="button"
-            onClick={() => setIsEditingClient(true)}
-            className="h-8 px-3 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <Pencil className="w-3 h-3" />
-            <span>Edit Client</span>
-          </button>
+        {onEditClient && (
+          <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => onEditClient(client, 'contacts')}
+              className="h-8 px-3 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Users className="w-3.5 h-3.5 text-slate-500" />
+              <span>Manage Contacts</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setShowAddContact(true)}
-            className="h-8 px-3.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" strokeWidth={1.75} />
-            <span>Add Contact</span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => onEditClient(client, 'account')}
+              className="h-8 px-3.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Pencil className="w-3 h-3" />
+              <span>Edit Client</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Standalone 4-Column Summary Card */}
@@ -657,14 +562,16 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                 Client Contact Persons ({client.contacts.length})
               </h2>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowAddContact(true)}
-              className="text-brand-600 font-semibold hover:underline text-xs inline-flex items-center gap-1 cursor-pointer"
-            >
-              <Plus className="w-3 h-3" strokeWidth={1.75} />
-              <span>Add Contact</span>
-            </button>
+            {onEditClient && (
+              <button
+                type="button"
+                onClick={() => onEditClient(client, 'contacts')}
+                className="h-7 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <Pencil className="w-3 h-3 text-slate-400" />
+                <span>Manage Contacts</span>
+              </button>
+            )}
           </div>
 
           {client.contacts.length === 0 ? (
@@ -889,14 +796,16 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsEditingClient(true)}
-                className="text-brand-600 font-semibold hover:underline text-xs inline-flex items-center gap-1 cursor-pointer"
-              >
-                <Pencil className="w-3 h-3" />
-                <span>Edit Account</span>
-              </button>
+              {onEditClient && (
+                <button
+                  type="button"
+                  onClick={() => onEditClient(client, 'account')}
+                  className="h-7 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <Pencil className="w-3 h-3 text-slate-400" />
+                  <span>Edit Account</span>
+                </button>
+              )}
             </div>
 
             <div className="p-6 space-y-6">
@@ -1063,132 +972,6 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
           }}
         />
       )}
-
-      <EditClientModal
-        client={client}
-        isOpen={isEditingClient}
-        onClose={() => setIsEditingClient(false)}
-        onClientUpdated={onClientUpdated}
-        showToast={showToast}
-      />
-
-      {/* Add Client Contact Modal */}
-      <AnimatedModal
-        isOpen={showAddContact}
-        onBackdropClick={() => !isSavingContact && setShowAddContact(false)}
-        zIndexClass="z-50"
-        panelClassName="bg-white rounded-xl shadow-2xl max-w-xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
-        ariaLabel="Add Client Contact"
-      >
-        <ModalHeader
-          icon={<Users className="w-4 h-4" />}
-          title="Add Client Contact"
-          subtitle={client.name}
-          onClose={() => setShowAddContact(false)}
-          closeDisabled={isSavingContact}
-        />
-
-        <form noValidate onSubmit={handleSaveContact} className="flex flex-col flex-1 overflow-hidden">
-          <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] font-semibold text-slate-700">
-                    Full Name *
-                  </label>
-                  {isContactNameInvalid && (
-                    <span className="text-[11px] font-semibold text-rose-600">Required</span>
-                  )}
-                </div>
-                <input
-                  type="text"
-                  autoFocus
-                  value={contactForm.name}
-                  onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
-                  placeholder="e.g., Sarah Connor"
-                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${isContactNameInvalid ? INVALID_FIELD_CLASSES : 'bg-white border-slate-200 focus:border-brand-600'
-                    }`}
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Designation
-                </label>
-                <input
-                  type="text"
-                  value={contactForm.designation}
-                  onChange={(e) =>
-                    setContactForm({ ...contactForm, designation: e.target.value })
-                  }
-                  placeholder="VP Engineering"
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] font-semibold text-slate-700">
-                    Email *
-                  </label>
-                  {isContactEmailInvalid && (
-                    <span className="text-[11px] font-semibold text-rose-600">Required</span>
-                  )}
-                </div>
-                <input
-                  type="email"
-                  value={contactForm.email}
-                  onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
-                  placeholder="sarah@client.com"
-                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${isContactEmailInvalid ? INVALID_FIELD_CLASSES : 'bg-white border-slate-200 focus:border-brand-600'
-                    }`}
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Phone
-                </label>
-                <input
-                  type="text"
-                  value={contactForm.phone}
-                  onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
-                  placeholder="+1 (555) 234-5678"
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <label className="inline-flex items-center gap-2 text-[11px] font-medium text-slate-700 cursor-pointer pt-1">
-              <input
-                type="checkbox"
-                checked={contactForm.isPrimary}
-                onChange={(e) =>
-                  setContactForm({ ...contactForm, isPrimary: e.target.checked })
-                }
-                className="rounded border-slate-300"
-              />
-              <span>Mark as Primary Hiring Lead</span>
-            </label>
-          </div>
-
-          <div className="px-6 py-3.5 bg-slate-50/60 border-t border-slate-100 flex items-center justify-end gap-2 shrink-0">
-            <button
-              type="button"
-              disabled={isSavingContact}
-              onClick={() => setShowAddContact(false)}
-              className="h-8 px-3.5 border border-slate-200 bg-white rounded-lg text-[11px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
-            >
-              Cancel
-            </button>
-            <ActionButton
-              type="submit"
-              loading={isSavingContact}
-              loadingText="Saving..."
-              className="h-8 px-4 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold cursor-pointer inline-flex items-center"
-            >
-              Save Contact
-            </ActionButton>
-          </div>
-        </form>
-      </AnimatedModal>
     </section>
   );
 };

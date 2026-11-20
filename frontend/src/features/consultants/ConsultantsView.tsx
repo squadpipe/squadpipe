@@ -551,14 +551,11 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
 
                     {/* Relocation */}
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <span
-                        className={`text-[11px] px-2 py-0.5 rounded font-medium ${c.relocation === 'Yes'
-                          ? 'bg-emerald-500/[0.08] text-emerald-800'
-                          : 'bg-slate-100 text-slate-600'
-                          }`}
-                      >
-                        {c.relocation === 'Yes' ? 'Open' : 'Local Only'}
-                      </span>
+                      <StatusBadge
+                        tone={c.relocation === 'Yes' ? 'emerald' : 'slate'}
+                        size="xs"
+                        label={c.relocation === 'Yes' ? 'Open' : 'Local Only'}
+                      />
                     </td>
 
                     {/* Pipeline Stage */}

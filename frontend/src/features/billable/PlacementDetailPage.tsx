@@ -163,7 +163,6 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
   const daysLeft = getDaysRemaining(placement.endDate);
   const timeline = getContractTimelineMetrics(placement.startDate, placement.endDate);
 
-  const initials = getInitials(placement.resourceName, '');
   const recruiterInitials = getInitials(placement.recruiter || '—');
 
   const billNum = parseRate(placement.billing, 0);
@@ -323,61 +322,56 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
 
       {/* Bare Canvas Entity Title & Actions */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5 min-w-0 flex-1">
-          <div className="w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center flex-shrink-0">
-            {initials || <Briefcase className="w-4 h-4" />}
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-lg sm:text-[19px] font-semibold text-slate-900 tracking-tight leading-snug">
+              {placement.resourceName}
+            </h1>
+            <StatusBadge
+              label={statusMeta.label}
+              tone={statusMeta.tone}
+              size="xs"
+            />
           </div>
-          <div className="min-w-0 flex-1 space-y-1">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-lg sm:text-[19px] font-semibold text-slate-900 tracking-tight leading-snug">
-                {placement.resourceName}
-              </h1>
-              <StatusBadge
-                label={statusMeta.label}
-                tone={statusMeta.tone}
-                size="xs"
-              />
-            </div>
-            <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-xs text-slate-500">
-              <span className="font-medium text-slate-700">{placement.skillRole}</span>
-              {placement.vendorName && (
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="text-slate-300" aria-hidden="true">&middot;</span>
-                  <span>via {placement.vendorName}</span>
+          <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-xs text-slate-500">
+            <span className="font-medium text-slate-700">{placement.skillRole}</span>
+            {placement.vendorName && (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="text-slate-300" aria-hidden="true">&middot;</span>
+                <span>via {placement.vendorName}</span>
+              </span>
+            )}
+            {(ended || daysLeft !== null) && (
+              <span className="inline-flex items-center gap-1.5 text-[11px]">
+                <span className="text-slate-300" aria-hidden="true">&middot;</span>
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    ended
+                      ? 'bg-slate-400'
+                      : daysLeft !== null && daysLeft <= 30
+                        ? 'bg-amber-500'
+                        : 'bg-emerald-500'
+                  }`}
+                />
+                <span
+                  className={
+                    !ended && daysLeft !== null && daysLeft <= 30
+                      ? 'font-medium text-amber-700'
+                      : ''
+                  }
+                >
+                  {ended
+                    ? `Contract Ended (${effectiveStatus})`
+                    : daysLeft !== null
+                      ? daysLeft < 0
+                        ? `Past end date by ${Math.abs(daysLeft)}d`
+                        : daysLeft === 0
+                          ? 'Contract ends today'
+                          : `${daysLeft} days remaining`
+                      : placement.deployment || 'Active Contract'}
                 </span>
-              )}
-              {(ended || daysLeft !== null) && (
-                <span className="inline-flex items-center gap-1.5 text-[11px]">
-                  <span className="text-slate-300" aria-hidden="true">&middot;</span>
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      ended
-                        ? 'bg-slate-400'
-                        : daysLeft !== null && daysLeft <= 30
-                          ? 'bg-amber-500'
-                          : 'bg-emerald-500'
-                    }`}
-                  />
-                  <span
-                    className={
-                      !ended && daysLeft !== null && daysLeft <= 30
-                        ? 'font-medium text-amber-700'
-                        : ''
-                    }
-                  >
-                    {ended
-                      ? `Contract Ended (${effectiveStatus})`
-                      : daysLeft !== null
-                        ? daysLeft < 0
-                          ? `Past end date by ${Math.abs(daysLeft)}d`
-                          : daysLeft === 0
-                            ? 'Contract ends today'
-                            : `${daysLeft} days remaining`
-                        : placement.deployment || 'Active Contract'}
-                  </span>
-                </span>
-              )}
-            </div>
+              </span>
+            )}
           </div>
         </div>
 
@@ -979,15 +973,11 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
                     Agreement Readiness
                   </h3>
                 </div>
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[11px] font-bold font-mono border ${
-                    readyCheckCount === agreementChecks.length
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      : 'bg-amber-50 text-amber-700 border-amber-200'
-                  }`}
-                >
-                  {readyCheckCount}/{agreementChecks.length} Verified
-                </span>
+                <StatusBadge
+                  tone={readyCheckCount === agreementChecks.length ? 'emerald' : 'amber'}
+                  size="xs"
+                  label={`${readyCheckCount}/${agreementChecks.length} Verified`}
+                />
               </div>
 
               <div className="divide-y divide-slate-100">

@@ -31,6 +31,7 @@ export const SkillMatcherModal: React.FC<SkillMatcherModalProps> = ({
   onAttachCandidates,
   onOpenCsvImport,
   onOpenResumeParser,
+  showToast,
 }) => {
   return (
     <AttachBenchDrawer
@@ -46,6 +47,7 @@ export const SkillMatcherModal: React.FC<SkillMatcherModalProps> = ({
       onAssignCandidate={(req, cand) => onSubmitCandidate(cand, req)}
       onOpenCsvImport={onOpenCsvImport}
       onOpenResumeParser={onOpenResumeParser}
+      showToast={showToast}
     />
   );
 };

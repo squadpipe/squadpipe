@@ -31,6 +31,7 @@ import { TablePagination } from '../../components/shared/TablePagination';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { PageHeader } from '../../components/shared/PageHeader';
+import { StatusBadge } from '../../components/shared/StatusBadge';
 import { useDebounce } from '../../utils/useDebounce';
 import { sortArrayByColumn, useTableSort } from '../../utils/tableSort';
 import { INVALID_FIELD_CLASSES } from '../../utils/formValidation';
@@ -679,9 +680,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
 
                       <td className="py-3 px-4">
                         {field.required ? (
-                          <span className="text-xs font-medium text-amber-700 bg-white border border-amber-300 px-2 py-0.5 rounded-md">
-                            Yes
-                          </span>
+                          <StatusBadge tone="amber" size="xs" label="Yes" />
                         ) : (
                           <span className="text-xs text-slate-400">Optional</span>
                         )}

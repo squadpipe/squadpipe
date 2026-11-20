@@ -3,6 +3,20 @@ import { clearAuthSession, getStoredAuthToken } from '../utils/authStorage';
 
 export const AUTH_EXPIRED_EVENT = 'squadpipe:auth-expired';
 export const USER_SESSION_SYNC_EVENT = 'squadpipe:user-session-sync';
+export const APP_TOAST_EVENT = 'squadpipe:app-toast';
+
+export function emitAppToast(
+  title: string,
+  message: string,
+  icon: 'success' | 'error' | 'warning' | 'info' = 'info'
+) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent(APP_TOAST_EVENT, {
+      detail: { title, message, icon },
+    })
+  );
+}
 
 const isPublicAuthUrl = (url: string) =>
   url.includes('/public/') ||

@@ -83,8 +83,10 @@ const VIEW_TITLE_LABELS: Record<string, string> = {
   consultant_detail: 'Consultant Profile',
   clients: 'Clients',
   client_detail: 'Client Details',
+  client_edit: 'Edit Client Account',
   vendors: 'Vendors',
   vendor_detail: 'Vendor Details',
+  vendor_edit: 'Edit Partner Vendor',
   billable: 'Billable Consultants',
   placement_new: 'New Billable Placement',
   placement_detail: 'Placement Details',
@@ -147,7 +149,9 @@ export function parseAppRoute(pathname: string, search?: string): ParsedAppRoute
     [/^\/requirements\/([^/]+)$/i, 'requirement_detail'],
     [/^\/(?:consultants|candidates)\/([^/]+)\/edit$/i, 'consultant_edit'],
     [/^\/(?:consultants|candidates)\/([^/]+)$/i, 'consultant_detail'],
+    [/^\/clients\/([^/]+)\/edit$/i, 'client_edit'],
     [/^\/clients\/([^/]+)$/i, 'client_detail'],
+    [/^\/vendors\/([^/]+)\/edit$/i, 'vendor_edit'],
     [/^\/vendors\/([^/]+)$/i, 'vendor_detail'],
     [/^\/(?:placements|billable)\/([^/]+)$/i, 'placement_detail'],
     [/^\/application-forms\/([^/]+)\/edit$/i, 'application_form_edit'],
@@ -190,8 +194,14 @@ export function buildAppPath(
     case 'consultant_detail':
       basePath = id ? `/consultants/${id}` : '/consultants';
       break;
+    case 'client_edit':
+      basePath = id ? `/clients/${id}/edit` : '/clients';
+      break;
     case 'client_detail':
       basePath = id ? `/clients/${id}` : '/clients';
+      break;
+    case 'vendor_edit':
+      basePath = id ? `/vendors/${id}/edit` : '/vendors';
       break;
     case 'vendor_detail':
       basePath = id ? `/vendors/${id}` : '/vendors';

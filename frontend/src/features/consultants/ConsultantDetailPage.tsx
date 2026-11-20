@@ -276,8 +276,6 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
         .filter(Boolean)
     : [];
 
-  const initials = getInitials(candidate.fullName, 'C');
-
   const summarySection = parsedSections.find((s) =>
     SUMMARY_SECTION_TITLES.has(s.title.toLowerCase())
   );
@@ -398,41 +396,36 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
 
       {/* Bare Canvas Entity Title & Actions */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5 min-w-0 flex-1">
-          <div className="w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center flex-shrink-0">
-            {initials}
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-lg sm:text-[19px] font-semibold text-slate-900 tracking-tight leading-snug">
+              {candidate.fullName}
+            </h1>
+            {candidate.pipelineStage && (
+              <StatusBadge
+                label={candidate.pipelineStage}
+                dotClass={getStageDotClass(candidate.pipelineStage)}
+                size="xs"
+              />
+            )}
           </div>
-          <div className="min-w-0 flex-1 space-y-1">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-lg sm:text-[19px] font-semibold text-slate-900 tracking-tight leading-snug">
-                {candidate.fullName}
-              </h1>
-              {candidate.pipelineStage && (
-                <StatusBadge
-                  label={candidate.pipelineStage}
-                  dotClass={getStageDotClass(candidate.pipelineStage)}
-                  size="xs"
-                />
-              )}
-            </div>
-            <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-xs text-slate-500">
-              <span className="font-medium text-slate-700">
-                {candidate.currentTitle || 'Technology Consultant'}
+          <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-xs text-slate-500">
+            <span className="font-medium text-slate-700">
+              {candidate.currentTitle || 'Technology Consultant'}
+            </span>
+            {candidate.workAuth && (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="text-slate-300" aria-hidden="true">&middot;</span>
+                <span>{candidate.workAuth}</span>
               </span>
-              {candidate.workAuth && (
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="text-slate-300" aria-hidden="true">&middot;</span>
-                  <span>{candidate.workAuth}</span>
-                </span>
-              )}
-              {hasStoredOriginalCv && (
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-700">
-                  <span className="text-slate-300" aria-hidden="true">&middot;</span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span>Original CV stored</span>
-                </span>
-              )}
-            </div>
+            )}
+            {hasStoredOriginalCv && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-700">
+                <span className="text-slate-300" aria-hidden="true">&middot;</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                <span>Original CV stored</span>
+              </span>
+            )}
           </div>
         </div>
 
@@ -564,11 +557,9 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                                 <span className="truncate">{req.opportunityTitle}</span>
                                 <div className="flex items-center gap-1 shrink-0">
                                   {alreadyAttached && (
-                                    <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-white text-emerald-700 border border-emerald-300">
-                                      Submitted
-                                    </span>
+                                    <StatusBadge tone="emerald" size="xs" label="Submitted" />
                                   )}
-                                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-white border border-slate-300 text-slate-700">
+                                  <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-white border border-slate-200/90 text-slate-700 leading-none">
                                     {req.code}
                                   </span>
                                 </div>

@@ -44,6 +44,7 @@ export interface Candidate {
 }
 
 export interface ClientContact {
+  id?: string;
   name: string;
   designation: string;
   phone: string;

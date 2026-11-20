@@ -328,6 +328,7 @@ export const mapClientFromApi = (cl: any): Client => ({
   boardNumber: cl.boardNumber || '',
   location: cl.location || '',
   contacts: (cl.contacts || []).map((cnt: any) => ({
+    id: cnt.id,
     name: cnt.fullName || cnt.name || '',
     designation: cnt.designation || '',
     phone: cnt.phone || '',

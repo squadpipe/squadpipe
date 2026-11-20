@@ -27,7 +27,7 @@ import {
   UsersRound,
 } from 'lucide-react';
 import { AiIcon } from '../../components/shared/AiBrand';
-import { apiClient } from '../../config/api.config';
+import { apiClient, emitAppToast } from '../../config/api.config';
 import {
   ApplicationFormTemplate,
   BillablePlacement,
@@ -127,6 +127,7 @@ interface RequirementDetailPageProps {
   onOpenResumeParser?: (req: Requirement) => void;
   onPreviewApplicationForm?: (req: Requirement, templateId?: string) => void;
   benchPickerCloseToken?: number;
+  showToast?: (title: string, message: string, icon?: string) => void;
 }
 
 type ApplicantFilterTab = 'All' | 'Active' | 'Interview' | 'Selected' | 'Placed' | 'Closed';
@@ -239,6 +240,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   onOpenResumeParser,
   onPreviewApplicationForm,
   benchPickerCloseToken,
+  showToast,
 }) => {
   const { formatRate, symbol: currencySymbol } = useCurrency();
   const aiCapabilities = useAiCapabilities();
@@ -516,8 +518,16 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
         onRequirementUpdated?.(updatedReq);
         setFitModalSubId(sub.id);
       }
-    } catch {
-      // Non-blocking for existing rows
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Could not evaluate candidate fit right now.';
+      if (showToast) {
+        showToast('Fit Score Check Failed', msg, 'error');
+      } else {
+        emitAppToast('Fit Score Check Failed', msg, 'error');
+      }
     } finally {
       setEvaluatingSubId(null);
     }
@@ -967,7 +977,6 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
               label="Active Placement"
               tone="emerald"
               size="xs"
-              className="!bg-white !text-emerald-700 !border-emerald-300 !font-semibold !px-2 !text-[11px]"
             />
           )}
         </div>
@@ -989,7 +998,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
               <span className="text-slate-300" aria-hidden="true">
                 &middot;
               </span>
-              <span className="inline-flex items-center gap-1 text-indigo-600 font-medium whitespace-nowrap">
+              <span className="inline-flex items-center gap-1 text-brand-700 font-medium whitespace-nowrap">
                 <Globe className="w-3 h-3 shrink-0" />
                 <span>Applied Online</span>
               </span>
@@ -1017,14 +1026,14 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                   type="button"
                   onClick={() => openNotesEditor(sub, 'interview')}
                   title="Click to update interview schedule"
-                  className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-white hover:bg-brand-50/40 text-brand-700 border border-brand-300 font-medium whitespace-nowrap cursor-pointer transition-colors"
+                  className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-0.5 rounded-full bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 font-medium whitespace-nowrap cursor-pointer transition-colors"
                 >
-                  <Calendar className="w-3 h-3 shrink-0" />
+                  <Calendar className="w-3 h-3 text-brand-600 shrink-0" />
                   <span>Interview: {formattedInterview}</span>
                 </button>
               ) : (
-                <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-white text-brand-700 border border-brand-300 font-medium whitespace-nowrap">
-                  <Calendar className="w-3 h-3 shrink-0" />
+                <span className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-0.5 rounded-full bg-white text-slate-700 border border-slate-200/90 font-medium whitespace-nowrap">
+                  <Calendar className="w-3 h-3 text-brand-600 shrink-0" />
                   <span>Interview: {formattedInterview}</span>
                 </span>
               ))}
@@ -1059,11 +1068,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     );
     if (!isScoreEvaluated) {
       if (sub.id.startsWith('legacy_')) {
-        return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white border border-slate-300 text-slate-500 text-[11px] font-medium whitespace-nowrap">
-            Not Checked
-          </span>
-        );
+        return <StatusBadge tone="slate" size="xs" label="Not Checked" />;
       }
       return (
         <button
@@ -2519,6 +2524,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
             if (c?.id) knownCandidatesRef.current.set(c.id, c);
           }
         }}
+        showToast={showToast}
       />
 
       <CapabilityFitModal

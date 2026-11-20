@@ -48,7 +48,9 @@ export class ClientService {
     }
 
     const include = {
-      contacts: true,
+      contacts: {
+        orderBy: [{ isPrimary: 'desc' as const }, { createdAt: 'asc' as const }]
+      },
       requirements: {
         select: { id: true, code: true, opportunityTitle: true, status: true }
       },
@@ -111,7 +113,9 @@ export class ClientService {
     const client = await prisma.client.findUnique({
       where: { id },
       include: {
-        contacts: true,
+        contacts: {
+          orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }]
+        },
         requirements: true,
         placements: true
       }
@@ -201,22 +205,90 @@ export class ClientService {
     if (raw.website !== undefined) data.website = String(raw.website).trim();
     if (raw.boardNumber !== undefined) data.boardNumber = String(raw.boardNumber).trim();
     if (raw.location !== undefined) data.location = String(raw.location).trim();
+    if (raw.clientType !== undefined) data.clientType = String(raw.clientType).trim() || null;
+    if (raw.msaStatus !== undefined) data.msaStatus = Boolean(raw.msaStatus);
     const parsedCustomFields = parseCustomFields(raw.customFields);
     if (parsedCustomFields !== undefined) data.customFields = parsedCustomFields;
 
     try {
-      return await prisma.client.update({
-        where: { id },
-        data,
-        include: {
-          contacts: true,
-          requirements: {
-            select: { id: true, code: true, opportunityTitle: true, status: true }
-          },
-          placements: {
-            select: { id: true, resourceName: true, skillRole: true, status: true, billRate: true }
+      return await prisma.$transaction(async (tx) => {
+        if (Array.isArray(raw.contacts)) {
+          const filteredContacts = raw.contacts
+            .filter((c: any) => c && (String(c.fullName ?? c.name ?? '').trim() || String(c.email ?? '').trim()))
+            .map((c: any) => ({
+              id: typeof c.id === 'string' && c.id.trim() ? c.id.trim() : undefined,
+              fullName: String(c.fullName ?? c.name ?? '').trim() || 'Hiring Manager',
+              designation: String(c.designation ?? c.role ?? '').trim() || 'Hiring Manager',
+              phone: String(c.phone || '').trim() || null,
+              email: String(c.email || '').trim().toLowerCase(),
+              isPrimary: Boolean(c.isPrimary),
+            }));
+
+          const requestedPrimaryIdx = filteredContacts.findIndex((c: any) => c.isPrimary);
+          const primaryIdx = requestedPrimaryIdx >= 0 ? requestedPrimaryIdx : 0;
+          const finalContacts = filteredContacts.map((c: any, idx: number) => ({
+            ...c,
+            isPrimary: idx === primaryIdx,
+          }));
+
+          const existingContacts = await tx.clientContact.findMany({
+            where: { clientId: id },
+            select: { id: true },
+          });
+          const existingIds = new Set(existingContacts.map((ec) => ec.id));
+          const keptIds = finalContacts
+            .map((c: any) => c.id)
+            .filter((cid: any): cid is string => Boolean(cid && existingIds.has(cid)));
+
+          await tx.clientContact.deleteMany({
+            where: {
+              clientId: id,
+              ...(keptIds.length > 0 ? { id: { notIn: keptIds } } : {}),
+            },
+          });
+
+          for (const contact of finalContacts) {
+            if (contact.id && existingIds.has(contact.id)) {
+              await tx.clientContact.update({
+                where: { id: contact.id },
+                data: {
+                  fullName: contact.fullName,
+                  designation: contact.designation,
+                  phone: contact.phone,
+                  email: contact.email,
+                  isPrimary: contact.isPrimary,
+                },
+              });
+            } else {
+              await tx.clientContact.create({
+                data: {
+                  clientId: id,
+                  fullName: contact.fullName,
+                  designation: contact.designation,
+                  phone: contact.phone,
+                  email: contact.email,
+                  isPrimary: contact.isPrimary,
+                },
+              });
+            }
           }
         }
+
+        return await tx.client.update({
+          where: { id },
+          data,
+          include: {
+            contacts: {
+              orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }]
+            },
+            requirements: {
+              select: { id: true, code: true, opportunityTitle: true, status: true }
+            },
+            placements: {
+              select: { id: true, resourceName: true, skillRole: true, status: true, billRate: true }
+            }
+          }
+        });
       });
     } catch (error: any) {
       if (error?.code === 'P2002') {
@@ -432,15 +504,16 @@ export class ClientService {
     if (parsedCustomFields !== undefined) data.customFields = parsedCustomFields;
 
     if (Array.isArray(raw.contacts)) {
-      const normalized = raw.contacts
-        .filter((c: any) => c && (c.fullName?.trim() || c.email?.trim()))
-        .map((c: any, idx: number) => ({
-          fullName: String(c.fullName || '').trim() || 'Account Executive',
-          designation: String(c.designation || '').trim(),
-          phone: String(c.phone || '').trim() || null,
-          email: String(c.email || '').trim() || existing.email,
-          isPrimary: Boolean(c.isPrimary) || (idx === 0 && !raw.contacts.some((rc: any) => rc?.isPrimary)),
-        }));
+      const filteredContacts = raw.contacts.filter((c: any) => c && (c.fullName?.trim() || c.email?.trim()));
+      const requestedPrimaryIdx = filteredContacts.findIndex((c: any) => Boolean(c.isPrimary));
+      const primaryIdx = requestedPrimaryIdx >= 0 ? requestedPrimaryIdx : 0;
+      const normalized = filteredContacts.map((c: any, idx: number) => ({
+        fullName: String(c.fullName || '').trim() || 'Account Executive',
+        designation: String(c.designation || '').trim(),
+        phone: String(c.phone || '').trim() || null,
+        email: String(c.email || '').trim() || existing.email,
+        isPrimary: idx === primaryIdx,
+      }));
 
       const primary = normalized.find((c: any) => c.isPrimary) || normalized[0];
       if (primary) {

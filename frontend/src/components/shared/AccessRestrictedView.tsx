@@ -29,15 +29,15 @@ export const AccessRestrictedView: React.FC<AccessRestrictedViewProps> = ({
   secondaryAction,
 }) => {
   return (
-    <section className="max-w-2xl mx-auto py-10 animate-fade-in">
-      <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
-        <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/70 flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-600 flex items-center justify-center flex-shrink-0">
-            <Lock className="w-5 h-5" />
+    <section className="max-w-2xl mx-auto px-1 sm:px-2 lg:px-4 py-10 animate-fade-in">
+      <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 bg-white flex items-center gap-3.5">
+          <div className="w-9 h-9 rounded-lg bg-amber-50 border border-amber-200/80 text-amber-600 flex items-center justify-center flex-shrink-0">
+            <Lock className="w-4 h-4" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-sm font-bold text-slate-900 tracking-tight">
+              <h2 className="text-sm font-semibold text-slate-900 tracking-tight">
                 Access Restricted
               </h2>
               <StatusBadge label="Role Permission Required" tone="amber" size="xs" />
@@ -84,11 +84,11 @@ export const AccessRestrictedView: React.FC<AccessRestrictedViewProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-2.5 flex-wrap pt-1">
+          <div className="flex items-center gap-2 flex-wrap pt-1">
             <button
               type="button"
               onClick={onBackToDashboard}
-              className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="h-8 px-4 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Back to Dashboard</span>
@@ -97,7 +97,7 @@ export const AccessRestrictedView: React.FC<AccessRestrictedViewProps> = ({
               <button
                 type="button"
                 onClick={secondaryAction.onClick}
-                className="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors cursor-pointer"
+                className="h-8 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
               >
                 {secondaryAction.label}
               </button>
