@@ -1,28 +1,23 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { CloudUpload, FileSpreadsheet, FileText } from 'lucide-react';
-import { Candidate } from '../../types';
 import { useCurrency } from '../../utils/currency';
 import { getWorkspaceBrandSlug, useWorkspaceBrand } from '../../utils/workspaceBrand';
 import { downloadSampleCandidatesCsv } from '../../utils/csvCandidates';
-import { CsvImportModal } from '../../components/modals/CsvImportModal';
 
 interface ImportDataViewProps {
-  onImportCandidates?: (candidates: Candidate[]) => void;
   onOpenResumeParser?: () => void;
-  onNavigate?: (view: string) => void;
+  onOpenCsvImport?: () => void;
   showToast: (title: string, message: string, icon?: string) => void;
 }
 
 export const ImportDataView: React.FC<ImportDataViewProps> = ({
-  onImportCandidates,
   onOpenResumeParser,
-  onNavigate,
+  onOpenCsvImport,
   showToast,
 }) => {
   const { symbol: currencySymbol } = useCurrency();
   const brand = useWorkspaceBrand();
   const brandName = (brand.agencyName || brand.legalEntityName || 'Workspace').trim();
-  const [showCsvModal, setShowCsvModal] = useState(false);
 
   const downloadSampleCsv = () => {
     const sampleCsvFilename = downloadSampleCandidatesCsv(getWorkspaceBrandSlug(), currencySymbol);
@@ -62,11 +57,13 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
             </button>
           </p>
           <div
-            onClick={() => setShowCsvModal(true)}
+            onClick={() => {
+              if (onOpenCsvImport) onOpenCsvImport();
+            }}
             className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-brand-600 cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-all group"
           >
             <CloudUpload className="w-8 h-8 text-brand-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-            <div className="text-xs font-semibold text-slate-700">Upload Spreadsheet File</div>
+            <div className="text-xs font-semibold text-slate-700">Open Spreadsheet Import Page</div>
             <div className="text-[11px] text-slate-400 mt-1">Preview rows, match columns &amp; import candidates</div>
           </div>
         </div>
@@ -87,21 +84,11 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
             className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-brand-600 cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-all group"
           >
             <FileText className="w-8 h-8 text-brand-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-            <div className="text-xs font-semibold text-slate-700">Upload Resume File</div>
-            <div className="text-[11px] text-slate-400 mt-1">Supports PDF and Word (.docx) resumes</div>
+            <div className="text-xs font-semibold text-slate-700">Open Resume Parser Page</div>
+            <div className="text-[11px] text-slate-400 mt-1">Supports single &amp; bulk PDF / Word (.docx) resumes</div>
           </div>
         </div>
       </div>
-
-      <CsvImportModal
-        isOpen={showCsvModal}
-        onClose={() => setShowCsvModal(false)}
-        onImportComplete={({ candidates: importedCands }) => {
-          if (onImportCandidates) onImportCandidates(importedCands);
-        }}
-        onNavigate={onNavigate}
-        showToast={showToast}
-      />
     </section>
   );
 };

@@ -1,12 +1,15 @@
 export interface ParsedAppRoute {
   view: string;
   entityId?: string;
+  query?: Record<string, string>;
 }
 
 export interface BrowserHistoryRouteState {
   view: string;
   entityId?: string;
   returnView?: string;
+  returnReqId?: string;
+  query?: Record<string, string>;
 }
 
 const STATIC_ROUTE_TO_VIEW: Record<string, string> = {
@@ -14,12 +17,15 @@ const STATIC_ROUTE_TO_VIEW: Record<string, string> = {
   '/dashboard': 'dashboard',
   '/pipeline': 'pipeline',
   '/requirements': 'pipeline',
+  '/requirements/from-email': 'requirement_from_email',
   '/consultants': 'consultants',
   '/candidates': 'consultants',
   '/clients': 'clients',
   '/vendors': 'vendors',
   '/billable': 'billable',
+  '/billable/new': 'placement_new',
   '/placements': 'billable',
+  '/placements/new': 'placement_new',
   '/automations': 'automation',
   '/reminders': 'automation',
   '/application-forms': 'application_forms',
@@ -27,6 +33,8 @@ const STATIC_ROUTE_TO_VIEW: Record<string, string> = {
   '/custom-fields': 'custom_fields',
   '/dropdown-lists': 'dropdown_lists',
   '/import-data': 'import_data',
+  '/import-data/resume': 'import_resume',
+  '/import-data/csv': 'import_csv',
   '/team-performance': 'team_performance',
   '/usage': 'usage',
   '/settings': 'settings_general',
@@ -36,16 +44,20 @@ const STATIC_ROUTE_TO_VIEW: Record<string, string> = {
 const VIEW_TO_STATIC_PATH: Record<string, string> = {
   dashboard: '/dashboard',
   pipeline: '/pipeline',
+  requirement_from_email: '/requirements/from-email',
   consultants: '/consultants',
   clients: '/clients',
   vendors: '/vendors',
   billable: '/billable',
+  placement_new: '/placements/new',
   automation: '/automations',
   application_forms: '/application-forms',
   application_form_new: '/application-forms/new',
   custom_fields: '/custom-fields',
   dropdown_lists: '/dropdown-lists',
   import_data: '/import-data',
+  import_resume: '/import-data/resume',
+  import_csv: '/import-data/csv',
   team_performance: '/team-performance',
   usage: '/usage',
   settings_general: '/settings',
@@ -55,6 +67,7 @@ const VIEW_TO_STATIC_PATH: Record<string, string> = {
 const VIEW_TITLE_LABELS: Record<string, string> = {
   dashboard: 'Dashboard Overview',
   pipeline: 'Opportunity Pipeline',
+  requirement_from_email: 'Create Job from Email',
   requirement_detail: 'Requirement Details',
   consultants: 'Consultant Directory',
   consultant_detail: 'Consultant Profile',
@@ -63,6 +76,7 @@ const VIEW_TITLE_LABELS: Record<string, string> = {
   vendors: 'Staffing Vendors',
   vendor_detail: 'Vendor Details',
   billable: 'Billable Consultants',
+  placement_new: 'New Billable Placement',
   placement_detail: 'Placement Details',
   automation: 'Smart Reminders',
   application_forms: 'Application Forms',
@@ -71,6 +85,8 @@ const VIEW_TITLE_LABELS: Record<string, string> = {
   custom_fields: 'Custom Form Fields',
   dropdown_lists: 'Master Dropdown Lists',
   import_data: 'Import Candidates & Resumes',
+  import_resume: 'Resume Parser & Import',
+  import_csv: 'Spreadsheet Candidate Import',
   team_performance: 'Team Performance',
   usage: 'Workspace Usage & Storage',
   settings_general: 'General Settings',
@@ -85,11 +101,35 @@ function safeDecodeSegment(segment: string): string {
   }
 }
 
+function parseQueryString(search?: string): Record<string, string> | undefined {
+  if (!search) return undefined;
+  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+  const out: Record<string, string> = {};
+  params.forEach((value, key) => {
+    const trimmed = value.trim();
+    if (trimmed) out[key] = trimmed;
+  });
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 /**
- * Parses a browser URL pathname into an internal workspace view and optional detail record ID.
+ * Parses a browser URL pathname and optional query string into an internal workspace view and optional detail record ID.
  */
-export function parseAppRoute(pathname: string): ParsedAppRoute {
+export function parseAppRoute(pathname: string, search?: string): ParsedAppRoute {
   const cleanPath = (pathname || '/').replace(/\/+$/, '') || '/';
+  const query = parseQueryString(
+    search !== undefined
+      ? search
+      : typeof window !== 'undefined'
+        ? window.location.search
+        : ''
+  );
+
+  // Match explicit static sub-routes (e.g. /requirements/from-email, /placements/new) before :id patterns
+  const staticView = STATIC_ROUTE_TO_VIEW[cleanPath.toLowerCase()];
+  if (staticView) {
+    return query ? { view: staticView, query } : { view: staticView };
+  }
 
   const detailPatterns: Array<[RegExp, string]> = [
     [/^\/requirements\/([^/]+)$/i, 'requirement_detail'],
@@ -103,34 +143,57 @@ export function parseAppRoute(pathname: string): ParsedAppRoute {
   for (const [pattern, view] of detailPatterns) {
     const match = cleanPath.match(pattern);
     if (match?.[1]) {
-      return { view, entityId: safeDecodeSegment(match[1]) };
+      const entityId = safeDecodeSegment(match[1]);
+      return query ? { view, entityId, query } : { view, entityId };
     }
   }
 
-  return { view: STATIC_ROUTE_TO_VIEW[cleanPath.toLowerCase()] || 'dashboard' };
+  return query ? { view: 'dashboard', query } : { view: 'dashboard' };
 }
 
 /**
- * Serializes an internal workspace view + optional record ID into a shareable browser pathname.
+ * Serializes an internal workspace view + optional record ID and query params into a shareable browser URL path.
  */
-export function buildAppPath(view: string, entityId?: string | null): string {
+export function buildAppPath(
+  view: string,
+  entityId?: string | null,
+  query?: Record<string, string | undefined | null>
+): string {
   const id = entityId ? encodeURIComponent(entityId) : '';
+  let basePath: string;
   switch (view) {
     case 'requirement_detail':
-      return id ? `/requirements/${id}` : '/pipeline';
+      basePath = id ? `/requirements/${id}` : '/pipeline';
+      break;
     case 'consultant_detail':
-      return id ? `/consultants/${id}` : '/consultants';
+      basePath = id ? `/consultants/${id}` : '/consultants';
+      break;
     case 'client_detail':
-      return id ? `/clients/${id}` : '/clients';
+      basePath = id ? `/clients/${id}` : '/clients';
+      break;
     case 'vendor_detail':
-      return id ? `/vendors/${id}` : '/vendors';
+      basePath = id ? `/vendors/${id}` : '/vendors';
+      break;
     case 'placement_detail':
-      return id ? `/placements/${id}` : '/billable';
+      basePath = id ? `/placements/${id}` : '/billable';
+      break;
     case 'application_form_edit':
-      return id ? `/application-forms/${id}/edit` : '/application-forms';
+      basePath = id ? `/application-forms/${id}/edit` : '/application-forms';
+      break;
     default:
-      return VIEW_TO_STATIC_PATH[view] || '/dashboard';
+      basePath = VIEW_TO_STATIC_PATH[view] || '/dashboard';
+      break;
   }
+
+  if (!query) return basePath;
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => {
+    if (value && value.trim()) {
+      params.set(key, value.trim());
+    }
+  });
+  const qs = params.toString();
+  return qs ? `${basePath}?${qs}` : basePath;
 }
 
 /**

@@ -312,6 +312,39 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
     };
   }, [isOpen, debouncedBenchSearch, benchWorkAuth]);
 
+  // Keep open drawer synchronized when inline Resume/CSV popups add or update candidates
+  useEffect(() => {
+    if (!isOpen || candidates.length === 0) return;
+    setPagedCandidates((prev) => {
+      const byId = new Map(candidates.map((c) => [c.id, c]));
+      const existingIds = new Set(prev.map((c) => c.id));
+      const newMatching = candidates.filter(
+        (c) =>
+          !existingIds.has(c.id) &&
+          matchesCandidateQuery(c, debouncedBenchSearch) &&
+          (benchWorkAuth === 'All' ||
+            (c.workAuth || '').toLowerCase().includes(benchWorkAuth.toLowerCase()))
+      );
+
+      let updatedExisting = false;
+      const nextPrev = prev.map((item) => {
+        const latest = byId.get(item.id);
+        if (latest && latest.pipelineStage !== item.pipelineStage) {
+          updatedExisting = true;
+          return latest;
+        }
+        return item;
+      });
+
+      if (newMatching.length === 0) {
+        return updatedExisting ? nextPrev : prev;
+      }
+
+      setTotalBenchCount((t) => t + newMatching.length);
+      return [...newMatching, ...nextPrev];
+    });
+  }, [isOpen, candidates, debouncedBenchSearch, benchWorkAuth]);
+
   useEffect(() => {
     if (!isOpen || !currentReq?.id || pagedCandidates.length === 0) return;
     const candidateIdsToCheck = pagedCandidates
@@ -641,7 +674,6 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                       type="button"
                       disabled={isAttaching}
                       onClick={() => {
-                        onClose();
                         onOpenResumeParser(currentReq);
                       }}
                       className={`px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 ${
@@ -658,7 +690,6 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                       type="button"
                       disabled={isAttaching}
                       onClick={() => {
-                        onClose();
                         onOpenCsvImport(currentReq);
                       }}
                       className="px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"

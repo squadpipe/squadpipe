@@ -446,15 +446,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {section.items.map((item) => {
                 const Icon = item.icon;
                 const hasChildren = Boolean(item.children && item.children.length > 0);
-                const matchesNavView = (childView: string) =>
-                  currentView === childView ||
-                  (childView === 'application_forms' &&
+                const matchesNavView = (navView: string) =>
+                  currentView === navView ||
+                  (navView === 'pipeline' && currentView === 'requirement_from_email') ||
+                  (navView === 'billable' && currentView === 'placement_new') ||
+                  (navView === 'import_data' &&
+                    (currentView === 'import_resume' || currentView === 'import_csv')) ||
+                  (navView === 'application_forms' &&
                     (currentView === 'application_form_new' ||
                       currentView === 'application_form_edit'));
                 const childActive = hasChildren
                   ? item.children!.some((child) => matchesNavView(child.view))
                   : false;
-                const active = currentView === item.view || childActive;
+                const active = matchesNavView(item.view) || childActive;
                 const activeIconClass = item.activeIconClass || 'text-brand-400';
 
                 if (hasChildren && compact) {

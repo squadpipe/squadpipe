@@ -95,6 +95,26 @@ const PlacementDetailPage = React.lazy(() =>
     default: m.PlacementDetailPage,
   }))
 );
+const PlacementCreatePage = React.lazy(() =>
+  import('./features/billable/PlacementCreatePage').then((m) => ({
+    default: m.PlacementCreatePage,
+  }))
+);
+const RequirementFromEmailPage = React.lazy(() =>
+  import('./features/requirements/RequirementFromEmailPage').then((m) => ({
+    default: m.RequirementFromEmailPage,
+  }))
+);
+const ResumeImportPage = React.lazy(() =>
+  import('./features/import-data/ResumeImportPage').then((m) => ({
+    default: m.ResumeImportPage,
+  }))
+);
+const CsvImportPage = React.lazy(() =>
+  import('./features/import-data/CsvImportPage').then((m) => ({
+    default: m.CsvImportPage,
+  }))
+);
 const SettingsView = React.lazy(() =>
   import('./features/settings/SettingsView').then((m) => ({
     default: m.SettingsView,
@@ -120,18 +140,15 @@ const PublicRequirementApplyView = React.lazy(() =>
 import { LoginView } from './features/auth/LoginView';
 
 // Modals
-import { ResumeParserModal } from './features/modals/ResumeParserModal';
-import { EmailParserModal } from './features/modals/EmailParserModal';
 import { SkillMatcherModal } from './features/modals/SkillMatcherModal';
-import { PlacementWizardModal } from './features/modals/PlacementWizardModal';
+import { ResumeParserModal } from './components/modals/ResumeParserModal';
+import { CsvImportModal } from './components/modals/CsvImportModal';
 import { AddConsultantModal } from './components/modals/create/AddConsultantModal';
 import { AddRequirementModal } from './components/modals/create/AddRequirementModal';
 import { AddClientModal } from './components/modals/create/AddClientModal';
 import { AddVendorModal } from './components/modals/create/AddVendorModal';
-import { AddPlacementModal } from './components/modals/create/AddPlacementModal';
 import { SignOutModal } from './components/modals/SignOutModal';
 import { ProfileModal } from './components/modals/ProfileModal';
-import { CsvImportModal } from './components/modals/CsvImportModal';
 
 import {
   Candidate,
@@ -323,14 +340,19 @@ export const App: React.FC = () => {
   }, []);
 
   const initialRoute = React.useMemo(
-    () => (publicApplyToken ? { view: 'dashboard' } : parseAppRoute(window.location.pathname)),
+    () =>
+      publicApplyToken
+        ? { view: 'dashboard' }
+        : parseAppRoute(window.location.pathname, window.location.search),
     [publicApplyToken]
   );
 
   const [currentView, setCurrentView] = useState<string>(() => initialRoute.view);
-  const [routeTarget, setRouteTarget] = useState<{ view: string; entityId?: string }>(
-    () => initialRoute
-  );
+  const [routeTarget, setRouteTarget] = useState<{
+    view: string;
+    entityId?: string;
+    query?: Record<string, string>;
+  }>(() => initialRoute);
   const [resolvingRouteId, setResolvingRouteId] = useState<string | null>(
     () => initialRoute.entityId || null
   );
@@ -347,15 +369,27 @@ export const App: React.FC = () => {
   const [isSlaOpen, setIsSlaOpen] = useState<boolean>(false);
 
   // Modals visibility
-  const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
-  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [isMatcherModalOpen, setIsMatcherModalOpen] = useState(false);
-  const [isPlacementWizardOpen, setIsPlacementWizardOpen] = useState(false);
-  const [isCsvImportModalOpen, setIsCsvImportModalOpen] = useState(false);
-  const [csvImportTargetReq, setCsvImportTargetReq] = useState<Requirement | null>(null);
+  const [isInlineResumeModalOpen, setIsInlineResumeModalOpen] = useState(false);
+  const [isInlineCsvModalOpen, setIsInlineCsvModalOpen] = useState(false);
+  const [inlineImportTargetReq, setInlineImportTargetReq] = useState<Requirement | null>(null);
   const [activeCreateModal, setActiveCreateModal] = useState<
-    'consultant' | 'requirement' | 'client' | 'vendor' | 'placement' | null
+    'consultant' | 'requirement' | 'client' | 'vendor' | null
   >(null);
+  const [workflowReturnView, setWorkflowReturnView] = useState<string>(() => {
+    if (initialRoute.query?.from) return initialRoute.query.from;
+    if (initialRoute.view === 'requirement_from_email') return 'pipeline';
+    if (initialRoute.view === 'import_resume' || initialRoute.view === 'import_csv') {
+      return initialRoute.query?.requirementId ? 'requirement_detail' : 'import_data';
+    }
+    if (initialRoute.view === 'placement_new') {
+      return initialRoute.query?.requirementId ? 'requirement_detail' : 'billable';
+    }
+    return 'dashboard';
+  });
+  const [workflowReturnReqId, setWorkflowReturnReqId] = useState<string | null>(
+    () => initialRoute.query?.requirementId || null
+  );
 
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -392,16 +426,30 @@ export const App: React.FC = () => {
 
   const pushRouteUrl = (
     nextView: string,
-    options?: { entityId?: string; returnView?: string; replace?: boolean }
+    options?: {
+      entityId?: string;
+      returnView?: string;
+      returnReqId?: string;
+      query?: Record<string, string | undefined | null>;
+      replace?: boolean;
+    }
   ) => {
     if (publicApplyToken || (!authToken && !currentUserRef.current)) return;
-    const nextPath = buildAppPath(nextView, options?.entityId);
+    const nextPath = buildAppPath(nextView, options?.entityId, options?.query);
+    const cleanedQuery = options?.query
+      ? (Object.fromEntries(
+          Object.entries(options.query).filter(([, v]) => Boolean(v && String(v).trim()))
+        ) as Record<string, string>)
+      : undefined;
     const historyState: BrowserHistoryRouteState = {
       view: nextView,
       entityId: options?.entityId,
       returnView: options?.returnView,
+      returnReqId: options?.returnReqId,
+      query: cleanedQuery && Object.keys(cleanedQuery).length > 0 ? cleanedQuery : undefined,
     };
-    if (options?.replace || window.location.pathname === nextPath) {
+    const currentFullPath = `${window.location.pathname}${window.location.search}`;
+    if (options?.replace || currentFullPath === nextPath) {
       window.history.replaceState(historyState, '', nextPath);
     } else {
       window.history.pushState(historyState, '', nextPath);
@@ -564,9 +612,79 @@ export const App: React.FC = () => {
     );
   };
 
+  const handleOpenWorkflowPage = (
+    targetView: 'requirement_from_email' | 'import_resume' | 'import_csv' | 'placement_new',
+    options?: {
+      requirementId?: string;
+      candidateId?: string;
+      fromView?: string;
+      returnReqId?: string;
+      skipHistory?: boolean;
+      replaceHistory?: boolean;
+    }
+  ) => {
+    const resolvedFrom =
+      options?.fromView ||
+      (!['requirement_from_email', 'import_resume', 'import_csv', 'placement_new'].includes(
+        currentView
+      )
+        ? currentView
+        : workflowReturnView);
+    const resolvedReturnReqId =
+      options?.returnReqId ||
+      options?.requirementId ||
+      (resolvedFrom === 'requirement_detail'
+        ? selectedReqForDetail?.id || workflowReturnReqId
+        : null) ||
+      undefined;
+
+    setWorkflowReturnView(resolvedFrom);
+    setWorkflowReturnReqId(resolvedReturnReqId || null);
+    setResolvingRouteId(null);
+
+    const query: Record<string, string> = {};
+    if (options?.requirementId) query.requirementId = options.requirementId;
+    if (options?.candidateId) query.candidateId = options.candidateId;
+    if (resolvedFrom) query.from = resolvedFrom;
+    const normalizedQuery = Object.keys(query).length > 0 ? query : undefined;
+
+    setRouteTarget({ view: targetView, query: normalizedQuery });
+    setCurrentView(targetView);
+
+    if (!options?.skipHistory) {
+      pushRouteUrl(targetView, {
+        returnView: resolvedFrom,
+        returnReqId: resolvedReturnReqId,
+        query: normalizedQuery,
+        replace: options?.replaceHistory,
+      });
+    }
+  };
+
+  const handleReturnFromWorkflowPage = (fallbackView?: string) => {
+    const targetView = fallbackView || workflowReturnView;
+    if (targetView === 'requirement_detail') {
+      const reqId = workflowReturnReqId || selectedReqForDetail?.id;
+      const matched = reqId ? requirements.find((r) => r.id === reqId) : selectedReqForDetail;
+      if (matched) {
+        handleOpenRequirementDetail(matched, reqDetailReturnView || 'pipeline');
+        return;
+      }
+      if (reqId) {
+        setReqDetailReturnView('pipeline');
+        setSelectedReqForDetail(null);
+        setResolvingRouteId(reqId);
+        setRouteTarget({ view: 'requirement_detail', entityId: reqId });
+        setCurrentView('requirement_detail');
+        pushRouteUrl('requirement_detail', { entityId: reqId, returnView: 'pipeline' });
+        return;
+      }
+    }
+    handleNavigateView(targetView || 'dashboard');
+  };
+
   // Selected items for context modals
   const [activeReq, setActiveReq] = useState<Requirement | null>(null);
-  const [activeCandidate, setActiveCandidate] = useState<Candidate | null>(null);
 
   // Toast Notification state
   const [toast, setToast] = useState<{ title: string; message: string; icon?: string } | null>(
@@ -994,6 +1112,20 @@ export const App: React.FC = () => {
         if (!loadedEntities.current.has('candidates')) fetchCandidates();
         break;
 
+      case 'requirement_from_email':
+        if (!loadedEntities.current.has('clients')) fetchClients();
+        if (!loadedEntities.current.has('users')) fetchUsers();
+        break;
+
+      case 'import_resume':
+        if (!loadedEntities.current.has('users')) fetchUsers();
+        if (!loadedEntities.current.has('requirements')) fetchRequirements();
+        break;
+
+      case 'import_csv':
+        if (!loadedEntities.current.has('requirements')) fetchRequirements();
+        break;
+
       case 'consultants':
       case 'consultant_detail':
         if (!loadedEntities.current.has('candidates')) fetchCandidates();
@@ -1018,6 +1150,7 @@ export const App: React.FC = () => {
         break;
 
       case 'billable':
+      case 'placement_new':
       case 'placement_detail':
         if (!loadedEntities.current.has('placements')) fetchPlacements();
         if (!loadedEntities.current.has('candidates')) fetchCandidates();
@@ -1105,8 +1238,6 @@ export const App: React.FC = () => {
         rateMaskedRef.current = nextMasked;
         setRateMasked(nextMasked);
         if (nextMasked) {
-          setIsPlacementWizardOpen(false);
-          setActiveCreateModal((prev) => (prev === 'placement' ? null : prev));
           setCandidates([]);
           setRequirements([]);
           setPlacements([]);
@@ -1245,6 +1376,7 @@ export const App: React.FC = () => {
     handleOpenClientDetail,
     handleOpenVendorDetail,
     handleOpenPlacementDetail,
+    handleOpenWorkflowPage,
   });
   routeHandlersRef.current = {
     handleNavigateView,
@@ -1253,6 +1385,7 @@ export const App: React.FC = () => {
     handleOpenClientDetail,
     handleOpenVendorDetail,
     handleOpenPlacementDetail,
+    handleOpenWorkflowPage,
   };
 
   // Sync `/` -> `/dashboard` once authenticated (preserving query tokens like ?inviteToken=)
@@ -1302,11 +1435,32 @@ export const App: React.FC = () => {
     if (publicApplyToken) return;
     const handlePopState = () => {
       if (!currentUserRef.current && !authToken) return;
-      const parsed = parseAppRoute(window.location.pathname);
+      const parsed = parseAppRoute(window.location.pathname, window.location.search);
       const historyState = window.history.state as BrowserHistoryRouteState | null;
       const returnView = historyState?.returnView;
 
       if (!parsed.entityId) {
+        if (
+          ['requirement_from_email', 'import_resume', 'import_csv', 'placement_new'].includes(
+            parsed.view
+          )
+        ) {
+          routeHandlersRef.current.handleOpenWorkflowPage(
+            parsed.view as
+              | 'requirement_from_email'
+              | 'import_resume'
+              | 'import_csv'
+              | 'placement_new',
+            {
+              requirementId: parsed.query?.requirementId,
+              candidateId: parsed.query?.candidateId,
+              fromView: returnView || parsed.query?.from,
+              returnReqId: historyState?.returnReqId || parsed.query?.requirementId,
+              skipHistory: true,
+            }
+          );
+          return;
+        }
         routeHandlersRef.current.handleNavigateView(parsed.view, { skipHistory: true });
         return;
       }
@@ -1518,28 +1672,20 @@ export const App: React.FC = () => {
     };
   }, [routeTarget, authToken, currentUser]);
 
-  // Ensure clients, users, and candidates are available when opening create or wizard modals
+  // Ensure clients, users, and vendors are available when opening create or inline modals
   useEffect(() => {
     if (!authToken && !currentUser) return;
-    if (
-      activeCreateModal === 'requirement' ||
-      activeCreateModal === 'placement' ||
-      activeCreateModal === 'consultant' ||
-      isEmailModalOpen ||
-      isPlacementWizardOpen
-    ) {
+    if (isInlineResumeModalOpen && !loadedEntities.current.has('users')) {
+      fetchUsers();
+    }
+    if (activeCreateModal === 'requirement' || activeCreateModal === 'consultant') {
       if (!loadedEntities.current.has('clients')) fetchClients();
       if (!loadedEntities.current.has('users')) fetchUsers();
       if (activeCreateModal === 'consultant') {
         if (!loadedEntities.current.has('vendors')) fetchVendors();
       }
-      if (activeCreateModal === 'placement' || isPlacementWizardOpen) {
-        if (!loadedEntities.current.has('candidates')) fetchCandidates();
-        if (!loadedEntities.current.has('vendors')) fetchVendors();
-        if (!loadedEntities.current.has('requirements')) fetchRequirements();
-      }
     }
-  }, [activeCreateModal, isEmailModalOpen, isPlacementWizardOpen, authToken]);
+  }, [activeCreateModal, isInlineResumeModalOpen, authToken]);
 
   // Financial KPI calculations
   const totalMonthlyGrossProfit = placements.reduce(
@@ -1607,9 +1753,12 @@ export const App: React.FC = () => {
               (req.resourceName && c.fullName === req.resourceName)
           ) ||
           null;
-        setActiveCandidate(targetCandidate);
-        setActiveReq(req);
-        setIsPlacementWizardOpen(true);
+        handleOpenWorkflowPage('placement_new', {
+          requirementId: req.id,
+          candidateId: targetCandidate?.id,
+          fromView: currentView,
+          returnReqId: req.id,
+        });
         return;
       }
     }
@@ -1676,6 +1825,55 @@ export const App: React.FC = () => {
     } else {
       fetchCandidates();
     }
+  };
+
+  const handleResumeCandidateApproved = async (
+    savedCand: Candidate,
+    opts?: {
+      targetRequirement?: Requirement | null;
+      stayOnPage?: boolean;
+      skipAttach?: boolean;
+    }
+  ) => {
+    setCandidates((prev) => [savedCand, ...prev.filter((c) => c.id !== savedCand.id)]);
+    fetchSidebarCounts();
+    if (opts?.targetRequirement && !opts?.skipAttach) {
+      try {
+        const res = await apiClient.post('/submissions', {
+          requirementId: opts.targetRequirement.id,
+          candidateIds: [savedCand.id],
+        });
+        if (res.data?.requirement) {
+          syncUpdatedRequirement(mapRequirementFromApi(res.data.requirement));
+        } else {
+          fetchRequirements();
+        }
+        setCandidates((prev) =>
+          prev.map((c) =>
+            c.id === savedCand.id && c.pipelineStage === 'Available / Bench'
+              ? { ...c, pipelineStage: 'Submitted' }
+              : c
+          )
+        );
+        fetchSidebarCounts();
+        fetchSlaTasks();
+        fetchAutomations();
+      } catch {
+        // Non-fatal if candidate was already attached
+      }
+    }
+  };
+
+  const handleOpenInlineResumePopup = (req?: Requirement | null) => {
+    setInlineImportTargetReq(req || null);
+    setIsInlineCsvModalOpen(false);
+    setIsInlineResumeModalOpen(true);
+  };
+
+  const handleOpenInlineCsvPopup = (req?: Requirement | null) => {
+    setInlineImportTargetReq(req || null);
+    setIsInlineResumeModalOpen(false);
+    setIsInlineCsvModalOpen(true);
   };
 
   const handleAttachCandidates = async (req: Requirement, candidateIds: string[]) => {
@@ -2491,7 +2689,15 @@ export const App: React.FC = () => {
         <Topbar
           currentView={currentView}
           canCreatePlacement={!rateMasked}
-          onOpenCreateModal={(type) => setActiveCreateModal(type)}
+          onOpenCreateModal={(type) => {
+            if (type === 'placement') {
+              if (!rateMasked) {
+                handleOpenWorkflowPage('placement_new', { fromView: currentView });
+              }
+              return;
+            }
+            setActiveCreateModal(type);
+          }}
           onOpenMobileMenu={() => setMobileSidebarOpen(true)}
         />
 
@@ -2547,20 +2753,43 @@ export const App: React.FC = () => {
               candidates={candidates}
               rateMasked={rateMasked}
               onStatusChange={handleStatusChange}
-              onOpenEmailParser={() => setIsEmailModalOpen(true)}
+              onOpenEmailParser={() =>
+                handleOpenWorkflowPage('requirement_from_email', { fromView: 'pipeline' })
+              }
               onOpenMatcher={(req) => {
                 setActiveReq(req);
                 setIsMatcherModalOpen(true);
               }}
-              onOpenPlacementWizard={(req) => {
-                setActiveCandidate(null);
-                setActiveReq(req);
-                setIsPlacementWizardOpen(true);
-              }}
+              onOpenPlacementWizard={(req) =>
+                handleOpenWorkflowPage('placement_new', {
+                  requirementId: req.id,
+                  fromView: 'pipeline',
+                })
+              }
               onSelectReq={(r) => handleOpenRequirementDetail(r, 'pipeline')}
               onOpenAddReq={() => setActiveCreateModal('requirement')}
               onUpdateReq={handleUpdateRequirement}
               onDeleteReq={canManageDataOperations ? handleDeleteRequirement : undefined}
+            />
+          )}
+
+          {currentView === 'requirement_from_email' && (
+            <RequirementFromEmailPage
+              clients={clients}
+              users={users}
+              backLabel={
+                workflowReturnView === 'dashboard' ? 'Back to Dashboard' : 'Back to Pipeline'
+              }
+              onBack={() => handleReturnFromWorkflowPage('pipeline')}
+              onApprove={(req) => {
+                setRequirements((prev) => [req, ...prev]);
+                fetchClients();
+                fetchSidebarCounts();
+                fetchSlaTasks();
+                fetchAutomations();
+                handleOpenRequirementDetail(req, 'pipeline');
+              }}
+              showToast={showToast}
             />
           )}
 
@@ -2594,23 +2823,25 @@ export const App: React.FC = () => {
                 handleOpenConsultantDetail(cand, false, 'requirement_detail')
               }
               onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'requirement_detail')}
-              onOpenPlacementWizard={(req, cand) => {
-                setActiveCandidate(cand || null);
-                setActiveReq(req);
-                setIsPlacementWizardOpen(true);
-              }}
+              onOpenPlacementWizard={(req, cand) =>
+                handleOpenWorkflowPage('placement_new', {
+                  requirementId: req.id,
+                  candidateId: cand?.id,
+                  fromView: 'requirement_detail',
+                  returnReqId: req.id,
+                })
+              }
               onUpdateReq={handleUpdateRequirement}
               onRequirementUpdated={syncUpdatedRequirement}
               onOpenCsvImport={
                 canManageDataOperations
-                  ? (req) => {
-                      setCsvImportTargetReq(req);
-                      setIsCsvImportModalOpen(true);
-                    }
+                  ? (req) => handleOpenInlineCsvPopup(req)
                   : undefined
               }
               onOpenResumeParser={
-                canManageDataOperations ? () => setIsResumeModalOpen(true) : undefined
+                canManageDataOperations
+                  ? (req) => handleOpenInlineResumePopup(req)
+                  : undefined
               }
             />
           )}
@@ -2621,17 +2852,16 @@ export const App: React.FC = () => {
               placements={placements}
               vendors={vendors}
               rateMasked={rateMasked}
-              onOpenResumeParser={() => setIsResumeModalOpen(true)}
+              onOpenResumeParser={() =>
+                handleOpenWorkflowPage('import_resume', { fromView: 'consultants' })
+              }
               onPreviewResume={(c, startEditing) =>
                 handleOpenConsultantDetail(c, Boolean(startEditing), 'consultants')
               }
               onOpenAddConsultant={() => setActiveCreateModal('consultant')}
               onOpenCsvImport={
                 canManageDataOperations
-                  ? () => {
-                      setCsvImportTargetReq(null);
-                      setIsCsvImportModalOpen(true);
-                    }
+                  ? () => handleOpenWorkflowPage('import_csv', { fromView: 'consultants' })
                   : undefined
               }
               onNavigateToBillable={() => handleNavigateView('billable')}
@@ -2776,7 +3006,11 @@ export const App: React.FC = () => {
               placements={placements}
               vendors={vendors}
               rateMasked={rateMasked}
-              onOpenNewPlacement={!rateMasked ? () => setActiveCreateModal('placement') : undefined}
+              onOpenNewPlacement={
+                !rateMasked
+                  ? () => handleOpenWorkflowPage('placement_new', { fromView: 'billable' })
+                  : undefined
+              }
               onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'billable')}
               onExtendContract={!rateMasked ? handleExtendContract : undefined}
               onUpdatePlacement={!rateMasked ? handleUpdatePlacement : undefined}
@@ -2784,6 +3018,75 @@ export const App: React.FC = () => {
               showToast={showToast}
             />
           )}
+
+          {currentView === 'placement_new' &&
+            (() => {
+              const reqId = routeTarget.query?.requirementId || workflowReturnReqId || undefined;
+              const matchedReq = reqId
+                ? requirements.find((r) => r.id === reqId) ||
+                  (selectedReqForDetail?.id === reqId ? selectedReqForDetail : null) ||
+                  null
+                : null;
+              const candId = routeTarget.query?.candidateId;
+              const matchedCand = candId
+                ? candidates.find((c) => c.id === candId) ||
+                  (selectedCandForDetail?.id === candId ? selectedCandForDetail : null) ||
+                  null
+                : null;
+              const placementBackLabel =
+                workflowReturnView === 'requirement_detail'
+                  ? matchedReq?.code
+                    ? `Back to ${matchedReq.code}`
+                    : 'Back to Requirement'
+                  : workflowReturnView === 'pipeline'
+                    ? 'Back to Pipeline'
+                    : workflowReturnView === 'dashboard'
+                      ? 'Back to Dashboard'
+                      : 'Back to Billable Consultants';
+
+              if (rateMasked) {
+                return (
+                  <AccessRestrictedView
+                    moduleName="Billable Placement Creation"
+                    description="Commercial billing rates and SOW activation are masked for your current workspace role."
+                    currentRole={normalizedUserRole}
+                    requiredRoles={[
+                      'Administrator',
+                      'Senior Recruiter',
+                      'Account Executive',
+                      'Bench Sales Lead',
+                    ]}
+                    onBackToDashboard={() => handleReturnFromWorkflowPage('dashboard')}
+                  />
+                );
+              }
+
+              return (
+                <PlacementCreatePage
+                  initialRequirement={matchedReq}
+                  initialCandidate={matchedCand}
+                  candidates={candidates}
+                  clients={clients}
+                  vendors={vendors}
+                  requirements={requirements}
+                  users={users}
+                  backLabel={placementBackLabel}
+                  onBack={() => handleReturnFromWorkflowPage('billable')}
+                  onCreatePlacement={async (newPlacement, targetReqId) => {
+                    await handleConfirmPlacement(newPlacement, targetReqId);
+                    if (
+                      workflowReturnView === 'requirement_detail' ||
+                      workflowReturnView === 'pipeline'
+                    ) {
+                      handleReturnFromWorkflowPage('billable');
+                    } else {
+                      handleNavigateView('billable');
+                    }
+                  }}
+                  showToast={showToast}
+                />
+              );
+            })()}
 
           {currentView === 'placement_detail' && !isResolvingCurrentDetail && (
             <PlacementDetailPage
@@ -2992,11 +3295,122 @@ export const App: React.FC = () => {
           {currentView === 'import_data' &&
             (canManageDataOperations ? (
               <ImportDataView
-                onImportCandidates={(newCands) => mergeImportedCandidates(newCands)}
-                onOpenResumeParser={() => setIsResumeModalOpen(true)}
-                onNavigate={setCurrentView}
+                onOpenResumeParser={() =>
+                  handleOpenWorkflowPage('import_resume', { fromView: 'import_data' })
+                }
+                onOpenCsvImport={() =>
+                  handleOpenWorkflowPage('import_csv', { fromView: 'import_data' })
+                }
                 showToast={showToast}
               />
+            ) : (
+              <AccessRestrictedView
+                moduleName="Bulk CSV / Excel Import"
+                description="Bulk candidate spreadsheet imports are restricted to leadership and senior recruiting roles to maintain clean workspace data. You can still add candidates or parse individual resumes in Consultants."
+                currentRole={normalizedUserRole}
+                requiredRoles={[
+                  'Administrator',
+                  'Senior Recruiter',
+                  'Account Executive',
+                  'Bench Sales Lead',
+                ]}
+                onBackToDashboard={() => handleNavigateView('dashboard')}
+                secondaryAction={{
+                  label: 'Go to Consultants',
+                  onClick: () => handleNavigateView('consultants'),
+                }}
+              />
+            ))}
+
+          {currentView === 'import_resume' &&
+            (() => {
+              const reqId = routeTarget.query?.requirementId || workflowReturnReqId || undefined;
+              const lockedReq = reqId
+                ? requirements.find((r) => r.id === reqId) ||
+                  (selectedReqForDetail?.id === reqId ? selectedReqForDetail : null) ||
+                  null
+                : null;
+              const resumeBackLabel =
+                workflowReturnView === 'requirement_detail'
+                  ? lockedReq?.code
+                    ? `Back to ${lockedReq.code}`
+                    : 'Back to Requirement'
+                  : workflowReturnView === 'consultants'
+                    ? 'Back to Consultants'
+                    : workflowReturnView === 'pipeline'
+                      ? 'Back to Pipeline'
+                      : workflowReturnView === 'dashboard'
+                        ? 'Back to Dashboard'
+                        : 'Back to Import Data';
+
+              return (
+                <ResumeImportPage
+                  lockedRequirement={lockedReq}
+                  users={users}
+                  backLabel={resumeBackLabel}
+                  onBack={() => handleReturnFromWorkflowPage('import_data')}
+                  onApprove={async (savedCand, opts) => {
+                    await handleResumeCandidateApproved(savedCand, opts);
+                    if (!opts?.stayOnPage) {
+                      handleReturnFromWorkflowPage('consultants');
+                    }
+                  }}
+                  onBulkAttachToRequirement={handleAttachCandidates}
+                  onSwitchToCsvImport={
+                    canManageDataOperations
+                      ? () =>
+                          handleOpenWorkflowPage('import_csv', {
+                            requirementId: reqId,
+                            fromView: workflowReturnView,
+                            returnReqId: workflowReturnReqId || reqId,
+                          })
+                      : undefined
+                  }
+                  showToast={showToast}
+                />
+              );
+            })()}
+
+          {currentView === 'import_csv' &&
+            (canManageDataOperations ? (
+              (() => {
+                const reqId = routeTarget.query?.requirementId || workflowReturnReqId || undefined;
+                const lockedReq = reqId
+                  ? requirements.find((r) => r.id === reqId) ||
+                    (selectedReqForDetail?.id === reqId ? selectedReqForDetail : null) ||
+                    null
+                  : null;
+                const csvBackLabel =
+                  workflowReturnView === 'requirement_detail'
+                    ? lockedReq?.code
+                      ? `Back to ${lockedReq.code}`
+                      : 'Back to Requirement'
+                    : workflowReturnView === 'consultants'
+                      ? 'Back to Consultants'
+                      : workflowReturnView === 'pipeline'
+                        ? 'Back to Pipeline'
+                        : workflowReturnView === 'dashboard'
+                          ? 'Back to Dashboard'
+                          : 'Back to Import Data';
+
+                return (
+                  <CsvImportPage
+                    lockedRequirement={lockedReq}
+                    backLabel={csvBackLabel}
+                    onBack={() => handleReturnFromWorkflowPage('import_data')}
+                    onImportComplete={handleCsvImportCompleted}
+                    onSwitchToResumeParser={() =>
+                      handleOpenWorkflowPage('import_resume', {
+                        requirementId: reqId,
+                        fromView: workflowReturnView,
+                        returnReqId: workflowReturnReqId || reqId,
+                      })
+                    }
+                    onNavigate={(view) => handleNavigateView(view)}
+                    showToast={showToast}
+                  />
+                );
+              })()
             ) : (
               <AccessRestrictedView
                 moduleName="Bulk CSV / Excel Import"
@@ -3094,55 +3508,7 @@ export const App: React.FC = () => {
         }}
       />
 
-      {/* Specialized Modals */}
-      <ResumeParserModal
-        isOpen={isResumeModalOpen}
-        onClose={() => setIsResumeModalOpen(false)}
-        onApprove={(c) => {
-          setCandidates((prev) => [c, ...prev]);
-          fetchSidebarCounts();
-        }}
-        onSwitchToCsvImport={() => {
-          setIsResumeModalOpen(false);
-          if (canManageDataOperations) {
-            setCsvImportTargetReq(null);
-            setIsCsvImportModalOpen(true);
-          }
-        }}
-        showToast={showToast}
-      />
-
-      <CsvImportModal
-        isOpen={isCsvImportModalOpen && canManageDataOperations}
-        onClose={() => {
-          setIsCsvImportModalOpen(false);
-          setCsvImportTargetReq(null);
-        }}
-        lockedRequirement={
-          csvImportTargetReq
-            ? requirements.find((r) => r.id === csvImportTargetReq.id) || csvImportTargetReq
-            : null
-        }
-        onImportComplete={handleCsvImportCompleted}
-        onNavigate={handleNavigateView}
-        showToast={showToast}
-      />
-
-      <EmailParserModal
-        isOpen={isEmailModalOpen}
-        onClose={() => setIsEmailModalOpen(false)}
-        clients={clients}
-        users={users}
-        onApprove={(req) => {
-          setRequirements((prev) => [req, ...prev]);
-          fetchClients();
-          fetchSidebarCounts();
-          fetchSlaTasks();
-          fetchAutomations();
-        }}
-        showToast={showToast}
-      />
-
+      {/* Specialized Drawers */}
       <SkillMatcherModal
         isOpen={isMatcherModalOpen}
         onClose={() => setIsMatcherModalOpen(false)}
@@ -3158,34 +3524,91 @@ export const App: React.FC = () => {
         onAttachCandidates={handleAttachCandidates}
         onOpenCsvImport={
           canManageDataOperations
-            ? (req) => {
-                setIsMatcherModalOpen(false);
-                setCsvImportTargetReq(req);
-                setIsCsvImportModalOpen(true);
-              }
+            ? (req) => handleOpenInlineCsvPopup(req)
             : undefined
         }
         onOpenResumeParser={
           canManageDataOperations
-            ? () => {
-                setIsMatcherModalOpen(false);
-                setIsResumeModalOpen(true);
-              }
+            ? (req) => handleOpenInlineResumePopup(req)
             : undefined
         }
         showToast={showToast}
       />
 
-      <PlacementWizardModal
-        isOpen={isPlacementWizardOpen}
-        onClose={() => setIsPlacementWizardOpen(false)}
-        candidate={activeCandidate}
-        candidates={candidates}
-        vendors={vendors}
-        requirement={
-          requirements.find((r) => r.id === activeReq?.id) || activeReq
+      {/* Contextual Import Popups (e.g. inside Attach Candidates drawer) */}
+      <ResumeParserModal
+        isOpen={isInlineResumeModalOpen}
+        onClose={() => {
+          setIsInlineResumeModalOpen(false);
+          setInlineImportTargetReq(null);
+        }}
+        lockedRequirement={
+          inlineImportTargetReq
+            ? requirements.find((r) => r.id === inlineImportTargetReq.id) || inlineImportTargetReq
+            : null
         }
-        onConfirmPlacement={handleConfirmPlacement}
+        users={users}
+        onApprove={async (savedCand, opts) => {
+          await handleResumeCandidateApproved(savedCand, opts);
+          if (!opts?.stayOnPage) {
+            setIsInlineResumeModalOpen(false);
+            setInlineImportTargetReq(null);
+          }
+        }}
+        onBulkAttachToRequirement={handleAttachCandidates}
+        onSwitchToCsvImport={
+          canManageDataOperations
+            ? () => {
+                setIsInlineResumeModalOpen(false);
+                setIsInlineCsvModalOpen(true);
+              }
+            : undefined
+        }
+        onOpenFullPage={() => {
+          const reqId = inlineImportTargetReq?.id;
+          setIsInlineResumeModalOpen(false);
+          setIsMatcherModalOpen(false);
+          handleOpenWorkflowPage('import_resume', {
+            requirementId: reqId,
+            fromView: currentView,
+            returnReqId: currentView === 'requirement_detail' ? reqId : undefined,
+          });
+        }}
+        showToast={showToast}
+      />
+
+      <CsvImportModal
+        isOpen={isInlineCsvModalOpen && canManageDataOperations}
+        onClose={() => {
+          setIsInlineCsvModalOpen(false);
+          setInlineImportTargetReq(null);
+        }}
+        lockedRequirement={
+          inlineImportTargetReq
+            ? requirements.find((r) => r.id === inlineImportTargetReq.id) || inlineImportTargetReq
+            : null
+        }
+        onImportComplete={handleCsvImportCompleted}
+        onSwitchToResumeParser={() => {
+          setIsInlineCsvModalOpen(false);
+          setIsInlineResumeModalOpen(true);
+        }}
+        onOpenFullPage={() => {
+          const reqId = inlineImportTargetReq?.id;
+          setIsInlineCsvModalOpen(false);
+          setIsMatcherModalOpen(false);
+          handleOpenWorkflowPage('import_csv', {
+            requirementId: reqId,
+            fromView: currentView,
+            returnReqId: currentView === 'requirement_detail' ? reqId : undefined,
+          });
+        }}
+        onNavigate={(view) => {
+          setIsInlineCsvModalOpen(false);
+          setIsMatcherModalOpen(false);
+          setInlineImportTargetReq(null);
+          handleNavigateView(view);
+        }}
         showToast={showToast}
       />
 
@@ -3272,51 +3695,6 @@ export const App: React.FC = () => {
           } catch (e: any) {
             console.warn('API save vendor failed:', e);
             showApiErrorToast(e, 'Vendor Save Failed', `Could not register ${v.name}.`);
-            throw e;
-          }
-        }}
-        showToast={showToast}
-      />
-
-      <AddPlacementModal
-        isOpen={activeCreateModal === 'placement'}
-        onClose={() => setActiveCreateModal(null)}
-        clients={clients}
-        users={users}
-        candidates={candidates}
-        vendors={vendors}
-        requirements={requirements}
-        onSave={async (p) => {
-          try {
-            const res = await apiClient.post('/placements', p);
-            const saved = res.data?.data ? normalizePlacement(res.data.data) : p;
-            fetchSidebarCounts();
-            setPlacements((prev) => [saved, ...prev]);
-            if (saved.candidateId || saved.resourceName) {
-              const targetName = saved.resourceName.trim().toLowerCase();
-              setCandidates((prev) =>
-                prev.map((c) =>
-                  (saved.candidateId && c.id === saved.candidateId) ||
-                  c.fullName.trim().toLowerCase() === targetName
-                    ? { ...c, pipelineStage: 'Billable' }
-                    : c
-                )
-              );
-            }
-            if (saved.requirementId) {
-              setRequirements((prev) => {
-                const target = prev.find((r) => r.id === saved.requirementId);
-                if (!target) return prev;
-                return updateRequirementInList(prev, {
-                  ...target,
-                  status: 'Onboarding',
-                  resourceName: saved.resourceName || target.resourceName,
-                });
-              });
-            }
-          } catch (e: any) {
-            console.warn('API save placement failed:', e);
-            showApiErrorToast(e, 'Placement Failed', `Could not activate placement for ${p.resourceName}.`);
             throw e;
           }
         }}

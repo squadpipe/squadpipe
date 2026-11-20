@@ -33,6 +33,8 @@ export const Topbar: React.FC<TopbarProps> = ({
         return 'Dashboard Overview';
       case 'pipeline':
         return 'Opportunity Pipeline';
+      case 'requirement_from_email':
+        return 'Create Job from Email';
       case 'requirement_detail':
         return 'Requirement Details';
       case 'consultants':
@@ -49,6 +51,8 @@ export const Topbar: React.FC<TopbarProps> = ({
         return 'Vendor Details';
       case 'billable':
         return 'Billable Consultants';
+      case 'placement_new':
+        return 'New Billable Placement';
       case 'placement_detail':
         return 'Placement Details';
       case 'user_management':
@@ -67,6 +71,10 @@ export const Topbar: React.FC<TopbarProps> = ({
         return 'Smart Reminders';
       case 'import_data':
         return 'Import Candidates & Resumes';
+      case 'import_resume':
+        return 'Resume Parser & Import';
+      case 'import_csv':
+        return 'Spreadsheet Candidate Import';
       case 'team_performance':
         return 'Team Performance';
       case 'usage':
