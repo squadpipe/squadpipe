@@ -81,7 +81,7 @@ export const AiBadge: React.FC<AiBadgeProps> = ({
   const variantClass =
     variant === 'dark'
       ? 'bg-[#141615] text-teal-300 border-white/15'
-      : 'bg-teal-50/90 text-teal-800 border-teal-200/80';
+      : 'bg-white text-teal-700 border-teal-300';
 
   return (
     <span
@@ -107,7 +107,7 @@ interface AiTagProps {
  */
 export const AiTag: React.FC<AiTagProps> = ({ label = 'AI', className = '' }) => (
   <span
-    className={`px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 border border-teal-200/80 text-[10px] font-bold uppercase tracking-wider leading-none ${className}`}
+    className={`px-1.5 py-0.5 rounded bg-white text-teal-700 border border-teal-300 text-[10px] font-bold uppercase tracking-wider leading-none ${className}`}
   >
     {label}
   </span>

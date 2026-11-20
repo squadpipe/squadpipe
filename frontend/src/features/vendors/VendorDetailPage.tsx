@@ -647,7 +647,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
                         </td>
                         <td className="pl-4 pr-6 py-3.5 text-right whitespace-nowrap">
                           {cnt.isPrimary ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white text-amber-700 border border-amber-300">
                               <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
                               <span>Primary</span>
                             </span>

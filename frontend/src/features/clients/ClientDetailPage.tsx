@@ -336,9 +336,8 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
             </h1>
             {activeClientPlacements.length > 0 && (
               <StatusBadge
-                label={`${activeClientPlacements.length} Active Placement${
-                  activeClientPlacements.length === 1 ? '' : 's'
-                }`}
+                label={`${activeClientPlacements.length} Active Placement${activeClientPlacements.length === 1 ? '' : 's'
+                  }`}
                 tone="emerald"
                 size="xs"
               />
@@ -479,11 +478,10 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                       key={f.id}
                       type="button"
                       onClick={() => setReqFilter(f.id)}
-                      className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
-                        reqFilter === f.id
-                          ? 'bg-white text-slate-900 shadow-sm font-semibold'
-                          : 'text-slate-500 hover:text-slate-800'
-                      }`}
+                      className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${reqFilter === f.id
+                        ? 'bg-white text-slate-900 shadow-sm font-semibold'
+                        : 'text-slate-500 hover:text-slate-800'
+                        }`}
                     >
                       {f.id} ({f.count})
                     </button>
@@ -583,14 +581,13 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                         }
                       >
                         <td className="pl-6 pr-4 py-3.5 whitespace-nowrap">
-                          <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                          <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-white border border-slate-300 text-slate-700">
                             {r.code}
                           </span>
                         </td>
                         <td
-                          className={`px-4 py-3.5 font-semibold text-slate-900 ${
-                            onOpenRequirement ? 'group-hover:text-brand-700 transition-colors' : ''
-                          }`}
+                          className={`px-4 py-3.5 font-semibold text-slate-900 ${onOpenRequirement ? 'group-hover:text-brand-700 transition-colors' : ''
+                            }`}
                         >
                           {r.opportunityTitle}
                         </td>
@@ -818,14 +815,12 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                       <tr
                         key={b.id}
                         onClick={onSelectPlacement ? () => onSelectPlacement(b) : undefined}
-                        className={`group transition-colors ${
-                          onSelectPlacement ? 'hover:bg-slate-50/90 cursor-pointer' : 'hover:bg-slate-50/70'
-                        }`}
+                        className={`group transition-colors ${onSelectPlacement ? 'hover:bg-slate-50/90 cursor-pointer' : 'hover:bg-slate-50/70'
+                          }`}
                       >
                         <td
-                          className={`pl-6 pr-4 py-3.5 font-semibold text-slate-900 whitespace-nowrap ${
-                            onSelectPlacement ? 'group-hover:text-brand-700 transition-colors' : ''
-                          }`}
+                          className={`pl-6 pr-4 py-3.5 font-semibold text-slate-900 whitespace-nowrap ${onSelectPlacement ? 'group-hover:text-brand-700 transition-colors' : ''
+                            }`}
                         >
                           {b.resourceName}
                         </td>
@@ -1063,129 +1058,127 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
         panelClassName="bg-white rounded-xl shadow-2xl max-w-xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
         ariaLabel="Add Client Contact"
       >
-            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white shrink-0">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shrink-0">
-                  <Users className="w-4 h-4" />
+        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shrink-0">
+              <Users className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold text-white truncate">Add Client Contact</h2>
+              <div className="text-[11px] text-slate-400 mt-0.5 truncate">{client.name}</div>
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={isSavingContact}
+            onClick={() => setShowAddContact(false)}
+            aria-label="Close modal"
+            className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form noValidate onSubmit={handleSaveContact} className="flex flex-col flex-1 overflow-hidden">
+          <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700">
+                    Full Name *
+                  </label>
+                  {isContactNameInvalid && (
+                    <span className="text-[11px] font-semibold text-rose-600">Required</span>
+                  )}
                 </div>
-                <div className="min-w-0">
-                  <h2 className="text-sm font-bold text-white truncate">Add Client Contact</h2>
-                  <div className="text-[11px] text-slate-400 mt-0.5 truncate">{client.name}</div>
-                </div>
+                <input
+                  type="text"
+                  autoFocus
+                  value={contactForm.name}
+                  onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
+                  placeholder="e.g., Sarah Connor"
+                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${isContactNameInvalid ? INVALID_FIELD_CLASSES : 'bg-white border-slate-200 focus:border-brand-600'
+                    }`}
+                />
               </div>
-              <button
-                type="button"
-                disabled={isSavingContact}
-                onClick={() => setShowAddContact(false)}
-                aria-label="Close modal"
-                className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                  Designation
+                </label>
+                <input
+                  type="text"
+                  value={contactForm.designation}
+                  onChange={(e) =>
+                    setContactForm({ ...contactForm, designation: e.target.value })
+                  }
+                  placeholder="VP Engineering"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700">
+                    Email *
+                  </label>
+                  {isContactEmailInvalid && (
+                    <span className="text-[11px] font-semibold text-rose-600">Required</span>
+                  )}
+                </div>
+                <input
+                  type="email"
+                  value={contactForm.email}
+                  onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                  placeholder="sarah@client.com"
+                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${isContactEmailInvalid ? INVALID_FIELD_CLASSES : 'bg-white border-slate-200 focus:border-brand-600'
+                    }`}
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                  Phone
+                </label>
+                <input
+                  type="text"
+                  value={contactForm.phone}
+                  onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
+                  placeholder="+1 (555) 234-5678"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
+                />
+              </div>
             </div>
 
-            <form noValidate onSubmit={handleSaveContact} className="flex flex-col flex-1 overflow-hidden">
-              <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-[11px] font-semibold text-slate-700">
-                        Full Name *
-                      </label>
-                      {isContactNameInvalid && (
-                        <span className="text-[11px] font-semibold text-rose-600">Required</span>
-                      )}
-                    </div>
-                    <input
-                      type="text"
-                      autoFocus
-                      value={contactForm.name}
-                      onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
-                      placeholder="e.g., Sarah Connor"
-                      className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
-                        isContactNameInvalid ? INVALID_FIELD_CLASSES : 'bg-white border-slate-200 focus:border-brand-600'
-                      }`}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Designation
-                    </label>
-                    <input
-                      type="text"
-                      value={contactForm.designation}
-                      onChange={(e) =>
-                        setContactForm({ ...contactForm, designation: e.target.value })
-                      }
-                      placeholder="VP Engineering"
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-[11px] font-semibold text-slate-700">
-                        Email *
-                      </label>
-                      {isContactEmailInvalid && (
-                        <span className="text-[11px] font-semibold text-rose-600">Required</span>
-                      )}
-                    </div>
-                    <input
-                      type="email"
-                      value={contactForm.email}
-                      onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
-                      placeholder="sarah@client.com"
-                      className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
-                        isContactEmailInvalid ? INVALID_FIELD_CLASSES : 'bg-white border-slate-200 focus:border-brand-600'
-                      }`}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Phone
-                    </label>
-                    <input
-                      type="text"
-                      value={contactForm.phone}
-                      onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
-                      placeholder="+1 (555) 234-5678"
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:border-brand-600 focus:outline-none"
-                    />
-                  </div>
-                </div>
+            <label className="inline-flex items-center gap-2 text-[11px] font-medium text-slate-700 cursor-pointer pt-1">
+              <input
+                type="checkbox"
+                checked={contactForm.isPrimary}
+                onChange={(e) =>
+                  setContactForm({ ...contactForm, isPrimary: e.target.checked })
+                }
+                className="rounded border-slate-300"
+              />
+              <span>Mark as Primary Hiring Lead</span>
+            </label>
+          </div>
 
-                <label className="inline-flex items-center gap-2 text-[11px] font-medium text-slate-700 cursor-pointer pt-1">
-                  <input
-                    type="checkbox"
-                    checked={contactForm.isPrimary}
-                    onChange={(e) =>
-                      setContactForm({ ...contactForm, isPrimary: e.target.checked })
-                    }
-                    className="rounded border-slate-300"
-                  />
-                  <span>Mark as Primary Hiring Lead</span>
-                </label>
-              </div>
-
-              <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
-                <button
-                  type="button"
-                  disabled={isSavingContact}
-                  onClick={() => setShowAddContact(false)}
-                  className="px-3.5 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <ActionButton
-                  type="submit"
-                  loading={isSavingContact}
-                  loadingText="Saving..."
-                  className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold cursor-pointer"
-                >
-                  Save Contact
-                </ActionButton>
-              </div>
-            </form>
+          <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
+            <button
+              type="button"
+              disabled={isSavingContact}
+              onClick={() => setShowAddContact(false)}
+              className="px-3.5 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
+            >
+              Cancel
+            </button>
+            <ActionButton
+              type="submit"
+              loading={isSavingContact}
+              loadingText="Saving..."
+              className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold cursor-pointer"
+            >
+              Save Contact
+            </ActionButton>
+          </div>
+        </form>
       </AnimatedModal>
     </section>
   );

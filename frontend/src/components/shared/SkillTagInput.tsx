@@ -83,7 +83,7 @@ export const SkillTagInput: React.FC<SkillTagInputProps> = ({
           {skillTags.map((tag) => (
             <span
               key={tag}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-medium"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-slate-200/90 text-slate-700 text-[11px] font-medium"
             >
               <span>{tag}</span>
               <button
@@ -155,11 +155,10 @@ export const SkillTagInput: React.FC<SkillTagInputProps> = ({
                       e.preventDefault();
                       handleAdd(suggestion);
                     }}
-                    className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
-                      idx === highlightedIdx
-                        ? 'bg-brand-600 text-white border-brand-600'
-                        : 'bg-slate-50 hover:bg-brand-50 text-slate-700 hover:text-brand-700 border-slate-200 hover:border-brand-200'
-                    }`}
+                    className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${idx === highlightedIdx
+                      ? 'bg-brand-600 text-white border-brand-600'
+                      : 'bg-white hover:bg-brand-50/40 text-slate-700 hover:text-brand-700 border-slate-300 hover:border-brand-300'
+                      }`}
                   >
                     + {suggestion}
                   </button>

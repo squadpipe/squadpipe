@@ -33,7 +33,7 @@ export const DetailBreadcrumb: React.FC<DetailBreadcrumbProps> = ({
       <span className="text-slate-300">/</span>
       {codePill && (
         <>
-          <span className="text-[11px] font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md shrink-0">
+          <span className="text-[11px] font-mono font-bold text-slate-700 bg-white border border-slate-300 px-2 py-0.5 rounded-md shrink-0">
             {codePill}
           </span>
           <span className="text-slate-300">/</span>

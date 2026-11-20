@@ -438,7 +438,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                       options={thresholdOptions}
                     />
                   ) : (
-                    <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">
+                    <span className="px-2 py-0.5 rounded bg-white border border-slate-300 text-slate-700 font-semibold">
                       {preset.defaultThreshold}
                     </span>
                   )}
@@ -482,7 +482,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
             <Activity className="w-4 h-4 text-slate-500" />
             <h3 className="font-bold text-xs text-slate-900">Recent Reminder Activity</h3>
             <span className="text-[11px] text-slate-400">({totalLogs})</span>
-            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-500 text-[11px] font-medium">
+            <span className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-500 text-[11px] font-medium">
               Saved for 30 days
             </span>
           </div>

@@ -567,11 +567,11 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                                 <span className="truncate">{req.opportunityTitle}</span>
                                 <div className="flex items-center gap-1 shrink-0">
                                   {alreadyAttached && (
-                                    <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-white text-emerald-700 border border-emerald-300">
                                       Submitted
                                     </span>
                                   )}
-                                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-white border border-slate-300 text-slate-700">
                                     {req.code}
                                   </span>
                                 </div>
@@ -913,7 +913,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                         }
                       >
                         <td className="pl-6 pr-4 py-3.5 whitespace-nowrap">
-                          <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                          <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-white border border-slate-300 text-slate-700">
                             {req.code}
                           </span>
                         </td>

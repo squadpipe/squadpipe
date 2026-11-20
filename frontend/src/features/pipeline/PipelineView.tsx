@@ -946,7 +946,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
           </div>
 
           {!rateMasked && Boolean(req.targetBillRate) && (
-            <span className="tabular-nums whitespace-nowrap bg-slate-50 border border-slate-200/80 px-1.5 py-0.5 rounded-md">
+            <span className="tabular-nums whitespace-nowrap bg-white border border-slate-200/90 px-1.5 py-0.5 rounded-md">
               <span className="text-[12px] font-bold font-mono text-slate-800">
                 {currencySymbol}
                 {req.targetBillRate}
@@ -986,7 +986,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               <span
                 key={sk}
                 title={sk}
-                className="px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200/80 text-slate-600 text-[11px] font-medium whitespace-nowrap truncate max-w-[145px]"
+                className="px-2 py-0.5 rounded-md bg-white border border-slate-200/90 text-slate-700 text-[11px] font-medium whitespace-nowrap truncate max-w-[145px]"
               >
                 {sk}
               </span>
@@ -994,7 +994,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             {extraSkillCount > 0 && (
               <span
                 title={skills.slice(visibleSkills.length).join(', ')}
-                className="px-1.5 py-0.5 rounded-md bg-slate-100/80 text-slate-500 text-[11px] font-semibold whitespace-nowrap flex-shrink-0"
+                className="px-1.5 py-0.5 rounded-md bg-white border border-slate-200/90 text-slate-600 text-[11px] font-semibold whitespace-nowrap flex-shrink-0"
               >
                 +{extraSkillCount}
               </span>
@@ -1739,7 +1739,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                           {activePlacementList.map((pl) => (
                             <span
                               key={pl.id}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-50/80 border border-amber-200/80 text-[11px] font-semibold text-amber-900"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-amber-300 text-[11px] font-semibold text-amber-800"
                             >
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                               <span>{pl.resourceName}</span>

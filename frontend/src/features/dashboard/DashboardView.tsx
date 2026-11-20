@@ -815,7 +815,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <>
             <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-mono font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
+                <span className="text-[11px] font-mono font-semibold text-slate-700 bg-white border border-slate-300 px-2 py-0.5 rounded">
                   {editingReq.code}
                 </span>
                 <h3 className="text-sm font-bold text-slate-900">Edit Requisition</h3>

@@ -332,10 +332,10 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
 
   const marginBadgeClass =
     marginPct >= 20
-      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+      ? 'bg-white text-emerald-700 border-emerald-300'
       : marginPct >= 10
-        ? 'bg-amber-50 text-amber-700 border-amber-200'
-        : 'bg-rose-50 text-rose-700 border-rose-200';
+        ? 'bg-white text-amber-700 border-amber-300'
+        : 'bg-white text-rose-700 border-rose-300';
 
   const contractWeeks = (() => {
     if (!form.startDate || !form.endDate) return 0;
@@ -691,7 +691,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
                     <span>{isRequirementLocked ? 'Linked Requisition' : 'Link Requisition (Optional)'}</span>
                   </span>
                   {isRequirementLocked && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200/80 text-slate-600 text-[11px] font-semibold">
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white border border-slate-300 text-slate-600 text-[11px] font-semibold">
                       <Lock className="w-2.5 h-2.5 text-slate-500" />
                       <span>Locked</span>
                     </span>

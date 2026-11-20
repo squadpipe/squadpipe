@@ -385,7 +385,7 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
                     <div key={bucket.format} className="space-y-1.5">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                          <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-white border border-slate-300 text-slate-700">
                             {bucket.format}
                           </span>
                           <span className="text-slate-600 font-medium">
@@ -439,7 +439,7 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
                     </td>
                     <td className="px-4 py-3 text-slate-600 max-w-xs truncate">{file.fileName}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                      <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-white border border-slate-300 text-slate-700">
                         {file.format}
                       </span>
                     </td>

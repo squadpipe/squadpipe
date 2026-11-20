@@ -488,7 +488,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
 
                     {/* Work Auth */}
                     <td className="px-4 py-3 whitespace-nowrap text-[11px]">
-                      <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200">
+                      <span className="bg-white text-slate-700 px-2 py-0.5 rounded border border-slate-300/90 font-medium">
                         {c.workAuth}
                       </span>
                     </td>
@@ -504,7 +504,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                       {search.trim() && (() => {
                         const excerpt = extractResumeMatchExcerpt(c.rawSnippet, search);
                         return excerpt ? (
-                          <div className="text-[11px] font-normal text-brand-700 bg-brand-50/70 border border-brand-200/70 rounded px-1.5 py-0.5 mt-1 max-w-xs truncate" title={excerpt}>
+                          <div className="text-[11px] font-normal text-brand-700 bg-white border border-brand-300 rounded px-1.5 py-0.5 mt-1 max-w-xs truncate" title={excerpt}>
                             CV match: {excerpt}
                           </div>
                         ) : null;
@@ -526,7 +526,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                               <span
                                 key={sk}
                                 title={sk}
-                                className="inline-block max-w-[130px] truncate text-[11px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-medium"
+                                className="inline-block max-w-[130px] truncate text-[11px] bg-white border border-slate-200/90 text-slate-700 px-1.5 py-0.5 rounded font-medium"
                               >
                                 {sk}
                               </span>
@@ -534,7 +534,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                             {remaining > 0 && (
                               <span
                                 title={skills.slice(2).join(', ')}
-                                className="inline-block text-[11px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-semibold whitespace-nowrap"
+                                className="inline-block text-[11px] bg-white border border-slate-200/90 text-slate-600 px-1.5 py-0.5 rounded font-semibold whitespace-nowrap"
                               >
                                 +{remaining}
                               </span>

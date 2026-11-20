@@ -665,7 +665,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
                     extractedReq.companyName.trim().toLowerCase()
                 ) && (
                   <div className="mt-1">
-                    <span className="inline-block text-[11px] font-medium text-brand-800 bg-brand-500/[0.08] px-1.5 py-0.5 rounded">
+                    <span className="inline-block text-[11px] font-medium text-brand-700 bg-white border border-brand-300 px-1.5 py-0.5 rounded">
                       New client (auto-saved on create)
                     </span>
                   </div>
@@ -881,7 +881,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
                 {skillTags.map((tag) => (
                   <span
                     key={tag}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-medium"
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-white border border-slate-200/90 text-slate-700 text-[11px] font-medium"
                   >
                     <span>{tag}</span>
                     <button

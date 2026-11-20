@@ -321,7 +321,7 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
                                 chip.isCustom
                                   ? 'bg-white border-slate-300/90 text-slate-800'
                                   : chip.required
-                                    ? 'bg-slate-100/80 border-slate-200/90 text-slate-800 font-semibold'
+                                    ? 'bg-white border-slate-300 text-slate-800 font-semibold'
                                     : 'bg-white border-slate-200/80 text-slate-600'
                               }`}
                             >

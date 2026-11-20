@@ -97,12 +97,12 @@ export function computeCandidateSkillMatch(
 
 function getMatchScoreBadgeClass(score: number): string {
   if (score >= 70) {
-    return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    return 'bg-white text-emerald-700 border-emerald-300';
   }
   if (score >= 40) {
-    return 'bg-brand-50 text-brand-700 border-brand-200';
+    return 'bg-white text-brand-700 border-brand-300';
   }
-  return 'bg-slate-100 text-slate-600 border-slate-200';
+  return 'bg-white text-slate-600 border-slate-300';
 }
 
 export interface AttachBenchDrawerProps {
@@ -833,10 +833,10 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
               <div className="flex items-center gap-2 flex-wrap">
                 <h4 className="text-sm font-bold text-slate-900">Attach Bench Candidates</h4>
                 <div className="flex items-center gap-1.5 text-[11px] font-semibold">
-                  <span className="px-2 py-0.5 rounded-md bg-slate-200/75 text-slate-700">
+                  <span className="px-2 py-0.5 rounded-md bg-white border border-slate-300 text-slate-700">
                     {openPositions} Open
                   </span>
-                  <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-800 border border-emerald-200/60">
+                  <span className="px-2 py-0.5 rounded-md bg-white text-emerald-700 border border-emerald-300">
                     {attachedStageByCandId.size} Attached
                   </span>
                 </div>
@@ -986,7 +986,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                     </span>
                   </button>
                 ) : hasAiRankResults && remainingUnrankedCount === 0 ? (
-                  <span className="px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-200/80 text-teal-800 text-[11px] font-semibold inline-flex items-center gap-1">
+                  <span className="px-2.5 py-1 rounded-lg bg-white border border-teal-300 text-teal-700 text-[11px] font-semibold inline-flex items-center gap-1">
                     <AiIcon className="w-3 h-3 text-teal-600" />
                     <span>All {aiRankedCount} Ranked</span>
                   </span>
@@ -1030,7 +1030,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                   )}
                 </span>
                 {aiRankScopeNote && (
-                  <span className="text-[11px] font-medium text-teal-800 bg-teal-50 border border-teal-200/80 px-2 py-0.5 rounded-full">
+                  <span className="text-[11px] font-medium text-teal-700 bg-white border border-teal-300 px-2 py-0.5 rounded-full">
                     {aiRankScopeNote}
                   </span>
                 )}
@@ -1100,7 +1100,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                             </span>
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 text-[11px] font-medium">
+                          <span className="px-2 py-0.5 rounded-md bg-white border border-slate-300 text-slate-500 text-[11px] font-medium">
                             Fit Not Checked
                           </span>
                         )}
@@ -1235,7 +1235,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                                     {visibleMatched.map((skill, idx) => (
                                       <span
                                         key={idx}
-                                        className="px-1.5 py-0.5 rounded text-[11px] bg-emerald-500/[0.08] text-emerald-800 font-medium"
+                                        className="px-1.5 py-0.5 rounded text-[11px] bg-white border border-emerald-300 text-emerald-700 font-medium"
                                       >
                                         {skill}
                                       </span>
@@ -1268,7 +1268,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                                     {visibleMissing.map((skill, idx) => (
                                       <span
                                         key={idx}
-                                        className="px-1.5 py-0.5 rounded text-[11px] bg-slate-100 text-slate-500"
+                                        className="px-1.5 py-0.5 rounded text-[11px] bg-white border border-slate-300 text-slate-500"
                                       >
                                         {skill}
                                       </span>

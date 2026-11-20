@@ -511,7 +511,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                         <div className={`font-bold text-slate-900 ${onSelectPlacement ? 'group-hover:text-brand-700 transition-colors' : ''}`}>{p.customer}</div>
                         <div className="text-[11px] text-slate-500 font-sans mt-0.5">{p.customerContact || 'Hiring Manager'}</div>
                         {p.purchaseOrderNumber && (
-                          <div className="mt-1 inline-flex items-center gap-1 text-[11px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                          <div className="mt-1 inline-flex items-center gap-1 text-[11px] bg-white border border-slate-300/90 text-slate-600 px-1.5 py-0.5 rounded">
                             <FileText className="w-2.5 h-2.5" />
                             <span>PO: {p.purchaseOrderNumber}</span>
                           </div>
@@ -522,7 +522,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                       <td className="px-3.5 py-3">
                         <div className="font-bold text-slate-900 flex items-center gap-1.5">
                           <span className={onSelectPlacement ? 'group-hover:text-brand-700 transition-colors' : ''}>{p.resourceName}</span>
-                          <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                          <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-white border border-slate-300/90 text-slate-600">
                             {p.deployment}
                           </span>
                         </div>

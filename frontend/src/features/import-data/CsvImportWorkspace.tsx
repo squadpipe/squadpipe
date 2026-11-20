@@ -383,7 +383,7 @@ export const CsvImportWorkspace: React.FC<CsvImportWorkspaceProps> = ({
                           {m.sample}
                         </td>
                         <td className="p-2.5">
-                          <span className="px-2 py-0.5 rounded-md text-[11px] bg-slate-100 font-medium text-slate-800">
+                          <span className="px-2 py-0.5 rounded-md text-[11px] bg-white border border-slate-300 font-medium text-slate-800">
                             {m.target}
                           </span>
                         </td>

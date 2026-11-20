@@ -261,7 +261,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                             {primaryContact?.name || (primaryContact as any)?.fullName || '—'}
                           </span>
                           {extraContactsCount > 0 && (
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[11px] font-semibold">
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white border border-slate-300 text-slate-600 text-[11px] font-semibold">
                               <Users className="w-2.5 h-2.5" />+{extraContactsCount}
                             </span>
                           )}
@@ -288,7 +288,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="text-[11px] px-2 py-0.5 rounded font-medium bg-slate-100 text-slate-700">
+                        <span className="text-[11px] px-2 py-0.5 rounded font-medium bg-white border border-slate-300 text-slate-700">
                           {clientReqs.length} {clientReqs.length === 1 ? 'Req' : 'Reqs'}
                         </span>
                       </td>
@@ -300,7 +300,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                             size="xs"
                           />
                         ) : (
-                          <span className="text-[11px] px-2 py-0.5 rounded font-medium bg-slate-100 text-slate-400">
+                          <span className="text-[11px] px-2 py-0.5 rounded font-medium bg-white border border-slate-200 text-slate-500">
                             0 Active
                           </span>
                         )}

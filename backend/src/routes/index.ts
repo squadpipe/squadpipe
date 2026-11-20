@@ -1191,7 +1191,9 @@ router.put(
             ? String(body.heading || 'Submit Candidate Profile & Resume').trim()
             : current.heading,
         subheading:
-          body.subheading !== undefined ? String(body.subheading || '').trim() : current.subheading,
+          body.subheading !== undefined
+            ? sanitizePublicSummaryHtml(String(body.subheading || ''))
+            : current.subheading,
         isDefault: makeDefault,
         includeCurrentTitle,
         requireCurrentTitle: Boolean(

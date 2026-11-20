@@ -339,7 +339,7 @@ const SortableFieldRow: React.FC<SortableFieldRowProps> = ({
             title={entry.required ? 'Click to make optional' : 'Click to make required'}
             className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors cursor-pointer shrink-0 ${
               entry.required
-                ? 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100/70'
+                ? 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50/40'
                 : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
@@ -430,7 +430,7 @@ const SortableFieldRow: React.FC<SortableFieldRowProps> = ({
                   {(entry.field.options || []).map((opt, optIdx) => (
                     <span
                       key={`${entry.field.key}_opt_${optIdx}`}
-                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-[11px] font-medium"
+                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-white border border-emerald-300 text-emerald-700 text-[11px] font-medium"
                     >
                       <span>{opt}</span>
                       <button
@@ -475,7 +475,7 @@ const SortableFieldRow: React.FC<SortableFieldRowProps> = ({
           )}
 
           {entry.field.type === 'RICH_TEXT' && (
-            <div className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-1.5 rounded-lg font-medium inline-block">
+            <div className="text-[11px] text-emerald-700 bg-white border border-emerald-300 px-2.5 py-1.5 rounded-lg font-medium inline-block">
               Formatted rich-text answer box enabled for applicants
             </div>
           )}
@@ -916,11 +916,11 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
         subtitle="Arrange fields, set their width and whether they are required. Switch to Preview anytime to inspect the live applicant form."
         badges={
           <>
-            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200/80 text-[11px] font-medium text-emerald-700 tabular-nums">
+            <span className="px-2.5 py-0.5 rounded-full bg-white border border-emerald-300 text-[11px] font-medium text-emerald-700 tabular-nums">
               {totalDraftFieldCount} active fields
             </span>
             {editingOriginalIsDefault && (
-              <span className="px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200/80 text-[11px] font-medium text-slate-600">
+              <span className="px-2.5 py-0.5 rounded-full bg-white border border-slate-300 text-[11px] font-medium text-slate-600">
                 Workspace default
               </span>
             )}
@@ -1051,8 +1051,8 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
               <RichTextEditor
                 value={draft.subheading}
                 onChange={(nextHtml) => setDraft((prev) => ({ ...prev, subheading: nextHtml }))}
-                minHeight={84}
-                maxHeight={180}
+                minHeight={148}
+                maxHeight={300}
                 ariaLabel="Applicant instructions"
                 placeholder="Optional formatted instructions shown under the form heading..."
               />
@@ -1068,23 +1068,33 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                   Always shown at the top: Resume, Full name, Email, Phone, Work authorization.
                 </p>
               </div>
-              {orderedEntries.length > 1 && (
+              <div className="flex items-center gap-2 shrink-0">
+                {orderedEntries.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const defaultOrder = resolveOrderedFormEntries({
+                        ...draft,
+                        fieldOrder: undefined,
+                      }).map((i) => i.key);
+                      applyFieldOrder(defaultOrder);
+                    }}
+                    title="Reset field placement to default order"
+                    className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-medium inline-flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset order</span>
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => {
-                    const defaultOrder = resolveOrderedFormEntries({
-                      ...draft,
-                      fieldOrder: undefined,
-                    }).map((i) => i.key);
-                    applyFieldOrder(defaultOrder);
-                  }}
-                  title="Reset field placement to default order"
-                  className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-medium inline-flex items-center gap-1 cursor-pointer transition-colors shrink-0"
+                  onClick={() => handleAddBlankCustomField('TEXT')}
+                  className="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                 >
-                  <RotateCcw className="w-3 h-3" />
-                  <span>Reset order</span>
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add field</span>
                 </button>
-              )}
+              </div>
             </div>
 
             {orderedEntries.length > 0 ? (
@@ -1232,7 +1242,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
               <span className="hidden sm:inline text-xs text-slate-500">
                 Form preview &middot; Submissions aren&rsquo;t saved
               </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-brand-50 border border-brand-200/80 text-[11px] font-semibold text-brand-700">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-brand-300 text-[11px] font-semibold text-brand-700">
                 <Eye className="w-3 h-3 text-brand-600 shrink-0" />
                 <span>Preview</span>
               </span>

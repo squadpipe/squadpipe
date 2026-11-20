@@ -279,7 +279,7 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                         >
                           <span className="font-medium">{primaryContact?.fullName || v.contactName || '—'}</span>
                           {extraCount > 0 && (
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[11px] font-semibold">
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white border border-slate-300 text-slate-600 text-[11px] font-semibold">
                               <Users className="w-2.5 h-2.5" />+{extraCount}
                             </span>
                           )}

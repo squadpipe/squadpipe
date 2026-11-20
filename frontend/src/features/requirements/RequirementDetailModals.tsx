@@ -71,7 +71,7 @@ export function getCapabilityBadgeStyle(
   if (rec === 'STRONG_FIT' || (!rec && score >= 80)) {
     return {
       label: explicitLabel || 'Strong Fit',
-      badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100/80',
+      badgeClass: 'bg-white text-emerald-700 border-emerald-300 hover:bg-emerald-50/40',
       barClass: 'bg-emerald-500',
       scoreTextClass: 'text-emerald-700',
     };
@@ -79,7 +79,7 @@ export function getCapabilityBadgeStyle(
   if (rec === 'GOOD_FIT' || (!rec && score >= 65)) {
     return {
       label: explicitLabel || 'Good Fit',
-      badgeClass: 'bg-brand-50 text-brand-700 border-brand-200 hover:bg-brand-100/80',
+      badgeClass: 'bg-white text-brand-700 border-brand-300 hover:bg-brand-50/40',
       barClass: 'bg-brand-600',
       scoreTextClass: 'text-brand-700',
     };
@@ -87,14 +87,14 @@ export function getCapabilityBadgeStyle(
   if (rec === 'PARTIAL_FIT' || (!rec && score >= 45)) {
     return {
       label: explicitLabel || 'Partial Fit',
-      badgeClass: 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100/80',
+      badgeClass: 'bg-white text-amber-700 border-amber-300 hover:bg-amber-50/40',
       barClass: 'bg-amber-500',
       scoreTextClass: 'text-amber-700',
     };
   }
   return {
     label: explicitLabel || 'Low Fit',
-    badgeClass: 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200/70',
+    badgeClass: 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50',
     barClass: 'bg-slate-400',
     scoreTextClass: 'text-slate-700',
   };
@@ -359,7 +359,7 @@ export const RequirementNotesModal: React.FC<RequirementNotesModalProps> = ({
                               {noteTime && <span className="whitespace-nowrap">&middot; {noteTime}</span>}
                               {note.updatedAt && <span className="whitespace-nowrap">(edited)</span>}
                               {isNoteClosed && (
-                                <span className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 font-medium whitespace-nowrap">
+                                <span className="px-1.5 py-0.5 rounded bg-white border border-rose-300 text-rose-700 font-medium whitespace-nowrap">
                                   Rejection Feedback
                                 </span>
                               )}
@@ -728,7 +728,7 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
     ? getCapabilityBadgeStyle(score!, summary)
     : {
       label: 'Not Checked',
-      badgeClass: 'bg-slate-100 text-slate-600 border-slate-200',
+      badgeClass: 'bg-white text-slate-600 border-slate-300',
       barClass: 'bg-slate-300',
       scoreTextClass: 'text-slate-500',
     };
@@ -756,7 +756,7 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
                 <div className="flex items-center gap-2 flex-wrap">
                   <h4 className="text-sm font-bold text-slate-900 truncate">{displayName}</h4>
                   {submission.workAuth && (
-                    <span className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200/80 text-slate-600 font-medium whitespace-nowrap">
+                    <span className="text-[11px] px-1.5 py-0.5 rounded bg-white border border-slate-300 text-slate-600 font-medium whitespace-nowrap">
                       {submission.workAuth}
                     </span>
                   )}
@@ -851,7 +851,7 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
                   {strengths.map((item, idx) => (
                     <span
                       key={idx}
-                      className="px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-[11px] font-medium"
+                      className="px-2.5 py-1 rounded-md bg-white border border-emerald-300 text-emerald-700 text-[11px] font-medium"
                     >
                       {item}
                     </span>
@@ -878,7 +878,7 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
                   {gaps.map((item, idx) => (
                     <span
                       key={idx}
-                      className="px-2.5 py-1 rounded-md bg-amber-50 border border-amber-200/80 text-amber-800 text-[11px] font-medium"
+                      className="px-2.5 py-1 rounded-md bg-white border border-amber-300 text-amber-700 text-[11px] font-medium"
                     >
                       {item}
                     </span>

@@ -166,9 +166,9 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   const getRoleBadgeClass = (role: string) => {
     switch (role) {
       case 'Administrator':
-        return 'bg-[#141615] text-white';
+        return 'bg-white border border-slate-800 text-slate-900';
       default:
-        return 'bg-slate-100 text-slate-700';
+        return 'bg-white border border-slate-300 text-slate-700';
     }
   };
 
@@ -426,14 +426,14 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                               {u.isSuperAdmin && (
                                 <span
                                   title="Protected Workspace Super Admin"
-                                  className="inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800"
+                                  className="inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-white border border-amber-300 text-amber-700"
                                 >
                                   <ShieldCheck className="w-3 h-3 text-amber-600" />
                                   <span>Super Admin</span>
                                 </span>
                               )}
                               {u.isCurrentUser && (
-                                <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                                <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-white border border-slate-300 text-slate-600">
                                   You
                                 </span>
                               )}
@@ -459,7 +459,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
 
                       {/* Live Workload */}
                       <td className="py-3 px-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200/80 text-[11px] font-medium text-slate-700 whitespace-nowrap">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-white border border-slate-300/90 text-[11px] font-medium text-slate-700 whitespace-nowrap">
                           {u.workload || '0 Reqs • 0 Subs • 0 Placements'}
                         </span>
                       </td>

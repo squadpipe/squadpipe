@@ -966,7 +966,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
               label="Active Placement"
               tone="emerald"
               size="xs"
-              className="!bg-emerald-50 !text-emerald-700 !border-emerald-200 !font-semibold !px-2 !text-[11px]"
+              className="!bg-white !text-emerald-700 !border-emerald-300 !font-semibold !px-2 !text-[11px]"
             />
           )}
         </div>
@@ -1016,13 +1016,13 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                   type="button"
                   onClick={() => openNotesEditor(sub, 'interview')}
                   title="Click to update interview schedule"
-                  className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-brand-50 hover:bg-brand-100/80 text-brand-700 border border-brand-200/80 font-medium whitespace-nowrap cursor-pointer transition-colors"
+                  className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-white hover:bg-brand-50/40 text-brand-700 border border-brand-300 font-medium whitespace-nowrap cursor-pointer transition-colors"
                 >
                   <Calendar className="w-3 h-3 shrink-0" />
                   <span>Interview: {formattedInterview}</span>
                 </button>
               ) : (
-                <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-brand-50 text-brand-700 border border-brand-200/80 font-medium whitespace-nowrap">
+                <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-white text-brand-700 border border-brand-300 font-medium whitespace-nowrap">
                   <Calendar className="w-3 h-3 shrink-0" />
                   <span>Interview: {formattedInterview}</span>
                 </span>
@@ -1032,7 +1032,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
               <button
                 type="button"
                 onClick={() => openNotesEditor(sub, 'notes')}
-                className="inline-flex items-center gap-1.5 max-w-md text-[11px] px-2 py-0.5 rounded-md bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-slate-600 transition-colors cursor-pointer min-w-0"
+                className="inline-flex items-center gap-1.5 max-w-md text-[11px] px-2 py-0.5 rounded-md bg-white hover:bg-slate-50 border border-slate-300/90 text-slate-600 transition-colors cursor-pointer min-w-0"
               >
                 <MessageSquare className="w-3 h-3 text-slate-400 shrink-0" />
                 <span className="truncate">
@@ -1059,7 +1059,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     if (!isScoreEvaluated) {
       if (sub.id.startsWith('legacy_')) {
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[11px] font-medium whitespace-nowrap">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white border border-slate-300 text-slate-500 text-[11px] font-medium whitespace-nowrap">
             Not Checked
           </span>
         );
@@ -1145,7 +1145,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
       return (
         <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
           <span className="text-slate-400 text-[11px] font-medium">Rate TBD</span>
-          <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 uppercase">
+          <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-white border border-slate-300 text-slate-600 uppercase">
             {formatted}
           </span>
         </div>
@@ -1431,7 +1431,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
               <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
               <span>{locationLabel}</span>
               {workModelLabel && (
-                <span className="px-2 py-0.5 rounded-md bg-slate-100 text-[11px] font-medium text-slate-700">
+                <span className="px-2 py-0.5 rounded-md bg-white border border-slate-300/90 text-[11px] font-medium text-slate-700">
                   {workModelLabel}
                 </span>
               )}
@@ -1962,7 +1962,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                                     </span>
                                   )}
                                   {p.purchaseOrderNumber && (
-                                    <span className="inline-flex items-center text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-slate-100/80 border border-slate-200 text-slate-700 font-semibold">
+                                    <span className="inline-flex items-center text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-white border border-slate-300 text-slate-700 font-semibold">
                                       PO {p.purchaseOrderNumber}
                                     </span>
                                   )}
@@ -2361,7 +2361,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                     Submitted Applications
                   </h3>
                 </div>
-                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold font-mono bg-slate-100 text-slate-700 border border-slate-200">
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold font-mono bg-white text-slate-700 border border-slate-300">
                   {publicIntakeCount} Total &middot; {onlineActiveCount} Active
                 </span>
               </div>

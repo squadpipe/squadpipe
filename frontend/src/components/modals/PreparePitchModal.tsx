@@ -420,7 +420,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
               {hasActiveDraft && !controlsDisabled && isCached && (
                 <span
                   title="Loaded from saved draft (no extra AI tokens used)"
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full"
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold bg-white text-emerald-700 border border-emerald-300 px-2.5 py-0.5 rounded-full"
                 >
                   <Check className="w-2.5 h-2.5 shrink-0" />
                   <span>Saved Draft</span>

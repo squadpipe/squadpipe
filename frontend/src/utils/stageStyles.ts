@@ -4,68 +4,68 @@ export interface StageStyle {
 }
 
 const DEFAULT_STAGE_STYLE: StageStyle = {
-  badge: 'bg-slate-100 text-slate-700 border-transparent',
+  badge: 'bg-white text-slate-700 border-slate-300',
   dot: 'bg-slate-400',
 };
 
 const STAGE_STYLE_MAP: Record<string, StageStyle> = {
   requirement: {
-    badge: 'bg-slate-100 text-slate-700 border-transparent',
+    badge: 'bg-white text-slate-700 border-slate-300',
     dot: 'bg-slate-400',
   },
   'available / bench': {
-    badge: 'bg-emerald-500/[0.08] text-emerald-800 border-transparent',
+    badge: 'bg-white text-emerald-700 border-emerald-300',
     dot: 'bg-emerald-500',
   },
   submitted: {
-    badge: 'bg-amber-500/[0.08] text-amber-800 border-transparent',
+    badge: 'bg-white text-amber-700 border-amber-300',
     dot: 'bg-amber-500',
   },
   interview: {
-    badge: 'bg-brand-500/[0.08] text-brand-800 border-transparent',
+    badge: 'bg-white text-brand-700 border-brand-300',
     dot: 'bg-brand-600',
   },
   selected: {
-    badge: 'bg-zinc-100 text-zinc-800 border-transparent',
+    badge: 'bg-white text-zinc-700 border-zinc-300',
     dot: 'bg-zinc-700',
   },
   onboarding: {
-    badge: 'bg-emerald-500/[0.08] text-emerald-800 border-transparent',
+    badge: 'bg-white text-emerald-700 border-emerald-300',
     dot: 'bg-emerald-500',
   },
   placed: {
-    badge: 'bg-emerald-500/[0.1] text-emerald-800 border-transparent',
+    badge: 'bg-white text-emerald-700 border-emerald-300',
     dot: 'bg-emerald-600',
   },
   billable: {
-    badge: 'bg-emerald-500/[0.1] text-emerald-800 border-transparent',
+    badge: 'bg-white text-emerald-700 border-emerald-300',
     dot: 'bg-emerald-600',
   },
   closed: {
-    badge: 'bg-rose-500/[0.08] text-rose-700 border-transparent',
+    badge: 'bg-white text-rose-700 border-rose-300',
     dot: 'bg-rose-500',
   },
   archived: {
-    badge: 'bg-zinc-100 text-zinc-600 border-transparent',
+    badge: 'bg-white text-zinc-600 border-zinc-300',
     dot: 'bg-zinc-400',
   },
 };
 
 const STAGE_FALLBACK_PALETTES: StageStyle[] = [
   {
-    badge: 'bg-brand-500/[0.08] text-brand-800 border-transparent',
+    badge: 'bg-white text-brand-700 border-brand-300',
     dot: 'bg-brand-600',
   },
   {
-    badge: 'bg-amber-500/[0.08] text-amber-800 border-transparent',
+    badge: 'bg-white text-amber-700 border-amber-300',
     dot: 'bg-amber-500',
   },
   {
-    badge: 'bg-slate-100 text-slate-700 border-transparent',
+    badge: 'bg-white text-slate-700 border-slate-300',
     dot: 'bg-slate-500',
   },
   {
-    badge: 'bg-rose-500/[0.08] text-rose-700 border-transparent',
+    badge: 'bg-white text-rose-700 border-rose-300',
     dot: 'bg-rose-500',
   },
 ];

@@ -231,7 +231,7 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
                             <span className="font-bold text-slate-800 truncate">
                               {sug.fullName}
                             </span>
-                            <span className="px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-bold tabular-nums flex-shrink-0">
+                            <span className="px-1.5 py-0.5 rounded bg-white border border-emerald-300 text-emerald-700 text-[11px] font-bold tabular-nums flex-shrink-0">
                               {sug.fitScore}% Fit
                             </span>
                           </div>

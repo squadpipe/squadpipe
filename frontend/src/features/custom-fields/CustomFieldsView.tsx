@@ -649,7 +649,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                       </td>
 
                       <td className="py-3 px-4">
-                        <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200/80">
+                        <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-white text-slate-700 border border-slate-300/90">
                           {field.entityLabel}
                         </span>
                       </td>
@@ -679,7 +679,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
 
                       <td className="py-3 px-4">
                         {field.required ? (
-                          <span className="text-xs font-medium text-slate-800 bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded-md">
+                          <span className="text-xs font-medium text-amber-700 bg-white border border-amber-300 px-2 py-0.5 rounded-md">
                             Yes
                           </span>
                         ) : (
