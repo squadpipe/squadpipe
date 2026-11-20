@@ -139,7 +139,7 @@ const QUICK_QUESTION_PRESETS: Array<{
     options: ['Immediate', '2 Weeks Notice', '30 Days Notice', 'Negotiable'],
   },
   {
-    name: 'Open to relocation?',
+    name: 'Open to Relocation?',
     type: 'BOOLEAN',
     width: 'half',
     required: false,
@@ -166,7 +166,7 @@ function SegmentedToggle<T extends string>({
   fullWidth = false,
 }: {
   value: T;
-  options: Array<{ value: T; label: string; title?: string; activeTone?: 'dark' | 'amber' }>;
+  options: Array<{ value: T; label: React.ReactNode; title?: string }>;
   onChange: (next: T) => void;
   ariaLabel: string;
   fullWidth?: boolean;
@@ -181,10 +181,6 @@ function SegmentedToggle<T extends string>({
     >
       {options.map((opt) => {
         const active = value === opt.value;
-        const activeClass =
-          opt.activeTone === 'amber'
-            ? 'bg-amber-600 text-white shadow-2xs'
-            : 'bg-slate-900 text-white shadow-2xs';
         return (
           <button
             key={opt.value}
@@ -193,8 +189,10 @@ function SegmentedToggle<T extends string>({
             title={opt.title}
             className={`${
               fullWidth ? 'flex-1 justify-center' : ''
-            } inline-flex items-center px-2.5 py-1 rounded-md text-[10.5px] font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-              active ? activeClass : 'text-slate-500 hover:text-slate-800'
+            } inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10.5px] font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+              active
+                ? 'bg-slate-900 text-white shadow-2xs'
+                : 'text-slate-500 hover:text-slate-800'
             }`}
           >
             {opt.label}
@@ -238,9 +236,17 @@ const RequiredToggle: React.FC<{
       { value: 'optional', label: 'Optional', title: 'Applicant may skip this field' },
       {
         value: 'required',
-        label: 'Required *',
+        label: (
+          <span className="inline-flex items-center gap-1">
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                required ? 'bg-amber-400' : 'bg-amber-500/70'
+              }`}
+            />
+            <span>Required</span>
+          </span>
+        ),
         title: 'Applicant must complete this field',
-        activeTone: 'amber',
       },
     ]}
   />
@@ -991,15 +997,14 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                   return (
                     <div
                       key={cf.key}
-                      className="p-3.5 rounded-xl border border-slate-200 bg-white hover:border-slate-300/90 transition-colors space-y-3"
+                      className="p-3.5 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition-colors flex items-start gap-3"
                     >
-                      {/* Row 1: Order + Label + Delete */}
-                      <div className="flex items-center gap-2.5">
-                        <span className="w-6 h-6 rounded-md bg-slate-100 border border-slate-200 text-slate-600 font-bold text-[10px] inline-flex items-center justify-center shrink-0 tabular-nums">
+                      {/* Left Rail: Index Badge + Move Controls */}
+                      <div className="w-11 shrink-0 flex flex-col items-center gap-1 pt-0.5">
+                        <span className="w-full h-6 rounded-md bg-slate-100 border border-slate-200/80 text-slate-700 font-bold text-[10px] inline-flex items-center justify-center tabular-nums">
                           Q{idx + 1}
                         </span>
-
-                        <div className="flex items-center gap-0.5 shrink-0">
+                        <div className="inline-flex items-center gap-0.5">
                           <button
                             type="button"
                             disabled={idx === 0}
@@ -1019,29 +1024,32 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                             <ChevronDown className="w-3.5 h-3.5" />
                           </button>
                         </div>
-
-                        <input
-                          type="text"
-                          value={cf.name}
-                          onChange={(e) => handleUpdateCustomField(cf.key, { name: e.target.value })}
-                          placeholder="Question label..."
-                          className="flex-1 min-w-0 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-800 focus:border-brand-500 focus:outline-none"
-                        />
-
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveInlineCustomField(cf.key)}
-                          className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 cursor-pointer shrink-0 transition-colors"
-                          title="Remove question"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
                       </div>
 
-                      {/* Row 2: Type + Width + Requirement */}
-                      <div className="pl-8 flex flex-wrap items-center justify-between gap-2.5">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <div className="w-32 shrink-0">
+                      {/* Right Aligned Body */}
+                      <div className="flex-1 min-w-0 space-y-2.5">
+                        {/* Row 1: Label Input + Remove */}
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={cf.name}
+                            onChange={(e) => handleUpdateCustomField(cf.key, { name: e.target.value })}
+                            placeholder="Question label..."
+                            className="flex-1 min-w-0 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-800 focus:border-brand-500 focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveInlineCustomField(cf.key)}
+                            className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 cursor-pointer shrink-0 transition-colors"
+                            title="Remove question"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Row 2: Type + Width & Requirement Toggles */}
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="w-36 shrink-0">
                             <CustomSelect
                               value={cf.type}
                               onChange={(val) =>
@@ -1057,60 +1065,61 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                               options={CUSTOM_TYPE_OPTIONS}
                             />
                           </div>
-                          <FieldWidthToggle
-                            value={cf.width || 'half'}
-                            ariaLabel={`${cf.name || 'Question'} width`}
-                            onChange={(nextWidth) =>
-                              handleUpdateCustomField(cf.key, { width: nextWidth })
-                            }
-                          />
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <FieldWidthToggle
+                              value={cf.width || 'half'}
+                              ariaLabel={`${cf.name || 'Question'} width`}
+                              onChange={(nextWidth) =>
+                                handleUpdateCustomField(cf.key, { width: nextWidth })
+                              }
+                            />
+                            <RequiredToggle
+                              required={Boolean(cf.required)}
+                              ariaLabel={`${cf.name || 'Question'} requirement`}
+                              onChange={(nextReq) =>
+                                handleUpdateCustomField(cf.key, { required: nextReq })
+                              }
+                            />
+                          </div>
                         </div>
 
-                        <RequiredToggle
-                          required={Boolean(cf.required)}
-                          ariaLabel={`${cf.name || 'Question'} requirement`}
-                          onChange={(nextReq) =>
-                            handleUpdateCustomField(cf.key, { required: nextReq })
-                          }
-                        />
+                        {/* Row 3: Dropdown Options */}
+                        {cf.type === 'DROPDOWN' && (
+                          <div className="pt-1 border-t border-slate-100 space-y-1.5">
+                            <label className="block text-[10.5px] font-semibold text-slate-500">
+                              Dropdown Options (comma separated)
+                            </label>
+                            <input
+                              type="text"
+                              value={rawChoices}
+                              onChange={(e) => {
+                                const raw = e.target.value;
+                                setCustomOptionsText((prev) => ({ ...prev, [cf.key]: raw }));
+                                handleUpdateCustomField(cf.key, {
+                                  options: raw
+                                    .split(',')
+                                    .map((o) => o.trim())
+                                    .filter(Boolean),
+                                });
+                              }}
+                              placeholder="e.g. Immediate, 2 Weeks, 30 Days"
+                              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50/70 text-[11px] text-slate-700 focus:bg-white focus:border-brand-500 focus:outline-none"
+                            />
+                            {parsedChoices.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {parsedChoices.map((choice, cIdx) => (
+                                  <span
+                                    key={`${cf.key}_opt_${cIdx}`}
+                                    className="px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200/80 text-slate-600 text-[10px] font-medium"
+                                  >
+                                    {choice}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-
-                      {/* Row 3: Dropdown Options */}
-                      {cf.type === 'DROPDOWN' && (
-                        <div className="pl-8 space-y-1.5">
-                          <label className="block text-[10.5px] font-semibold text-slate-500">
-                            Dropdown Options (comma separated)
-                          </label>
-                          <input
-                            type="text"
-                            value={rawChoices}
-                            onChange={(e) => {
-                              const raw = e.target.value;
-                              setCustomOptionsText((prev) => ({ ...prev, [cf.key]: raw }));
-                              handleUpdateCustomField(cf.key, {
-                                options: raw
-                                  .split(',')
-                                  .map((o) => o.trim())
-                                  .filter(Boolean),
-                              });
-                            }}
-                            placeholder="e.g. Immediate, 2 Weeks, 30 Days"
-                            className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50/70 text-[11px] text-slate-700 focus:bg-white focus:border-brand-500 focus:outline-none"
-                          />
-                          {parsedChoices.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {parsedChoices.map((choice, cIdx) => (
-                                <span
-                                  key={`${cf.key}_opt_${cIdx}`}
-                                  className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-medium"
-                                >
-                                  {choice}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
                     </div>
                   );
                 })}
@@ -1123,21 +1132,21 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
 
             {/* Quick Add Common Presets */}
             {availablePresets.length > 0 && (
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <div className="text-[10.5px] font-semibold text-slate-500 uppercase tracking-wider">
                   Quick Add Common Questions
                 </div>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-2">
                   {availablePresets.map((preset) => (
                     <button
                       key={preset.name}
                       type="button"
                       onClick={() => handleAddPresetQuestion(preset)}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-700 text-[11px] font-medium transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-700 text-[11px] font-medium transition-colors cursor-pointer shadow-2xs"
                     >
                       <Plus className="w-3 h-3 text-brand-600" />
                       <span>{preset.name}</span>
-                      <span className="text-[9.5px] text-slate-400">
+                      <span className="px-1.5 py-0.5 rounded bg-slate-100 text-[9.5px] font-semibold text-slate-500">
                         {preset.width === 'full' ? 'Full' : 'Half'}
                       </span>
                     </button>
@@ -1146,8 +1155,8 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
               </div>
             )}
 
-            {/* Spacious 2-Row Question Composer */}
-            <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200 space-y-3.5">
+            {/* Compact Question Composer */}
+            <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200 space-y-3">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <span className="text-[11px] font-bold text-slate-800">
                   Add a New Custom Question
@@ -1155,14 +1164,21 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                 <span className="text-[10.5px] text-slate-400">
                   {newCustomName.trim()
                     ? 'Showing live preview on the right'
-                    : 'Type a label to preview its placement'}
+                    : 'Press Enter or click Add Question'}
                 </span>
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Question Label *
-                </label>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <label className="text-[11px] font-semibold text-slate-700">
+                    Question Label *
+                  </label>
+                  {customDraftError && !newCustomName.trim() && (
+                    <span className="text-[10.5px] font-semibold text-rose-600">
+                      {customDraftError}
+                    </span>
+                  )}
+                </div>
                 <input
                   ref={newCustomNameRef}
                   type="text"
@@ -1186,53 +1202,69 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-                <div className="sm:col-span-4">
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Answer Type
-                  </label>
-                  <CustomSelect
-                    value={newCustomType}
-                    onChange={(val) => {
-                      setNewCustomType(val as CustomQuestionType);
-                      if (customDraftError) setCustomDraftError('');
-                    }}
-                    ariaLabel="New question type"
-                    size="sm"
-                    options={CUSTOM_TYPE_OPTIONS}
-                  />
+              <div className="flex flex-wrap items-end justify-between gap-2.5 pt-0.5">
+                <div className="flex flex-wrap items-end gap-2.5">
+                  <div className="w-32">
+                    <label className="block text-[10.5px] font-semibold text-slate-600 mb-1">
+                      Answer Type
+                    </label>
+                    <CustomSelect
+                      value={newCustomType}
+                      onChange={(val) => {
+                        setNewCustomType(val as CustomQuestionType);
+                        if (customDraftError) setCustomDraftError('');
+                      }}
+                      ariaLabel="New question type"
+                      size="xs"
+                      options={CUSTOM_TYPE_OPTIONS}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10.5px] font-semibold text-slate-600 mb-1">
+                      Width
+                    </label>
+                    <FieldWidthToggle
+                      value={newCustomWidth}
+                      ariaLabel="New question width"
+                      onChange={setNewCustomWidth}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10.5px] font-semibold text-slate-600 mb-1">
+                      Requirement
+                    </label>
+                    <RequiredToggle
+                      required={newCustomRequired}
+                      ariaLabel="New question requirement"
+                      onChange={setNewCustomRequired}
+                    />
+                  </div>
                 </div>
 
-                <div className="sm:col-span-4">
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Width
-                  </label>
-                  <FieldWidthToggle
-                    value={newCustomWidth}
-                    ariaLabel="New question width"
-                    fullWidth={true}
-                    onChange={setNewCustomWidth}
-                  />
-                </div>
-
-                <div className="sm:col-span-4">
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Requirement
-                  </label>
-                  <RequiredToggle
-                    required={newCustomRequired}
-                    ariaLabel="New question requirement"
-                    fullWidth={true}
-                    onChange={setNewCustomRequired}
-                  />
-                </div>
+                <button
+                  type="button"
+                  onClick={handleAddInlineCustomField}
+                  className="h-[30px] px-3.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-2xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Question</span>
+                </button>
               </div>
 
               {newCustomType === 'DROPDOWN' && (
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-semibold text-slate-700">
-                    Dropdown Choices (comma separated) *
-                  </label>
+                <div className="pt-1 border-t border-slate-200/70 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="block text-[11px] font-semibold text-slate-700">
+                      Dropdown Choices (comma separated) *
+                    </label>
+                    {customDraftError && parsedComposerOptions.length === 0 && (
+                      <span className="text-[10.5px] font-semibold text-rose-600">
+                        {customDraftError}
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="text"
                     value={newCustomOptions}
@@ -1267,27 +1299,6 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                   )}
                 </div>
               )}
-
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1 border-t border-slate-200/70">
-                <div className="text-[11px]">
-                  {customDraftError ? (
-                    <span className="font-medium text-rose-600">{customDraftError}</span>
-                  ) : (
-                    <span className="text-slate-400">
-                      Press Enter or click Add Question to save it to the list above.
-                    </span>
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleAddInlineCustomField}
-                  className="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer shrink-0 self-end sm:self-auto"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Question</span>
-                </button>
-              </div>
             </div>
           </div>
 
