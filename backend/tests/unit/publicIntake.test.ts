@@ -389,5 +389,18 @@ export const runPublicIntakeTests = () => {
   assert.equal(previewPayload.publicLinkEnabled, false);
   assert.equal(JSON.stringify(previewPayload).includes('REQ-2045'), false);
 
+  // 9. Rich text form instructions (subheading) sanitize safely while keeping formatting
+  const [richFormNormalized] = normalizeApplicationForms([
+    {
+      ...normalizedForms[0],
+      subheading:
+        '<p onclick="alert(1)"><strong>Please upload your latest CV.</strong></p><ul><li>Include visa status</li></ul><script>evil()</script>',
+    },
+  ]);
+  assert.equal(
+    richFormNormalized.subheading,
+    '<p><strong>Please upload your latest CV.</strong></p><ul><li>Include visa status</li></ul>'
+  );
+
   console.log('✅ Public Requirement CV Intake Form Tests: PASSED');
 };

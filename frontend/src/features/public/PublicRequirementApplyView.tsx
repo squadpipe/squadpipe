@@ -508,12 +508,14 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
     formTemplate.heading && formTemplate.heading !== 'Submit Candidate Profile & Resume'
       ? formTemplate.heading
       : 'Apply for this job';
-  const formSubheading =
-    formTemplate.subheading &&
-    formTemplate.subheading !==
-      'Candidates applying directly or partner agencies submitting consultants can attach a resume below.'
-      ? formTemplate.subheading
-      : 'Fields marked * are required.';
+  const defaultFormSubheadingPlain =
+    'Candidates applying directly or partner agencies submitting consultants can attach a resume below.';
+  const plainSubheading = String(formTemplate.subheading || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const hasCustomSubheading =
+    Boolean(plainSubheading) && plainSubheading !== defaultFormSubheadingPlain;
 
   const inputBaseClass =
     'w-full px-3 py-2 rounded-md border text-xs text-slate-900 bg-white placeholder:text-slate-400 focus:outline-none focus:border-brand-600 focus:ring-1 focus:ring-brand-600';
@@ -625,7 +627,16 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
             >
               <div>
                 <h2 className="text-base font-bold text-slate-900">{formHeading}</h2>
-                <p className="text-xs text-slate-500 mt-0.5">{formSubheading}</p>
+                {hasCustomSubheading ? (
+                  <RichTextDisplay
+                    content={formTemplate.subheading}
+                    className="mt-1 text-xs text-slate-500 [&_p]:!text-xs [&_p]:!leading-relaxed [&_p]:!mb-1 [&_li]:!text-xs [&_ul]:!my-1"
+                  />
+                ) : (
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Fields marked * are required.
+                  </p>
+                )}
               </div>
 
               {/* Anti-spam honeypot (hidden from human visitors) */}

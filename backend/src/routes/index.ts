@@ -45,6 +45,7 @@ import {
   uploadRateLimiter,
 } from '../middlewares/security.middleware';
 import { escapeHtml, sanitizeEmailHtml } from '../utils/cryptoSecret';
+import { sanitizePublicSummaryHtml } from '../utils/publicSummary';
 import { capabilityService } from '../services/capability.service';
 import { pitchDraftService } from '../services/pitchDraft.service';
 import { publicIntakeService } from '../services/publicIntake.service';
@@ -1100,10 +1101,13 @@ router.post(
         name,
         description: String(body.description || '').trim(),
         heading: String(body.heading || 'Submit Candidate Profile & Resume').trim(),
-        subheading: String(
-          body.subheading ||
-            'Candidates applying directly or partner agencies submitting consultants can attach a resume below.'
-        ).trim(),
+        subheading: sanitizePublicSummaryHtml(
+          String(
+            body.subheading !== undefined
+              ? body.subheading
+              : 'Candidates applying directly or partner agencies submitting consultants can attach a resume below.'
+          )
+        ),
         isDefault: makeDefault,
         includeCurrentTitle: body.includeCurrentTitle !== false,
         requireCurrentTitle: Boolean(body.includeCurrentTitle !== false && body.requireCurrentTitle),

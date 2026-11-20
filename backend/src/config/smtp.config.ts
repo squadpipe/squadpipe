@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { prisma } from './prisma.config';
+import { sanitizePublicSummaryHtml } from '../utils/publicSummary';
 
 export type FormFieldWidth = 'half' | 'full';
 
@@ -331,10 +332,13 @@ export function normalizeApplicationForms(
     name: String(item.name || 'Application Form').trim(),
     description: String(item.description || '').trim(),
     heading: String(item.heading || 'Submit Candidate Profile & Resume').trim(),
-    subheading: String(
-      item.subheading ||
-        'Candidates applying directly or partner agencies submitting consultants can attach a resume below.'
-    ).trim(),
+    subheading: sanitizePublicSummaryHtml(
+      String(
+        item.subheading !== undefined
+          ? item.subheading
+          : 'Candidates applying directly or partner agencies submitting consultants can attach a resume below.'
+      )
+    ),
     isDefault: Boolean(item.isDefault),
     includeCurrentTitle: item.includeCurrentTitle !== false,
     requireCurrentTitle: Boolean(item.includeCurrentTitle !== false && item.requireCurrentTitle),
