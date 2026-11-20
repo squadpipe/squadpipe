@@ -374,7 +374,7 @@ export class CapabilityService {
           .map((id) => String(id || '').trim())
           .filter(Boolean)
       )
-    ).slice(0, 500);
+    ).slice(0, 12000);
     const excludeSet = new Set(cleanExcludeIds);
 
     const effectiveReq = toCapabilityRequirementInput({
@@ -422,15 +422,15 @@ export class CapabilityService {
     let totalTenantPool = 0;
 
     try {
-      // Sync FTS chunks fast locally; run heavy embedding backfill asynchronously so interactive search stays responsive
+      // Sync a fast FTS chunk slice locally; push remaining chunk & vector backfill asynchronously
       await candidateIndexingService.ensureTenantIndexedForSearch(tenantId, {
-        maxChunkSync: 250,
+        maxChunkSync: 100,
         maxEmbedChunks: 0,
       });
       void candidateIndexingService
         .ensureTenantIndexedForSearch(tenantId, {
-          maxChunkSync: 0,
-          maxEmbedChunks: 24,
+          maxChunkSync: 500,
+          maxEmbedChunks: 64,
         })
         .catch(() => {});
 

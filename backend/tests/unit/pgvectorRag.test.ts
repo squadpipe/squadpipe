@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { resolveAiConfig } from '../../src/config/ai.config';
-import { buildPiiSafeCandidatePromptData } from '../../src/services/ai/ai.service';
+import { AiService, buildPiiSafeCandidatePromptData } from '../../src/services/ai/ai.service';
 import {
   EMBEDDING_DIMENSIONS,
   EmbeddingService,
@@ -8,6 +8,7 @@ import {
 } from '../../src/services/vector/embedding.service';
 import {
   buildSafeTsQuery,
+  combineFtsBranchHits,
   mergeHybridCandidateRanks,
 } from '../../src/services/vector/pgvectorStore.adapter';
 import {
@@ -157,6 +158,81 @@ export const runPgvectorRagTests = async () => {
   );
   assert.ok(String(promptData.resumeSummaryExcerpt).includes('Deep page 4 project'));
   assert.equal(String(promptData.resumeSummaryExcerpt).includes('135'), false);
+
+  // 8. Dual FTS combiner boosts dual-match candidates and deduplicates multi-chunk dominance
+  const combinedFts = combineFtsBranchHits(
+    [
+      { candidateId: 'c-profile-only', chunkIndex: -1, chunkText: '', score: 0.9 },
+      { candidateId: 'c-both', chunkIndex: -1, chunkText: '', score: 0.8 },
+    ],
+    [
+      { candidateId: 'c-both', chunkIndex: 1, chunkText: 'Built Kubernetes clusters', score: 0.6 },
+      { candidateId: 'c-both', chunkIndex: 2, chunkText: 'Managed Helm charts', score: 0.5 },
+      { candidateId: 'c-chunk-only', chunkIndex: 0, chunkText: 'Kubernetes operator experience', score: 1.0 },
+    ]
+  );
+  assert.equal(combinedFts[0].candidateId, 'c-both');
+  assert.ok(combinedFts[0].score > 1.3);
+  assert.equal(combinedFts.some((h) => h.candidateId === 'c-chunk-only'), true);
+
+  // 9. Provider limit and auth failures emit clean SaaS copy without leaking API keys or Settings hints
+  const neuronsExhaustedAi = new AiService({
+    getConfig: () =>
+      resolveAiConfig({
+        AI_PROVIDER: 'cloudflare',
+        CLOUDFLARE_AI_ACCOUNT_ID: 'acct-1',
+        CLOUDFLARE_AI_API_TOKEN: 'cf-tok',
+        AI_FALLBACK_TO_OFFLINE: 'false',
+      }),
+    fetchImpl: async () =>
+      new Response(
+        JSON.stringify({
+          errors: [
+            { code: 4006, message: 'You have used up your daily free allocation of 10,000 Neurons.' },
+          ],
+        }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } }
+      ),
+  });
+
+  await assert.rejects(
+    () =>
+      neuronsExhaustedAi.rankCandidatesForRequirement(
+        [{ id: 'c1', currentTitle: 'DevOps', skillset: 'AWS, Kubernetes' }],
+        { opportunityTitle: 'DevOps', skillsRequired: 'AWS, Kubernetes' }
+      ),
+    (err: any) => {
+      assert.equal(err?.statusCode, 429);
+      assert.match(String(err?.message || ''), /reached its limit/i);
+      assert.equal(/switch keys|api key|upgrade|settings/i.test(String(err?.message || '')), false);
+      return true;
+    }
+  );
+
+  const authFailedAi = new AiService({
+    getConfig: () =>
+      resolveAiConfig({
+        AI_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-bad',
+        AI_FALLBACK_TO_OFFLINE: 'false',
+      }),
+    fetchImpl: async () => new Response('{"error":"Incorrect API key provided"}', { status: 401 }),
+  });
+
+  await assert.rejects(
+    () =>
+      authFailedAi.evaluateSubmissionCapability(
+        { id: 'c1', currentTitle: 'DevOps', skillset: 'AWS' },
+        { opportunityTitle: 'DevOps', skillsRequired: 'AWS' }
+      ),
+    (err: any) => {
+      // Never return 401 (which triggers JWT logout) or expose API key messages
+      assert.equal(err?.statusCode, 503);
+      assert.match(String(err?.message || ''), /temporarily unavailable/i);
+      assert.equal(/api key|settings/i.test(String(err?.message || '')), false);
+      return true;
+    }
+  );
 
   console.log('✅ pgvector Hybrid RAG & Chunking Tests: PASSED');
 };

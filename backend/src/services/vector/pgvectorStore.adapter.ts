@@ -42,6 +42,52 @@ export function buildSafeTsQuery(skillTokens: string[], fallbackText: string): s
   return Array.from(words).join(' | ');
 }
 
+export function combineFtsBranchHits(
+  profileHits: FtsChunkHit[],
+  chunkHits: FtsChunkHit[],
+  maxOutputRows = 600
+): FtsChunkHit[] {
+  const byCandidate = new Map<
+    string,
+    { combinedScore: number; hits: FtsChunkHit[] }
+  >();
+
+  for (const hit of profileHits) {
+    const existing = byCandidate.get(hit.candidateId) || { combinedScore: 0, hits: [] };
+    existing.combinedScore += Number(hit.score) || 0;
+    existing.hits.push(hit);
+    byCandidate.set(hit.candidateId, existing);
+  }
+
+  for (const hit of chunkHits) {
+    const existing = byCandidate.get(hit.candidateId) || { combinedScore: 0, hits: [] };
+    if (existing.hits.every((h) => h.chunkIndex < 0)) {
+      existing.combinedScore += Number(hit.score) || 0;
+    }
+    existing.hits.push(hit);
+    byCandidate.set(hit.candidateId, existing);
+  }
+
+  const orderedGroups = Array.from(byCandidate.values()).sort(
+    (a, b) => b.combinedScore - a.combinedScore
+  );
+
+  const combined: FtsChunkHit[] = [];
+  for (const group of orderedGroups) {
+    group.hits.sort((a, b) => {
+      if (a.chunkIndex >= 0 && b.chunkIndex < 0) return -1;
+      if (a.chunkIndex < 0 && b.chunkIndex >= 0) return 1;
+      return (Number(b.score) || 0) - (Number(a.score) || 0);
+    });
+    for (let i = 0; i < group.hits.length; i++) {
+      const h = group.hits[i];
+      combined.push(i === 0 ? { ...h, score: group.combinedScore } : h);
+      if (combined.length >= maxOutputRows) return combined;
+    }
+  }
+  return combined;
+}
+
 /**
  * Combines PostgreSQL Full-Text Search chunk hits and pgvector cosine hits using
  * Reciprocal Rank Fusion (RRF), preserving each candidate's top relevant CV excerpts.
@@ -285,13 +331,13 @@ export class PgVectorStoreAdapter implements VectorStoreAdapter {
 
     if (Array.isArray(candidateIdsFilter) && candidateIdsFilter.length > 0) {
       candidateConditions.push(
-        Prisma.sql`c."id" IN (${Prisma.join(candidateIdsFilter)})`
+        Prisma.sql`c."id" = ANY(${candidateIdsFilter}::text[])`
       );
     }
 
     if (cleanExcludeIds.length > 0) {
       candidateConditions.push(
-        Prisma.sql`c."id" NOT IN (${Prisma.join(cleanExcludeIds)})`
+        Prisma.sql`NOT (c."id" = ANY(${cleanExcludeIds}::text[]))`
       );
     }
 
@@ -307,35 +353,69 @@ export class PgVectorStoreAdapter implements VectorStoreAdapter {
       return { matches: [], retrievalMethod: 'pg_fts', totalTenantPool: 0 };
     }
 
-    // Branch 1: Full-Text Search over ALL chunked multi-page resumes in the tenant
+    const profileCandidateLimit = Math.max(240, limit * 12);
+    const chunkScanLimit = Math.max(720, limit * 36);
+    const vecScanLimit = Math.max(600, limit * 30);
+    const dedupChunkLimit = Math.max(360, limit * 18);
+
+    // Branch 1: Dedicated GIN-indexed Full-Text Search split across Candidate profile and CV chunks,
+    // deduplicating chunks per candidate inside SQL so multi-page resumes never crowd out the window.
     let ftsHits: FtsChunkHit[] = [];
     if (tsQueryStr) {
-      ftsHits = await prisma.$queryRaw<FtsChunkHit[]>`
-        SELECT
-          cc."candidateId" AS "candidateId",
-          cc."chunkIndex" AS "chunkIndex",
-          cc."chunkText" AS "chunkText",
-          (
-            ts_rank_cd(to_tsvector('english', cc."chunkText"), to_tsquery('english', ${tsQueryStr})) +
-            ts_rank_cd(
-              to_tsvector('english', COALESCE(c."skillset", '') || ' ' || COALESCE(c."currentTitle", '')),
-              to_tsquery('english', ${tsQueryStr})
-            ) * 1.35
-          )::double precision AS score
-        FROM "CandidateChunk" cc
-        INNER JOIN "Candidate" c ON c."id" = cc."candidateId"
-        WHERE ${whereCandidateSql}
-          AND cc."tenantId" = ${tenantId}
-          AND (
-            to_tsvector('english', cc."chunkText") @@ to_tsquery('english', ${tsQueryStr})
-            OR to_tsvector('english', COALESCE(c."skillset", '') || ' ' || COALESCE(c."currentTitle", '')) @@ to_tsquery('english', ${tsQueryStr})
+      const [profileFtsHits, chunkFtsHits] = await Promise.all([
+        prisma.$queryRaw<FtsChunkHit[]>`
+          SELECT
+            c."id" AS "candidateId",
+            -1 AS "chunkIndex",
+            ''::text AS "chunkText",
+            (
+              ts_rank_cd(
+                to_tsvector('english', COALESCE(c."skillset", '') || ' ' || COALESCE(c."currentTitle", '')),
+                to_tsquery('english', ${tsQueryStr})
+              ) * 1.35
+            )::double precision AS score
+          FROM "Candidate" c
+          WHERE ${whereCandidateSql}
+            AND to_tsvector('english', COALESCE(c."skillset", '') || ' ' || COALESCE(c."currentTitle", '')) @@ to_tsquery('english', ${tsQueryStr})
+          ORDER BY score DESC
+          LIMIT ${profileCandidateLimit}
+        `,
+        prisma.$queryRaw<FtsChunkHit[]>`
+          WITH raw_chunk_fts AS (
+            SELECT
+              cc."candidateId" AS "candidateId",
+              cc."chunkIndex" AS "chunkIndex",
+              cc."chunkText" AS "chunkText",
+              ts_rank_cd(to_tsvector('english', cc."chunkText"), to_tsquery('english', ${tsQueryStr}))::double precision AS score
+            FROM "CandidateChunk" cc
+            INNER JOIN "Candidate" c ON c."id" = cc."candidateId"
+            WHERE ${whereCandidateSql}
+              AND cc."tenantId" = ${tenantId}
+              AND to_tsvector('english', cc."chunkText") @@ to_tsquery('english', ${tsQueryStr})
+            ORDER BY score DESC
+            LIMIT ${chunkScanLimit}
+          ),
+          ranked_chunk_fts AS (
+            SELECT
+              "candidateId",
+              "chunkIndex",
+              "chunkText",
+              score,
+              ROW_NUMBER() OVER (PARTITION BY "candidateId" ORDER BY score DESC) AS rn
+            FROM raw_chunk_fts
           )
-        ORDER BY score DESC
-        LIMIT 240
-      `;
+          SELECT "candidateId", "chunkIndex", "chunkText", score
+          FROM ranked_chunk_fts
+          WHERE rn <= 2
+          ORDER BY score DESC
+          LIMIT ${dedupChunkLimit}
+        `,
+      ]);
+      ftsHits = combineFtsBranchHits(profileFtsHits, chunkFtsHits, dedupChunkLimit * 2);
     }
 
-    // Branch 2: Semantic pgvector ANN similarity across ALL embedded chunks in the tenant
+    // Branch 2: Semantic pgvector HNSW ANN similarity across ALL embedded chunks,
+    // deduplicating <= 2 chunks per candidate cleanly after the HNSW index scan.
     let vectorHits: VectorChunkHit[] = [];
     let usedVectorSearch = false;
     if (queryVector) {
@@ -351,18 +431,34 @@ export class PgVectorStoreAdapter implements VectorStoreAdapter {
         }
 
         return tx.$queryRaw<VectorChunkHit[]>`
-          SELECT
-            cc."candidateId" AS "candidateId",
-            cc."chunkIndex" AS "chunkIndex",
-            cc."chunkText" AS "chunkText",
-            GREATEST(0, 1 - (cc."embedding" <=> ${vecLiteral}::halfvec))::double precision AS similarity
-          FROM "CandidateChunk" cc
-          INNER JOIN "Candidate" c ON c."id" = cc."candidateId"
-          WHERE ${whereCandidateSql}
-            AND cc."tenantId" = ${tenantId}
-            AND cc."embedding" IS NOT NULL
-          ORDER BY cc."embedding" <=> ${vecLiteral}::halfvec ASC
-          LIMIT 240
+          WITH raw_vec AS (
+            SELECT
+              cc."candidateId" AS "candidateId",
+              cc."chunkIndex" AS "chunkIndex",
+              cc."chunkText" AS "chunkText",
+              GREATEST(0, 1 - (cc."embedding" <=> ${vecLiteral}::halfvec))::double precision AS similarity
+            FROM "CandidateChunk" cc
+            INNER JOIN "Candidate" c ON c."id" = cc."candidateId"
+            WHERE ${whereCandidateSql}
+              AND cc."tenantId" = ${tenantId}
+              AND cc."embedding" IS NOT NULL
+            ORDER BY cc."embedding" <=> ${vecLiteral}::halfvec ASC
+            LIMIT ${vecScanLimit}
+          ),
+          ranked_vec AS (
+            SELECT
+              "candidateId",
+              "chunkIndex",
+              "chunkText",
+              similarity,
+              ROW_NUMBER() OVER (PARTITION BY "candidateId" ORDER BY similarity DESC) AS rn
+            FROM raw_vec
+          )
+          SELECT "candidateId", "chunkIndex", "chunkText", similarity
+          FROM ranked_vec
+          WHERE rn <= 2
+          ORDER BY similarity DESC
+          LIMIT ${dedupChunkLimit}
         `;
       });
       usedVectorSearch = vectorHits.length > 0;

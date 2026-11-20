@@ -1652,7 +1652,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                           <span>
                             {isAiRanking
                               ? 'Ranking Next Batch...'
-                              : `Rank Next ${Math.min(30, remainingUnrankedCount!)}`}
+                              : `Rank Next ${Math.min(20, remainingUnrankedCount!)}`}
                           </span>
                         </button>
                       </div>

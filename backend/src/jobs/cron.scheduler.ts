@@ -1,6 +1,7 @@
 import { prisma } from '../config/prisma.config';
 import { runSlaRadarJob } from './slaRadar.job';
 import { runComplianceWatchJob } from './complianceWatch.job';
+import { candidateIndexingService } from '../services/vector/candidateIndexing.service';
 
 const CRON_ADVISORY_LOCK_KEY = 948201;
 let schedulerInterval: NodeJS.Timeout | null = null;
@@ -29,6 +30,13 @@ async function executeScheduledJobsWithLock() {
       },
       { maxWait: 5000, timeout: 120000 }
     );
+
+    // Non-blocking background chunk & vector backfill catch-up for large 10k+ resume pools
+    void candidateIndexingService
+      .runBackgroundBackfillTick({ maxChunkSync: 400, maxEmbedChunks: 96 })
+      .catch((err) => {
+        console.warn('[Scheduler] Background vector backfill paused:', err?.message || err);
+      });
   } catch (error) {
     console.error('[Scheduler] Failed during locked cron execution:', error);
   } finally {

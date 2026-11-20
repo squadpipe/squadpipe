@@ -46,11 +46,11 @@ function truncateInput(text: string | null | undefined, maxChars: number): strin
 
 /**
  * Normalizes noisy upstream provider errors (429 JSON blobs, auth errors, timeouts)
- * into concise, user-actionable messages and appropriate HTTP status codes.
+ * into clean, user-friendly SaaS messages without exposing provider keys or billing internals.
  */
 function formatAiProviderError(
   err: any,
-  fallback = 'PipeAI evaluation failed. Please try again.'
+  fallback = 'PipeAI service is temporarily unavailable. Please try again later.'
 ): { message: string; statusCode: number } {
   const raw = String(err?.message || '').trim();
   const lower = raw.toLowerCase();
@@ -58,17 +58,17 @@ function formatAiProviderError(
   if (
     lower.includes('neurons') ||
     lower.includes('daily free allocation') ||
-    lower.includes('insufficient_quota')
+    lower.includes('insufficient_quota') ||
+    lower.includes('quota')
   ) {
     return {
-      message:
-        'PipeAI daily provider quota reached. Upgrade your AI provider plan or switch keys in Settings -> PipeAI.',
+      message: 'PipeAI service has reached its limit. Please try again later.',
       statusCode: 429,
     };
   }
   if (lower.includes('status 429') || lower.includes('rate limit') || lower.includes('resource_exhausted')) {
     return {
-      message: 'PipeAI rate limit reached on the active provider. Wait a moment and try again.',
+      message: 'PipeAI service has reached its limit for now. Wait a moment and try again.',
       statusCode: 429,
     };
   }
@@ -77,11 +77,13 @@ function formatAiProviderError(
     lower.includes('status 403') ||
     lower.includes('invalid api key') ||
     lower.includes('incorrect api key') ||
-    lower.includes('unauthorized')
+    lower.includes('unauthorized') ||
+    lower.includes('api_key') ||
+    lower.includes('not configured')
   ) {
     return {
-      message: 'PipeAI authentication failed. Verify your API key in Settings -> PipeAI.',
-      statusCode: 401,
+      message: 'PipeAI service is temporarily unavailable. Please try again later.',
+      statusCode: 503,
     };
   }
   if (
@@ -96,10 +98,25 @@ function formatAiProviderError(
     };
   }
 
+  const looksTechnical =
+    !raw ||
+    lower.includes('ai provider') ||
+    lower.includes('status ') ||
+    lower.includes('cloudflare') ||
+    lower.includes('openai') ||
+    lower.includes('anthropic') ||
+    lower.includes('gemini') ||
+    raw.includes('{');
+
   return {
-    message: raw ? raw.slice(0, 220) : fallback,
-    statusCode: typeof err?.statusCode === 'number' ? err.statusCode : 502,
+    message: looksTechnical ? fallback : raw.slice(0, 180),
+    statusCode: typeof err?.statusCode === 'number' && err.statusCode !== 401 ? err.statusCode : 502,
   };
+}
+
+function toSafeAiHttpError(err: any, fallback: string): Error & { statusCode: number } {
+  const formatted = formatAiProviderError(err, fallback);
+  return Object.assign(new Error(formatted.message), { statusCode: formatted.statusCode });
 }
 
 /**
@@ -657,7 +674,9 @@ export class AiService {
         },
       };
     } catch (err: any) {
-      if (!config.fallbackToOffline) throw err;
+      if (!config.fallbackToOffline) {
+        throw toSafeAiHttpError(err, 'PipeAI resume parsing failed. Please try again later.');
+      }
       console.warn('[AI] enhanceResumeParse fallback to offline baseline:', err?.message || err);
       return { data: normalizedBaseline, aiUsed: false };
     }
@@ -787,7 +806,9 @@ export class AiService {
         },
       };
     } catch (err: any) {
-      if (!config.fallbackToOffline) throw err;
+      if (!config.fallbackToOffline) {
+        throw toSafeAiHttpError(err, 'PipeAI email intake parsing failed. Please try again later.');
+      }
       console.warn('[AI] enhanceEmailIntakeParse fallback to offline baseline:', err?.message || err);
       return { data: normalizedBaseline, aiUsed: false };
     }
@@ -856,8 +877,7 @@ export class AiService {
       };
     } catch (err: any) {
       if (!config.fallbackToOffline) {
-        const formatted = formatAiProviderError(err, 'PipeAI capability check failed.');
-        throw Object.assign(new Error(formatted.message), { statusCode: formatted.statusCode });
+        throw toSafeAiHttpError(err, 'PipeAI capability check failed. Please try again later.');
       }
       console.warn(
         '[AI] evaluateSubmissionCapability fallback to offline baseline:',
@@ -1078,11 +1098,10 @@ export class AiService {
 
       if (ranked.length === 0 || !acc.meta) {
         if (!config.fallbackToOffline) {
-          const formatted = formatAiProviderError(
+          throw toSafeAiHttpError(
             acc.firstError,
             'PipeAI ranking failed to evaluate candidates.'
           );
-          throw Object.assign(new Error(formatted.message), { statusCode: formatted.statusCode });
         }
         return { rankings: buildOfflineRankings(clippedCandidates), aiUsed: false };
       }
@@ -1116,7 +1135,9 @@ export class AiService {
         },
       };
     } catch (err: any) {
-      if (!config.fallbackToOffline) throw err;
+      if (!config.fallbackToOffline) {
+        throw toSafeAiHttpError(err, 'PipeAI ranking failed to evaluate candidates.');
+      }
       console.warn(
         '[AI] rankCandidatesForRequirement fallback to offline baseline:',
         err?.message || err
@@ -1318,7 +1339,9 @@ export class AiService {
         },
       };
     } catch (err: any) {
-      if (!config.fallbackToOffline) throw err;
+      if (!config.fallbackToOffline) {
+        throw toSafeAiHttpError(err, 'PipeAI email drafting failed. Please try again later.');
+      }
       console.warn('[AI] draftClientPitch fallback to offline template:', err?.message || err);
       return { subject: offlineSubject, bodyText: offlineBody, aiUsed: false };
     }

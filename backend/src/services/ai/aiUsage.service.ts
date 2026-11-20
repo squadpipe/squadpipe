@@ -161,7 +161,7 @@ export function evaluateQuotaStatusPure(params: {
   if (actionLimit > 0 && actionsUsed >= actionLimit) {
     return {
       exceeded: true,
-      reason: `Monthly AI action quota reached (${actionsUsed}/${actionLimit}). Falling back to offline mode.`,
+      reason: `PipeAI service limit reached (${actionsUsed}/${actionLimit}). Using standard matching mode.`,
       actionsUsed,
       tokensUsed,
       actionLimit,
@@ -172,7 +172,7 @@ export function evaluateQuotaStatusPure(params: {
   if (tokenLimit > 0 && tokensUsed >= tokenLimit) {
     return {
       exceeded: true,
-      reason: `Monthly AI token quota reached (${tokensUsed}/${tokenLimit}). Falling back to offline mode.`,
+      reason: `PipeAI service limit reached (${tokensUsed}/${tokenLimit}). Using standard matching mode.`,
       actionsUsed,
       tokensUsed,
       actionLimit,

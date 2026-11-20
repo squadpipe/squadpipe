@@ -17,6 +17,9 @@ const INDEX_CANDIDATE_SELECT = {
 } as const;
 
 export class CandidateIndexingService {
+  private readonly pendingSyncByTenant = new Map<string, Set<string>>();
+  private drainPromise: Promise<void> | null = null;
+
   /**
    * Builds multi-page CV chunks (and optional vector embeddings) for a single candidate.
    */
@@ -86,14 +89,95 @@ export class CandidateIndexingService {
   }
 
   /**
-   * Fires background candidate chunking + embedding sync without blocking HTTP writes.
+   * Queues candidate chunking & throttled batch embeddings without flooding DB or API pools during bulk imports.
    */
   scheduleCandidateSync(candidateId: string, tenantId: string) {
-    setImmediate(() => {
-      this.syncCandidate(candidateId, tenantId, { generateEmbeddings: true }).catch((err) => {
-        console.warn('[VectorIndex] Background sync skipped:', err?.message || err);
+    const cleanCandId = String(candidateId || '').trim();
+    const cleanTenantId = String(tenantId || '').trim();
+    if (!cleanCandId || !cleanTenantId) return;
+
+    let set = this.pendingSyncByTenant.get(cleanTenantId);
+    if (!set) {
+      set = new Set<string>();
+      this.pendingSyncByTenant.set(cleanTenantId, set);
+    }
+    set.add(cleanCandId);
+
+    if (!this.drainPromise) {
+      this.drainPromise = new Promise<void>((resolve) => {
+        setImmediate(() => {
+          this.drainQueuedSyncs()
+            .catch((err) => {
+              console.warn('[VectorIndex] Background queue error:', err?.message || err);
+            })
+            .finally(() => {
+              this.drainPromise = null;
+              if (this.pendingSyncByTenant.size > 0) {
+                this.drainPromise = this.drainQueuedSyncs().finally(() => {
+                  this.drainPromise = null;
+                });
+              }
+              resolve();
+            });
+        });
       });
+    }
+  }
+
+  private async drainQueuedSyncs(): Promise<void> {
+    const tenantsNeedingEmbeds = new Set<string>();
+
+    while (this.pendingSyncByTenant.size > 0) {
+      const firstEntry = this.pendingSyncByTenant.entries().next().value as
+        | [string, Set<string>]
+        | undefined;
+      if (!firstEntry) break;
+      const [tenantId, idSet] = firstEntry;
+      this.pendingSyncByTenant.delete(tenantId);
+
+      const ids = Array.from(idSet);
+      for (const candidateId of ids) {
+        try {
+          await this.syncCandidate(candidateId, tenantId, { generateEmbeddings: false });
+          tenantsNeedingEmbeds.add(tenantId);
+        } catch (err: any) {
+          console.warn('[VectorIndex] Chunk sync skipped:', err?.message || err);
+        }
+      }
+    }
+
+    // Drain unembedded chunks in bounded 32-chunk API batches so bulk CSV imports embed smoothly
+    for (const tenantId of tenantsNeedingEmbeds) {
+      try {
+        await this.ensureTenantIndexedForSearch(tenantId, {
+          maxChunkSync: 0,
+          maxEmbedChunks: 160,
+        });
+      } catch (err: any) {
+        console.warn('[VectorIndex] Embedding backfill paused:', err?.message || err);
+      }
+    }
+  }
+
+  /**
+   * Periodic background catch-up across all tenants so large 10k+ pools stay chunked & embedded.
+   */
+  async runBackgroundBackfillTick(options?: {
+    maxChunkSync?: number;
+    maxEmbedChunks?: number;
+  }): Promise<void> {
+    const maxChunkSync = options?.maxChunkSync ?? 400;
+    const maxEmbedChunks = options?.maxEmbedChunks ?? 96;
+    const tenants = await prisma.candidate.findMany({
+      distinct: ['tenantId'],
+      select: { tenantId: true },
     });
+    for (const row of tenants) {
+      await this.ensureTenantIndexedForSearch(row.tenantId, {
+        maxChunkSync,
+        maxEmbedChunks,
+      });
+    }
   }
 
   async deleteCandidate(tenantId: string, candidateId: string): Promise<void> {
@@ -169,13 +253,16 @@ export class CandidateIndexingService {
 
     if (unembeddedChunks.length === 0) return;
 
-    const embedded = await embeddingService.embedTexts(
-      unembeddedChunks.map((u) => u.chunkText),
-      { tenantId }
-    );
-    if (!embedded) return;
-
-    await this.writeChunkEmbeddings(unembeddedChunks, embedded.vectors, embedded.model);
+    const EMBED_BATCH_SIZE = 32;
+    for (let i = 0; i < unembeddedChunks.length; i += EMBED_BATCH_SIZE) {
+      const batch = unembeddedChunks.slice(i, i + EMBED_BATCH_SIZE);
+      const embedded = await embeddingService.embedTexts(
+        batch.map((u) => u.chunkText),
+        { tenantId }
+      );
+      if (!embedded) break;
+      await this.writeChunkEmbeddings(batch, embedded.vectors, embedded.model);
+    }
   }
 
   private async writeChunkEmbeddings(
