@@ -20,17 +20,17 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   className = '',
 }) => (
   <div
-    className={`flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-1 ${className}`}
+    className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${className}`}
   >
     <div className="min-w-0">
       <div className="flex items-center gap-2.5 flex-wrap">
-        <h1 className="text-lg font-bold text-slate-900 tracking-tight truncate">
+        <h1 className="text-lg sm:text-[19px] font-semibold text-slate-900 tracking-tight leading-snug truncate">
           {title}
         </h1>
         {badges}
       </div>
       {subtitle && (
-        <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{subtitle}</p>
+        <p className="text-xs text-slate-500 mt-1 leading-relaxed">{subtitle}</p>
       )}
     </div>
     {actions && (

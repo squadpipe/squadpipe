@@ -572,7 +572,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
   });
 
   return (
-    <div className="max-w-7xl mx-auto space-y-5 animate-fade-in">
+    <div className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4 space-y-5 pb-8 animate-fade-in">
       <DetailBreadcrumb
         backLabel={backLabel}
         onBack={() => guardNavigation(onBack)}
@@ -605,7 +605,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
                 type="button"
                 onClick={handleClearAll}
                 disabled={isSaving || isParsing}
-                className="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 <Eraser className="w-3.5 h-3.5" />
                 <span>Clear</span>
@@ -615,7 +615,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
               type="button"
               onClick={() => guardNavigation(onBack)}
               disabled={isSaving}
-              className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold cursor-pointer disabled:opacity-50"
+              className="h-8 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold cursor-pointer disabled:opacity-50"
             >
               Cancel
             </button>
@@ -625,7 +625,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
               disabled={isParsing}
               onClick={handleApprove}
               icon={<Plus className="w-3.5 h-3.5" strokeWidth={2} />}
-              className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-semibold cursor-pointer"
+              className="h-8 px-4 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-[11px] font-semibold cursor-pointer"
             >
               Create Requisition
             </ActionButton>
@@ -659,7 +659,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
           className={`lg:col-span-5 bg-white rounded-xl border p-5 card-shadow space-y-3 lg:sticky lg:top-4 transition-colors ${
             isDragOverFile
               ? 'border-brand-600 ring-2 ring-brand-500/15 bg-brand-50/15'
-              : 'border-slate-200'
+              : 'border-slate-200/90'
           }`}
         >
           <input
@@ -688,7 +688,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
                 type="button"
                 disabled={isParsing || isSaving}
                 onClick={() => fileInputRef.current?.click()}
-                className="px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-colors"
+                className="h-7 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-colors"
               >
                 <FileUp className="w-3.5 h-3.5 text-slate-500" />
                 <span>{uploadedFileName ? 'Replace PDF' : 'Upload PDF'}</span>
@@ -744,7 +744,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
               }
             }}
             placeholder="Paste any hiring manager or vendor email here, or upload/drop a PDF above — parsing runs automatically..."
-            className="w-full p-3.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-700 leading-relaxed focus:bg-white focus:border-brand-600 focus:outline-none min-h-[340px]"
+            className="w-full p-3.5 text-xs bg-white border border-slate-200 rounded-xl text-slate-700 leading-relaxed focus:border-brand-600 focus:outline-none min-h-[340px]"
           />
 
           <div className="flex items-center justify-between gap-2 pt-0.5">
@@ -767,7 +767,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
         </div>
 
         {/* Right Column: Structured Extracted Requirement Form */}
-        <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 p-5 card-shadow space-y-4 text-xs">
+        <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200/90 p-5 card-shadow space-y-4 text-xs">
           <div className="flex items-center justify-between gap-2 flex-wrap border-b border-slate-100 pb-3">
             <div className="font-semibold text-slate-900 text-sm flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
@@ -945,15 +945,15 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
             </div>
             <div>
               <label className="text-xs font-medium text-slate-700">Work Model</label>
-              <div className="mt-0.5 grid grid-cols-3 gap-1.5">
+              <div className="mt-0.5 grid grid-cols-3 bg-slate-50/90 p-0.5 rounded-lg border border-slate-200 gap-0.5">
                 {(['Remote', 'Hybrid', 'Onsite'] as const).map((wm) => (
                   <button
                     type="button"
                     key={wm}
                     onClick={() => setExtractedReq({ ...extractedReq, workModel: wm })}
-                    className={`py-2 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer ${extractedReq.workModel === wm
-                        ? 'bg-slate-900 text-white border-slate-900'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    className={`h-7 rounded-md text-[11px] font-semibold border transition-all cursor-pointer ${extractedReq.workModel === wm
+                        ? 'bg-white text-slate-900 border-slate-200/90'
+                        : 'text-slate-500 border-transparent hover:text-slate-800'
                       }`}
                   >
                     {wm}
@@ -1118,8 +1118,8 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
                             setHighlightedSkillIdx(-1);
                           }}
                           className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${idx === highlightedSkillIdx
-                              ? 'bg-[#141615] text-white border-[#141615]'
-                              : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                              ? 'bg-brand-50 text-brand-800 border-brand-300'
+                              : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200/90'
                             }`}
                         >
                           + {suggestion}
@@ -1184,7 +1184,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
               value={extractedReq.missingNotes}
               onChange={(e) => setExtractedReq({ ...extractedReq, missingNotes: e.target.value })}
               placeholder="Missing follow-up notes or client SLA instructions..."
-              className="mt-1 w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:bg-white focus:border-brand-600 focus:outline-none"
+              className="mt-1 w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-700 focus:border-brand-600 focus:outline-none"
             />
           </div>
         </div>

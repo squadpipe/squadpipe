@@ -57,7 +57,7 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
   const pageTokens = buildPageTokens();
 
   return (
-    <div className="px-4 py-1.5 border-t border-slate-100 bg-slate-50/40 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+    <div className="px-6 py-2.5 border-t border-slate-100 bg-white flex flex-wrap items-center justify-between gap-2 text-[11px]">
       <div className="flex flex-wrap items-center gap-2.5 text-slate-500">
         <span>
           <strong className="font-semibold text-slate-700">
@@ -117,7 +117,7 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
               disabled={isLoading}
               className={`min-w-[24px] h-6 px-1.5 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
                 token === currentPage
-                  ? 'bg-slate-900 text-white shadow-sm'
+                  ? 'bg-brand-600 text-white'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >

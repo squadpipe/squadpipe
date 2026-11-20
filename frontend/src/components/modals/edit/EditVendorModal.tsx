@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Handshake, Plus, Star, Trash2, X } from 'lucide-react';
+import { Handshake, Plus, Star, Trash2 } from 'lucide-react';
 import { Vendor, VendorContact } from '../../../types';
 import { ActionButton } from '../../shared/ActionButton';
 import { CustomSelect } from '../../shared/CustomSelect';
 import { DynamicCustomFieldsSection } from '../../shared/DynamicCustomFieldsSection';
-import { AnimatedModal } from '../../shared/MotionPrimitives';
+import { AnimatedModal, ModalHeader } from '../../shared/MotionPrimitives';
 import { INVALID_FIELD_CLASSES } from '../../../utils/formValidation';
 
 export const buildInitialVendorContacts = (v: Vendor): VendorContact[] =>
@@ -106,28 +106,13 @@ export const EditVendorModal: React.FC<EditVendorModalProps> = ({
     >
       {vendor && editForm && (
         <>
-        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shrink-0">
-              <Handshake className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-sm font-bold text-white truncate">
-                Edit Vendor Details &amp; Contacts
-              </h2>
-              <div className="text-[11px] text-slate-400 mt-0.5 truncate">{vendor.name}</div>
-            </div>
-          </div>
-          <button
-            type="button"
-            disabled={isSaving}
-            onClick={onClose}
-            aria-label="Close modal"
-            className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        <ModalHeader
+          icon={<Handshake className="w-4 h-4" />}
+          title="Edit Vendor Details & Contacts"
+          subtitle={vendor.name}
+          onClose={onClose}
+          closeDisabled={isSaving}
+        />
 
         <form noValidate onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
           <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
@@ -274,7 +259,7 @@ export const EditVendorModal: React.FC<EditVendorModalProps> = ({
                         }
                         className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded border cursor-pointer transition-colors ${
                           contact.isPrimary
-                            ? 'bg-[#141615] text-white border-[#141615]'
+                            ? 'bg-white text-amber-700 border-amber-300'
                             : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                         }`}
                       >
@@ -377,12 +362,12 @@ export const EditVendorModal: React.FC<EditVendorModalProps> = ({
             />
           </div>
 
-          <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
+          <div className="px-6 py-3.5 bg-slate-50/60 border-t border-slate-100 flex items-center justify-end gap-2 shrink-0">
             <button
               type="button"
               disabled={isSaving}
               onClick={onClose}
-              className="px-3.5 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
+              className="h-8 px-3.5 border border-slate-200 bg-white rounded-lg text-[11px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
             >
               Cancel
             </button>
@@ -390,7 +375,7 @@ export const EditVendorModal: React.FC<EditVendorModalProps> = ({
               type="submit"
               loading={isSaving}
               loadingText="Saving..."
-              className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
+              className="h-8 px-4 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-[11px] font-semibold cursor-pointer inline-flex items-center"
             >
               Save Changes
             </ActionButton>

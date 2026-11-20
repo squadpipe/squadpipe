@@ -43,7 +43,7 @@ export function SortableTableHeader<K extends string = string>({
   if (disabled) {
     return (
       <th scope="col" className={`${alignClass} ${className}`}>
-        <span>{label}</span>
+        <span className="uppercase tracking-wider">{label}</span>
       </th>
     );
   }
@@ -60,7 +60,7 @@ export function SortableTableHeader<K extends string = string>({
         type="button"
         onClick={() => onSort(column, defaultDir)}
         title={nextActionLabel}
-        className={`group inline-flex items-center gap-1 select-none cursor-pointer transition-colors ${
+        className={`group inline-flex items-center gap-1 uppercase tracking-wider select-none cursor-pointer transition-colors ${
           align === 'right'
             ? 'justify-end ml-auto'
             : align === 'center'

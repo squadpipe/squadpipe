@@ -1,5 +1,6 @@
 import React from 'react';
 import { AnimatePresence, HTMLMotionProps, motion } from 'framer-motion';
+import { X } from 'lucide-react';
 import { ModalPortal } from './ModalPortal';
 
 export const APPLE_EASE = [0.16, 1, 0.3, 1] as const;
@@ -147,6 +148,69 @@ export const AnimatedPopover = React.forwardRef<
 ));
 
 AnimatedPopover.displayName = 'AnimatedPopover';
+
+export interface ModalHeaderProps {
+  icon?: React.ReactNode;
+  title: React.ReactNode;
+  subtitle?: React.ReactNode;
+  badges?: React.ReactNode;
+  actions?: React.ReactNode;
+  onClose?: () => void;
+  closeDisabled?: boolean;
+  closeAriaLabel?: string;
+  className?: string;
+}
+
+/**
+ * Shared light editorial header for all modals and slide-over drawers,
+ * replacing legacy dark banner headers across workspace overlays.
+ */
+export const ModalHeader: React.FC<ModalHeaderProps> = ({
+  icon,
+  title,
+  subtitle,
+  badges,
+  actions,
+  onClose,
+  closeDisabled = false,
+  closeAriaLabel = 'Close modal',
+  className = '',
+}) => (
+  <div
+    className={`px-6 py-4 bg-white border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 ${className}`}
+  >
+    <div className="flex items-center gap-3 min-w-0">
+      {icon && (
+        <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200/80 text-slate-700 flex items-center justify-center shrink-0">
+          {icon}
+        </div>
+      )}
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <h2 className="text-sm font-semibold text-slate-900 truncate">{title}</h2>
+          {badges}
+        </div>
+        {subtitle && (
+          <div className="text-[11px] text-slate-500 mt-0.5 truncate">{subtitle}</div>
+        )}
+      </div>
+    </div>
+    <div className="flex items-center gap-2 shrink-0">
+      {actions}
+      {onClose && (
+        <button
+          type="button"
+          disabled={closeDisabled}
+          onClick={onClose}
+          aria-label={closeAriaLabel}
+          className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      )}
+    </div>
+  </div>
+);
 
 /**
  * Smooth entrance/exit animation for floating toast banners.

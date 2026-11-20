@@ -10,6 +10,23 @@ import {
 } from '../types';
 import { formatRateDisplay, getCurrencySymbol, parseRateNumber } from './currency';
 
+/**
+ * Derive crisp 1-2 character uppercase initials from a contact/owner name,
+ * ignoring quoted nicknames or punctuation such as `Robert "Bob" Miller` -> `RM`.
+ */
+export function getInitials(name?: string | null, fallback = '?'): string {
+  const words = String(name || '')
+    .replace(/["'()\[\],.]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter((w) => !/^["'(]/.test(w))
+    .map((w) => w.replace(/[^A-Za-z0-9]/g, ''))
+    .filter(Boolean);
+  if (words.length === 0) return fallback;
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
+}
+
 export const safeIsoDate = (val: any, fallback = ''): string => {
   if (!val || (typeof val !== 'string' && typeof val !== 'number' && !(val instanceof Date))) {
     return fallback;

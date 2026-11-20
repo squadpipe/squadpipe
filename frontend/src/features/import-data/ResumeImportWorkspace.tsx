@@ -370,7 +370,7 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
           </div>
 
           {bulkTotal > 0 && (
-            <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3 card-shadow">
+            <div className="bg-white rounded-xl border border-slate-200/90 p-4 space-y-3 card-shadow">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 font-semibold text-slate-800 text-xs">
                   {isBulkRunning ? (
@@ -500,14 +500,14 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
                   <button
                     type="button"
                     onClick={bulkQueue.stopBatch}
-                    className="px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-semibold transition-colors cursor-pointer"
+                    className="h-8 px-3.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 text-[11px] font-semibold transition-colors cursor-pointer"
                   >
                     Stop Batch
                   </button>
                   <button
                     type="button"
                     onClick={onCancel}
-                    className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-colors cursor-pointer"
+                    className="h-8 px-3.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-[11px] font-semibold transition-colors cursor-pointer"
                   >
                     Run in Background
                   </button>
@@ -522,7 +522,11 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
                       onCancel();
                     }
                   }}
-                  className="px-5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-colors cursor-pointer"
+                  className={`h-8 px-4 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
+                    bulkTotal > 0
+                      ? 'bg-brand-600 hover:bg-brand-700 text-white'
+                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                  }`}
                 >
                   {bulkTotal > 0
                     ? activeBatchReq && bulkAddedCount > 0
@@ -538,11 +542,11 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
         <div className="space-y-4">
           {/* Upload Bar */}
           <div
-            className={`${isModal ? 'bg-slate-50 p-3.5' : 'bg-white p-4 card-shadow'
-              } rounded-xl border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3`}
+            className={`${isModal ? 'bg-slate-50/70 p-3.5' : 'bg-white p-4 card-shadow'
+              } rounded-xl border border-slate-200/90 flex flex-col md:flex-row md:items-center justify-between gap-3`}
           >
             <div className="flex items-center gap-3 flex-wrap">
-              <label className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold flex items-center gap-2 cursor-pointer transition-all">
+              <label className="h-8 px-3.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-[11px] font-semibold flex items-center gap-2 cursor-pointer transition-all">
                 {aiCapabilities.enabled ? (
                   <AiIcon className="w-4 h-4 text-teal-200" />
                 ) : (
@@ -602,13 +606,13 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
             {/* Left: Source Document */}
             <div
-              className={`lg:col-span-5 ${isModal ? 'bg-slate-50 p-4' : 'bg-white p-5 card-shadow lg:sticky lg:top-4'
-                } rounded-xl border border-slate-200 space-y-3`}
+              className={`lg:col-span-5 ${isModal ? 'bg-slate-50/70 p-4' : 'bg-white p-5 card-shadow lg:sticky lg:top-4'
+                } rounded-xl border border-slate-200/90 space-y-3`}
             >
-              <div className="flex items-center justify-between border-b border-slate-200/70 pb-2">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
                 <div className="flex items-center gap-1.5">
                   <FileText className="w-3.5 h-3.5 text-slate-500" />
-                  <span className="font-bold text-slate-800 text-xs">Source Document</span>
+                  <span className="font-semibold text-slate-900 text-xs">Source Document</span>
                 </div>
                 <span
                   className={`text-[11px] px-2 py-0.5 rounded font-medium flex items-center gap-1 ${hasParsedFile && profile.fileName
@@ -634,7 +638,7 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
                 onClick={() => fileInputRef.current?.click()}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handleDrop}
-                className="border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-lg p-3 text-center bg-white cursor-pointer transition-colors group"
+                className="border-2 border-dashed border-slate-200 hover:border-brand-500 rounded-lg p-3 text-center bg-white cursor-pointer transition-colors group"
               >
                 <div className="flex items-center justify-center gap-2 text-slate-600 group-hover:text-brand-600 transition-colors">
                   <CloudUpload className="w-4 h-4 text-brand-600" />
@@ -687,7 +691,7 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-2.5 py-1 rounded bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-medium text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
+                  className="h-7 px-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   <Upload className="w-3 h-3" />
                   <span>Choose File</span>
@@ -696,10 +700,10 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
             </div>
 
             {/* Right: Extracted Consultant Profile Form */}
-            <div className="lg:col-span-7 bg-white rounded-xl p-5 border border-slate-200 card-shadow space-y-3.5">
+            <div className="lg:col-span-7 bg-white rounded-xl p-5 border border-slate-200/90 card-shadow space-y-3.5">
               <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
                 <div>
-                  <span className="font-bold text-slate-900 text-xs">
+                  <span className="font-semibold text-slate-900 text-xs">
                     Extracted Consultant Profile
                   </span>
                   <span className="text-[11px] text-slate-400 block mt-0.5">
@@ -902,7 +906,7 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
                     type="button"
                     onClick={onCancel}
                     disabled={isSaving}
-                    className="px-3.5 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
+                    className="h-8 px-3.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-50"
                   >
                     {cancelLabel}
                   </button>
@@ -914,7 +918,7 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
                       type="button"
                       onClick={onCancel}
                       disabled={isSaving}
-                      className="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
+                      className="h-8 px-3.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-50"
                     >
                       {cancelLabel}
                     </button>
@@ -923,7 +927,7 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
                     loading={isSaving}
                     disabled={isParsing}
                     onClick={() => handleApprove(true)}
-                    className="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+                    className="h-8 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
                   >
                     Save &amp; Parse Another
                   </ActionButton>
@@ -933,7 +937,7 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
                     disabled={isParsing}
                     onClick={() => handleApprove(false)}
                     icon={<Plus className="w-3.5 h-3.5" strokeWidth={1.75} />}
-                    className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold transition-colors cursor-pointer"
+                    className="h-8 px-4 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-[11px] font-semibold transition-colors cursor-pointer"
                   >
                     {lockedRequirement
                       ? `Save & Attach to ${lockedRequirement.code}`

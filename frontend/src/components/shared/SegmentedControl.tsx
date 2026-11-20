@@ -29,7 +29,7 @@ export function SegmentedControl<T extends string>({
 }: SegmentedControlProps<T>) {
   return (
     <div
-      className={`inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5 shrink-0 ${
+      className={`inline-flex items-center rounded-lg border border-slate-200 bg-slate-50/90 p-0.5 shrink-0 ${
         fullWidth ? 'w-full' : ''
       } ${className}`}
       role="group"
@@ -47,8 +47,8 @@ export function SegmentedControl<T extends string>({
               fullWidth ? 'flex-1 justify-center' : ''
             } inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap ${
               active
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-slate-900 border border-slate-200/90'
+                : 'text-slate-500 hover:text-slate-800 border border-transparent'
             }`}
           >
             {opt.label}
@@ -102,7 +102,7 @@ export const RequiredToggle: React.FC<{
           <span className="inline-flex items-center gap-1">
             <span
               className={`w-1.5 h-1.5 rounded-full ${
-                required ? 'bg-amber-400' : 'bg-amber-500/70'
+                required ? 'bg-amber-500' : 'bg-amber-500/60'
               }`}
             />
             <span>Required</span>

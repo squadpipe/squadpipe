@@ -60,20 +60,20 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
       <div className="p-6 space-y-4">
         <div className="flex items-start gap-3.5">
           <div
-            className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border ${
+            className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 border ${
               isBlocked
                 ? 'bg-amber-50 text-amber-600 border-amber-200'
                 : 'bg-rose-50 text-rose-600 border-rose-200'
             }`}
           >
             {isBlocked ? (
-              <ShieldAlert className="w-5 h-5" />
+              <ShieldAlert className="w-4 h-4" />
             ) : (
-              <AlertTriangle className="w-5 h-5" />
+              <AlertTriangle className="w-4 h-4" />
             )}
           </div>
           <div className="space-y-1.5 min-w-0">
-            <h3 className="text-sm font-bold text-slate-900">{title}</h3>
+            <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
             {isBlocked ? (
               <p className="text-xs text-slate-600 leading-relaxed">{blockedMessage}</p>
             ) : (
@@ -92,7 +92,7 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
             type="button"
             disabled={isDeleting}
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-60 rounded-lg transition-colors cursor-pointer"
+            className="h-8 px-3.5 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-60 rounded-lg transition-colors cursor-pointer"
           >
             {isBlocked ? 'Close' : 'Cancel'}
           </button>
@@ -106,7 +106,7 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
                   onClose();
                   onBlockedAction();
                 }}
-                className="px-4 py-2 text-xs font-semibold bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                className="h-8 px-3.5 text-[11px] font-semibold bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5"
               >
                 <span>{blockedActionLabel}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -119,7 +119,7 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
               loadingText={loadingText}
               icon={<Trash2 className="w-3.5 h-3.5" />}
               onClick={handleConfirm}
-              className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition-colors cursor-pointer"
+              className="h-8 px-4 text-[11px] font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition-colors cursor-pointer"
             >
               {confirmLabel}
             </ActionButton>

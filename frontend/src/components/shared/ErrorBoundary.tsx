@@ -39,28 +39,28 @@ export class ErrorBoundary extends React.Component<
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-          <div className="max-w-md w-full bg-white border border-slate-200 rounded-xl p-6 card-shadow space-y-4 text-center">
-            <div className="w-12 h-12 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto text-lg font-bold">
+          <div className="max-w-md w-full bg-white border border-slate-200/90 rounded-xl p-6 card-shadow space-y-4 text-center">
+            <div className="w-10 h-10 rounded-full bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto text-base font-semibold">
               !
             </div>
             <div className="space-y-1.5">
-              <h1 className="text-lg font-bold text-slate-900">Something went wrong</h1>
+              <h1 className="text-lg sm:text-[19px] font-semibold text-slate-900 tracking-tight">Something went wrong</h1>
               <p className="text-xs text-slate-500">
                 The workspace encountered an unexpected error. Your saved CRM records are safe.
               </p>
             </div>
-            <div className="flex items-center justify-center gap-2.5 pt-2">
+            <div className="flex items-center justify-center gap-2 pt-2">
               <button
                 type="button"
                 onClick={this.handleReload}
-                className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold cursor-pointer"
+                className="h-8 px-4 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold cursor-pointer"
               >
                 Reload Workspace
               </button>
               <button
                 type="button"
                 onClick={this.handleResetSession}
-                className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer"
+                className="h-8 px-4 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-[11px] font-semibold cursor-pointer"
               >
                 Sign Out & Reset
               </button>

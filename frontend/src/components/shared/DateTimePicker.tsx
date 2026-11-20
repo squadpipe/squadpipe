@@ -299,7 +299,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
                   <button
                     type="button"
                     onClick={() => setOpen(false)}
-                    className="px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-semibold cursor-pointer"
+                    className="h-7 px-3 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold cursor-pointer"
                   >
                     Done
                   </button>

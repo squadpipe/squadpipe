@@ -42,7 +42,7 @@ export const CsvImportPage: React.FC<CsvImportPageProps> = ({
   ];
 
   return (
-    <div className="max-w-7xl mx-auto space-y-5 animate-fade-in">
+    <div className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4 space-y-5 pb-8 animate-fade-in">
       <DetailBreadcrumb
         backLabel={backLabel}
         onBack={() => {
@@ -60,7 +60,7 @@ export const CsvImportPage: React.FC<CsvImportPageProps> = ({
               type="button"
               disabled={isImporting}
               onClick={onSwitchToResumeParser}
-              className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 hover:text-slate-900 px-2.5 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+              className="h-8 inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 hover:text-slate-900 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
             >
               <FileText className="w-3.5 h-3.5 text-brand-600" />
               <span>Switch to Resume Parser</span>
@@ -85,18 +85,18 @@ export const CsvImportPage: React.FC<CsvImportPageProps> = ({
               return (
                 <React.Fragment key={item.num}>
                   <div
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-semibold ${
+                    className={`h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg border text-[11px] font-semibold ${
                       isCurrent
-                        ? 'bg-slate-900 text-white border-slate-900'
+                        ? 'bg-white text-slate-900 border-slate-300 shadow-sm'
                         : isDone
                         ? 'bg-white text-emerald-700 border-emerald-200'
-                        : 'bg-white text-slate-400 border-slate-200'
+                        : 'bg-slate-50/70 text-slate-400 border-slate-200'
                     }`}
                   >
                     <span
                       className={`w-4 h-4 rounded-full inline-flex items-center justify-center text-[11px] ${
                         isCurrent
-                          ? 'bg-white/15 text-white'
+                          ? 'bg-brand-600 text-white'
                           : isDone
                           ? 'bg-emerald-50 text-emerald-600'
                           : 'bg-slate-100 text-slate-400'

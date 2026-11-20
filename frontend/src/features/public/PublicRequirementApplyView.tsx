@@ -556,8 +556,13 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
           </h1>
           <div className="mt-2 text-xs sm:text-sm text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-1">
             <span>{roleDetails.workModel}</span>
-            <span className="text-slate-400">&middot;</span>
-            <span>{cleanLocationLabel}</span>
+            {cleanLocationLabel &&
+              !cleanLocationLabel.toLowerCase().includes(roleDetails.workModel.toLowerCase()) && (
+                <>
+                  <span className="text-slate-400">&middot;</span>
+                  <span>{cleanLocationLabel}</span>
+                </>
+              )}
             {roleDetails.engagementSummary && (
               <>
                 <span className="text-slate-400">&middot;</span>

@@ -222,7 +222,7 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
       : null;
 
   return (
-    <section className="max-w-7xl mx-auto space-y-6 animate-fade-in">
+    <section className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4 space-y-5 pb-8 animate-fade-in">
       <PageHeader
         title="Usage & Storage"
         subtitle={
@@ -235,7 +235,7 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
             type="button"
             disabled={refreshing}
             onClick={() => void loadUsageData(true)}
-            className="h-8 px-3 rounded-lg border border-slate-200 bg-white text-slate-700 hover:text-brand-600 hover:bg-slate-50 disabled:opacity-60 inline-flex items-center gap-1.5 text-xs font-semibold transition-colors cursor-pointer"
+            className="h-8 px-3 rounded-lg border border-slate-200 bg-white text-slate-700 hover:text-brand-600 hover:bg-slate-50 disabled:opacity-60 inline-flex items-center gap-1.5 text-[11px] font-semibold transition-colors cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
@@ -244,11 +244,11 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
       />
 
       {/* Standalone 4-Column Storage & Footprint Summary Card */}
-      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 text-xs">
           <div className="px-6 py-4 space-y-1.5">
-            <div className="text-xs font-medium text-slate-500">CV File Storage Used</div>
-            <div className="text-lg font-bold text-slate-900 tabular-nums">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">CV File Storage Used</div>
+            <div className="text-lg font-bold font-mono text-slate-900 tabular-nums">
               {storage
                 ? storage.measuredFileCount > 0 || storage.provider === 'local'
                   ? formatBytes(storage.measuredBytes)
@@ -277,8 +277,8 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
           </div>
 
           <div className="px-6 py-4 space-y-1.5">
-            <div className="text-xs font-medium text-slate-500">Stored CV Documents</div>
-            <div className="text-lg font-bold text-slate-900 tabular-nums">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Stored CV Documents</div>
+            <div className="text-lg font-bold font-mono text-slate-900 tabular-nums">
               {storage ? storage.totalFiles.toLocaleString() : '0'}
             </div>
             <div className="text-[11px] text-slate-500">
@@ -289,8 +289,8 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
           </div>
 
           <div className="px-6 py-4 space-y-1.5">
-            <div className="text-xs font-medium text-slate-500">Total CRM Records</div>
-            <div className="text-lg font-bold text-slate-900 tabular-nums">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Total CRM Records</div>
+            <div className="text-lg font-bold font-mono text-slate-900 tabular-nums">
               {totalDbRecords.toLocaleString()}
             </div>
             <div className="text-[11px] text-slate-500">
@@ -301,8 +301,8 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
           </div>
 
           <div className="px-6 py-4 space-y-1.5">
-            <div className="text-xs font-medium text-slate-500">Accounts &amp; Dispatch Logs</div>
-            <div className="text-lg font-bold text-slate-900 tabular-nums">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Accounts &amp; Dispatch Logs</div>
+            <div className="text-lg font-bold font-mono text-slate-900 tabular-nums">
               {storage
                 ? `${storage.recordCounts.clients} ${storage.recordCounts.clients === 1 ? 'Client' : 'Clients'
                 } · ${storage.recordCounts.vendors} ${storage.recordCounts.vendors === 1 ? 'Vendor' : 'Vendors'
@@ -324,11 +324,11 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
       {storage && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           {/* Database Record Footprint */}
-          <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
+          <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs">
+            <div className="px-6 py-3.5 border-b border-slate-100 bg-white flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Database className="w-3.5 h-3.5 text-brand-600" />
-                <h2 className="font-bold text-slate-900">Workspace Record Distribution</h2>
+                <h2 className="font-semibold text-slate-900">Workspace Record Distribution</h2>
               </div>
               <span className="text-[11px] text-slate-400">
                 {totalDbRecords.toLocaleString()} rows
@@ -357,11 +357,11 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
           </div>
 
           {/* Format Breakdown */}
-          <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
+          <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs">
+            <div className="px-6 py-3.5 border-b border-slate-100 bg-white flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <FileText className="w-3.5 h-3.5 text-brand-600" />
-                <h2 className="font-bold text-slate-900">Storage by File Format</h2>
+                <h2 className="font-semibold text-slate-900">Storage by File Format</h2>
               </div>
               <span className="text-[11px] text-slate-400">
                 {storage.byFormat.length} {storage.byFormat.length === 1 ? 'format' : 'formats'}
@@ -413,16 +413,16 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
 
       {/* Stored CV Files List */}
       {storage && storage.recentFiles.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-            <h2 className="font-bold text-slate-900">
+        <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs">
+          <div className="px-6 py-3.5 border-b border-slate-100 bg-white flex items-center justify-between">
+            <h2 className="font-semibold text-slate-900">
               Stored CV Files ({storage.totalFiles})
             </h2>
             <span className="text-[11px] text-slate-400">Most recently updated candidate CVs</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              <thead className="bg-white border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                 <tr>
                   <th className="pl-6 pr-4 py-3">Consultant</th>
                   <th className="px-4 py-3">Document File</th>
@@ -470,13 +470,13 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
       {isAiActive && aiUsage && (
         <form
           onSubmit={handleSaveAiLimits}
-          className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs"
+          className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs"
         >
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3">
+          <div className="px-6 py-3.5 border-b border-slate-100 bg-white flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <AiMark size="sm" />
               <div>
-                <h2 className="text-sm font-bold text-slate-900">PipeAI Usage &amp; Metering</h2>
+                <h2 className="text-sm font-semibold text-slate-900">PipeAI Usage &amp; Metering</h2>
                 <p className="text-[11px] text-slate-500">
                   Monthly metered AI requests, token breakdown, active models, and workspace budget caps.
                 </p>
@@ -513,9 +513,9 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-                <div className="text-xs font-medium text-slate-500">Monthly Actions Used</div>
-                <div className="text-lg font-bold text-slate-900 tabular-nums">
+              <div className="p-5 rounded-xl bg-slate-50/60 border border-slate-200/90 space-y-1.5">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Monthly Actions Used</div>
+                <div className="text-lg font-bold font-mono text-slate-900 tabular-nums">
                   {aiUsage.actionsUsed.toLocaleString()}
                   {aiUsage.actionLimit > 0 && (
                     <span className="text-xs font-semibold text-slate-400">
@@ -542,9 +542,9 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
                 )}
               </div>
 
-              <div className="p-5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-                <div className="text-xs font-medium text-slate-500">Monthly Tokens Used</div>
-                <div className="text-lg font-bold text-slate-900 tabular-nums">
+              <div className="p-5 rounded-xl bg-slate-50/60 border border-slate-200/90 space-y-1.5">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Monthly Tokens Used</div>
+                <div className="text-lg font-bold font-mono text-slate-900 tabular-nums">
                   {aiUsage.tokensUsed.toLocaleString()}
                   {aiUsage.tokenLimit > 0 && (
                     <span className="text-xs font-semibold text-slate-400">
@@ -580,14 +580,14 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
             </div>
 
             {aiUsage.byModel && aiUsage.byModel.length > 0 && (
-              <div className="rounded-xl border border-slate-200/80 overflow-hidden">
-                <div className="px-4 py-2.5 bg-slate-50/70 border-b border-slate-100 flex items-center gap-2 text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+              <div className="rounded-xl border border-slate-200/90 overflow-hidden">
+                <div className="px-4 py-2.5 bg-white border-b border-slate-100 flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   <AiIcon className="w-3.5 h-3.5 text-brand-600" />
                   <span>Model Usage Breakdown</span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50/50 border-b border-slate-100 text-[11px] font-semibold text-slate-400 uppercase">
+                    <thead className="bg-white border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                       <tr>
                         {aiUsage.usingByoKey && <th className="px-4 py-2.5">Provider</th>}
                         <th className="px-4 py-2.5">Model</th>
@@ -683,7 +683,7 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
                 loading={savingLimits}
                 loadingText="Saving..."
                 icon={<Save className="w-3.5 h-3.5" />}
-                className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-xs transition-colors cursor-pointer"
+                className="h-8 px-4 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-[11px] transition-colors cursor-pointer"
               >
                 Save Quota Caps
               </ActionButton>

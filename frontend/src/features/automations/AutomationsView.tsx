@@ -330,12 +330,12 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
   const activeCount = REMINDER_PRESETS.filter((p) => findRuleForPreset(p)?.active).length;
 
   return (
-    <section className="max-w-6xl mx-auto space-y-6 animate-fade-in">
+    <section className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4 space-y-5 pb-8 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-lg font-bold text-slate-900 tracking-tight">Smart Reminders</h1>
+            <h1 className="text-lg sm:text-[19px] font-semibold text-slate-900 tracking-tight leading-snug">Smart Reminders</h1>
             <StatusBadge
               label={`${activeCount} of ${REMINDER_PRESETS.length} On`}
               tone="emerald"
@@ -354,7 +354,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
           type="button"
           onClick={handleEvaluateAll}
           disabled={isEvaluating}
-          className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+          className="h-8 px-3.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isEvaluating ? 'animate-spin' : ''}`} />
           <span>{isEvaluating ? 'Checking...' : 'Check Now'}</span>
@@ -386,7 +386,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
             <div
               key={preset.key}
               className={`bg-white rounded-xl border p-5 transition-all card-shadow flex flex-col justify-between gap-4 ${
-                isActive ? 'border-slate-200' : 'border-slate-200/75 opacity-85'
+                isActive ? 'border-slate-200/90' : 'border-slate-200/75 opacity-85'
               }`}
             >
               <div className="flex items-start justify-between gap-3">
@@ -397,7 +397,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                     <Icon className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-sm font-bold text-slate-900">{preset.title}</h3>
+                    <h3 className="text-sm font-semibold text-slate-900">{preset.title}</h3>
                     <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
                       {preset.description}
                     </p>
@@ -449,7 +449,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                     type="button"
                     disabled={isBusy}
                     onClick={() => handleRunCheck(preset, rule)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
+                    className="h-7 inline-flex items-center gap-1 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
                   >
                     <Play className="w-3 h-3 text-brand-600" />
                     <span>Check Now</span>
@@ -462,9 +462,11 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
       </div>
 
       {/* Automatic Onboarding -> Billable Sync Info Strip */}
-      <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3 flex-wrap text-xs">
+      <div className="bg-white border border-slate-200/90 card-shadow rounded-xl px-5 py-3 flex items-center justify-between gap-3 flex-wrap text-xs">
         <div className="flex items-center gap-2.5">
-          <UserCheck className="w-4 h-4 text-brand-600 flex-shrink-0" />
+          <div className="w-7 h-7 rounded-lg bg-slate-50 border border-slate-200/80 text-brand-600 flex items-center justify-center flex-shrink-0">
+            <UserCheck className="w-3.5 h-3.5" />
+          </div>
           <div>
             <span className="font-semibold text-slate-900">Automatic Placement Setup (Always On):</span>{' '}
             <span className="text-slate-600">
@@ -476,11 +478,11 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
       </div>
 
       {/* Recent Activity Log */}
-      <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
+      <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
+        <div className="px-6 py-3.5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
           <div className="flex items-center gap-2 flex-wrap">
             <Activity className="w-4 h-4 text-slate-500" />
-            <h3 className="font-bold text-xs text-slate-900">Recent Reminder Activity</h3>
+            <h3 className="font-semibold text-xs text-slate-900">Recent Reminder Activity</h3>
             <span className="text-[11px] text-slate-400">({totalLogs})</span>
             <span className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-500 text-[11px] font-medium">
               Saved for 30 days
@@ -493,14 +495,14 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
               value={logSearch}
               onChange={(e) => setLogSearch(e.target.value)}
               placeholder="Search activity..."
-              className="pl-8 pr-3 py-1 text-xs border border-slate-200 rounded-md bg-white w-60 text-slate-700 outline-none focus:border-brand-500"
+              className="h-8 pl-8 pr-3 text-xs border border-slate-200 rounded-lg bg-white w-60 text-slate-700 outline-none focus:border-brand-500"
             />
           </div>
         </div>
 
         <div className="max-h-[340px] overflow-auto">
           <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+            <thead className="sticky top-0 z-10 bg-white border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
               <tr>
                 <SortableTableHeader
                   label="Time"

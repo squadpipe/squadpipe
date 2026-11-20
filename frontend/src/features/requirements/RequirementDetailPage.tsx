@@ -8,7 +8,6 @@ import {
   Check,
   CheckCircle2,
   Copy,
-  DollarSign,
   Eye,
   ExternalLink,
   FileSpreadsheet,
@@ -51,6 +50,7 @@ import {
 } from '../../utils/tableSort';
 import {
   formatDateTimeBadge,
+  getInitials,
   mapRequirementFromApi,
   mapSubmissionFromApi,
 } from '../../utils/entityMappers';
@@ -839,6 +839,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     reqView.clientContact,
     reqView.clientContactTitle
   );
+  const hiringLeadInitials = getInitials(clientContactLabel);
 
   const assignedRecruiterLabel =
     typeof reqView.assignedRecruiter === 'object' && reqView.assignedRecruiter !== null
@@ -846,6 +847,11 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
       (reqView.assignedRecruiter as any).name ||
       'Desk Sourcing Specialist'
       : reqView.assignedRecruiter || 'Desk Sourcing Specialist';
+  const ownerInitials = getInitials(assignedRecruiterLabel);
+  const targetBillNum = Number(reqView.targetBillRate || 0);
+  const targetPayNum = Number(reqView.targetPayRate || 0);
+  const commercialSpread =
+    targetBillNum > 0 && targetPayNum > 0 ? targetBillNum - targetPayNum : null;
 
   const customFieldEntries = Object.entries(reqView.customFields || {}).filter(
     ([k, v]) => !k.startsWith('_') && v !== null && v !== undefined && String(v).trim() !== ''
@@ -894,12 +900,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     const placed = isPlacedApplicant(sub);
     const isLegacy = sub.id.startsWith('legacy_');
     const displayName = formatDisplayName(sub.fullName);
-    const initials = displayName
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase();
+    const initials = getInitials(displayName);
     const formattedInterview = formatDateTimeBadge(sub.interviewDateTime || sub.interviewDate);
     const subNotes = sub.notes || [];
     const latestNote = subNotes[0] || null;
@@ -942,8 +943,8 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     <div className="flex items-start gap-3.5 min-w-0">
       <div
         className={`w-9 h-9 rounded-full border flex items-center justify-center font-bold text-[11px] flex-shrink-0 ${placed
-            ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-            : 'bg-slate-100 border-slate-200/80 text-slate-700'
+            ? 'bg-white border-emerald-300 text-emerald-700'
+            : 'bg-white border-slate-200 text-slate-700'
           }`}
       >
         {initials}
@@ -1082,7 +1083,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
               <AiIcon className="w-3.5 h-3.5 text-teal-600 shrink-0 group-hover:scale-110 transition-transform" />
             )}
           </span>
-          <span className="w-24 h-1 rounded-full bg-teal-100/90 overflow-hidden block">
+          <span className="w-24 h-1.5 rounded-full bg-teal-100/90 overflow-hidden block">
             <span
               className={`block h-full rounded-full bg-teal-600 transition-all duration-200 ${isChecking ? 'w-2/3 animate-pulse' : 'w-0 group-hover:w-1/2'
                 }`}
@@ -1100,7 +1101,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
         type="button"
         onClick={() => setFitModalSubId(sub.id)}
         title="Click to inspect strengths, gaps, or re-run fit check"
-        className="group inline-flex flex-col items-start gap-1 text-left px-1.5 py-1 -mx-1.5 rounded-md hover:bg-slate-100/80 transition-colors cursor-pointer whitespace-nowrap"
+        className="group inline-flex flex-col items-start gap-1.5 text-left px-1.5 py-1 -mx-1.5 rounded-md hover:bg-slate-100/80 transition-colors cursor-pointer whitespace-nowrap"
       >
         <span className="inline-flex items-center gap-1.5 text-[12px] leading-none">
           <span className={`font-bold tabular-nums ${badgeMeta.scoreTextClass}`}>
@@ -1115,7 +1116,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
             usedAi && <AiIcon className={`w-3 h-3 shrink-0 ${badgeMeta.scoreTextClass}`} />
           )}
         </span>
-        <span className="w-24 h-1 rounded-full bg-slate-200/80 overflow-hidden block">
+        <span className="w-24 h-1.5 rounded-full bg-slate-200/80 overflow-hidden block">
           <span
             className={`block h-full rounded-full ${badgeMeta.barClass}`}
             style={{ width: `${clampedScore}%` }}
@@ -1233,7 +1234,6 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     const showNotesBtn = !isLegacy && Boolean(onUpdateSubmissionNotes);
     const showDetachBtn = !isLegacy && Boolean(onDetachSubmission);
     const showPitchBtn = !isLegacy;
-    const hasToolbarGroup = showPitchBtn || showNotesBtn || showDetachBtn;
 
     return (
       <div className="inline-flex items-center justify-start lg:justify-end gap-1.5 flex-wrap lg:flex-nowrap">
@@ -1242,59 +1242,56 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
             type="button"
             onClick={() => onOpenPlacementWizard(reqView, resolvePlacementCandidateForSubmission(sub, candObj))}
             title="Start placement onboarding for this candidate"
-            className="h-7 px-2.5 rounded-lg border border-emerald-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 text-emerald-700 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
+            className="h-7 px-2.5 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-50/50 text-emerald-700 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
           >
-            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+            <CheckCircle2 className="w-3 h-3 shrink-0" />
             <span>Place</span>
           </button>
         )}
 
-        {hasToolbarGroup && (
-          <div className="inline-flex items-center h-7 rounded-lg border border-slate-200 bg-white divide-x divide-slate-200 overflow-hidden whitespace-nowrap">
-            {showPitchBtn && (
-              <button
-                type="button"
-                onClick={() => setPitchTargetSub(sub)}
-                title="Prepare client pitch email draft"
-                className="px-2.5 h-full inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 hover:text-brand-700 hover:bg-brand-50/70 transition-colors cursor-pointer"
-              >
-                <Mail className="w-3.5 h-3.5 text-brand-600 shrink-0" />
-                <span>Prepare Pitch</span>
-              </button>
-            )}
+        {showPitchBtn && (
+          <button
+            type="button"
+            onClick={() => setPitchTargetSub(sub)}
+            title="Prepare client pitch email draft"
+            className="h-7 px-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <Mail className="w-3 h-3 shrink-0" />
+            <span>Prepare pitch</span>
+          </button>
+        )}
 
-            {showNotesBtn && (
-              <button
-                type="button"
-                onClick={() => openNotesEditor(sub, 'notes')}
-                title={
-                  subNotes.length > 0
-                    ? `View or add notes (${subNotes.length})`
-                    : `Add note for ${displayName}`
-                }
-                aria-label={`Notes for ${displayName}`}
-                className={`px-2 h-full inline-flex items-center justify-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer ${editingNotesSub?.id === sub.id || subNotes.length > 0
-                    ? 'text-brand-700 bg-brand-50/60 hover:bg-brand-100/70'
-                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-                  }`}
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                {subNotes.length > 0 && <span className="tabular-nums">{subNotes.length}</span>}
-              </button>
-            )}
+        {showNotesBtn && (
+          <button
+            type="button"
+            onClick={() => openNotesEditor(sub, 'notes')}
+            title={
+              subNotes.length > 0
+                ? `View or add notes (${subNotes.length})`
+                : `Add note for ${displayName}`
+            }
+            aria-label={`Notes for ${displayName}`}
+            className={`h-7 px-2 rounded-lg border inline-flex items-center justify-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+              editingNotesSub?.id === sub.id || subNotes.length > 0
+                ? 'bg-white border-brand-300 text-brand-700 hover:bg-brand-50/40'
+                : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+            }`}
+          >
+            <MessageSquare className="w-3 h-3" />
+            {subNotes.length > 0 && <span className="tabular-nums">{subNotes.length}</span>}
+          </button>
+        )}
 
-            {showDetachBtn && (
-              <button
-                type="button"
-                onClick={() => setSubToDetach({ sub, displayName })}
-                title={`Remove ${displayName} from requirement`}
-                aria-label={`Remove ${displayName}`}
-                className="px-2 h-full inline-flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
+        {showDetachBtn && (
+          <button
+            type="button"
+            onClick={() => setSubToDetach({ sub, displayName })}
+            title={`Remove ${displayName} from requirement`}
+            aria-label={`Remove ${displayName}`}
+            className="h-7 w-7 rounded-lg border border-slate-200 bg-white inline-flex items-center justify-center text-slate-400 hover:text-rose-600 hover:border-rose-300 hover:bg-rose-50/40 transition-colors cursor-pointer shrink-0"
+          >
+            <Trash2 className="w-3 h-3" />
+          </button>
         )}
       </div>
     );
@@ -1303,19 +1300,19 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   const reqTabs: Array<DetailTabItem<'applicants' | 'placed' | 'details'>> = [
     {
       id: 'applicants',
-      label: 'Applicants Pipeline',
+      label: 'Applicants pipeline',
       icon: UsersRound,
       badge: submissions.length,
     },
     {
       id: 'placed',
-      label: 'Placed Candidates',
+      label: 'Placed candidates',
       icon: CheckCircle2,
       badge: linkedPlacements.length,
     },
     {
       id: 'details',
-      label: 'Job Scope & Apply Link',
+      label: 'Job scope & apply link',
       icon: Globe,
       badge: publicFormEnabled ? 'Live' : undefined,
       badgeTone: publicFormEnabled ? 'emerald' : undefined,
@@ -1323,27 +1320,19 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   ];
 
   return (
-    <section className="max-w-7xl mx-auto space-y-6 pb-6 animate-fade-in">
+    <section className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4 space-y-5 pb-8 animate-fade-in">
       <DetailBreadcrumb
         backLabel={backLabel}
         onBack={onBack}
         codePill={reqView.code}
         title={reqView.opportunityTitle}
-        rightSlot={
-          publicFormEnabled ? (
-            <div className="flex items-center gap-1.5 text-[11px] text-emerald-700 font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>Public CV Form Live</span>
-            </div>
-          ) : undefined
-        }
       />
 
-      {/* Bare Canvas Entity Title & Actions */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-        <div className="min-w-0 flex-1 space-y-1">
+      {/* Top Title, Stage Pill & Primary Actions */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex items-center gap-2.5 flex-wrap">
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight leading-snug">
+            <h1 className="text-lg sm:text-[19px] font-semibold text-slate-900 tracking-tight leading-snug">
               {reqView.opportunityTitle}
             </h1>
             <StatusBadge
@@ -1355,11 +1344,28 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
               size="xs"
             />
           </div>
-          <p className="text-xs text-slate-500 truncate">
-            <span className="font-medium text-slate-700">{reqView.companyName}</span>
-            {locationLabel && <span> &middot; {locationLabel}</span>}
-            {workModelLabel && <span> &middot; {workModelLabel}</span>}
-          </p>
+
+          <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+            <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
+              <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span>{reqView.companyName}</span>
+            </span>
+            {locationLabel && (
+              <span className="inline-flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span>{locationLabel}</span>
+              </span>
+            )}
+            {workModelLabel &&
+              !locationLabel.toLowerCase().includes(workModelLabel.toLowerCase()) && (
+              <span className="inline-flex items-center gap-1.5 text-slate-500">
+                <span className="text-slate-300" aria-hidden="true">
+                  &middot;
+                </span>
+                <span>{workModelLabel}</span>
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
@@ -1377,9 +1383,9 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                 setEditOpenPosError('');
                 setIsEditing(true);
               }}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="h-8 px-3 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <Pencil className="w-3.5 h-3.5" />
+              <Pencil className="w-3 h-3" />
               <span>Edit</span>
             </button>
           )}
@@ -1397,96 +1403,114 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                   preferredSub ? resolvePlacementCandidateForSubmission(preferredSub) : null
                 );
               }}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-700 text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Activate Placement</span>
+              <FileSpreadsheet className="w-3 h-3 text-emerald-600" />
+              <span>Activate placement</span>
             </button>
           )}
 
           <button
             type="button"
             onClick={() => setShowBenchPicker(true)}
-            className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="h-8 px-3.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <UserPlus className="w-3.5 h-3.5" />
             <span>
-              {submissions.length > 0 ? 'Attach Applicants' : 'Attach Bench Applicants'}
+              {submissions.length > 0 ? 'Attach applicants' : 'Attach bench applicants'}
             </span>
           </button>
         </div>
       </div>
 
       {/* Standalone 4-Column Summary Card + Embedded Required Skills */}
-      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 text-xs">
-          {/* 1. Client & Work Setup */}
-          <div className="px-6 py-4 space-y-1.5 min-w-0">
-            <div className="text-xs font-medium text-slate-500">Client &amp; Location</div>
-            <div className="font-semibold text-slate-900 leading-snug break-words flex items-start gap-1.5">
-              <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-              <span className="break-words">{reqView.companyName}</span>
+          {/* 1. Hiring Lead */}
+          <div className="px-6 py-4 space-y-2.5 min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Hiring lead
             </div>
-            <div className="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap">
-              <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-              <span>{locationLabel}</span>
-              {workModelLabel && (
-                <span className="px-2 py-0.5 rounded-md bg-white border border-slate-300/90 text-[11px] font-medium text-slate-700">
-                  {workModelLabel}
-                </span>
-              )}
+            <div className="flex items-start gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-700 font-semibold text-[11px] flex items-center justify-center shrink-0">
+                {hiringLeadInitials}
+              </div>
+              <div className="min-w-0">
+                <div className="font-semibold text-slate-900 leading-snug break-words">
+                  {clientContactLabel}
+                </div>
+                {clientContactTitle && (
+                  <div className="text-[11px] text-slate-500 leading-snug break-words mt-0.5">
+                    {clientContactTitle}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* 2. Hiring Lead & Owner */}
-          <div className="px-6 py-4 space-y-1.5 min-w-0">
-            <div className="text-xs font-medium text-slate-500">Hiring Lead &amp; Owner</div>
-            <div className="font-semibold text-slate-900 leading-snug break-words">
-              {clientContactLabel}
+          {/* 2. Owner */}
+          <div className="px-6 py-4 space-y-2.5 min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Owner
             </div>
-            <div className="text-[11px] text-slate-500 leading-snug flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-              {clientContactTitle && (
-                <>
-                  <span className="break-words">{clientContactTitle}</span>
-                  <span className="text-slate-300">&middot;</span>
-                </>
-              )}
-              <span className="whitespace-nowrap">
-                Owner: <strong className="text-slate-700 font-medium">{assignedRecruiterLabel}</strong>
-              </span>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-700 font-semibold text-[11px] flex items-center justify-center shrink-0">
+                {ownerInitials}
+              </div>
+              <div className="min-w-0">
+                <div className="font-semibold text-slate-900 leading-snug break-words">
+                  {assignedRecruiterLabel}
+                </div>
+              </div>
             </div>
           </div>
 
           {/* 3. Commercial Rates */}
-          <div className="px-6 py-4 space-y-1.5 min-w-0">
-            <div className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
-              <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Commercial Rates</span>
+          <div className="px-6 py-4 space-y-2 min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Commercial rates
             </div>
             {rateMasked ? (
               <>
-                <MaskedValue value="" isMasked={true} className="text-sm font-bold block" />
+                <MaskedValue value="" isMasked={true} className="text-base font-bold block" />
                 <div className="text-[11px] text-slate-400">Rate protected for your role</div>
               </>
             ) : reqView.targetBillRate || reqView.maxBillRate || reqView.targetPayRate ? (
               <>
-                <div className="font-mono font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
-                  <span>
+                <div className="flex items-baseline gap-1.5 flex-wrap">
+                  <span className="text-lg font-bold font-mono text-slate-900 tabular-nums leading-none">
                     {reqView.targetBillRate
-                      ? `Bill ${currencySymbol}${reqView.targetBillRate}/hr`
-                      : 'Bill TBD'}
+                      ? `${currencySymbol}${reqView.targetBillRate}`
+                      : 'TBD'}
                   </span>
+                  {reqView.targetBillRate ? (
+                    <span className="text-[11px] text-slate-500 font-medium">/hr billed</span>
+                  ) : null}
                   {reqView.maxBillRate && reqView.maxBillRate !== reqView.targetBillRate ? (
-                    <span className="text-[11px] font-medium text-slate-500">
+                    <span className="text-[11px] font-medium text-slate-400">
                       (Max {currencySymbol}
-                      {reqView.maxBillRate}/hr)
+                      {reqView.maxBillRate})
                     </span>
                   ) : null}
                 </div>
-                <div className="text-[11px] font-mono text-slate-500">
-                  {reqView.targetPayRate
-                    ? `Target Pay ${currencySymbol}${reqView.targetPayRate}/hr`
-                    : 'Target Pay TBD'}
+                <div className="text-[11px] text-slate-500 flex items-center gap-3 flex-wrap">
+                  <span>
+                    Target pay{' '}
+                    <strong className="font-semibold text-slate-700 font-mono">
+                      {reqView.targetPayRate
+                        ? `${currencySymbol}${reqView.targetPayRate}/hr`
+                        : 'TBD'}
+                    </strong>
+                  </span>
+                  {commercialSpread !== null && (
+                    <span>
+                      Spread{' '}
+                      <strong className="font-semibold text-emerald-700 font-mono">
+                        {currencySymbol}
+                        {commercialSpread}/hr
+                      </strong>
+                    </span>
+                  )}
                 </div>
               </>
             ) : (
@@ -1494,59 +1518,54 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
             )}
           </div>
 
-          {/* 4. Fulfillment & Public CV Intake */}
-          <div className="px-6 py-4 space-y-1.5 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-medium text-slate-500">Fulfillment</span>
-              <span className="text-[11px] font-mono font-bold text-slate-800">
-                {filledPositions}/{openPositions} filled
-              </span>
+          {/* 4. Fulfillment & Public Link */}
+          <div className="px-6 py-4 space-y-2.5 min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Fulfillment
             </div>
-            <div className="w-full h-1.5 rounded-full bg-slate-200/80 overflow-hidden">
+            <div className="flex items-baseline justify-between gap-2">
+              <div className="leading-none">
+                <span className="text-lg font-bold font-mono text-slate-900 tabular-nums">
+                  {filledPositions}/{openPositions}
+                </span>
+                <span className="text-[11px] text-slate-500 ml-1.5">filled</span>
+              </div>
+              {publicFormEnabled && publicShareUrl ? (
+                <button
+                  type="button"
+                  onClick={handleCopyPublicLink}
+                  className="text-[11px] font-semibold text-slate-700 hover:text-brand-700 inline-flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  {copiedPublicLink ? (
+                    <>
+                      <Check className="w-3 h-3 text-emerald-600" />
+                      <span className="text-emerald-700">Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3 h-3 text-slate-400" />
+                      <span>Copy link</span>
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={isUpdatingPublicForm}
+                  onClick={() => updatePublicFormConfig({ enabled: true })}
+                  className="text-[11px] font-semibold text-brand-600 hover:underline cursor-pointer disabled:opacity-50"
+                >
+                  {isUpdatingPublicForm ? 'Enabling...' : 'Enable link'}
+                </button>
+              )}
+            </div>
+            <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all ${isPositionsFull ? 'bg-emerald-500' : 'bg-brand-600'
-                  }`}
+                className={`h-full rounded-full transition-all ${
+                  isPositionsFull ? 'bg-emerald-600' : 'bg-brand-600'
+                }`}
                 style={{ width: `${fillPercent}%` }}
               />
-            </div>
-            <div className="flex items-center justify-between gap-2 text-[11px] pt-0.5">
-              {publicFormEnabled && publicShareUrl ? (
-                <>
-                  <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    <span>Public Form Live</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleCopyPublicLink}
-                    className="font-semibold text-brand-700 hover:underline inline-flex items-center gap-1 cursor-pointer"
-                  >
-                    {copiedPublicLink ? (
-                      <>
-                        <Check className="w-3 h-3 text-emerald-600" />
-                        <span>Copied</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3 h-3" />
-                        <span>Copy Link</span>
-                      </>
-                    )}
-                  </button>
-                </>
-              ) : (
-                <>
-                  <span className="text-slate-400">Public Form Off</span>
-                  <button
-                    type="button"
-                    disabled={isUpdatingPublicForm}
-                    onClick={() => updatePublicFormConfig({ enabled: true })}
-                    className="font-semibold text-brand-600 hover:underline cursor-pointer disabled:opacity-50"
-                  >
-                    {isUpdatingPublicForm ? 'Enabling...' : 'Enable Link'}
-                  </button>
-                </>
-              )}
             </div>
           </div>
         </div>
@@ -1554,9 +1573,9 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
         {skills.length > 0 && (
           <DetailExpandableSkillsBar
             embedded
-            label="Required Skills:"
+            label="REQUIRED SKILLS"
             skills={skills}
-            initialVisibleCount={10}
+            initialVisibleCount={4}
             onEdit={
               onEditReq || onUpdateReq
                 ? () => {
@@ -1587,13 +1606,13 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
       {workspaceTab === 'applicants' && (
         <div className="space-y-6">
           {/* Full-Width Submitted Applicants Card */}
-          <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <h2 className="font-bold text-slate-900 text-xs">
-                  Submitted Applicants ({submissions.length})
+                  Submitted applicants
                 </h2>
-                <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 flex-wrap">
+                <div className="flex items-center gap-1 bg-slate-50/90 p-0.5 rounded-lg border border-slate-200 flex-wrap">
                   {(
                     [
                       { id: 'All' as const, count: submissions.length },
@@ -1612,12 +1631,12 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                       key={t.id}
                       type="button"
                       onClick={() => setApplicantTab(t.id)}
-                      className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${applicantTab === t.id
-                          ? 'bg-white text-slate-900 shadow-sm font-semibold'
-                          : 'text-slate-500 hover:text-slate-800'
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${applicantTab === t.id
+                          ? 'bg-white text-slate-900 border border-slate-200/90 font-semibold'
+                          : 'text-slate-500 hover:text-slate-800 border border-transparent'
                         }`}
                     >
-                      {t.id} ({t.count})
+                      {t.id} {t.count}
                     </button>
                   ))}
                 </div>
@@ -1626,13 +1645,13 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
               {submissions.length > 0 && (
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="relative flex-1 sm:flex-initial">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       value={applicantSearch}
                       onChange={(e) => setApplicantSearch(e.target.value)}
                       placeholder="Filter applicants or notes..."
-                      className="pl-8 pr-3 py-1 text-xs border border-slate-200 rounded-lg bg-white w-full sm:w-52 text-slate-700 focus:outline-none focus:border-brand-600"
+                      className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white w-full sm:w-56 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-brand-600"
                     />
                   </div>
                 </div>
@@ -1688,10 +1707,10 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                       {/* Desktop Table Layout (auto-sized columns prevent badge collision) */}
                       <div className="hidden lg:block overflow-x-auto">
                         <table className="w-full text-left text-xs">
-                          <thead className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                          <thead className="bg-white border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                             <tr>
                               <SortableTableHeader
-                                label="Applicant"
+                                label={<span className="uppercase tracking-wider">Applicant</span>}
                                 column="applicant"
                                 sort={applicantsSort.sort}
                                 onSort={applicantsSort.handleSort}
@@ -1699,7 +1718,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                                 className="pl-6 pr-4 py-3 min-w-[260px]"
                               />
                               <SortableTableHeader
-                                label="Fit Score"
+                                label={<span className="uppercase tracking-wider">Fit Score</span>}
                                 column="fitScore"
                                 sort={applicantsSort.sort}
                                 onSort={applicantsSort.handleSort}
@@ -1707,7 +1726,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                                 className="px-4 py-3 whitespace-nowrap"
                               />
                               <SortableTableHeader
-                                label="Rate"
+                                label={<span className="uppercase tracking-wider">Rate</span>}
                                 column="rate"
                                 sort={applicantsSort.sort}
                                 onSort={applicantsSort.handleSort}
@@ -1716,7 +1735,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                                 className="px-4 py-3 whitespace-nowrap"
                               />
                               <SortableTableHeader
-                                label="Stage"
+                                label={<span className="uppercase tracking-wider">Stage</span>}
                                 column="stage"
                                 sort={applicantsSort.sort}
                                 onSort={applicantsSort.handleSort}
@@ -1793,11 +1812,11 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
 
       {/* TAB 2: Placed Candidates (Full Width) */}
       {workspaceTab === 'placed' && (
-        <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs">
+          <div className="px-6 py-4 border-b border-slate-100 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 flex-wrap">
               <h2 className="font-bold text-slate-900 text-xs">
-                Placed Candidates ({linkedPlacements.length})
+                Placed candidates
               </h2>
               <span className="px-2 py-0.5 rounded-full bg-white border border-slate-200 text-[11px] font-mono font-semibold text-slate-600">
                 {filledPositions} / {openPositions} filled
@@ -1814,10 +1833,10 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                     submissions[0];
                   onOpenPlacementWizard(reqView, resolvePlacementCandidateForSubmission(preferred));
                 }}
-                className="px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto"
+                className="h-8 px-3 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-50/50 text-emerald-700 text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>+ Activate Placement</span>
+                <span>Activate placement</span>
               </button>
             )}
           </div>
@@ -1833,7 +1852,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                   <button
                     type="button"
                     onClick={() => setWorkspaceTab('applicants')}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+                    className="h-8 inline-flex items-center gap-1.5 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
                   >
                     <span>View Applicants Pipeline</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -1844,10 +1863,10 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                       onClick={() =>
                         onOpenPlacementWizard(reqView, resolvePlacementCandidateForSubmission(submissions[0]))
                       }
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold transition-colors cursor-pointer"
+                      className="h-8 inline-flex items-center gap-1.5 px-3.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold transition-colors cursor-pointer"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Activate Placement</span>
+                      <span>Activate placement</span>
                     </button>
                   )}
                 </div>
@@ -1857,7 +1876,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  <thead className="bg-white border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                     <tr>
                       <SortableTableHeader
                         label="Consultant &amp; Role"
@@ -2078,8 +2097,8 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           <div className="lg:col-span-8 space-y-5">
             {/* Card 1: Public Job Application Link & Attached Form Template */}
-            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-3">
+            <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs">
+              <div className="px-6 py-4 border-b border-slate-100 bg-white flex items-center justify-between gap-3">
                 <div className="flex items-start gap-2.5 min-w-0">
                   <Link2 className="w-4 h-4 text-brand-600 shrink-0 mt-0.5" />
                   <div className="min-w-0">
@@ -2255,10 +2274,10 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
             </div>
 
             {/* Card 2: Role Scope & Public Summary (Clean Requirement Summary, No Redundant Header Box) */}
-            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-              <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2 flex-wrap">
+            <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs">
+              <div className="px-6 py-4 border-b border-slate-100 bg-white flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200/80 text-slate-600 flex items-center justify-center shrink-0">
                     <FileText className="w-4 h-4" />
                   </div>
                   <div>
@@ -2353,15 +2372,15 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
           </div>
 
           <aside className="lg:col-span-4 space-y-4">
-            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-              <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
+            <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs">
+              <div className="px-5 py-3.5 border-b border-slate-100 bg-white flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Globe className="w-3.5 h-3.5 text-brand-600" />
                   <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
                     Submitted Applications
                   </h3>
                 </div>
-                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold font-mono bg-white text-slate-700 border border-slate-300">
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold font-mono bg-white text-slate-700 border border-slate-200/90">
                   {publicIntakeCount} Total &middot; {onlineActiveCount} Active
                 </span>
               </div>

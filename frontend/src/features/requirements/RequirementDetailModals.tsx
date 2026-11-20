@@ -28,7 +28,7 @@ import { DateTimePicker } from '../../components/shared/DateTimePicker';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { RoleSummaryField } from '../../components/shared/RichTextEditor';
 import { buildClientSafeSummaryHtml } from '../../utils/richText';
-import { AnimatedModal } from '../../components/shared/MotionPrimitives';
+import { AnimatedModal, ModalHeader } from '../../components/shared/MotionPrimitives';
 
 const QUICK_REJECTION_REASONS = [
   'Rate Mismatch',
@@ -214,14 +214,14 @@ export const RequirementNotesModal: React.FC<RequirementNotesModalProps> = ({
           }}
           className="flex flex-col"
         >
-          <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 rounded-t-xl flex items-center justify-between gap-3">
+          <div className="px-6 py-4 bg-white border-b border-slate-100 rounded-t-xl flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
+              <div className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-700 flex items-center justify-center font-semibold text-xs flex-shrink-0">
                 {modalInitials}
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h4 className="text-sm font-bold text-slate-900 truncate">{displayName}</h4>
+                  <h4 className="text-sm font-semibold text-slate-900 truncate">{displayName}</h4>
                   <StatusBadge
                     stage={sub.stage}
                     dotClass={getStageDotClass(sub.stage, modalStageIdx)}
@@ -237,7 +237,7 @@ export const RequirementNotesModal: React.FC<RequirementNotesModalProps> = ({
               type="button"
               disabled={isSavingNotes}
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
+              className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
               aria-label="Close notes dialog"
             >
               <X className="w-4 h-4" />
@@ -435,12 +435,12 @@ export const RequirementNotesModal: React.FC<RequirementNotesModalProps> = ({
             )}
           </div>
 
-          <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 rounded-b-xl flex items-center justify-end gap-2">
+          <div className="px-6 py-3.5 bg-slate-50/60 border-t border-slate-100 rounded-b-xl flex items-center justify-end gap-2">
             <button
               type="button"
               disabled={isSavingNotes}
               onClick={onClose}
-              className="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+              className="h-8 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
             >
               {isClosedMode || isInterviewMode ? 'Skip' : 'Close'}
             </button>
@@ -450,7 +450,7 @@ export const RequirementNotesModal: React.FC<RequirementNotesModalProps> = ({
               loadingText="Saving..."
               disabled={submitDisabled}
               spinnerClassName="w-3.5 h-3.5 animate-spin flex-shrink-0"
-              className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-semibold transition-colors cursor-pointer"
+              className="h-8 px-4 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-[11px] font-semibold transition-colors cursor-pointer inline-flex items-center"
             >
               {submitLabel}
             </ActionButton>
@@ -500,28 +500,13 @@ export const EditRequirementModal: React.FC<EditRequirementModalProps> = ({
   >
     {editForm && (
       <>
-        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shrink-0">
-              <Pencil className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-sm font-bold text-white truncate">Edit Requisition Details</h2>
-              <div className="text-[11px] text-slate-400 mt-0.5 truncate">
-                {requirement.code} &bull; {requirement.opportunityTitle}
-              </div>
-            </div>
-          </div>
-          <button
-            type="button"
-            disabled={isSavingEdit}
-            onClick={onClose}
-            aria-label="Close modal"
-            className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        <ModalHeader
+          icon={<Pencil className="w-4 h-4" />}
+          title="Edit Requisition Details"
+          subtitle={`${requirement.code} • ${requirement.opportunityTitle}`}
+          onClose={onClose}
+          closeDisabled={isSavingEdit}
+        />
 
         <form
           noValidate
@@ -656,12 +641,12 @@ export const EditRequirementModal: React.FC<EditRequirementModalProps> = ({
             />
           </div>
 
-          <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
+          <div className="px-6 py-3.5 bg-slate-50/60 border-t border-slate-100 flex items-center justify-end gap-2 shrink-0">
             <button
               type="button"
               disabled={isSavingEdit}
               onClick={onClose}
-              className="px-3.5 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
+              className="h-8 px-3.5 border border-slate-200 bg-white rounded-lg text-[11px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
             >
               Cancel
             </button>
@@ -669,7 +654,7 @@ export const EditRequirementModal: React.FC<EditRequirementModalProps> = ({
               type="submit"
               loading={isSavingEdit}
               loadingText="Saving..."
-              className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
+              className="h-8 px-4 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-[11px] font-semibold cursor-pointer inline-flex items-center"
             >
               Save Requirement
             </ActionButton>
@@ -747,16 +732,16 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
     >
       {submission && (
         <>
-          <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3 shrink-0">
+          <div className="px-6 py-4 bg-white border-b border-slate-100 flex items-center justify-between gap-3 shrink-0">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
+              <div className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-700 flex items-center justify-center font-semibold text-xs flex-shrink-0">
                 {initials}
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h4 className="text-sm font-bold text-slate-900 truncate">{displayName}</h4>
+                  <h4 className="text-sm font-semibold text-slate-900 truncate">{displayName}</h4>
                   {submission.workAuth && (
-                    <span className="text-[11px] px-1.5 py-0.5 rounded bg-white border border-slate-300 text-slate-600 font-medium whitespace-nowrap">
+                    <span className="text-[11px] px-1.5 py-0.5 rounded bg-white border border-slate-200/90 text-slate-600 font-medium whitespace-nowrap">
                       {submission.workAuth}
                     </span>
                   )}
@@ -771,7 +756,7 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
               type="button"
               disabled={isEvaluating}
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer disabled:opacity-50"
+              className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50"
               aria-label="Close fit assessment"
             >
               <X className="w-4 h-4" />
@@ -892,13 +877,13 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
             </div>
           </div>
 
-          <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
+          <div className="px-6 py-3.5 bg-slate-50/60 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
             {onRunAiCheck ? (
               <button
                 type="button"
                 disabled={isEvaluating}
                 onClick={onRunAiCheck}
-                className="px-3 py-1.5 rounded-lg border border-teal-200 bg-teal-50/90 hover:bg-teal-100/80 text-teal-800 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
+                className="h-8 px-3 rounded-lg border border-teal-300 bg-white hover:bg-teal-50/50 text-teal-700 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
               >
                 {isEvaluating ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -926,7 +911,7 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
               type="button"
               disabled={isEvaluating}
               onClick={onClose}
-              className="px-4 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60 cursor-pointer transition-colors"
+              className="h-8 px-4 border border-slate-200 bg-white rounded-lg text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 cursor-pointer transition-colors"
             >
               Close
             </button>

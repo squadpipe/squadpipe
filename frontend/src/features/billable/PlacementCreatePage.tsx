@@ -601,7 +601,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
   });
 
   return (
-    <div className="max-w-7xl mx-auto space-y-5 animate-fade-in">
+    <div className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4 space-y-5 pb-8 animate-fade-in">
       <DetailBreadcrumb
         backLabel={backLabel}
         onBack={() => guardNavigation(onBack)}
@@ -651,20 +651,20 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
         {/* Left: Placement Configuration Cards */}
         <div className="lg:col-span-8 space-y-5 text-xs">
           {/* Card 1: Requisition & Consultant Linking */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 card-shadow space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200/90 p-5 card-shadow space-y-4">
             <div className="flex items-center justify-between gap-2 flex-wrap border-b border-slate-100 pb-3">
               <div className="font-semibold text-slate-900 text-sm flex items-center gap-2">
                 <UserCheck className="w-4 h-4 text-brand-600" />
                 <span>Requisition &amp; consultant selection</span>
               </div>
               {activeRequirement && (
-                <div className="inline-flex items-center rounded-lg bg-slate-100 p-0.5 border border-slate-200 text-[11px] font-semibold">
+                <div className="inline-flex items-center rounded-lg bg-slate-50/90 p-0.5 border border-slate-200 text-[11px] font-semibold">
                   <button
                     type="button"
                     onClick={() => setConsultantSource('submitted')}
-                    className={`px-2.5 py-1 rounded-md cursor-pointer transition-colors ${consultantSource === 'submitted'
-                      ? 'bg-white text-slate-900 shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900'
+                    className={`h-7 px-2.5 rounded-md border cursor-pointer transition-colors ${consultantSource === 'submitted'
+                      ? 'bg-white text-slate-900 border-slate-200/90'
+                      : 'text-slate-500 border-transparent hover:text-slate-800'
                       }`}
                   >
                     Submitted ({submittedList.length})
@@ -672,9 +672,9 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
                   <button
                     type="button"
                     onClick={() => setConsultantSource('roster')}
-                    className={`px-2.5 py-1 rounded-md cursor-pointer transition-colors ${consultantSource === 'roster'
-                      ? 'bg-white text-slate-900 shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900'
+                    className={`h-7 px-2.5 rounded-md border cursor-pointer transition-colors ${consultantSource === 'roster'
+                      ? 'bg-white text-slate-900 border-slate-200/90'
+                      : 'text-slate-500 border-transparent hover:text-slate-800'
                       }`}
                   >
                     Full Roster ({rosterList.length})
@@ -691,7 +691,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
                     <span>{isRequirementLocked ? 'Linked Requisition' : 'Link Requisition (Optional)'}</span>
                   </span>
                   {isRequirementLocked && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white border border-slate-300 text-slate-600 text-[11px] font-semibold">
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white border border-slate-200/90 text-slate-600 text-[11px] font-semibold">
                       <Lock className="w-2.5 h-2.5 text-slate-500" />
                       <span>Locked</span>
                     </span>
@@ -896,7 +896,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
           </div>
 
           {/* Card 2: Client, Commercial Rates & Contract Terms */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 card-shadow space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200/90 p-5 card-shadow space-y-4">
             <div className="font-semibold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
               <DollarSign className="w-4 h-4 text-brand-600" />
               <span>Client, rates &amp; SOW contract terms</span>
@@ -1145,9 +1145,9 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
 
         {/* Right: Sticky Commercial Summary Panel */}
         <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-4">
-          <div className="bg-white rounded-xl border border-slate-200 p-5 card-shadow space-y-4 text-xs">
+          <div className="bg-white rounded-xl border border-slate-200/90 p-5 card-shadow space-y-4 text-xs">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2 font-bold text-slate-900">
+              <div className="flex items-center gap-2 font-semibold text-slate-900 text-sm">
                 <TrendingUp className="w-4 h-4 text-emerald-600" />
                 <span>Commercial Margin Lock</span>
               </div>
@@ -1158,22 +1158,22 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
               </span>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200/90 rounded-lg p-4 space-y-3">
+            <div className="bg-slate-50/70 border border-slate-200/90 rounded-lg p-4 space-y-3">
               <div>
-                <div className="text-[11px] font-medium text-slate-500">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                   Hourly Margin Spread
                 </div>
-                <div className="text-2xl font-extrabold text-emerald-700 mt-0.5 tabular-nums">
+                <div className="text-2xl font-bold font-mono text-emerald-700 mt-0.5 tabular-nums">
                   {spread >= 0
                     ? `+${currencySymbol}${spread.toFixed(2)}/hr`
                     : `-${currencySymbol}${Math.abs(spread).toFixed(2)}/hr`}
                 </div>
               </div>
-              <div className="pt-2.5 border-t border-slate-200 flex items-center justify-between">
-                <span className="text-[11px] font-medium text-slate-600">
+              <div className="pt-2.5 border-t border-slate-200/80 flex items-center justify-between">
+                <span className="text-[11px] font-medium text-slate-500">
                   Est. Monthly Gross Profit (160h)
                 </span>
-                <span className="text-sm font-bold text-slate-900 tabular-nums">
+                <span className="text-sm font-bold font-mono text-slate-900 tabular-nums">
                   {currencySymbol}
                   {monthlyGrossProfit.toLocaleString()}/mo
                 </span>
@@ -1222,7 +1222,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
                 loadingText="Activating Placement..."
                 disabled={isPositionsFull}
                 icon={<Lock className="w-3.5 h-3.5" />}
-                className="w-full py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold cursor-pointer"
+                className="w-full h-8 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold cursor-pointer"
               >
                 {isPositionsFull
                   ? `All ${openPositions} Positions Filled`
@@ -1232,7 +1232,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
                 type="button"
                 onClick={() => guardNavigation(onBack)}
                 disabled={isSubmitting}
-                className="w-full py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer disabled:opacity-50"
+                className="w-full h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold cursor-pointer disabled:opacity-50"
               >
                 Cancel
               </button>

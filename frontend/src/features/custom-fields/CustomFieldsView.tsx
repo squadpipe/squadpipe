@@ -448,7 +448,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
   };
 
   return (
-    <section className="max-w-7xl mx-auto space-y-6 animate-fade-in select-none">
+    <section className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4 space-y-5 pb-8 animate-fade-in select-none">
       {/* Bare Canvas Page Headers per Menu View */}
       {activeSection === 'fields' && (
         <PageHeader
@@ -463,7 +463,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
             <button
               type="button"
               onClick={() => setShowAddModal(true)}
-              className="px-3.5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="h-8 px-3.5 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-[11px] inline-flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add Custom Field</span>
@@ -535,9 +535,9 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
 
       {/* Tab 1: Custom Form Fields */}
       {activeSection === 'fields' && (
-        <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
-            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+        <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
+          <div className="px-6 py-3.5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+            <div className="flex flex-wrap items-center gap-1 text-xs bg-slate-50/90 border border-slate-200 p-0.5 rounded-lg">
               {(
                 [
                   { key: 'all', label: `All Forms (${fieldsList.length})` },
@@ -552,10 +552,10 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                   key={tab.key}
                   type="button"
                   onClick={() => setScope(tab.key)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                  className={`h-7 px-2.5 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
                     scope === tab.key
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                      ? 'bg-white text-slate-900 border border-slate-200/90'
+                      : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
                   {tab.label}
@@ -571,7 +571,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search fields..."
-                  className="w-full pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none transition-colors"
+                  className="w-full h-8 pl-8 pr-3 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none transition-colors"
                 />
               </div>
             </div>
@@ -579,8 +579,8 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              <thead className="bg-white border-b border-slate-100">
+                <tr className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                   <SortableTableHeader
                     label="Field Name"
                     column="name"
@@ -755,10 +755,10 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
         const currentOptions = masterTaxonomies[activeTaxonomy] || [];
 
         return (
-          <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
+          <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
             <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[420px]">
               {/* Left Sidebar: 4 Dropdown Categories */}
-              <div className="lg:col-span-4 border-b lg:border-b-0 lg:border-r border-slate-200 bg-slate-50/50 p-4 space-y-1.5">
+              <div className="lg:col-span-4 border-b lg:border-b-0 lg:border-r border-slate-100 bg-slate-50/40 p-4 space-y-1.5">
                 <div className="px-2 pb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   Select a Dropdown List
                 </div>
@@ -775,18 +775,20 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                       }}
                       className={`w-full text-left px-3.5 py-3 rounded-xl border transition-all flex items-center justify-between gap-3 cursor-pointer ${
                         isActive
-                          ? 'bg-white border-slate-300 shadow-sm text-slate-900'
-                          : 'bg-transparent border-transparent text-slate-600 hover:bg-white/70 hover:text-slate-900'
+                          ? 'bg-white border-slate-200/90 shadow-sm text-slate-900'
+                          : 'bg-transparent border-transparent text-slate-600 hover:bg-white/80 hover:text-slate-900'
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                            isActive ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-500'
+                          className={`w-8 h-8 rounded-lg border flex items-center justify-center flex-shrink-0 ${
+                            isActive
+                              ? 'bg-brand-50 border-brand-200 text-brand-700'
+                              : 'bg-white border-slate-200/80 text-slate-500'
                           }`}
                         >
                           {React.cloneElement(cat.icon as React.ReactElement<any>, {
-                            className: `w-4 h-4 ${isActive ? 'text-white' : 'text-slate-500'}`,
+                            className: `w-4 h-4 ${isActive ? 'text-brand-700' : 'text-slate-500'}`,
                           })}
                         </div>
                         <div className="min-w-0">
@@ -795,8 +797,10 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                         </div>
                       </div>
                       <span
-                        className={`text-[11px] font-semibold px-2 py-0.5 rounded-md flex-shrink-0 ${
-                          isActive ? 'bg-slate-100 text-slate-800' : 'bg-slate-200/60 text-slate-600'
+                        className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border flex-shrink-0 tabular-nums ${
+                          isActive
+                            ? 'bg-slate-50 border-slate-200 text-slate-800'
+                            : 'bg-white border-slate-200/80 text-slate-500'
                         }`}
                       >
                         {count}
@@ -810,7 +814,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
               <div className="lg:col-span-8 p-5 flex flex-col gap-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900">{currentMeta.title}</h3>
+                    <h3 className="text-sm font-semibold text-slate-900">{currentMeta.title}</h3>
                     <p className="text-xs text-slate-500 mt-0.5">{currentMeta.usageText}</p>
                   </div>
 
@@ -826,12 +830,12 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                         }
                       }}
                       placeholder={currentMeta.placeholder}
-                      className="flex-1 sm:w-64 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:border-brand-600 focus:outline-none"
+                      className="flex-1 sm:w-64 h-8 px-3 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:border-brand-600 focus:outline-none"
                     />
                     <button
                       type="button"
                       onClick={() => handleAddTaxonomyOption(activeTaxonomy)}
-                      className="px-3.5 py-2 bg-slate-900 hover:bg-black text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer flex-shrink-0"
+                      className="h-8 px-3.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer flex-shrink-0"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Add Option</span>
@@ -944,19 +948,21 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
         panelClassName="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden"
         ariaLabel="Add Custom Field"
       >
-            <div className="px-6 py-4 bg-[#141615] text-white flex items-center justify-between border-b border-white/10">
+            <div className="px-6 py-4 bg-white text-slate-900 flex items-center justify-between border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200/80 text-slate-600 flex items-center justify-center shrink-0">
                   <Tags className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold tracking-tight">Add Custom Field</h3>
-                  <div className="text-[11px] text-slate-400">Create a new field for your records</div>
+                  <h3 className="text-sm font-semibold tracking-tight text-slate-900">Add Custom Field</h3>
+                  <div className="text-[11px] text-slate-500">Create a new field for your records</div>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setShowAddModal(false)}
-                className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+                aria-label="Close modal"
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -977,10 +983,10 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                   placeholder="e.g. Security Clearance Level"
                   value={newField.name}
                   onChange={(e) => setNewField({ ...newField, name: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:bg-white focus:outline-none ${
+                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
                     createValidationAttempted && !newField.name.trim()
                       ? INVALID_FIELD_CLASSES
-                      : 'border-slate-200 bg-slate-50 focus:border-brand-600'
+                      : 'border-slate-200 bg-white focus:border-brand-600'
                   }`}
                 />
               </div>
@@ -1023,7 +1029,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                     placeholder="e.g. None, Secret, Top Secret, TS/SCI"
                     value={newField.options}
                     onChange={(e) => setNewField({ ...newField, options: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-slate-50 focus:bg-white focus:border-brand-600 focus:outline-none"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:border-brand-600 focus:outline-none"
                   />
                 </div>
               )}
@@ -1041,12 +1047,12 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                 </label>
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   disabled={isCreatingField}
                   onClick={() => setShowAddModal(false)}
-                  className="px-3.5 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-60 font-semibold rounded-lg text-xs transition-colors cursor-pointer"
+                  className="h-8 px-3.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-60 font-semibold rounded-lg text-[11px] transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1055,7 +1061,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                   loading={isCreatingField}
                   loadingText="Registering..."
                   icon={<Plus className="w-3.5 h-3.5" />}
-                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-semibold rounded-lg text-xs transition-colors cursor-pointer"
+                  className="h-8 px-4 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-semibold rounded-lg text-[11px] transition-colors cursor-pointer"
                 >
                   Register Field
                 </ActionButton>
@@ -1074,21 +1080,22 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
       >
         {editingField && (
           <>
-            <div className="px-6 py-4 bg-[#141615] text-white flex items-center justify-between border-b border-white/10">
+            <div className="px-6 py-4 bg-white text-slate-900 flex items-center justify-between border-b border-slate-100">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200/80 text-slate-600 flex items-center justify-center shrink-0">
                   <Tags className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-sm font-bold tracking-tight">Edit Custom Field</h3>
-                  <div className="text-[11px] text-slate-400 truncate">{editingField.name}</div>
+                  <h3 className="text-sm font-semibold tracking-tight text-slate-900">Edit Custom Field</h3>
+                  <div className="text-[11px] text-slate-500 truncate">{editingField.name}</div>
                 </div>
               </div>
               <button
                 type="button"
                 disabled={isUpdatingField}
                 onClick={() => setEditingField(null)}
-                className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer disabled:opacity-50"
+                aria-label="Close modal"
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1212,12 +1219,12 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                 <span className="text-xs text-slate-700">Required on forms</span>
               </label>
 
-              <div className="pt-2 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   disabled={isUpdatingField}
                   onClick={() => setEditingField(null)}
-                  className="px-3.5 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-60 font-medium rounded-lg text-xs cursor-pointer"
+                  className="h-8 px-3.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-60 font-semibold rounded-lg text-[11px] cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1225,7 +1232,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                   type="submit"
                   loading={isUpdatingField}
                   loadingText="Saving..."
-                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-xs cursor-pointer"
+                  className="h-8 px-4 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-[11px] cursor-pointer"
                 >
                   Save Changes
                 </ActionButton>
@@ -1247,11 +1254,11 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
         {confirmDelete && (
             <div className="p-6 space-y-4">
               <div className="flex items-start gap-3.5">
-                <div className="w-10 h-10 rounded-full bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center flex-shrink-0">
-                  <Trash2 className="w-5 h-5" />
+                <div className="w-9 h-9 rounded-full bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center flex-shrink-0">
+                  <Trash2 className="w-4 h-4" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-bold text-slate-900">
+                  <h3 className="text-sm font-semibold text-slate-900">
                     {confirmDelete.type === 'field' ? 'Delete Custom Field' : 'Remove Dropdown Option'}
                   </h3>
                   <p className="text-xs text-slate-500 mt-1 leading-relaxed">
@@ -1264,12 +1271,12 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                 </div>
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   disabled={isDeletingField}
                   onClick={() => setConfirmDelete(null)}
-                  className="px-3.5 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-60 font-medium rounded-lg text-xs transition-colors cursor-pointer"
+                  className="h-8 px-3.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-60 font-semibold rounded-lg text-[11px] transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1293,7 +1300,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                       setIsDeletingField(false);
                     }
                   }}
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg text-xs transition-colors cursor-pointer"
+                  className="h-8 px-4 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg text-[11px] transition-colors cursor-pointer"
                 >
                   Delete
                 </ActionButton>

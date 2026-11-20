@@ -51,7 +51,7 @@ export const ResumeImportPage: React.FC<ResumeImportPageProps> = ({
   }, [bulkQueue.isRunning]);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-5 animate-fade-in">
+    <div className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4 space-y-5 pb-8 animate-fade-in">
       <DetailBreadcrumb
         backLabel={backLabel}
         onBack={onBack}
@@ -66,7 +66,7 @@ export const ResumeImportPage: React.FC<ResumeImportPageProps> = ({
             <button
               type="button"
               onClick={onSwitchToCsvImport}
-              className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 hover:text-slate-900 px-2.5 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 transition-colors cursor-pointer"
+              className="h-8 inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 hover:text-slate-900 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors cursor-pointer"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
               <span>Switch to CSV Import</span>

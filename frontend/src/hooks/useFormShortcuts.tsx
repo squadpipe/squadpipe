@@ -103,7 +103,7 @@ export const UnsavedChangesModal: React.FC<UnsavedChangesModalProps> = ({
     panelClassName="bg-white rounded-xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden"
     ariaLabel={title}
   >
-    <div className="p-5 flex items-start gap-3.5">
+    <div className="px-6 py-4 bg-white border-b border-slate-100 flex items-start gap-3.5">
       <div className="w-9 h-9 rounded-lg bg-amber-50 border border-amber-200/80 text-amber-600 flex items-center justify-center shrink-0">
         <Warning className="w-4 h-4" weight="duotone" />
       </div>
@@ -112,18 +112,18 @@ export const UnsavedChangesModal: React.FC<UnsavedChangesModalProps> = ({
         <p className="text-xs text-slate-500 leading-relaxed">{description}</p>
       </div>
     </div>
-    <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2 text-xs">
+    <div className="px-6 py-3.5 bg-slate-50/60 border-t border-slate-100 flex items-center justify-end gap-2 text-xs">
       <button
         type="button"
         onClick={onCancelLeave}
-        className="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold cursor-pointer"
+        className="h-8 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold cursor-pointer"
       >
         Keep Editing
       </button>
       <button
         type="button"
         onClick={onConfirmLeave}
-        className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold cursor-pointer"
+        className="h-8 px-3.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-semibold cursor-pointer"
       >
         Discard Changes
       </button>

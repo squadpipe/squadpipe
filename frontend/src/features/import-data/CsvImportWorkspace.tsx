@@ -264,7 +264,7 @@ export const CsvImportWorkspace: React.FC<CsvImportWorkspaceProps> = ({
         className={
           isModal
             ? 'space-y-4'
-            : 'bg-white rounded-xl border border-slate-200 p-6 card-shadow space-y-5'
+            : 'bg-white rounded-xl border border-slate-200/90 p-6 card-shadow space-y-5'
         }
       >
         {step === 1 && (
@@ -272,8 +272,8 @@ export const CsvImportWorkspace: React.FC<CsvImportWorkspaceProps> = ({
             <label
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleFileDrop}
-              className={`border-2 border-dashed border-slate-300 rounded-xl ${isModal ? 'p-8' : 'p-12'
-                } text-center bg-slate-50/60 cursor-pointer hover:border-brand-600 hover:bg-slate-50 transition-colors block`}
+              className={`border-2 border-dashed border-slate-200 rounded-xl ${isModal ? 'p-8' : 'p-12'
+                } text-center bg-slate-50/40 cursor-pointer hover:border-brand-500 hover:bg-slate-50 transition-colors block`}
             >
               <input
                 ref={fileInputRef}
@@ -283,7 +283,7 @@ export const CsvImportWorkspace: React.FC<CsvImportWorkspaceProps> = ({
                 className="hidden"
               />
               <CloudUpload className="w-9 h-9 text-brand-600 mx-auto mb-2.5" />
-              <div className="font-bold text-slate-800 text-sm">
+              <div className="font-semibold text-slate-800 text-sm">
                 {uploadedFileName
                   ? `Loaded: ${uploadedFileName}`
                   : 'Choose or Drop Spreadsheet File'}
@@ -293,7 +293,7 @@ export const CsvImportWorkspace: React.FC<CsvImportWorkspaceProps> = ({
                   ? `${parsedRows.length} parsed candidate rows detected`
                   : 'Select a UTF-8 CSV file with header columns (Name, Email, Title, Skills, Rate, etc.)'}
               </div>
-              <div className="mt-4 inline-flex items-center gap-1.5 px-4 py-1.5 bg-white border border-slate-200 rounded-lg text-brand-600 font-semibold">
+              <div className="mt-4 h-8 inline-flex items-center gap-1.5 px-3.5 bg-white border border-slate-200 rounded-lg text-[11px] text-brand-600 font-semibold">
                 <span>Browse CSV File</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </div>
@@ -324,7 +324,7 @@ export const CsvImportWorkspace: React.FC<CsvImportWorkspaceProps> = ({
                 <button
                   type="button"
                   onClick={onCancel}
-                  className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-semibold cursor-pointer"
+                  className="h-8 px-3.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-[11px] font-semibold cursor-pointer"
                 >
                   {cancelLabel}
                 </button>
@@ -332,7 +332,7 @@ export const CsvImportWorkspace: React.FC<CsvImportWorkspaceProps> = ({
                   type="button"
                   onClick={() => setStep(2)}
                   disabled={parsedRows.length === 0}
-                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold rounded-lg text-xs cursor-pointer inline-flex items-center gap-1.5"
+                  className="h-8 px-4 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold rounded-lg text-[11px] cursor-pointer inline-flex items-center gap-1.5"
                 >
                   <span>Continue ({parsedRows.length} Rows)</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -365,9 +365,9 @@ export const CsvImportWorkspace: React.FC<CsvImportWorkspaceProps> = ({
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-              <div className="lg:col-span-6 overflow-x-auto border border-slate-200 rounded-xl">
+              <div className="lg:col-span-6 overflow-x-auto border border-slate-200/90 rounded-xl">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600">
+                  <thead className="bg-white border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     <tr>
                       <th className="p-2.5">Source CSV Column</th>
                       <th className="p-2.5">First Row Preview</th>
@@ -383,7 +383,7 @@ export const CsvImportWorkspace: React.FC<CsvImportWorkspaceProps> = ({
                           {m.sample}
                         </td>
                         <td className="p-2.5">
-                          <span className="px-2 py-0.5 rounded-md text-[11px] bg-white border border-slate-300 font-medium text-slate-800">
+                          <span className="px-2 py-0.5 rounded-md text-[11px] bg-white border border-slate-200/90 font-medium text-slate-800">
                             {m.target}
                           </span>
                         </td>
@@ -401,9 +401,9 @@ export const CsvImportWorkspace: React.FC<CsvImportWorkspaceProps> = ({
                   Candidate Data Preview (First {Math.min(5, parsedRows.length)} of{' '}
                   {parsedRows.length})
                 </div>
-                <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                <div className="overflow-x-auto border border-slate-200/90 rounded-xl">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600">
+                    <thead className="bg-white border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                       <tr>
                         <th className="p-2.5">Name</th>
                         <th className="p-2.5">Title / Work Auth</th>
@@ -466,7 +466,7 @@ export const CsvImportWorkspace: React.FC<CsvImportWorkspaceProps> = ({
                 loadingText="Importing candidates..."
                 onClick={handleRunMigration}
                 icon={undefined}
-                className="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-xs cursor-pointer"
+                className="h-8 px-4 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-[11px] cursor-pointer"
               >
                 <span className="inline-flex items-center gap-1.5">
                   <span>
@@ -487,7 +487,7 @@ export const CsvImportWorkspace: React.FC<CsvImportWorkspaceProps> = ({
               <Check className="w-5 h-5" strokeWidth={1.75} />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 text-sm">CSV Import Complete</h3>
+              <h3 className="font-semibold text-slate-900 text-sm">CSV Import Complete</h3>
               <p className="text-slate-500 text-xs mt-1">
                 {importSummary.importedCount || parsedRows.length} candidates imported successfully
                 into your central roster.
@@ -510,7 +510,7 @@ export const CsvImportWorkspace: React.FC<CsvImportWorkspaceProps> = ({
               <button
                 type="button"
                 onClick={handleResetWizard}
-                className="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs cursor-pointer"
+                className="h-8 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-[11px] cursor-pointer"
               >
                 Import Another CSV
               </button>
@@ -518,7 +518,7 @@ export const CsvImportWorkspace: React.FC<CsvImportWorkspaceProps> = ({
                 <button
                   type="button"
                   onClick={onCancel}
-                  className="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-xs cursor-pointer"
+                  className="h-8 px-4 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-[11px] cursor-pointer"
                 >
                   {doneLabel || `Back to ${lockedRequirement.code}`}
                 </button>
@@ -526,7 +526,7 @@ export const CsvImportWorkspace: React.FC<CsvImportWorkspaceProps> = ({
                 <button
                   type="button"
                   onClick={() => onNavigate('consultants')}
-                  className="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-xs cursor-pointer"
+                  className="h-8 px-4 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-[11px] cursor-pointer"
                 >
                   Open Consultant Directory
                 </button>
@@ -534,7 +534,7 @@ export const CsvImportWorkspace: React.FC<CsvImportWorkspaceProps> = ({
                 <button
                   type="button"
                   onClick={onCancel}
-                  className="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-xs cursor-pointer"
+                  className="h-8 px-4 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-[11px] cursor-pointer"
                 >
                   {doneLabel || 'Done'}
                 </button>

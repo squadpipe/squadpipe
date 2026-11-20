@@ -96,14 +96,14 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
       ariaLabel="Action Center"
     >
       {/* Header */}
-      <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+      <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-md bg-slate-100 flex items-center justify-center text-slate-600">
+          <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center justify-center text-slate-600">
             <Bell className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="font-bold text-slate-800 text-sm">Action Center</h3>
-            <p className="text-[11px] text-slate-400">
+            <h3 className="font-semibold text-slate-900 text-sm">Action Center</h3>
+            <p className="text-[11px] text-slate-500">
               {pendingCount} {pendingCount === 1 ? 'reminder' : 'reminders'} needing your attention
             </p>
           </div>
@@ -114,15 +114,15 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
               onClick={handleRefresh}
               disabled={isEvaluating}
               title="Check reminders now"
-              className="p-1.5 text-slate-500 hover:text-brand-600 rounded-lg hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
+              className="w-7 h-7 inline-flex items-center justify-center text-slate-500 hover:text-brand-600 rounded-lg hover:bg-slate-100 disabled:opacity-50 cursor-pointer transition-colors"
             >
-              <RefreshCw className={`w-4 h-4 ${isEvaluating ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${isEvaluating ? 'animate-spin' : ''}`} />
             </button>
           )}
           <button
             onClick={onClose}
             aria-label="Close drawer"
-            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+            className="w-7 h-7 inline-flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -130,7 +130,7 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
       </div>
 
       {/* Filter Pills */}
-      <div className="px-5 py-3 border-b border-slate-100 flex gap-1.5 overflow-x-auto no-scrollbar bg-white">
+      <div className="px-6 py-3 border-b border-slate-100 flex gap-1.5 overflow-x-auto no-scrollbar bg-white">
         {SLA_TABS.map((tab) => {
           const count =
             tab.id === 'All'
@@ -142,15 +142,15 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer ${activeTab === tab.id
-                  ? 'bg-slate-800 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer border ${activeTab === tab.id
+                  ? 'bg-white text-slate-900 border-slate-300'
+                  : 'bg-slate-50/90 text-slate-600 border-transparent hover:text-slate-900 hover:bg-slate-100/80'
                 }`}
             >
               <span>{tab.label}</span>
               {count > 0 && (
                 <span
-                  className={`text-[11px] px-1.5 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                  className={`text-[11px] tabular-nums ${activeTab === tab.id ? 'text-brand-600 font-bold' : 'text-slate-400 font-medium'
                     }`}
                 >
                   {count}
@@ -347,9 +347,9 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-slate-100 bg-slate-50/80 text-[11px] text-slate-500 flex justify-between items-center">
+      <div className="px-6 py-3.5 border-t border-slate-100 bg-white text-[11px] text-slate-500 flex justify-between items-center">
         <span>Automatic Reminders Active</span>
-        <span className="text-[11px] bg-slate-200 px-2 py-0.5 rounded text-slate-700">
+        <span className="text-[11px] bg-white border border-slate-200/90 px-2 py-0.5 rounded-full font-medium text-slate-600">
           Auto-Checking
         </span>
       </div>

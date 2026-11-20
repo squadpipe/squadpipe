@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { LogOut, ShieldCheck, X } from 'lucide-react';
+import { LogOut, ShieldCheck } from 'lucide-react';
 import { User } from '../../types';
 import { ActionButton } from '../shared/ActionButton';
-import { AnimatedModal } from '../shared/MotionPrimitives';
+import { AnimatedModal, ModalHeader } from '../shared/MotionPrimitives';
 import { formatMissingFieldsMessage, getMissingFieldLabels } from '../../utils/formValidation';
 
 interface ProfileModalProps {
@@ -87,25 +87,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     >
       {currentUser && (
         <>
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white text-xs font-bold">
-              {initials}
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">My Profile</h3>
-              <span className="text-[11px] text-slate-400">Account details & preferences</span>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            aria-label="Close modal"
-            className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        <ModalHeader
+          icon={<span className="text-[11px] font-bold text-slate-700">{initials}</span>}
+          title="My Profile"
+          subtitle="Account details & preferences"
+          onClose={onClose}
+          closeDisabled={isSaving}
+        />
 
         {/* Form Body */}
         <div className="p-6 space-y-4 text-xs">
@@ -177,7 +165,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+        <div className="px-6 py-3.5 bg-slate-50/60 border-t border-slate-100 flex items-center justify-between">
           <button
             onClick={() => {
               onClose();
@@ -193,7 +181,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             loading={isSaving}
             loadingText="Saving..."
             onClick={handleSave}
-            className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold transition-colors cursor-pointer"
+            className="h-8 px-4 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold transition-colors cursor-pointer inline-flex items-center"
           >
             Save Changes
           </ActionButton>

@@ -451,7 +451,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         )}
       </div>
 
-      <div className="px-4 py-2 border-t border-slate-100 bg-slate-50/70 flex items-center justify-between text-[11px] text-slate-400">
+      <div className="px-4 py-2 border-t border-slate-100 bg-slate-50/60 flex items-center justify-between text-[11px] text-slate-400">
         <span>Navigate with ↑↓ · Enter to open</span>
         <span>⌘K to toggle</span>
       </div>

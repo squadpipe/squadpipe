@@ -49,7 +49,7 @@ export const Topbar: React.FC<TopbarProps> = ({
             onClick={onOpenCommandPalette}
             aria-label="Master Search (⌘K)"
             title="Master Search — find requirements, consultants, clients, vendors, or jump to any page (⌘K)"
-            className="w-full max-w-md inline-flex items-center justify-between gap-3 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50/90 hover:bg-white hover:border-slate-300 hover:shadow-sm text-xs text-slate-600 transition-all cursor-pointer"
+            className="w-full max-w-md h-8 inline-flex items-center justify-between gap-3 px-3 rounded-lg border border-slate-200 bg-slate-50/90 hover:bg-white hover:border-slate-300 hover:shadow-sm text-xs text-slate-600 transition-all cursor-pointer"
           >
             <span className="inline-flex items-center gap-2 min-w-0">
               <MagnifyingGlass className="w-3.5 h-3.5 text-brand-600 shrink-0" />
@@ -71,7 +71,7 @@ export const Topbar: React.FC<TopbarProps> = ({
         <div className="relative">
           <button
             onClick={() => setShowQuickAddDropdown(!showQuickAddDropdown)}
-            className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="h-8 px-3.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-[11px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" weight="bold" />
             <span>Quick Add</span>

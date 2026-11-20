@@ -31,20 +31,20 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
   };
 
   return (
-    <section className="max-w-7xl mx-auto space-y-6 animate-fade-in select-none">
+    <section className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4 space-y-5 pb-8 animate-fade-in select-none">
       {/* Header */}
       <div>
-        <h1 className="text-lg font-bold text-slate-900 tracking-tight">Import Data</h1>
+        <h1 className="text-lg sm:text-[19px] font-semibold text-slate-900 tracking-tight leading-snug">Import Data</h1>
         <p className="text-xs text-slate-500 mt-0.5">
           Bring in candidate spreadsheets or upload resumes directly into {brandName}.
         </p>
       </div>
 
       {/* 2 Streamlined Cards: Spreadsheet Import & Resume Upload */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Card 1: Import from Spreadsheet */}
-        <div className="bg-white rounded-xl border border-slate-200 card-shadow p-6 space-y-4">
-          <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+        <div className="bg-white rounded-xl border border-slate-200/90 card-shadow p-6 space-y-4">
+          <h3 className="font-semibold text-slate-900 text-sm flex items-center gap-2">
             <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
             <span>Import from Spreadsheet</span>
           </h3>
@@ -62,7 +62,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
             onClick={() => {
               if (onOpenCsvImport) onOpenCsvImport();
             }}
-            className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-brand-600 cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-all group"
+            className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:border-brand-500 cursor-pointer bg-slate-50/40 hover:bg-slate-50 transition-all group"
           >
             <CloudUpload className="w-8 h-8 text-brand-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
             <div className="text-xs font-semibold text-slate-700">Open Spreadsheet Import Page</div>
@@ -71,9 +71,9 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
         </div>
 
         {/* Card 2: Add Candidate from Resume (PDF & Word) */}
-        <div className="bg-white rounded-xl border border-slate-200 card-shadow p-6 space-y-4">
+        <div className="bg-white rounded-xl border border-slate-200/90 card-shadow p-6 space-y-4">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+            <h3 className="font-semibold text-slate-900 text-sm flex items-center gap-2">
               <AiMark size="xs" />
               <span>Parse Candidate Resumes</span>
             </h3>
@@ -86,7 +86,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
             onClick={() => {
               if (onOpenResumeParser) onOpenResumeParser();
             }}
-            className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-brand-600 cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-all group"
+            className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:border-brand-500 cursor-pointer bg-slate-50/40 hover:bg-slate-50 transition-all group"
           >
             <AiIcon className="w-8 h-8 text-teal-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
             <div className="text-xs font-semibold text-slate-700">Open Resume Parser Page</div>

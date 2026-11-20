@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { ExternalLink, FileText, Files, X } from 'lucide-react';
+import { ExternalLink, FileText, Files } from 'lucide-react';
 import { Candidate, Requirement, User } from '../../types';
 import { useAiCapabilities } from '../../utils/workspaceBrand';
 import { MAX_BULK_CV_FILES } from '../../utils/resumeDraftMapper';
 import { BulkResumeQueueController } from '../../hooks/useBulkResumeQueue';
-import { AnimatedModal } from '../shared/MotionPrimitives';
+import { AnimatedModal, ModalHeader } from '../shared/MotionPrimitives';
 import { AiBadge } from '../shared/AiBrand';
 import {
   ResumeApproveOptions,
@@ -60,79 +60,70 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
       panelClassName="bg-white rounded-xl shadow-2xl max-w-5xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
       ariaLabel="Add Consultant from Resume"
     >
-      {/* Modal Header */}
-      <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between gap-3 bg-[#141615] text-white shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shrink-0">
-            {mode === 'bulk' ? <Files className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-sm font-bold text-white flex items-center gap-2 flex-wrap">
-              <span>
-                {effectiveReq
-                  ? `Parse & Attach Resumes to ${effectiveReq.code}`
-                  : 'Add Consultant from Resume'}
-              </span>
-              {aiCapabilities.enabled ? (
-                <AiBadge label="PipeAI" size="xs" variant="dark" />
-              ) : (
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded-md">
-                  <span>Auto-Fill</span>
-                </span>
-              )}
-            </h2>
-            <div className="text-[11px] text-slate-400 mt-0.5 truncate">
-              {mode === 'bulk'
-                ? `Drop up to ${MAX_BULK_CV_FILES} CVs — closes cleanly and keeps parsing in the background.`
-                : 'Upload a PDF or Word (.docx) resume without leaving your candidate list.'}
+      <ModalHeader
+        icon={mode === 'bulk' ? <Files className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+        title={
+          effectiveReq
+            ? `Parse & Attach Resumes to ${effectiveReq.code}`
+            : 'Add Consultant from Resume'
+        }
+        badges={
+          aiCapabilities.enabled ? (
+            <AiBadge label="PipeAI" size="xs" />
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-white text-emerald-700 border border-emerald-300 px-2 py-0.5 rounded-full">
+              Auto-Fill
+            </span>
+          )
+        }
+        subtitle={
+          mode === 'bulk'
+            ? `Drop up to ${MAX_BULK_CV_FILES} CVs — closes cleanly and keeps parsing in the background.`
+            : 'Upload a PDF or Word (.docx) resume without leaving your candidate list.'
+        }
+        onClose={onClose}
+        actions={
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="inline-flex items-center rounded-lg bg-slate-50/90 p-0.5 border border-slate-200 text-[11px] font-semibold">
+              <button
+                type="button"
+                onClick={() => setMode('single')}
+                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer border ${mode === 'single'
+                    ? 'bg-white text-slate-900 border-slate-200/90'
+                    : 'text-slate-500 hover:text-slate-800 border-transparent'
+                  }`}
+              >
+                Single Resume
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('bulk')}
+                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 border ${mode === 'bulk'
+                    ? 'bg-white text-slate-900 border-slate-200/90'
+                    : 'text-slate-500 hover:text-slate-800 border-transparent'
+                  }`}
+              >
+                <Files className="w-3 h-3" />
+                <span>Bulk Upload</span>
+                {bulkQueue.isRunning && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                )}
+              </button>
             </div>
+            {onOpenFullPage && (
+              <button
+                type="button"
+                onClick={onOpenFullPage}
+                title="Open dedicated full-page Resume Import Studio"
+                className="h-8 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 text-[11px] font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Full Page</span>
+              </button>
+            )}
           </div>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="inline-flex items-center rounded-lg bg-white/10 p-0.5 border border-white/10 text-[11px] font-semibold">
-            <button
-              type="button"
-              onClick={() => setMode('single')}
-              className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${mode === 'single' ? 'bg-white text-slate-900' : 'text-slate-300 hover:text-white'
-                }`}
-            >
-              Single Resume
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode('bulk')}
-              className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${mode === 'bulk' ? 'bg-white text-slate-900' : 'text-slate-300 hover:text-white'
-                }`}
-            >
-              <Files className="w-3 h-3" />
-              <span>Bulk Upload</span>
-              {bulkQueue.isRunning && (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              )}
-            </button>
-          </div>
-          {onOpenFullPage && (
-            <button
-              type="button"
-              onClick={onOpenFullPage}
-              title="Open dedicated full-page Resume Import Studio"
-              className="text-slate-300 hover:text-white hover:bg-white/10 px-2 py-1 rounded text-[11px] font-medium inline-flex items-center gap-1 transition-colors cursor-pointer"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Full Page</span>
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close modal"
-            className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Modal Body */}
       <div className="p-6 overflow-y-auto flex-1">

@@ -36,7 +36,7 @@ import {
   resolveCandidateEducation,
   ResumeSection,
 } from '../../utils/resumeFormatter';
-import { formatDateTimeBadge } from '../../utils/entityMappers';
+import { formatDateTimeBadge, getInitials } from '../../utils/entityMappers';
 import { useClientPagination } from '../../utils/usePagination';
 import {
   extractRateSortValue,
@@ -276,12 +276,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
         .filter(Boolean)
     : [];
 
-  const initials = (candidate.fullName || 'C')
-    .split(/\s+/)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+  const initials = getInitials(candidate.fullName, 'C');
 
   const summarySection = parsedSections.find((s) =>
     SUMMARY_SECTION_TITLES.has(s.title.toLowerCase())
@@ -391,35 +386,25 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
     },
   ];
 
+  const recruiterInitials = getInitials(candidate.assignedRecruiter || 'Unassigned');
+
   return (
-    <section className="max-w-7xl mx-auto space-y-6 pb-6 animate-fade-in">
+    <section className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4 space-y-5 pb-8 animate-fade-in">
       <DetailBreadcrumb
         backLabel={backLabel}
         onBack={onBack}
         title={candidate.fullName}
-        rightSlot={
-          <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600">
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                hasStoredOriginalCv ? 'bg-emerald-500' : 'bg-slate-400'
-              }`}
-            />
-            <span>
-              {hasStoredOriginalCv ? 'Original CV Stored' : 'Profile Summary'}
-            </span>
-          </div>
-        }
       />
 
       {/* Bare Canvas Entity Title & Actions */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5 min-w-0 flex-1">
-          <div className="w-10 h-10 rounded-full bg-[#141615] text-white font-bold text-xs flex items-center justify-center flex-shrink-0">
+          <div className="w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center flex-shrink-0">
             {initials}
           </div>
-          <div className="min-w-0 flex-1 space-y-0.5">
+          <div className="min-w-0 flex-1 space-y-1">
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight leading-snug">
+              <h1 className="text-lg sm:text-[19px] font-semibold text-slate-900 tracking-tight leading-snug">
                 {candidate.fullName}
               </h1>
               {candidate.pipelineStage && (
@@ -430,12 +415,24 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                 />
               )}
             </div>
-            <p className="text-xs text-slate-500 truncate">
-              <span className="font-medium text-brand-600">
+            <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-xs text-slate-500">
+              <span className="font-medium text-slate-700">
                 {candidate.currentTitle || 'Technology Consultant'}
               </span>
-              {candidate.workAuth && <span> &middot; {candidate.workAuth}</span>}
-            </p>
+              {candidate.workAuth && (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="text-slate-300" aria-hidden="true">&middot;</span>
+                  <span>{candidate.workAuth}</span>
+                </span>
+              )}
+              {hasStoredOriginalCv && (
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-700">
+                  <span className="text-slate-300" aria-hidden="true">&middot;</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span>Original CV stored</span>
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -450,9 +447,9 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                   }
                   setIsEditing(true);
                 }}
-                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="h-8 px-3 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
               >
-                <Pencil className="w-3.5 h-3.5" />
+                <Pencil className="w-3 h-3" />
                 <span>Edit Profile</span>
               </button>
             )}
@@ -463,7 +460,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                 disabled={isDownloadingCv}
                 onClick={handleDownloadOriginalCv}
                 title={`Download original stored CV${candidate.resumeName ? ` (${candidate.resumeName})` : ''}`}
-                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
+                className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
               >
                 {isDownloadingCv ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-600" />
@@ -474,7 +471,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
               </button>
             )}
 
-            <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white">
+            <div className="inline-flex items-center h-8 rounded-lg border border-slate-200 bg-white">
               <MaskedPdfToggle
                 checked={isMaskedPdf}
                 onChange={setIsMaskedPdf}
@@ -486,9 +483,9 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                 type="button"
                 onClick={downloadProfileBriefPdf}
                 title={`Download formatted ${brandName} candidate summary PDF for client sharing`}
-                className="px-3 py-1.5 rounded-r-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="h-full px-3 rounded-r-lg bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
               >
-                <Download className="w-3.5 h-3.5 text-slate-300" />
+                <Download className="w-3 h-3 text-slate-500" />
                 <span>{isMaskedPdf ? 'Masked Profile PDF' : 'Profile PDF'}</span>
               </button>
             </div>
@@ -498,9 +495,9 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
               <button
                 type="button"
                 onClick={() => setShowQuickSubmitDropdown((prev) => !prev)}
-                className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="h-8 px-3.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
               >
-                <Send className="w-3.5 h-3.5" />
+                <Send className="w-3 h-3" />
                 <span>Submit to Req</span>
                 <ChevronDown
                   className={`w-3.5 h-3.5 opacity-80 transition-transform ${
@@ -603,12 +600,14 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
           </div>
       </div>
 
-      {/* Standalone 4-Column Summary Card */}
-      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
+      {/* Standalone 4-Column Summary Card + Embedded Core Skills */}
+      <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 text-xs">
           {/* 1. Contact & Relocation */}
-          <div className="px-6 py-4 space-y-1.5 min-w-0">
-            <div className="text-xs font-medium text-slate-500">Contact &amp; Relocation</div>
+          <div className="px-6 py-4 space-y-2 min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Contact &amp; relocation
+            </div>
             <div className="font-semibold text-slate-900 leading-snug break-all">
               {candidate.email ? (
                 <a href={`mailto:${candidate.email}`} className="hover:text-brand-600">
@@ -635,8 +634,10 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
           </div>
 
           {/* 2. Work Auth & Partner Vendor */}
-          <div className="px-6 py-4 space-y-1.5 min-w-0">
-            <div className="text-xs font-medium text-slate-500">Work Auth &amp; Sourcing</div>
+          <div className="px-6 py-4 space-y-2 min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Work auth &amp; sourcing
+            </div>
             <div className="font-semibold text-slate-900 leading-snug flex items-start gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
               <span className="break-words">{candidate.workAuth || 'Work auth not specified'}</span>
@@ -661,16 +662,18 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
           </div>
 
           {/* 3. Target Rate & Credentials */}
-          <div className="px-6 py-4 space-y-1.5 min-w-0">
-            <div className="text-xs font-medium text-slate-500">Target Rate</div>
+          <div className="px-6 py-4 space-y-2 min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Target rate
+            </div>
             {rateMasked ? (
               <>
-                <MaskedValue value="" isMasked={true} className="text-sm font-bold block" />
+                <MaskedValue value="" isMasked={true} className="text-base font-bold block" />
                 <div className="text-[11px] text-slate-400">Rate protected for your role</div>
               </>
             ) : (
               <>
-                <div className="font-mono font-bold text-slate-900 leading-snug break-words">
+                <div className="text-lg font-bold font-mono text-slate-900 tabular-nums leading-none break-words">
                   {formattedRate || 'Rate on request'}
                 </div>
                 <div className="text-[11px] text-slate-500 leading-snug break-words">
@@ -680,21 +683,46 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
             )}
           </div>
 
-          {/* 4. Pipeline Activity & Owner */}
-          <div className="px-6 py-4 space-y-1.5 min-w-0">
-            <div className="text-xs font-medium text-slate-500">Pipeline &amp; Owner</div>
-            <div className="font-semibold text-slate-900 leading-snug">
-              {linkedSubmissions.length} Submissions &middot;{' '}
-              <span className="text-emerald-700">{activeLinkedPlacements.length} Active</span>
+          {/* 4. Owner & Pipeline Activity */}
+          <div className="px-6 py-4 space-y-2.5 min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Owner &amp; pipeline
             </div>
-            <div className="text-[11px] text-slate-500 leading-snug break-words">
-              Owner:{' '}
-              <strong className="font-medium text-slate-700">
-                {candidate.assignedRecruiter || 'Unassigned'}
-              </strong>
+            <div className="flex items-start gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-700 font-semibold text-[11px] flex items-center justify-center shrink-0">
+                {recruiterInitials}
+              </div>
+              <div className="min-w-0">
+                <div className="font-semibold text-slate-900 leading-snug break-words">
+                  {candidate.assignedRecruiter || 'Unassigned'}
+                </div>
+                <div className="text-[11px] text-slate-500 leading-snug mt-0.5">
+                  {linkedSubmissions.length} submissions &middot;{' '}
+                  <span className="font-semibold text-emerald-700">
+                    {activeLinkedPlacements.length} active
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
+
+        {(skills.length > 0 || onEditCandidate || onUpdateCandidate) && (
+          <DetailExpandableSkillsBar
+            embedded
+            label="CORE SKILLS"
+            skills={skills}
+            initialVisibleCount={4}
+            editLabel="Edit skills"
+            onEdit={
+              onEditCandidate
+                ? () => onEditCandidate(candidate)
+                : onUpdateCandidate
+                  ? () => setIsEditing(true)
+                  : undefined
+            }
+          />
+        )}
       </div>
 
       {/* Floating Underline Workspace Tabs */}
@@ -708,22 +736,8 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
       {/* TAB 1: Overview & Resume */}
       {workspaceTab === 'resume' && (
         <div className="space-y-6">
-          <section className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-            <DetailExpandableSkillsBar
-              embedded
-              label="Core Skills:"
-              skills={skills}
-              editLabel="Edit skills"
-              onEdit={
-                onEditCandidate
-                  ? () => onEditCandidate(candidate)
-                  : onUpdateCandidate
-                    ? () => setIsEditing(true)
-                    : undefined
-              }
-            />
-
-            <div className="p-6 space-y-3 border-t border-slate-100">
+          <section className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs">
+            <div className="p-6 space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <FileText className="w-4 h-4 text-brand-600 shrink-0" />
@@ -816,12 +830,12 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
 
       {/* TAB 2: Requisition Submissions */}
       {workspaceTab === 'submissions' && (
-        <section className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <section className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs">
+          <div className="px-6 py-4 border-b border-slate-100 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Briefcase className="w-3.5 h-3.5 text-brand-600" />
               <h2 className="font-bold text-slate-900">
-                Requisition Submissions ({linkedSubmissions.length})
+                Requisition submissions ({linkedSubmissions.length})
               </h2>
             </div>
             {linkedSubmissions.length > 0 && (
@@ -832,7 +846,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                   value={subSearch}
                   onChange={(e) => setSubSearch(e.target.value)}
                   placeholder="Filter submissions..."
-                  className="pl-8 pr-3 py-1 text-xs border border-slate-200 rounded-lg bg-white w-full sm:w-52 text-slate-700 focus:outline-none focus:border-brand-600"
+                  className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white w-full sm:w-52 text-slate-700 focus:outline-none focus:border-brand-600"
                 />
               </div>
             )}
@@ -856,7 +870,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  <thead className="bg-white border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     <tr>
                       <SortableTableHeader
                         label="Req ID"
@@ -978,12 +992,12 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
 
       {/* TAB 3: Billable Placements */}
       {workspaceTab === 'placements' && (
-        <section className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+        <section className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs">
+          <div className="px-6 py-4 border-b border-slate-100 bg-white flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
               <h2 className="font-bold text-slate-900">
-                Billable Placements ({linkedPlacements.length})
+                Billable placements ({linkedPlacements.length})
               </h2>
             </div>
             {onNavigateToBillable && (
@@ -1005,7 +1019,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  <thead className="bg-white border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     <tr>
                       <SortableTableHeader
                         label="Client"
@@ -1105,8 +1119,8 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
       {workspaceTab === 'details' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           <div className="lg:col-span-8 space-y-5">
-            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-3">
+            <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100 bg-white flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <UserCheck className="w-3.5 h-3.5 text-brand-600" />
                   <h3 className="text-xs font-bold text-slate-900">Profile &amp; Contact Summary</h3>
@@ -1124,7 +1138,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
               </div>
               <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-5">
                 <div>
-                  <div className="text-[11px] font-medium text-slate-400">Email</div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Email</div>
                   <div className="mt-1 text-xs font-medium text-slate-800 break-all">
                     {candidate.email ? (
                       <a
@@ -1140,7 +1154,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                   </div>
                 </div>
                 <div>
-                  <div className="text-[11px] font-medium text-slate-400">Phone</div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Phone</div>
                   <div className="mt-1 text-xs font-medium text-slate-800">
                     {candidate.phone ? (
                       <a
@@ -1156,31 +1170,31 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                   </div>
                 </div>
                 <div>
-                  <div className="text-[11px] font-medium text-slate-400">Work Auth</div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Work Auth</div>
                   <div className="mt-1 text-xs font-medium text-slate-800">
                     {candidate.workAuth || '—'}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[11px] font-medium text-slate-400">Target Rate</div>
-                  <div className="mt-1 text-xs font-semibold text-slate-900">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Target Rate</div>
+                  <div className="mt-1 text-xs font-semibold font-mono text-slate-900">
                     {rateMasked ? '•••• (Restricted)' : formattedRate || 'Rate on request'}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[11px] font-medium text-slate-400">Relocation</div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Relocation</div>
                   <div className="mt-1 text-xs font-medium text-slate-800">
                     {candidate.relocation === 'Yes' ? 'Open (Yes)' : candidate.relocation || '—'}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[11px] font-medium text-slate-400">Recruiter</div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Recruiter</div>
                   <div className="mt-1 text-xs font-medium text-slate-800">
                     {candidate.assignedRecruiter || 'Unassigned'}
                   </div>
                 </div>
                 <div className="sm:col-span-2 lg:col-span-3 pt-4 border-t border-slate-100">
-                  <div className="text-[11px] font-medium text-slate-400">Partner Vendor</div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Partner Vendor</div>
                   <div className="mt-1 text-xs font-medium text-slate-800 [overflow-wrap:anywhere]">
                     {!vendorLabel ? (
                       <span className="text-slate-500">Direct / Own Bench</span>
@@ -1200,8 +1214,8 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
               </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-3">
+            <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs">
+              <div className="px-6 py-4 border-b border-slate-100 bg-white flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <GraduationCap className="w-3.5 h-3.5 text-brand-600" />
                   <h3 className="font-bold text-slate-900">Education &amp; Credentials</h3>
@@ -1225,8 +1239,8 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
           </div>
 
           <div className="lg:col-span-4 space-y-4">
-            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-              <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
+            <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs">
+              <div className="px-5 py-3.5 border-b border-slate-100 bg-white">
                 <h3 className="font-bold text-slate-900">Activity Summary</h3>
               </div>
               <div className="p-5 space-y-3">
@@ -1248,7 +1262,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                   <button
                     type="button"
                     onClick={() => setWorkspaceTab('submissions')}
-                    className="w-full py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-xs inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    className="w-full h-8 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <span>View Submissions</span>
                     <ArrowRight className="w-3 h-3" />
@@ -1258,8 +1272,8 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
             </div>
 
             {customFieldEntries.length > 0 && (
-              <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-                <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+              <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs">
+                <div className="px-5 py-3.5 border-b border-slate-100 bg-white flex items-center gap-2">
                   <Layers className="w-3.5 h-3.5 text-brand-600" />
                   <h3 className="font-bold text-slate-900">Additional Attributes</h3>
                 </div>

@@ -404,14 +404,14 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
       ariaLabel={`Prepare Email Draft for ${candidateName}`}
     >
       {/* Clean Header */}
-      <div className="flex-shrink-0 px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
+      <div className="flex-shrink-0 px-6 py-4 border-b border-slate-100 bg-white flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-full bg-white border border-slate-200 text-brand-700 flex items-center justify-center flex-shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200/80 text-brand-700 flex items-center justify-center flex-shrink-0">
             <Mail className="w-4 h-4" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-bold text-slate-900 truncate">
+              <h3 className="text-sm font-semibold text-slate-900 truncate">
                 Prepare Email Draft &mdash; {candidateName}
               </h3>
               {hasActiveDraft && !controlsDisabled && aiUsed && aiCapabilities.enabled && (
@@ -438,18 +438,18 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
           type="button"
           onClick={handleClose}
           aria-label="Close email draft drawer"
-          className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer shrink-0"
+          className="w-7 h-7 inline-flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
         >
           <X className="w-4 h-4" />
         </button>
       </div>
 
       {/* Selector Bar — only shows Regenerate when a draft is currently open */}
-      <div className="flex-shrink-0 px-6 py-3 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between gap-4">
+      <div className="flex-shrink-0 px-6 py-3 border-b border-slate-100 bg-white flex items-center justify-between gap-4">
         <div className="space-y-1.5 min-w-0">
           <div className="flex items-center gap-2.5 flex-wrap">
-            <span className="text-[11px] font-semibold text-slate-500 w-9 shrink-0">Type</span>
-            <div className="inline-flex items-center p-0.5 rounded-lg bg-slate-200/70 border border-slate-200/80">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 w-10 shrink-0">Type</span>
+            <div className="inline-flex items-center p-0.5 rounded-lg bg-slate-50/90 border border-slate-200">
               {PURPOSE_OPTIONS.map((item) => {
                 const isSelected = purpose === item.id;
                 const isSavedCombo = savedDraftKeys.includes(
@@ -461,9 +461,9 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                     type="button"
                     disabled={controlsDisabled}
                     onClick={() => handleTypeSelect(item.id)}
-                    className={`px-3 py-1 rounded-md text-[11px] font-semibold inline-flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-60 ${isSelected
-                        ? 'bg-slate-900 text-white shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
+                    className={`px-3 py-1 rounded-md text-[11px] font-semibold inline-flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-60 border ${isSelected
+                        ? 'bg-white text-slate-900 border-slate-200/90'
+                        : 'text-slate-500 hover:text-slate-800 border-transparent'
                       }`}
                   >
                     <span>{item.label}</span>
@@ -480,8 +480,8 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap">
-            <span className="text-[11px] font-semibold text-slate-500 w-9 shrink-0">Tone</span>
-            <div className="inline-flex items-center p-0.5 rounded-lg bg-slate-200/70 border border-slate-200/80">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 w-10 shrink-0">Tone</span>
+            <div className="inline-flex items-center p-0.5 rounded-lg bg-slate-50/90 border border-slate-200">
               {TONE_OPTIONS.map((t) => {
                 const isSelected = pitchTone === t.id;
                 const isSavedCombo = savedDraftKeys.includes(getDraftComboKey(purpose, t.id));
@@ -491,9 +491,9 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                     type="button"
                     disabled={controlsDisabled}
                     onClick={() => handleToneSelect(t.id)}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold inline-flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-60 ${isSelected
-                        ? 'bg-brand-600 text-white shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold inline-flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-60 border ${isSelected
+                        ? 'bg-white text-brand-700 border-brand-300'
+                        : 'text-slate-500 hover:text-slate-800 border-transparent'
                       }`}
                   >
                     <span>{t.label}</span>
@@ -517,7 +517,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
               disabled={controlsDisabled}
               onClick={() => void loadDraft(purpose, pitchTone, { forceRegenerate: true })}
               title="Generate a fresh variation for this Type and Tone"
-              className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
+              className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`} />
               <span>{isRegenerating ? 'Regenerating...' : 'Regenerate'}</span>
@@ -606,7 +606,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                       {isLoading ? 'Generating Draft...' : `Generate ${getPurposeLabel(purpose)}`}
                     </span>
                     {!isLoading && aiCapabilities.enabled && (
-                      <span className="px-1.5 py-0.5 rounded bg-[#141615]/90 text-teal-300 text-[11px] font-bold uppercase tracking-wide leading-none">
+                      <span className="px-1.5 py-0.5 rounded bg-white/15 border border-white/25 text-white text-[10px] font-bold uppercase tracking-wider leading-none">
                         PipeAI
                       </span>
                     )}
@@ -834,7 +834,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
       </div>
 
       {/* Footer Actions */}
-      <div className="flex-shrink-0 px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2 flex-wrap text-xs">
+      <div className="flex-shrink-0 px-6 py-3.5 bg-slate-50/60 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap text-xs">
         <button
           type="button"
           onClick={handleClose}

@@ -104,11 +104,11 @@ export const CustomQuestionFieldInput: React.FC<CustomQuestionFieldInputProps> =
               aria-pressed={active}
               className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
                 active
-                  ? 'bg-slate-900 text-white border-slate-900'
+                  ? 'bg-brand-50 text-brand-800 border-brand-300 font-semibold'
                   : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
               }`}
             >
-              {active && <Check className="w-3 h-3 text-emerald-400" />}
+              {active && <Check className="w-3 h-3 text-brand-600" />}
               <span>{opt}</span>
             </button>
           );

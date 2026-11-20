@@ -50,14 +50,14 @@ export const MaskedPdfToggle: React.FC<MaskedPdfToggleProps> = ({
       ref={containerRef}
       className={`relative inline-flex items-center ${
         compact
-          ? 'border-r border-slate-200 hover:bg-slate-50 rounded-l-lg transition-colors'
+          ? 'h-8 border-r border-slate-200 hover:bg-slate-50 rounded-l-lg transition-colors'
           : 'gap-1'
       }`}
     >
       <label
         title="Hide personal email and phone number on the exported profile PDF"
         className={`inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 cursor-pointer select-none ${
-          compact ? 'pl-2.5 pr-1 py-1.5' : 'py-1'
+          compact ? 'pl-2.5 pr-1 h-full' : 'py-1'
         }`}
       >
         <input

@@ -151,13 +151,13 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
       >
         {extendingPlacement && (
           <>
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-700 border border-brand-200 flex items-center justify-center">
+            <div className="px-6 py-4 bg-white border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-slate-50 text-brand-700 border border-slate-200/80 flex items-center justify-center">
                   <CalendarPlus className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Extend Contract / SOW</h3>
+                  <h3 className="text-sm font-semibold text-slate-900">Extend Contract / SOW</h3>
                   <p className="text-[11px] text-slate-500 mt-0.5">
                     {extendingPlacement.resourceName} @ {extendingPlacement.customer}
                   </p>
@@ -167,7 +167,7 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
                 type="button"
                 disabled={isExtending}
                 onClick={onCloseExtend}
-                className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+                className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -299,7 +299,7 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
                   type="button"
                   disabled={isExtending}
                   onClick={onCloseExtend}
-                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
+                  className="h-8 px-3.5 border border-slate-200 bg-white rounded-lg text-[11px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -307,7 +307,7 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
                   type="submit"
                   loading={isExtending}
                   loadingText="Extending..."
-                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                  className="h-8 px-4 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white rounded-lg text-[11px] font-semibold cursor-pointer inline-flex items-center"
                 >
                   Confirm SOW Extension
                 </ActionButton>
@@ -327,16 +327,16 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
       >
         {editDraft && (
           <>
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="px-6 py-4 bg-white border-b border-slate-100 flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Edit Billable Placement</h3>
+                <h3 className="text-sm font-semibold text-slate-900">Edit Billable Placement</h3>
                 <p className="text-[11px] text-slate-500 mt-0.5">{editDraft.resourceName}</p>
               </div>
               <button
                 type="button"
                 disabled={isSavingPlacement}
                 onClick={onCloseEdit}
-                className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+                className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -652,7 +652,7 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
                   type="button"
                   disabled={isSavingPlacement}
                   onClick={onCloseEdit}
-                  className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
+                  className="h-8 px-3.5 border border-slate-200 bg-white rounded-lg text-[11px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -660,7 +660,7 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
                   type="submit"
                   loading={isSavingPlacement}
                   loadingText="Saving..."
-                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                  className="h-8 px-4 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-[11px] font-semibold cursor-pointer inline-flex items-center"
                 >
                   Save Changes
                 </ActionButton>
@@ -681,11 +681,11 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
         {deletingPlacement && (
           <>
             <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="w-5 h-5" />
+              <div className="w-9 h-9 rounded-full bg-rose-50 border border-rose-200/80 text-rose-600 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Remove Billable Placement?</h3>
+                <h3 className="text-sm font-semibold text-slate-900">Remove Billable Placement?</h3>
                 <p className="text-xs text-slate-500 mt-1">
                   This will remove <span className="font-semibold text-slate-700">{deletingPlacement.resourceName}</span>&apos;s placement at{' '}
                   <span className="font-semibold text-slate-700">{deletingPlacement.customer}</span> from the ledger.
@@ -697,7 +697,7 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
                 type="button"
                 disabled={isDeletingPlacement}
                 onClick={onCloseDelete}
-                className="px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
+                className="h-8 px-3.5 border border-slate-200 bg-white rounded-lg text-[11px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
               >
                 Cancel
               </button>
@@ -719,7 +719,7 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
                     setIsDeletingPlacement(false);
                   }
                 }}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                className="h-8 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-semibold cursor-pointer inline-flex items-center"
               >
                 Remove Placement
               </ActionButton>
@@ -743,13 +743,13 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
             onSubmit={handleConfirmEndPlacement}
             className="flex flex-col"
           >
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center">
+            <div className="px-6 py-4 bg-white border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-rose-50 border border-rose-200/80 text-rose-600 flex items-center justify-center">
                   <CalendarX className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-slate-900">End Consultant Placement</h3>
+                  <h3 className="font-semibold text-sm text-slate-900">End Consultant Placement</h3>
                   <p className="text-[11px] text-slate-500">
                     {endingPlacement.resourceName} &bull; {endingPlacement.customer}
                   </p>
@@ -759,15 +759,15 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
                 type="button"
                 disabled={isEndingPlacement}
                 onClick={onCloseEnd}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                className="w-7 h-7 inline-flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className="p-6 space-y-4">
               <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
                   Closure Outcome
                 </label>
                 <div className="grid grid-cols-2 gap-2.5">
@@ -782,7 +782,7 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
                           selected
                             ? outcome === 'Terminated'
                               ? 'border-rose-500 bg-rose-50/40 ring-1 ring-rose-500'
-                              : 'border-slate-900 bg-slate-50 ring-1 ring-slate-900'
+                              : 'border-brand-600 bg-brand-50/30 ring-1 ring-brand-600'
                             : 'border-slate-200 bg-white hover:bg-slate-50'
                         }`}
                       >
@@ -824,12 +824,12 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
               </div>
             </div>
 
-            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
+            <div className="px-6 py-3.5 bg-slate-50/60 border-t border-slate-100 flex items-center justify-end gap-2">
               <button
                 type="button"
                 disabled={isEndingPlacement}
                 onClick={onCloseEnd}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
+                className="h-8 px-3.5 text-[11px] font-semibold text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
               >
                 Cancel
               </button>
@@ -839,7 +839,7 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
                 loadingText="Updating..."
                 disabled={!endForm.endDate}
                 icon={<CalendarX className="w-3.5 h-3.5" />}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                className="h-8 px-4 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-lg text-[11px] font-semibold cursor-pointer inline-flex items-center gap-1.5"
               >
                 Confirm End Placement
               </ActionButton>

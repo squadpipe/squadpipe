@@ -246,16 +246,16 @@ export const RequirementFormPage: React.FC<RequirementFormPageProps> = ({
 
   if (isEdit && !initialRequirement) {
     return (
-      <section className="max-w-3xl mx-auto py-16 text-center space-y-4">
-        <div className="bg-white rounded-xl border border-slate-200 p-8 card-shadow space-y-3">
-          <h2 className="text-base font-bold text-slate-900">Requirement Not Found</h2>
+      <section className="max-w-3xl mx-auto px-1 sm:px-2 lg:px-4 py-16 text-center space-y-4">
+        <div className="bg-white rounded-xl border border-slate-200/90 p-8 card-shadow space-y-3">
+          <h2 className="text-base font-semibold text-slate-900">Requirement Not Found</h2>
           <p className="text-xs text-slate-500">
             This requisition may have been deleted or could not be loaded.
           </p>
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 cursor-pointer"
+            className="h-8 inline-flex items-center gap-1.5 px-3.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-[11px] font-semibold hover:bg-slate-50 cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>{backLabel}</span>
@@ -266,7 +266,7 @@ export const RequirementFormPage: React.FC<RequirementFormPageProps> = ({
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-6 animate-fade-in">
+    <div className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4 space-y-5 pb-8 animate-fade-in">
       <DetailBreadcrumb
         backLabel={backLabel}
         onBack={() => guardNavigation(onBack)}
@@ -282,7 +282,7 @@ export const RequirementFormPage: React.FC<RequirementFormPageProps> = ({
               type="button"
               disabled={isSaving}
               onClick={() => guardNavigation(onBack)}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+              className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-50"
             >
               Cancel
             </button>
@@ -291,7 +291,7 @@ export const RequirementFormPage: React.FC<RequirementFormPageProps> = ({
               onClick={() => handleSubmit()}
               loading={isSaving}
               loadingText={isEdit ? 'Saving...' : 'Creating...'}
-              className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold transition-colors cursor-pointer"
+              className="h-8 px-3.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold transition-colors cursor-pointer"
             >
               {isEdit ? 'Save Changes' : 'Create Requirement'}
             </ActionButton>
@@ -326,7 +326,7 @@ export const RequirementFormPage: React.FC<RequirementFormPageProps> = ({
             <button
               type="button"
               onClick={() => guardNavigation(onOpenFromEmail)}
-              className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-teal-200 text-slate-700 hover:text-slate-900 font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="h-8 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-teal-200 text-slate-700 hover:text-slate-900 text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <AiIcon className="w-3.5 h-3.5 text-teal-600 shrink-0" />
               <span>Parse from Email</span>
@@ -343,7 +343,7 @@ export const RequirementFormPage: React.FC<RequirementFormPageProps> = ({
       >
         <div className="lg:col-span-8 space-y-5 text-xs">
           {/* Card 1: Core Role & Client Context */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 card-shadow space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200/90 p-5 card-shadow space-y-4">
             <div className="pb-2.5 border-b border-slate-100">
               <h2 className="text-sm font-semibold text-slate-900">Role &amp; client context</h2>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -453,16 +453,16 @@ export const RequirementFormPage: React.FC<RequirementFormPageProps> = ({
               </FormField>
 
               <FormField label="Work Model">
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-3 bg-slate-50/90 p-0.5 rounded-lg border border-slate-200 gap-0.5">
                   {(['Remote', 'Hybrid', 'Onsite'] as const).map((wm) => (
                     <button
                       type="button"
                       key={wm}
                       onClick={() => setForm({ ...form, workModel: wm })}
-                      className={`py-2 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer ${
+                      className={`h-7 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
                         form.workModel === wm
-                          ? 'bg-slate-900 text-white border-slate-900'
-                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                          ? 'bg-white text-slate-900 border border-slate-200/90'
+                          : 'text-slate-500 hover:text-slate-800 border border-transparent'
                       }`}
                     >
                       {wm}
@@ -474,7 +474,7 @@ export const RequirementFormPage: React.FC<RequirementFormPageProps> = ({
           </div>
 
           {/* Card 2: Compensation, Pipeline Stage & Skills */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 card-shadow space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200/90 p-5 card-shadow space-y-4">
             <div className="pb-2.5 border-b border-slate-100">
               <h2 className="text-sm font-semibold text-slate-900">Rates, assignment &amp; skills</h2>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -544,7 +544,7 @@ export const RequirementFormPage: React.FC<RequirementFormPageProps> = ({
           </div>
 
           {/* Card 3: Public Summary & Internal Notes */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 card-shadow space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200/90 p-5 card-shadow space-y-4">
             <div className="pb-2.5 border-b border-slate-100">
               <h2 className="text-sm font-semibold text-slate-900">Public description &amp; notes</h2>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -589,7 +589,7 @@ export const RequirementFormPage: React.FC<RequirementFormPageProps> = ({
 
         {/* Sticky Right Summary & Custom Attributes */}
         <div className="lg:col-span-4 space-y-5 lg:sticky lg:top-4 text-xs">
-          <div className="bg-white rounded-xl border border-slate-200 p-5 card-shadow space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200/90 p-5 card-shadow space-y-4">
             <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
               <div className="flex items-center gap-2 font-semibold text-slate-900 text-sm">
                 <Briefcase className="w-4 h-4 text-brand-600" />

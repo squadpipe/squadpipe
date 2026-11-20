@@ -998,12 +998,12 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
       {currentReq && (
         <>
           {/* Header */}
-          <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-start justify-between gap-3">
+          <div className="px-6 py-4 bg-white border-b border-slate-100 flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h4 className="text-sm font-bold text-slate-900">Attach Bench Candidates</h4>
+                <h4 className="text-sm font-semibold text-slate-900">Attach Bench Candidates</h4>
                 <div className="flex items-center gap-1.5 text-[11px] font-semibold">
-                  <span className="px-2 py-0.5 rounded-md bg-white border border-slate-300 text-slate-700">
+                  <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200/90 text-slate-700">
                     {openPositions} Open
                   </span>
                   <span className="px-2 py-0.5 rounded-md bg-white text-emerald-700 border border-emerald-300">
@@ -1021,7 +1021,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
 
             <div className="flex items-center gap-1.5 shrink-0">
               {(onOpenResumeParser || onOpenCsvImport) && (
-                <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white overflow-hidden">
+                <div className="inline-flex items-center h-8 rounded-lg border border-slate-200 bg-white overflow-hidden">
                   {onOpenResumeParser && (
                     <button
                       type="button"
@@ -1029,7 +1029,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                       onClick={() => {
                         onOpenResumeParser(currentReq);
                       }}
-                      className={`px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 ${onOpenCsvImport ? 'border-r border-slate-200' : ''
+                      className={`h-full px-2.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 ${onOpenCsvImport ? 'border-r border-slate-200' : ''
                         }`}
                       title="Upload & parse resumes (PDF/DOCX) to add candidates"
                     >
@@ -1045,7 +1045,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                       onClick={() => {
                         onOpenCsvImport(currentReq);
                       }}
-                      className="px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                      className="h-full px-2.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
                       title="Bulk import candidates from CSV"
                     >
                       <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
@@ -1058,7 +1058,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                 type="button"
                 disabled={isAttaching}
                 onClick={onClose}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
+                className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                 aria-label="Close candidate picker"
               >
                 <X className="w-4 h-4" />
@@ -1068,10 +1068,10 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
 
           {/* Required Skills Summary */}
           {reqSkillList.length > 0 && (
-            <div className="px-5 py-2.5 bg-slate-50/50 border-b border-slate-200/70">
+            <div className="px-6 py-2.5 bg-white border-b border-slate-100">
               <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-0.5">
-                  Required Skills:
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mr-0.5">
+                  Required Skills
                 </span>
                 {(showAllReqSkills ? reqSkillList : reqSkillList.slice(0, 6)).map((skill, idx) => (
                   <span
@@ -1095,7 +1095,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
           )}
 
           {/* Search, Filter & AI Rank Bar */}
-          <div className="px-5 py-3 border-b border-slate-200/80 bg-white space-y-2.5">
+          <div className="px-6 py-3 border-b border-slate-100 bg-white space-y-2.5">
             <div className="flex items-center gap-2">
               <div className="relative flex-1 min-w-0">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1105,7 +1105,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                   value={benchSearch}
                   onChange={(e) => setBenchSearch(e.target.value)}
                   placeholder="Search by candidate name, title, skills, or resume..."
-                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-brand-600 transition-colors"
+                  className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-brand-600 transition-colors"
                 />
               </div>
               <div className="shrink-0">
@@ -1569,9 +1569,9 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="bg-slate-50 border-t border-slate-200 flex-shrink-0">
+          <div className="bg-slate-50/60 border-t border-slate-100 flex-shrink-0">
             {drawerTab === 'available' && selectedDupCount > 0 && (
-              <div className="px-5 py-2 bg-amber-50 border-b border-amber-200 flex items-center gap-2 text-[11px] text-amber-900 font-medium">
+              <div className="px-6 py-2 bg-amber-50 border-b border-amber-200 flex items-center gap-2 text-[11px] text-amber-900 font-medium">
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
                 <span>
                   {selectedDupCount} selected consultant{selectedDupCount === 1 ? ' was' : 's were'}{' '}
@@ -1580,7 +1580,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                 </span>
               </div>
             )}
-            <div className="px-5 py-3.5 flex items-center justify-between gap-3">
+            <div className="px-6 py-3.5 flex items-center justify-between gap-3">
               {drawerTab === 'attached' ? (
                 <>
                   <span className="text-xs font-medium text-slate-600">
@@ -1591,14 +1591,14 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                     <button
                       type="button"
                       onClick={() => setDrawerTab('available')}
-                      className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+                      className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
                     >
                       Browse Available ({availableTabCount})
                     </button>
                     <button
                       type="button"
                       onClick={onClose}
-                      className="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-colors cursor-pointer"
+                      className="h-8 px-3.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold transition-colors cursor-pointer"
                     >
                       Done
                     </button>
@@ -1618,7 +1618,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                         type="button"
                         disabled={isAttaching}
                         onClick={() => setSelectedCandidateIds([])}
-                        className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition-colors cursor-pointer"
+                        className="h-8 px-2.5 rounded-lg text-[11px] font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
                       >
                         Clear
                       </button>
@@ -1627,7 +1627,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                       type="button"
                       disabled={isAttaching}
                       onClick={onClose}
-                      className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+                      className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -1637,7 +1637,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                       loadingText="Attaching..."
                       disabled={isAttaching || selectedCandidateIds.length === 0}
                       onClick={handleBatchAttach}
-                      className={`px-4 py-1.5 rounded-lg disabled:opacity-50 text-white text-xs font-semibold transition-colors cursor-pointer ${selectedDupCount > 0
+                      className={`h-8 px-4 rounded-lg disabled:opacity-50 text-white text-[11px] font-semibold transition-colors cursor-pointer inline-flex items-center ${selectedDupCount > 0
                         ? 'bg-amber-600 hover:bg-amber-700'
                         : 'bg-brand-600 hover:bg-brand-700'
                         }`}

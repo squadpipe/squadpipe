@@ -211,24 +211,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   return (
-    <section className="max-w-6xl mx-auto space-y-6 animate-fade-in select-none">
+    <section className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4 space-y-5 pb-8 animate-fade-in select-none">
       <PageHeader
         title="General Settings"
         subtitle="Manage agency profile, currency, localization, and billing operational defaults."
       />
 
       {loading ? (
-        <div className="bg-white rounded-xl border border-slate-200 card-shadow p-10 text-center text-xs text-slate-500">
+        <div className="bg-white rounded-xl border border-slate-200/90 card-shadow p-10 text-center text-xs text-slate-500">
           Loading settings...
         </div>
       ) : (
-        <form onSubmit={handleSaveGeneral} className="space-y-6">
+        <form onSubmit={handleSaveGeneral} className="space-y-5">
           {/* Organization Profile */}
-          <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2.5">
-              <Building2 className="w-4 h-4 text-slate-600" />
+          <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
+            <div className="px-6 py-3.5 border-b border-slate-100 bg-white flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-slate-50 border border-slate-200/80 text-slate-600 flex items-center justify-center flex-shrink-0">
+                <Building2 className="w-3.5 h-3.5" />
+              </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Organization &amp; Agency Profile</h3>
+                <h3 className="text-sm font-semibold text-slate-900">Organization &amp; Agency Profile</h3>
                 <p className="text-[11px] text-slate-500">Company details displayed across submittals and outbound communications.</p>
               </div>
             </div>
@@ -295,12 +297,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
 
           {/* Regional & Staffing Policies */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2.5">
-                <Globe className="w-4 h-4 text-slate-600" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
+              <div className="px-6 py-3.5 border-b border-slate-100 bg-white flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-slate-50 border border-slate-200/80 text-slate-600 flex items-center justify-center flex-shrink-0">
+                  <Globe className="w-3.5 h-3.5" />
+                </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Regional &amp; Formatting</h3>
+                  <h3 className="text-sm font-semibold text-slate-900">Regional &amp; Formatting</h3>
                   <p className="text-[11px] text-slate-500">Default timezone, date display, and billing currency.</p>
                 </div>
               </div>
@@ -343,11 +347,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2.5">
-                <Clock className="w-4 h-4 text-slate-600" />
+            <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
+              <div className="px-6 py-3.5 border-b border-slate-100 bg-white flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-slate-50 border border-slate-200/80 text-slate-600 flex items-center justify-center flex-shrink-0">
+                  <Clock className="w-3.5 h-3.5" />
+                </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Staffing &amp; Billing Policies</h3>
+                  <h3 className="text-sm font-semibold text-slate-900">Staffing &amp; Billing Policies</h3>
                   <p className="text-[11px] text-slate-500">Default contract terms, billing calculation hours, and access rules.</p>
                 </div>
               </div>
@@ -415,7 +421,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               loading={savingGeneral}
               loadingText="Saving..."
               icon={<Save className="w-3.5 h-3.5" />}
-              className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-xs transition-colors cursor-pointer"
+              className="h-8 px-4 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-[11px] transition-colors cursor-pointer"
             >
               Save General Settings
             </ActionButton>
@@ -427,13 +433,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {!loading && aiUsage && aiUsage.allowByoKey && (
         <form
           onSubmit={(e) => handleSaveAiConfig(e)}
-          className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden text-xs"
+          className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs"
         >
-          <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3">
+          <div className="px-6 py-3.5 border-b border-slate-100 bg-white flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <AiMark size="sm" />
               <div>
-                <h3 className="text-sm font-bold text-slate-900">
+                <h3 className="text-sm font-semibold text-slate-900">
                   PipeAI &middot; Bring Your Own Key (BYO Key)
                 </h3>
                 <p className="text-[11px] text-slate-500">
@@ -538,7 +544,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 loading={savingAiConfig}
                 loadingText="Saving..."
                 icon={<Save className="w-3.5 h-3.5" />}
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg text-xs transition-colors cursor-pointer"
+                className="h-8 px-4 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-[11px] transition-colors cursor-pointer"
               >
                 Save AI Provider Key
               </ActionButton>

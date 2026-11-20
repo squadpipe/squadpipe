@@ -121,7 +121,7 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
     totals.submissions > 0 ? Math.round((totals.placements / totals.submissions) * 100) : 0;
 
   return (
-    <section className="max-w-7xl mx-auto space-y-6 animate-fade-in">
+    <section className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4 space-y-5 pb-8 animate-fade-in">
       <PageHeader
         title="Team Performance"
         subtitle="Administrator view of recruiter workload, submittal output, interview progress, and placement conversion rates."
@@ -147,7 +147,7 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
               disabled={isLoading}
               onClick={() => void fetchPerformance(period, true)}
               title="Refresh recruiter metrics"
-              className="h-8 px-3 rounded-lg border border-slate-200 bg-white text-slate-700 hover:text-brand-600 hover:bg-slate-50 disabled:opacity-60 inline-flex items-center gap-1.5 text-xs font-semibold transition-colors cursor-pointer"
+              className="h-8 px-3 rounded-lg border border-slate-200 bg-white text-slate-700 hover:text-brand-600 hover:bg-slate-50 disabled:opacity-60 inline-flex items-center gap-1.5 text-[11px] font-semibold transition-colors cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
@@ -157,25 +157,25 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
       />
 
       {/* 4-Column Team KPI Summary Strip */}
-      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 text-xs">
           <div className="px-6 py-4 space-y-1.5">
-            <div className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
               <Briefcase className="w-3.5 h-3.5 text-slate-400" />
               <span>Open Requisitions</span>
             </div>
-            <div className="text-lg font-bold text-slate-900 tabular-nums">
+            <div className="text-lg font-bold font-mono text-slate-900 tabular-nums">
               {totals.openReqs.toLocaleString()}
             </div>
             <div className="text-[11px] text-slate-500">Assigned active job orders</div>
           </div>
 
           <div className="px-6 py-4 space-y-1.5">
-            <div className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
               <Send className="w-3.5 h-3.5 text-brand-600" />
               <span>Candidate Submissions</span>
             </div>
-            <div className="text-lg font-bold text-slate-900 tabular-nums">
+            <div className="text-lg font-bold font-mono text-slate-900 tabular-nums">
               {totals.submissions.toLocaleString()}
             </div>
             <div className="text-[11px] text-slate-500">
@@ -188,11 +188,11 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
           </div>
 
           <div className="px-6 py-4 space-y-1.5">
-            <div className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
               <Users className="w-3.5 h-3.5 text-indigo-600" />
               <span>Interviews</span>
             </div>
-            <div className="text-lg font-bold text-slate-900 tabular-nums">
+            <div className="text-lg font-bold font-mono text-slate-900 tabular-nums">
               {totals.interviews.toLocaleString()}
             </div>
             <div className="text-[11px] text-slate-500">
@@ -201,13 +201,13 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
           </div>
 
           <div className="px-6 py-4 space-y-1.5">
-            <div className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
               <span>Placements &amp; Conversion</span>
             </div>
-            <div className="text-lg font-bold text-emerald-700 tabular-nums">
+            <div className="text-lg font-bold font-mono text-emerald-700 tabular-nums">
               {totals.placements.toLocaleString()}
-              <span className="ml-2 text-xs font-semibold text-slate-500">
+              <span className="ml-2 text-xs font-sans font-semibold text-slate-500">
                 ({teamPlacementRate}%)
               </span>
             </div>
@@ -217,10 +217,10 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
       </div>
 
       {/* Recruiter Scorecard Table */}
-      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
+        <div className="px-6 py-3.5 border-b border-slate-100 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="font-bold text-xs text-slate-900">
+            <h2 className="font-semibold text-xs text-slate-900">
               Recruiter Scorecard ({filteredTeam.length})
             </h2>
             <p className="text-[11px] text-slate-500 mt-0.5">
@@ -235,7 +235,7 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Filter by recruiter, role, or desk..."
-                className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white w-full sm:w-64 text-slate-700 focus:outline-none focus:border-brand-600"
+                className="h-8 pl-8 pr-3 text-xs border border-slate-200 rounded-lg bg-white w-full sm:w-64 text-slate-700 focus:outline-none focus:border-brand-600"
               />
             </div>
           )}
@@ -255,7 +255,7 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
             </div>
           ) : (
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              <thead className="bg-white border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                 <tr>
                   <SortableTableHeader
                     label="Recruiter"

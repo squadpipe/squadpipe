@@ -11,7 +11,7 @@ export interface DetailBreadcrumbProps {
 }
 
 /**
- * Shared breadcrumb bar matching RequirementDetailPage top chrome.
+ * Shared minimal editorial breadcrumb bar matching RequirementDetailPage top chrome.
  */
 export const DetailBreadcrumb: React.FC<DetailBreadcrumbProps> = ({
   backLabel,
@@ -19,31 +19,43 @@ export const DetailBreadcrumb: React.FC<DetailBreadcrumbProps> = ({
   title,
   codePill,
   rightSlot,
-}) => (
-  <div className="flex items-center justify-between gap-3 flex-wrap text-xs">
-    <div className="flex items-center gap-2 min-w-0">
-      <button
-        type="button"
-        onClick={onBack}
-        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer shrink-0"
-      >
-        <ArrowLeft className="w-3.5 h-3.5" />
-        <span>{backLabel}</span>
-      </button>
-      <span className="text-slate-300">/</span>
-      {codePill && (
-        <>
-          <span className="text-[11px] font-mono font-bold text-slate-700 bg-white border border-slate-300 px-2 py-0.5 rounded-md shrink-0">
-            {codePill}
-          </span>
-          <span className="text-slate-300">/</span>
-        </>
-      )}
-      <span className="text-[11px] font-semibold text-slate-800 truncate">{title}</span>
-    </div>
-    {rightSlot && <div className="flex items-center gap-2 shrink-0">{rightSlot}</div>}
-  </div>
-);
+}) => {
+  const shortBackLabel = backLabel.replace(/^Back to\s+/i, '').trim() || backLabel;
+  const crumbTail = codePill || title;
+
+  return (
+    <nav
+      aria-label="Breadcrumb"
+      className="flex items-center justify-between gap-3 flex-wrap text-xs text-slate-500"
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-1.5 text-slate-500 hover:text-slate-900 font-medium transition-colors cursor-pointer shrink-0"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>{shortBackLabel}</span>
+        </button>
+        {crumbTail && (
+          <>
+            <span className="text-slate-300">/</span>
+            <span
+              className={`truncate ${
+                codePill
+                  ? 'font-mono font-semibold text-slate-800'
+                  : 'font-medium text-slate-800'
+              }`}
+            >
+              {crumbTail}
+            </span>
+          </>
+        )}
+      </div>
+      {rightSlot && <div className="flex items-center gap-2 shrink-0">{rightSlot}</div>}
+    </nav>
+  );
+};
 
 export interface DetailTabItem<T extends string = string> {
   id: T;
@@ -136,9 +148,9 @@ interface DetailExpandableSkillsBarProps {
  * Expandable skill tags bar rendered inline inside summary/overview cards or standalone.
  */
 export const DetailExpandableSkillsBar: React.FC<DetailExpandableSkillsBarProps> = ({
-  label = 'Skills:',
+  label = 'Skills',
   skills,
-  initialVisibleCount = 10,
+  initialVisibleCount = 4,
   editLabel = 'Edit skills',
   onEdit,
   embedded = false,
@@ -149,18 +161,19 @@ export const DetailExpandableSkillsBar: React.FC<DetailExpandableSkillsBarProps>
 
   const visible = expanded ? skills : skills.slice(0, initialVisibleCount);
   const hiddenCount = skills.length - initialVisibleCount;
+  const formattedLabel = label.replace(/:+$/, '');
 
   return (
     <div
       className={
         embedded
           ? 'border-t border-slate-100 bg-white px-6 py-3.5 flex items-start justify-between gap-4 text-xs'
-          : 'bg-white rounded-xl border border-slate-200/80 card-shadow px-6 py-3.5 flex items-start justify-between gap-4 text-xs'
+          : 'bg-white rounded-xl border border-slate-200/90 card-shadow px-6 py-3.5 flex items-start justify-between gap-4 text-xs'
       }
     >
       <div className="flex items-start gap-2.5 flex-wrap sm:flex-nowrap flex-1 min-w-0">
-        <span className="h-6 inline-flex items-center text-[11px] font-semibold text-slate-500 shrink-0 whitespace-nowrap">
-          {label}
+        <span className="h-6 inline-flex items-center text-[11px] font-semibold uppercase tracking-wider text-slate-400 shrink-0 whitespace-nowrap">
+          {formattedLabel}
         </span>
         {skills.length === 0 ? (
           <span className="h-6 inline-flex items-center text-[11px] text-slate-400">
@@ -188,7 +201,7 @@ export const DetailExpandableSkillsBar: React.FC<DetailExpandableSkillsBarProps>
         <button
           type="button"
           onClick={onEdit}
-          className="h-6 inline-flex items-center gap-1 text-[11px] font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer shrink-0 whitespace-nowrap"
+          className="h-6 inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 cursor-pointer shrink-0 whitespace-nowrap transition-colors"
         >
           <Pencil className="w-3 h-3" />
           <span>{editLabel}</span>

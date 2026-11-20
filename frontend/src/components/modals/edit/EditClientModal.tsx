@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Building2, X } from 'lucide-react';
+import { Building2 } from 'lucide-react';
 import { apiClient } from '../../../config/api.config';
 import { Client } from '../../../types';
 import { ActionButton } from '../../shared/ActionButton';
 import { DynamicCustomFieldsSection } from '../../shared/DynamicCustomFieldsSection';
-import { AnimatedModal } from '../../shared/MotionPrimitives';
+import { AnimatedModal, ModalHeader } from '../../shared/MotionPrimitives';
 import {
   formatMissingFieldsMessage,
   getMissingFieldLabels,
@@ -97,26 +97,13 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
     >
       {client && (
         <>
-        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shrink-0">
-              <Building2 className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-sm font-bold text-white truncate">Edit Client Account</h2>
-              <div className="text-[11px] text-slate-400 mt-0.5 truncate">{client.name}</div>
-            </div>
-          </div>
-          <button
-            type="button"
-            disabled={isSaving}
-            onClick={onClose}
-            aria-label="Close modal"
-            className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        <ModalHeader
+          icon={<Building2 className="w-4 h-4" />}
+          title="Edit Client Account"
+          subtitle={client.name}
+          onClose={onClose}
+          closeDisabled={isSaving}
+        />
 
         <form noValidate onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
           <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
@@ -186,12 +173,12 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
             />
           </div>
 
-          <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
+          <div className="px-6 py-3.5 bg-slate-50/60 border-t border-slate-100 flex items-center justify-end gap-2 shrink-0">
             <button
               type="button"
               disabled={isSaving}
               onClick={onClose}
-              className="px-3.5 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
+              className="h-8 px-3.5 border border-slate-200 bg-white rounded-lg text-[11px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
             >
               Cancel
             </button>
@@ -199,7 +186,7 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
               type="submit"
               loading={isSaving}
               loadingText="Saving..."
-              className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
+              className="h-8 px-4 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-[11px] font-semibold cursor-pointer inline-flex items-center"
             >
               Save Changes
             </ActionButton>

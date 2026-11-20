@@ -19,14 +19,14 @@ import {
   Trash2,
   UserCheck,
   Users,
-  X,
 } from 'lucide-react';
 import { BillablePlacement, Candidate, SlaTask, Vendor } from '../../types';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { ConfirmDeleteModal } from '../../components/shared/ConfirmDeleteModal';
 import { CustomSelect } from '../../components/shared/CustomSelect';
-import { AnimatedModal } from '../../components/shared/MotionPrimitives';
+import { AnimatedModal, ModalHeader } from '../../components/shared/MotionPrimitives';
+import { getInitials } from '../../utils/entityMappers';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { MaskedValue } from '../../components/shared/MaskedValue';
@@ -259,29 +259,23 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
     },
   ];
 
+  const primaryContactName =
+    primaryContact?.fullName || vendor.contactName || 'No primary contact';
+  const contactInitials = getInitials(primaryContactName, 'VC');
+
   return (
-    <section className="max-w-7xl mx-auto space-y-6 pb-6 animate-fade-in">
+    <section className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4 space-y-5 pb-8 animate-fade-in">
       <DetailBreadcrumb
         backLabel={backLabel}
         onBack={onBack}
         title={vendor.name}
-        rightSlot={
-          <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600">
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                isMsaExecuted ? 'bg-emerald-500' : 'bg-amber-500'
-              }`}
-            />
-            <span>{isMsaExecuted ? 'MSA Executed' : 'MSA Pending Review'}</span>
-          </div>
-        }
       />
 
       {/* Bare Canvas Entity Title & Actions */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-        <div className="min-w-0 flex-1 space-y-1">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex items-center gap-2.5 flex-wrap">
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight leading-snug">
+            <h1 className="text-lg sm:text-[19px] font-semibold text-slate-900 tracking-tight leading-snug">
               {vendor.name}
             </h1>
             <StatusBadge
@@ -290,10 +284,18 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
               size="xs"
             />
           </div>
-          <p className="text-xs text-slate-500 truncate">
-            <span>{vendor.location || 'Sub-Tier Staffing Partner'}</span>
-            {primaryContact?.fullName && <span> &middot; Contact: {primaryContact.fullName}</span>}
-          </p>
+          <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-xs text-slate-500">
+            <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
+              <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span>{vendor.location || 'Sub-Tier Staffing Partner'}</span>
+            </span>
+            {primaryContact?.fullName && (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="text-slate-300" aria-hidden="true">&middot;</span>
+                <span>Contact: {primaryContact.fullName}</span>
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
@@ -301,9 +303,9 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
             <button
               type="button"
               onClick={openEditModal}
-              className="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <Pencil className="w-3.5 h-3.5" />
+              <Pencil className="w-3 h-3" />
               <span>Edit Vendor</span>
             </button>
           )}
@@ -311,30 +313,39 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
       </div>
 
       {/* Standalone 4-Column Summary Card + Embedded Specializations */}
-      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 text-xs">
           {/* 1. Location & Primary Contact */}
-          <div className="px-6 py-4 space-y-1.5 min-w-0">
-            <div className="text-xs font-medium text-slate-500">Location &amp; Contact</div>
-            <div className="font-semibold text-slate-900 flex items-start gap-1.5 leading-snug">
-              <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-              <span className="break-words">{vendor.location || 'Location not specified'}</span>
+          <div className="px-6 py-4 space-y-2.5 min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Primary contact
             </div>
-            <div className="text-[11px] text-slate-500 leading-snug break-words">
-              {primaryContact?.email ? (
-                <a href={`mailto:${primaryContact.email}`} className="hover:text-brand-600 break-all">
-                  {primaryContact.fullName ? `${primaryContact.fullName} · ` : ''}
-                  {primaryContact.email}
-                </a>
-              ) : (
-                primaryContact?.fullName || 'No primary contact listed'
-              )}
+            <div className="flex items-start gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-700 font-semibold text-[11px] flex items-center justify-center shrink-0">
+                {contactInitials}
+              </div>
+              <div className="min-w-0">
+                <div className="font-semibold text-slate-900 leading-snug break-words">
+                  {primaryContactName}
+                </div>
+                <div className="text-[11px] text-slate-500 leading-snug break-words mt-0.5">
+                  {primaryContact?.email ? (
+                    <a href={`mailto:${primaryContact.email}`} className="hover:text-brand-600 break-all">
+                      {primaryContact.email}
+                    </a>
+                  ) : (
+                    vendor.location || 'Email not listed'
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
           {/* 2. Agreement & Compliance */}
-          <div className="px-6 py-4 space-y-1.5 min-w-0">
-            <div className="text-xs font-medium text-slate-500">Compliance &amp; COI</div>
+          <div className="px-6 py-4 space-y-2 min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Compliance &amp; COI
+            </div>
             <div className="font-semibold text-slate-900 flex items-center gap-1.5 leading-snug">
               <ShieldCheck
                 className={`w-3.5 h-3.5 shrink-0 ${
@@ -363,8 +374,10 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
           </div>
 
           {/* 3. Payment & Invoicing */}
-          <div className="px-6 py-4 space-y-1.5 min-w-0">
-            <div className="text-xs font-medium text-slate-500">Payment Terms</div>
+          <div className="px-6 py-4 space-y-2 min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Payment terms
+            </div>
             <div className="font-semibold text-slate-900 leading-snug break-words">
               {vendor.paymentTerms || 'Not specified'}
             </div>
@@ -377,11 +390,20 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
           </div>
 
           {/* 4. Bench & Est. Monthly Payout */}
-          <div className="px-6 py-4 space-y-1.5 min-w-0">
-            <div className="text-xs font-medium text-slate-500">Bench &amp; Active C2C</div>
-            <div className="font-semibold text-slate-900 leading-snug">
-              {vendorCandidates.length} Consultants &middot;{' '}
-              <span className="text-emerald-700">{activeVendorPlacements.length} Active C2C</span>
+          <div className="px-6 py-4 space-y-2 min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Bench &amp; active C2C
+            </div>
+            <div className="flex items-baseline gap-1.5 flex-wrap leading-none">
+              <span className="text-lg font-bold font-mono text-slate-900 tabular-nums">
+                {vendorCandidates.length}
+              </span>
+              <span className="text-[11px] text-slate-500 font-medium">
+                bench &middot;{' '}
+                <strong className="font-semibold text-emerald-700">
+                  {activeVendorPlacements.length} active
+                </strong>
+              </span>
             </div>
             <div className="text-[11px] text-slate-500 leading-snug">
               Est. Payout:{' '}
@@ -401,8 +423,9 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
 
         <DetailExpandableSkillsBar
           embedded
-          label="Specializations:"
+          label="SPECIALIZATIONS"
           skills={specializations}
+          initialVisibleCount={4}
           editLabel="Edit skills"
           onEdit={onUpdateVendor ? openEditModal : undefined}
         />
@@ -420,8 +443,8 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
       {workspaceTab === 'consultants' && (
         <div className="space-y-6">
 
-          <section className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <section className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs">
+            <div className="px-6 py-4 border-b border-slate-100 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <UserCheck className="w-3.5 h-3.5 text-brand-600" />
                 <h2 className="font-bold text-slate-900">
@@ -430,13 +453,13 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
               </div>
               {vendorCandidates.length > 0 && (
                 <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="text"
                     value={candidateSearch}
                     onChange={(e) => setCandidateSearch(e.target.value)}
                     placeholder="Filter consultants or skills..."
-                    className="pl-8 pr-3 py-1 text-xs border border-slate-200 rounded-lg bg-white w-full sm:w-56 text-slate-700 focus:outline-none focus:border-brand-600"
+                    className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white w-full sm:w-56 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-brand-600"
                   />
                 </div>
               )}
@@ -460,7 +483,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
               <>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    <thead className="bg-white border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                       <tr>
                         <SortableTableHeader
                           label="Consultant"
@@ -554,8 +577,8 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
 
       {/* TAB 2: Vendor Contacts */}
       {workspaceTab === 'contacts' && (
-        <section className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
+        <section className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs">
+          <div className="px-6 py-4 border-b border-slate-100 bg-white flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Users className="w-3.5 h-3.5 text-brand-600" />
               <h2 className="font-bold text-slate-900">Vendor Contacts ({contactList.length})</h2>
@@ -579,7 +602,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  <thead className="bg-white border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     <tr>
                       <SortableTableHeader
                         label="Contact"
@@ -676,8 +699,8 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
 
       {/* TAB 3: Associated C2C Placements */}
       {workspaceTab === 'placements' && (
-        <section className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+        <section className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs">
+          <div className="px-6 py-4 border-b border-slate-100 bg-white flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Briefcase className="w-3.5 h-3.5 text-brand-600" />
               <h2 className="font-bold text-slate-900">
@@ -693,7 +716,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  <thead className="bg-white border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     <tr>
                       <SortableTableHeader
                         label="Consultant"
@@ -798,8 +821,8 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
       {/* TAB 4: Agreement & Terms */}
       {workspaceTab === 'terms' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          <div className="lg:col-span-8 bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
+          <div className="lg:col-span-8 bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs">
+            <div className="px-6 py-4 border-b border-slate-100 bg-white flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-600" />
                 <div>
@@ -927,8 +950,8 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
             </div>
 
             {customFieldEntries.length > 0 && (
-              <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-                <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+              <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs">
+                <div className="px-5 py-3.5 border-b border-slate-100 bg-white flex items-center gap-2">
                   <Layers className="w-3.5 h-3.5 text-brand-600" />
                   <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
                     Custom Attributes
@@ -1055,51 +1078,33 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
 
           return (
             <>
-              <div className="px-6 py-4 bg-[#141615] text-white flex items-center justify-between gap-3 border-b border-white/10 shrink-0">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                      isFormCompliant
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-amber-500 text-slate-950'
-                    }`}
-                  >
-                    {isFormCompliant ? (
-                      <ShieldCheck className="w-4 h-4" />
-                    ) : (
-                      <ShieldAlert className="w-4 h-4" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h2 className="text-sm font-bold text-white">Vendor Compliance Audit</h2>
-                      {auditCoiDays !== null && auditCoiDays <= 30 && (
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                            auditCoiDays < 0
-                              ? 'bg-rose-500/20 text-rose-200 border border-rose-400/30'
-                              : 'bg-amber-500/20 text-amber-200 border border-amber-400/30'
-                          }`}
-                        >
-                          {auditCoiDays < 0
-                            ? 'Insurance Expired'
-                            : `Insurance Expiring (${auditCoiDays}d)`}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-slate-400 truncate mt-0.5">{vendor.name}</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  disabled={isSavingAudit}
-                  onClick={closeAudit}
-                  aria-label="Close audit modal"
-                  className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+              <ModalHeader
+                icon={
+                  isFormCompliant ? (
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  ) : (
+                    <ShieldAlert className="w-4 h-4 text-amber-600" />
+                  )
+                }
+                title="Vendor Compliance Audit"
+                subtitle={vendor.name}
+                badges={
+                  auditCoiDays !== null && auditCoiDays <= 30 ? (
+                    <StatusBadge
+                      size="xs"
+                      tone={auditCoiDays < 0 ? 'rose' : 'amber'}
+                      label={
+                        auditCoiDays < 0
+                          ? 'Insurance Expired'
+                          : `Insurance Expiring (${auditCoiDays}d)`
+                      }
+                    />
+                  ) : undefined
+                }
+                onClose={closeAudit}
+                closeDisabled={isSavingAudit}
+                closeAriaLabel="Close audit modal"
+              />
 
               <form onSubmit={handleSaveAudit} className="flex flex-col flex-1 overflow-hidden">
                 <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
@@ -1267,7 +1272,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
                   )}
                 </div>
 
-                <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2 shrink-0">
+                <div className="px-6 py-3.5 bg-slate-50/60 border-t border-slate-100 flex items-center justify-between gap-2 shrink-0">
                   {onUpdateVendor ? (
                     <button
                       type="button"
@@ -1291,7 +1296,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
                       type="button"
                       disabled={isSavingAudit}
                       onClick={closeAudit}
-                      className="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold cursor-pointer disabled:opacity-60"
+                      className="h-8 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold cursor-pointer disabled:opacity-60"
                     >
                       Close
                     </button>
@@ -1301,7 +1306,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
                         loading={isSavingAudit}
                         loadingText="Saving Audit..."
                         icon={<Check className="w-3.5 h-3.5" />}
-                        className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold cursor-pointer"
+                        className="h-8 px-4 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold cursor-pointer inline-flex items-center"
                       >
                         Save Audit &amp; Update Terms
                       </ActionButton>

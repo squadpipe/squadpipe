@@ -274,16 +274,16 @@ export const ConsultantCreatePage: React.FC<ConsultantCreatePageProps> = ({
 
   if (isEdit && !initialCandidate) {
     return (
-      <section className="max-w-3xl mx-auto py-16 text-center space-y-4">
-        <div className="bg-white rounded-xl border border-slate-200 p-8 card-shadow space-y-3">
-          <h2 className="text-base font-bold text-slate-900">Consultant Not Found</h2>
+      <section className="max-w-3xl mx-auto px-1 sm:px-2 lg:px-4 py-16 text-center space-y-4">
+        <div className="bg-white rounded-xl border border-slate-200/90 p-8 card-shadow space-y-3">
+          <h2 className="text-base font-semibold text-slate-900">Consultant Not Found</h2>
           <p className="text-xs text-slate-500">
             This consultant profile may have been deleted or could not be loaded.
           </p>
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 cursor-pointer"
+            className="h-8 inline-flex items-center gap-1.5 px-3.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-[11px] font-semibold hover:bg-slate-50 cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>{backLabel}</span>
@@ -294,7 +294,7 @@ export const ConsultantCreatePage: React.FC<ConsultantCreatePageProps> = ({
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-6 animate-fade-in">
+    <div className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4 space-y-5 pb-8 animate-fade-in">
       <DetailBreadcrumb
         backLabel={backLabel}
         onBack={() => guardNavigation(onBack)}
@@ -306,7 +306,7 @@ export const ConsultantCreatePage: React.FC<ConsultantCreatePageProps> = ({
               type="button"
               disabled={isSaving}
               onClick={() => guardNavigation(onBack)}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+              className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-50"
             >
               Cancel
             </button>
@@ -315,7 +315,7 @@ export const ConsultantCreatePage: React.FC<ConsultantCreatePageProps> = ({
               onClick={() => handleSubmit()}
               loading={isSaving}
               loadingText="Saving..."
-              className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold transition-colors cursor-pointer"
+              className="h-8 px-3.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold transition-colors cursor-pointer"
             >
               {isEdit ? 'Save Changes' : 'Save Consultant'}
             </ActionButton>
@@ -344,7 +344,7 @@ export const ConsultantCreatePage: React.FC<ConsultantCreatePageProps> = ({
             <button
               type="button"
               onClick={() => guardNavigation(onOpenResumeParser)}
-              className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-teal-200 text-slate-700 hover:text-slate-900 font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="h-8 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-teal-200 text-slate-700 hover:text-slate-900 text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <AiIcon className="w-3.5 h-3.5 text-teal-600 shrink-0" />
               <span>Upload &amp; Parse Resume</span>
@@ -357,11 +357,11 @@ export const ConsultantCreatePage: React.FC<ConsultantCreatePageProps> = ({
       <form
         noValidate
         onSubmit={handleSubmit}
-        className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start"
+        className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start"
       >
-        <div className="lg:col-span-8 space-y-6 text-xs">
+        <div className="lg:col-span-8 space-y-5 text-xs">
           {/* Card 1: Identity & Authorization */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 card-shadow space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200/90 p-5 card-shadow space-y-4">
             <div className="pb-3 border-b border-slate-100">
               <h2 className="text-sm font-semibold text-slate-900">Identity &amp; authorization</h2>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -475,7 +475,7 @@ export const ConsultantCreatePage: React.FC<ConsultantCreatePageProps> = ({
           </div>
 
           {/* Card 2: Rates, Skills & Desk Ownership */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 card-shadow space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200/90 p-5 card-shadow space-y-4">
             <div className="pb-3 border-b border-slate-100">
               <h2 className="text-sm font-semibold text-slate-900">Skills, rates &amp; ownership</h2>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -549,8 +549,8 @@ export const ConsultantCreatePage: React.FC<ConsultantCreatePageProps> = ({
         </div>
 
         {/* Sticky Right Card: Resume File + Summary + Custom Attributes */}
-        <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-4 text-xs">
-          <div className="bg-white rounded-xl border border-slate-200 p-6 card-shadow space-y-4">
+        <div className="lg:col-span-4 space-y-5 lg:sticky lg:top-4 text-xs">
+          <div className="bg-white rounded-xl border border-slate-200/90 p-5 card-shadow space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2 font-semibold text-slate-900 text-sm">
                 <UserCheck className="w-4 h-4 text-brand-600" />

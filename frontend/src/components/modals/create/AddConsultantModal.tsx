@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Loader2, Plus, Trash2, Upload, UserPlus, X } from 'lucide-react';
+import { FileText, Loader2, Plus, Trash2, Upload, UserPlus } from 'lucide-react';
 import { Candidate, User, Vendor } from '../../../types';
 import { DynamicCustomFieldsSection, useMasterTaxonomies } from '../../shared/DynamicCustomFieldsSection';
 import { CustomSelect } from '../../shared/CustomSelect';
 import { useCurrency } from '../../../utils/currency';
 import { ALLOWED_CV_ACCEPT, validateCvFileSelection } from '../../../utils/cvFiles';
-import { AnimatedModal } from '../../shared/MotionPrimitives';
+import { AnimatedModal, ModalHeader } from '../../shared/MotionPrimitives';
 import {
   formatMissingFieldsMessage,
   getMissingFieldLabels,
@@ -147,29 +147,13 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
       panelClassName="bg-white rounded-xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
       ariaLabel="Add New Consultant Profile"
     >
-        {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#141615] text-white">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white flex-shrink-0">
-              <UserPlus className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-white">
-                Add New Consultant Profile
-              </h2>
-              <div className="text-[11px] text-slate-400 mt-0.5">
-                Register candidate details, work authorization, hourly rates, and technical skillsets.
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            aria-label="Close modal"
-            className="text-slate-400 hover:text-white w-7 h-7 rounded flex items-center justify-center transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        <ModalHeader
+          icon={<UserPlus className="w-4 h-4" />}
+          title="Add New Consultant Profile"
+          subtitle="Register candidate details, work authorization, hourly rates, and technical skillsets."
+          onClose={onClose}
+          closeDisabled={isSaving}
+        />
 
         {/* Modal Body Form */}
         <form noValidate onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
@@ -386,18 +370,18 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
           </div>
 
           {/* Modal Footer */}
-          <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs">
+          <div className="px-6 py-3.5 bg-slate-50/60 border-t border-slate-100 flex items-center justify-between text-xs shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-white text-xs font-medium transition-colors cursor-pointer"
+              className="h-8 px-3.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-[11px] font-semibold transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSaving}
-              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="h-8 px-4 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:opacity-60 disabled:cursor-not-allowed text-white text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               {isSaving ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
