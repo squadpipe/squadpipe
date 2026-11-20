@@ -70,18 +70,19 @@ const VIEW_TO_STATIC_PATH: Record<string, string> = {
 };
 
 const VIEW_TITLE_LABELS: Record<string, string> = {
-  dashboard: 'Dashboard Overview',
-  pipeline: 'Opportunity Pipeline',
-  requirement_new: 'New Requirement',
+  dashboard: 'Dashboard',
+  pipeline: 'Pipeline',
+  requirement_new: 'New Job Requirement',
   requirement_edit: 'Edit Requirement',
   requirement_from_email: 'Create Job from Email',
   requirement_detail: 'Requirement Details',
-  consultants: 'Consultant Directory',
-  consultant_new: 'New Consultant',
+  consultants: 'Consultants',
+  consultant_new: 'Add Consultant',
+  consultant_edit: 'Edit Consultant Profile',
   consultant_detail: 'Consultant Profile',
-  clients: 'Client Directory',
+  clients: 'Clients',
   client_detail: 'Client Details',
-  vendors: 'Staffing Vendors',
+  vendors: 'Vendors',
   vendor_detail: 'Vendor Details',
   billable: 'Billable Consultants',
   placement_new: 'New Billable Placement',
@@ -92,13 +93,13 @@ const VIEW_TITLE_LABELS: Record<string, string> = {
   application_form_edit: 'Edit Application Form',
   custom_fields: 'Custom Form Fields',
   dropdown_lists: 'Master Dropdown Lists',
-  import_data: 'Import Candidates & Resumes',
-  import_resume: 'Resume Parser & Import',
-  import_csv: 'Spreadsheet Candidate Import',
+  import_data: 'Import Data',
+  import_resume: 'Upload Resumes',
+  import_csv: 'Import from Spreadsheet',
   team_performance: 'Team Performance',
-  usage: 'Workspace Usage & Storage',
+  usage: 'Usage & Storage',
   settings_general: 'General Settings',
-  user_management: 'User Management',
+  user_management: 'Team Members',
 };
 
 function safeDecodeSegment(segment: string): string {
@@ -142,6 +143,7 @@ export function parseAppRoute(pathname: string, search?: string): ParsedAppRoute
   const detailPatterns: Array<[RegExp, string]> = [
     [/^\/requirements\/([^/]+)\/edit$/i, 'requirement_edit'],
     [/^\/requirements\/([^/]+)$/i, 'requirement_detail'],
+    [/^\/(?:consultants|candidates)\/([^/]+)\/edit$/i, 'consultant_edit'],
     [/^\/(?:consultants|candidates)\/([^/]+)$/i, 'consultant_detail'],
     [/^\/clients\/([^/]+)$/i, 'client_detail'],
     [/^\/vendors\/([^/]+)$/i, 'vendor_detail'],
@@ -176,6 +178,9 @@ export function buildAppPath(
       break;
     case 'requirement_detail':
       basePath = id ? `/requirements/${id}` : '/pipeline';
+      break;
+    case 'consultant_edit':
+      basePath = id ? `/consultants/${id}/edit` : '/consultants';
       break;
     case 'consultant_detail':
       basePath = id ? `/consultants/${id}` : '/consultants';

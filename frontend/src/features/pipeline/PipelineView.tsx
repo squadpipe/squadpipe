@@ -249,6 +249,7 @@ interface PipelineViewProps {
   onOpenPlacementWizard: (req: Requirement) => void;
   onSelectReq?: (req: Requirement) => void;
   onOpenAddReq?: () => void;
+  onEditReq?: (req: Requirement) => void;
   onUpdateReq?: (req: Requirement) => void;
   onDeleteReq?: (req: Requirement) => void;
 }
@@ -263,6 +264,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
   onOpenPlacementWizard,
   onSelectReq,
   onOpenAddReq,
+  onEditReq,
   onUpdateReq,
   onDeleteReq,
 }) => {
@@ -1049,10 +1051,16 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             onPointerDown={(e) => e.stopPropagation()}
             className="flex items-center gap-1 flex-shrink-0"
           >
-            {onUpdateReq && (
+            {(onEditReq || onUpdateReq) && (
               <button
                 type="button"
-                onClick={() => setEditingReq({ ...req })}
+                onClick={() => {
+                  if (onEditReq) {
+                    onEditReq(req);
+                    return;
+                  }
+                  setEditingReq({ ...req });
+                }}
                 title="Edit requirement"
                 aria-label="Edit requirement"
                 className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 opacity-0 group-hover/card:opacity-100 focus:opacity-100 transition-all cursor-pointer"
@@ -1102,9 +1110,9 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
       {/* Header matching Prototype */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-slate-900 tracking-tight">Recruitment Pipeline</h2>
+          <h1 className="text-lg font-bold text-slate-900 tracking-tight">Pipeline</h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Track candidate submissions across the 5 standard recruitment lifecycle stages.
+            Track open job requirements and candidate submissions across stages.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -1451,9 +1459,15 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                         >
                           Match
                         </button>
-                        {onUpdateReq && (
+                        {(onEditReq || onUpdateReq) && (
                           <button
-                            onClick={() => setEditingReq({ ...req })}
+                            onClick={() => {
+                              if (onEditReq) {
+                                onEditReq(req);
+                                return;
+                              }
+                              setEditingReq({ ...req });
+                            }}
                             title="Edit requirement"
                             className="ml-1.5 p-1 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer"
                           >

@@ -73,8 +73,8 @@ export const CsvImportPage: React.FC<CsvImportPageProps> = ({
       <PageHeader
         title={
           lockedRequirement
-            ? `Import Spreadsheet Candidates to ${lockedRequirement.code}`
-            : 'Import Candidates from Spreadsheet'
+            ? `Import Spreadsheet to ${lockedRequirement.code}`
+            : 'Import from Spreadsheet'
         }
         subtitle={`Upload a CSV or Excel export, inspect mapped ${brandName} CRM columns and sample rows, and import directly.`}
         actions={

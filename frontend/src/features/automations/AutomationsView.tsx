@@ -335,7 +335,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2.5">
-            <h2 className="text-lg font-bold text-slate-900 tracking-tight">Smart Reminders</h2>
+            <h1 className="text-lg font-bold text-slate-900 tracking-tight">Smart Reminders</h1>
             <StatusBadge
               label={`${activeCount} of ${REMINDER_PRESETS.length} On`}
               tone="emerald"

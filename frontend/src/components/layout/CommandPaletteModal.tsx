@@ -179,7 +179,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       {
         id: 'nav_dashboard',
         group: 'Pages',
-        label: 'Dashboard Overview',
+        label: 'Dashboard',
         keywords: 'home overview kpi metrics dashboard',
         icon: <ChartPieSlice className="w-4 h-4 text-slate-500" />,
         onSelect: () => onNavigate('dashboard'),
@@ -187,7 +187,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       {
         id: 'nav_pipeline',
         group: 'Pages',
-        label: 'Opportunity Pipeline',
+        label: 'Pipeline',
         keywords: 'kanban board requirements orders pipeline',
         icon: <Kanban className="w-4 h-4 text-slate-500" />,
         onSelect: () => onNavigate('pipeline'),
@@ -195,7 +195,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       {
         id: 'nav_consultants',
         group: 'Pages',
-        label: 'Consultant Directory',
+        label: 'Consultants',
         keywords: 'roster candidates talent bench consultants',
         icon: <Users className="w-4 h-4 text-slate-500" />,
         onSelect: () => onNavigate('consultants'),
@@ -203,7 +203,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       {
         id: 'nav_clients',
         group: 'Pages',
-        label: 'Client Directory',
+        label: 'Clients',
         keywords: 'clients accounts companies',
         icon: <Buildings className="w-4 h-4 text-slate-500" />,
         onSelect: () => onNavigate('clients'),
@@ -211,7 +211,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       {
         id: 'nav_vendors',
         group: 'Pages',
-        label: 'Staffing Vendors',
+        label: 'Vendors',
         keywords: 'vendors partners c2c suppliers',
         icon: <Handshake className="w-4 h-4 text-slate-500" />,
         onSelect: () => onNavigate('vendors'),

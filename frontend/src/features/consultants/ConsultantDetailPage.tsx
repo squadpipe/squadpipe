@@ -71,7 +71,8 @@ interface ConsultantDetailPageProps {
   onOpenRequirement?: (req: Requirement) => void;
   onSelectPlacement?: (placement: BillablePlacement) => void;
   onOpenVendor?: (vendor: Vendor) => void;
-  onUpdateCandidate?: (candidate: Candidate, cvFile?: File | null) => Promise<void> | void;
+  onUpdateCandidate?: (candidate: Candidate, cvFile?: File | null) => Promise<Candidate | void> | void;
+  onEditCandidate?: (candidate: Candidate) => void;
   onDeleteCandidate?: (candidate: Candidate) => Promise<void> | void;
   onNavigateToBillable?: () => void;
   showToast: (title: string, message: string, icon?: string) => void;
@@ -109,6 +110,7 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
   onSelectPlacement,
   onOpenVendor,
   onUpdateCandidate,
+  onEditCandidate,
   onDeleteCandidate,
   onNavigateToBillable,
   showToast,
@@ -436,10 +438,16 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
-            {onUpdateCandidate && (
+            {(onEditCandidate || onUpdateCandidate) && (
               <button
                 type="button"
-                onClick={() => setIsEditing(true)}
+                onClick={() => {
+                  if (onEditCandidate) {
+                    onEditCandidate(candidate);
+                    return;
+                  }
+                  setIsEditing(true);
+                }}
                 className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Pencil className="w-3.5 h-3.5" />
@@ -704,7 +712,13 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
               label="Core Skills:"
               skills={skills}
               editLabel="Edit skills"
-              onEdit={onUpdateCandidate ? () => setIsEditing(true) : undefined}
+              onEdit={
+                onEditCandidate
+                  ? () => onEditCandidate(candidate)
+                  : onUpdateCandidate
+                    ? () => setIsEditing(true)
+                    : undefined
+              }
             />
 
             <div className="p-6 space-y-3 border-t border-slate-100">

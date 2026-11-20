@@ -324,7 +324,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         },
         {
           view: 'usage',
-          label: 'Usage',
+          label: 'Usage & Storage',
           icon: HardDrive,
           restricted: !isAdmin,
           tooltip: !isAdmin ? 'Restricted to Administrators' : 'Storage Usage & AI Quota Details',
@@ -340,10 +340,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         },
         {
           view: 'user_management',
-          label: 'User Management',
+          label: 'Team Members',
           icon: UserGear,
           restricted: !isAdmin,
-          tooltip: !isAdmin ? 'Restricted to Administrators' : 'Manage Users & Permissions',
+          tooltip: !isAdmin ? 'Restricted to Administrators' : 'Manage Team Members & Permissions',
           badge: isAdmin ? (
             <span className="text-[11px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded-md tabular-nums">
               {counts.users} Users

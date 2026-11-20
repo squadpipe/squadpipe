@@ -76,8 +76,8 @@ export const ResumeImportPage: React.FC<ResumeImportPageProps> = ({
       <PageHeader
         title={
           lockedRequirement
-            ? `Add Consultants from Resumes to ${lockedRequirement.code}`
-            : 'Add Consultant from Resume'
+            ? `Upload Resumes to ${lockedRequirement.code}`
+            : 'Upload Resumes'
         }
         subtitle={
           mode === 'bulk'

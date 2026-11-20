@@ -233,7 +233,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
       {/* Clean Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-slate-900 tracking-tight">Team Members</h2>
+          <h1 className="text-lg font-bold text-slate-900 tracking-tight">Team Members</h1>
           <p className="text-xs text-slate-500 mt-0.5">
             Manage team roles, assigned desks, and rate visibility.
           </p>

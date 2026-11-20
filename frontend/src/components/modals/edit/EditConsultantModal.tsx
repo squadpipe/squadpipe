@@ -29,7 +29,7 @@ interface EditConsultantModalProps {
   vendors?: Vendor[];
   rateMasked?: boolean;
   onClose: () => void;
-  onUpdateCandidate: (candidate: Candidate, cvFile?: File | null) => Promise<void> | void;
+  onUpdateCandidate: (candidate: Candidate, cvFile?: File | null) => Promise<Candidate | void> | void;
 }
 
 export const EditConsultantModal: React.FC<EditConsultantModalProps> = ({

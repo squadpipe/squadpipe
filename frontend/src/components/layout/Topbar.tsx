@@ -14,7 +14,7 @@ import {
 import { AnimatedPopover } from '../shared/MotionPrimitives';
 
 interface TopbarProps {
-  currentView: string;
+  currentView?: string;
   canCreatePlacement?: boolean;
   onOpenMobileMenu?: () => void;
   onOpenCommandPalette?: () => void;
@@ -22,7 +22,6 @@ interface TopbarProps {
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
-  currentView,
   canCreatePlacement = true,
   onOpenMobileMenu,
   onOpenCommandPalette,
@@ -30,75 +29,10 @@ export const Topbar: React.FC<TopbarProps> = ({
 }) => {
   const [showQuickAddDropdown, setShowQuickAddDropdown] = useState(false);
 
-  const getViewTitle = (view: string) => {
-    switch (view) {
-      case 'dashboard':
-        return 'Dashboard Overview';
-      case 'pipeline':
-        return 'Opportunity Pipeline';
-      case 'requirement_new':
-        return 'New Requirement';
-      case 'requirement_edit':
-        return 'Edit Requirement';
-      case 'requirement_from_email':
-        return 'Create Job from Email';
-      case 'requirement_detail':
-        return 'Requirement Details';
-      case 'consultants':
-        return 'Consultant Directory';
-      case 'consultant_new':
-        return 'New Consultant';
-      case 'consultant_detail':
-        return 'Consultant Profile';
-      case 'clients':
-        return 'Client Directory';
-      case 'client_detail':
-        return 'Client Details';
-      case 'vendors':
-        return 'Staffing Vendors';
-      case 'vendor_detail':
-        return 'Vendor Details';
-      case 'billable':
-        return 'Billable Consultants';
-      case 'placement_new':
-        return 'New Billable Placement';
-      case 'placement_detail':
-        return 'Placement Details';
-      case 'user_management':
-        return 'User Management & Team Permissions';
-      case 'application_forms':
-        return 'Application Forms';
-      case 'application_form_new':
-        return 'New Application Form';
-      case 'application_form_edit':
-        return 'Edit Application Form';
-      case 'custom_fields':
-        return 'Custom Form Fields';
-      case 'dropdown_lists':
-        return 'Master Dropdown Lists';
-      case 'automation':
-        return 'Smart Reminders';
-      case 'import_data':
-        return 'Import Candidates & Resumes';
-      case 'import_resume':
-        return 'Resume Parser & Import';
-      case 'import_csv':
-        return 'Spreadsheet Candidate Import';
-      case 'team_performance':
-        return 'Team Performance';
-      case 'usage':
-        return 'Workspace Usage & Storage';
-      case 'settings_general':
-        return 'General Settings';
-      default:
-        return 'Dashboard Overview';
-    }
-  };
-
   return (
     <header className="h-14 bg-white border-b border-slate-200/80 flex items-center justify-between px-4 sm:px-6 flex-shrink-0 z-40 select-none gap-3">
-      {/* View Title + Mobile Nav Trigger */}
-      <div className="flex items-center gap-2.5 min-w-0">
+      {/* Left Utility: Mobile Menu Trigger + Global Command Search (⌘K) */}
+      <div className="flex items-center gap-2.5 flex-1 min-w-0">
         {onOpenMobileMenu && (
           <button
             type="button"
@@ -109,40 +43,26 @@ export const Topbar: React.FC<TopbarProps> = ({
             <List className="w-4 h-4" />
           </button>
         )}
-        <h1 className="text-sm font-semibold text-slate-900 tracking-tight truncate">
-          {getViewTitle(currentView)}
-        </h1>
-      </div>
-
-      {/* Right Utilities: Global Command Search (Cmd+K) + Quick Add */}
-      <div className="flex items-center gap-2.5">
         {onOpenCommandPalette && (
           <button
             type="button"
             onClick={onOpenCommandPalette}
             title="Jump to any record or page (⌘K)"
-            className="hidden sm:inline-flex items-center justify-between gap-4 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50/80 hover:bg-white hover:border-slate-300 text-xs text-slate-500 transition-colors cursor-pointer min-w-[190px]"
+            className="w-full max-w-sm inline-flex items-center justify-between gap-4 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50/80 hover:bg-white hover:border-slate-300 text-xs text-slate-500 transition-colors cursor-pointer"
           >
-            <span className="inline-flex items-center gap-1.5">
-              <MagnifyingGlass className="w-3.5 h-3.5 text-slate-400" />
-              <span>Search or jump to...</span>
+            <span className="inline-flex items-center gap-2 min-w-0">
+              <MagnifyingGlass className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="truncate">Search or jump to...</span>
             </span>
-            <kbd className="px-1.5 py-0.5 rounded-md bg-white border border-slate-200 text-[11px] font-medium text-slate-500 leading-none">
+            <kbd className="hidden sm:inline-flex px-1.5 py-0.5 rounded-md bg-white border border-slate-200 text-[11px] font-medium text-slate-500 leading-none shrink-0">
               ⌘K
             </kbd>
           </button>
         )}
+      </div>
 
-        {onOpenCommandPalette && (
-          <button
-            type="button"
-            onClick={onOpenCommandPalette}
-            aria-label="Open command search"
-            className="sm:hidden p-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 cursor-pointer"
-          >
-            <MagnifyingGlass className="w-4 h-4" />
-          </button>
-        )}
+      {/* Right Utility: Global Quick Add */}
+      <div className="flex items-center gap-2.5 shrink-0">
 
         <div className="relative">
           <button

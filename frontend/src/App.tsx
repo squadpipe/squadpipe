@@ -396,6 +396,7 @@ export const App: React.FC = () => {
     }
     if (initialRoute.view === 'requirement_edit') return 'requirement_detail';
     if (initialRoute.view === 'consultant_new') return 'consultants';
+    if (initialRoute.view === 'consultant_edit') return 'consultant_detail';
     if (initialRoute.view === 'import_resume' || initialRoute.view === 'import_csv') {
       return initialRoute.query?.requirementId ? 'requirement_detail' : 'import_data';
     }
@@ -495,10 +496,12 @@ export const App: React.FC = () => {
     fromView?: string,
     options?: { skipHistory?: boolean }
   ) => {
-    const returnView =
-      fromView || (currentView !== 'requirement_edit' ? currentView : reqDetailReturnView);
-    setReqDetailReturnView(returnView);
-    setWorkflowReturnView(returnView);
+    const originView =
+      fromView || (currentView !== 'requirement_edit' ? currentView : workflowReturnView);
+    if (originView && originView !== 'requirement_detail' && originView !== 'requirement_edit') {
+      setReqDetailReturnView(originView);
+    }
+    setWorkflowReturnView(originView || 'pipeline');
     setWorkflowReturnReqId(req.id);
     setSelectedReqForDetail(req);
     setResolvingRouteId(null);
@@ -507,7 +510,7 @@ export const App: React.FC = () => {
     if (!options?.skipHistory) {
       pushRouteUrl('requirement_edit', {
         entityId: req.id,
-        returnView,
+        returnView: originView || 'pipeline',
         returnReqId: req.id,
       });
     }
@@ -529,6 +532,30 @@ export const App: React.FC = () => {
     setCurrentView('consultant_detail');
     if (!options?.skipHistory) {
       pushRouteUrl('consultant_detail', { entityId: cand.id, returnView });
+    }
+  };
+
+  const handleOpenConsultantEdit = (
+    cand: Candidate,
+    fromView?: string,
+    options?: { skipHistory?: boolean }
+  ) => {
+    const originView =
+      fromView || (currentView !== 'consultant_edit' ? currentView : workflowReturnView);
+    if (originView && originView !== 'consultant_detail' && originView !== 'consultant_edit') {
+      setCandDetailReturnView(originView);
+    }
+    setWorkflowReturnView(originView || 'consultants');
+    setSelectedCandForDetail(cand);
+    setCandDetailInitialEdit(false);
+    setResolvingRouteId(null);
+    setRouteTarget({ view: 'consultant_edit', entityId: cand.id });
+    setCurrentView('consultant_edit');
+    if (!options?.skipHistory) {
+      pushRouteUrl('consultant_edit', {
+        entityId: cand.id,
+        returnView: originView || 'consultants',
+      });
     }
   };
 
@@ -1428,6 +1455,7 @@ export const App: React.FC = () => {
     handleOpenRequirementDetail,
     handleOpenRequirementEdit,
     handleOpenConsultantDetail,
+    handleOpenConsultantEdit,
     handleOpenClientDetail,
     handleOpenVendorDetail,
     handleOpenPlacementDetail,
@@ -1438,6 +1466,7 @@ export const App: React.FC = () => {
     handleOpenRequirementDetail,
     handleOpenRequirementEdit,
     handleOpenConsultantDetail,
+    handleOpenConsultantEdit,
     handleOpenClientDetail,
     handleOpenVendorDetail,
     handleOpenPlacementDetail,
@@ -1472,12 +1501,23 @@ export const App: React.FC = () => {
       return;
     }
     let recordLabel: string | undefined;
-    if (currentView === 'requirement_detail' && selectedReqForDetail) {
-      recordLabel = selectedReqForDetail.code
+    if (
+      (currentView === 'requirement_detail' || currentView === 'requirement_edit') &&
+      selectedReqForDetail
+    ) {
+      const baseLabel = selectedReqForDetail.code
         ? `${selectedReqForDetail.code} · ${selectedReqForDetail.opportunityTitle}`
         : selectedReqForDetail.opportunityTitle;
-    } else if (currentView === 'consultant_detail' && selectedCandForDetail) {
-      recordLabel = selectedCandForDetail.fullName;
+      recordLabel =
+        currentView === 'requirement_edit' ? `Edit ${baseLabel}` : baseLabel;
+    } else if (
+      (currentView === 'consultant_detail' || currentView === 'consultant_edit') &&
+      selectedCandForDetail
+    ) {
+      recordLabel =
+        currentView === 'consultant_edit'
+          ? `Edit ${selectedCandForDetail.fullName}`
+          : selectedCandForDetail.fullName;
     } else if (currentView === 'client_detail' && selectedClientForDetail) {
       recordLabel = selectedClientForDetail.name;
     } else if (currentView === 'vendor_detail' && selectedVendorForDetail) {
@@ -1564,6 +1604,18 @@ export const App: React.FC = () => {
         }
         if (returnView) setReqDetailReturnView(returnView);
         setSelectedReqForDetail(null);
+      } else if (parsed.view === 'consultant_edit') {
+        const matched = stateSnapshot.candidates.find((c) => c.id === entityId);
+        if (matched) {
+          routeHandlersRef.current.handleOpenConsultantEdit(matched, returnView, {
+            skipHistory: true,
+          });
+          return;
+        }
+        if (returnView && returnView !== 'consultant_detail' && returnView !== 'consultant_edit') {
+          setCandDetailReturnView(returnView);
+        }
+        setSelectedCandForDetail(null);
       } else if (parsed.view === 'consultant_detail') {
         const matched = stateSnapshot.candidates.find((c) => c.id === entityId);
         if (matched) {
@@ -1629,7 +1681,7 @@ export const App: React.FC = () => {
       ((routeTarget.view === 'requirement_detail' || routeTarget.view === 'requirement_edit') &&
         (snapshot.selectedReqForDetail?.id === targetId ||
           snapshot.requirements.some((r) => r.id === targetId))) ||
-      (routeTarget.view === 'consultant_detail' &&
+      ((routeTarget.view === 'consultant_detail' || routeTarget.view === 'consultant_edit') &&
         (snapshot.selectedCandForDetail?.id === targetId ||
           snapshot.candidates.some((c) => c.id === targetId))) ||
       (routeTarget.view === 'client_detail' &&
@@ -1659,12 +1711,21 @@ export const App: React.FC = () => {
           }
           return;
         }
-      } else if (routeTarget.view === 'consultant_detail' && !snapshot.selectedCandForDetail) {
+      } else if (
+        (routeTarget.view === 'consultant_detail' || routeTarget.view === 'consultant_edit') &&
+        !snapshot.selectedCandForDetail
+      ) {
         const cached = snapshot.candidates.find((c) => c.id === targetId);
         if (cached) {
-          routeHandlersRef.current.handleOpenConsultantDetail(cached, false, undefined, {
-            skipHistory: true,
-          });
+          if (routeTarget.view === 'consultant_edit') {
+            routeHandlersRef.current.handleOpenConsultantEdit(cached, undefined, {
+              skipHistory: true,
+            });
+          } else {
+            routeHandlersRef.current.handleOpenConsultantDetail(cached, false, undefined, {
+              skipHistory: true,
+            });
+          }
           return;
         }
       } else if (routeTarget.view === 'client_detail' && !snapshot.selectedClientForDetail) {
@@ -1720,7 +1781,7 @@ export const App: React.FC = () => {
               });
             }
           }
-        } else if (routeTarget.view === 'consultant_detail') {
+        } else if (routeTarget.view === 'consultant_detail' || routeTarget.view === 'consultant_edit') {
           const res = await apiClient.get(`/candidates/${encodeURIComponent(targetId)}`);
           if (!cancelled && res.data?.data) {
             const mapped = mapCandidateFromApi(res.data.data);
@@ -1729,9 +1790,15 @@ export const App: React.FC = () => {
                 ? prev.map((c) => (c.id === mapped.id ? mapped : c))
                 : [mapped, ...prev]
             );
-            routeHandlersRef.current.handleOpenConsultantDetail(mapped, false, undefined, {
-              skipHistory: true,
-            });
+            if (routeTarget.view === 'consultant_edit') {
+              routeHandlersRef.current.handleOpenConsultantEdit(mapped, undefined, {
+                skipHistory: true,
+              });
+            } else {
+              routeHandlersRef.current.handleOpenConsultantDetail(mapped, false, undefined, {
+                skipHistory: true,
+              });
+            }
           }
         } else if (routeTarget.view === 'client_detail') {
           const loaded = await fetchClients();
@@ -1783,11 +1850,16 @@ export const App: React.FC = () => {
       currentView === 'requirement_new' ||
       currentView === 'requirement_edit' ||
       currentView === 'consultant_new' ||
+      currentView === 'consultant_edit' ||
       showCommandPalette
     ) {
       if (!loadedEntities.current.has('clients')) fetchClients();
       if (!loadedEntities.current.has('users')) fetchUsers();
-      if (currentView === 'consultant_new' || showCommandPalette) {
+      if (
+        currentView === 'consultant_new' ||
+        currentView === 'consultant_edit' ||
+        showCommandPalette
+      ) {
         if (!loadedEntities.current.has('vendors')) fetchVendors();
       }
       if (showCommandPalette) {
@@ -2291,6 +2363,7 @@ export const App: React.FC = () => {
         cvFile ? `${saved.fullName} profile and CV file saved.` : `${saved.fullName} details saved.`,
         'success'
       );
+      return saved;
     } catch (e: any) {
       console.warn('API update candidate failed:', e);
       showToast(
@@ -2310,6 +2383,7 @@ export const App: React.FC = () => {
         : updated;
       syncUpdatedRequirement(saved);
       showToast('Requirement Updated', `${saved.opportunityTitle} saved.`, 'success');
+      return saved;
     } catch (e: any) {
       console.warn('API update requirement failed:', e);
       showToast('Update Failed', e?.response?.data?.message || e?.response?.data?.error || `Could not update ${updated.opportunityTitle}.`, 'error');
@@ -2764,7 +2838,7 @@ export const App: React.FC = () => {
     (((currentView === 'requirement_detail' || currentView === 'requirement_edit') &&
       !requirements.some((r) => r.id === resolvingRouteId) &&
       selectedReqForDetail?.id !== resolvingRouteId) ||
-      (currentView === 'consultant_detail' &&
+      ((currentView === 'consultant_detail' || currentView === 'consultant_edit') &&
         !candidates.some((c) => c.id === resolvingRouteId) &&
         selectedCandForDetail?.id !== resolvingRouteId) ||
       (currentView === 'client_detail' &&
@@ -2913,7 +2987,7 @@ export const App: React.FC = () => {
           currentView === 'requirement_edit' ||
           currentView === 'requirement_from_email'
             ? 'pipeline'
-            : currentView === 'consultant_new'
+            : currentView === 'consultant_new' || currentView === 'consultant_edit'
               ? 'consultants'
               : currentView === 'requirement_detail'
             ? reqDetailReturnView === 'dashboard'
@@ -3028,6 +3102,7 @@ export const App: React.FC = () => {
                 handleOpenWorkflowPage('requirement_new', { fromView: 'dashboard' })
               }
               onSelectReq={(r) => handleOpenRequirementDetail(r, 'dashboard')}
+              onEditReq={(r) => handleOpenRequirementEdit(r, 'dashboard')}
               onUpdateReq={handleUpdateRequirement}
               onDeleteReq={canManageDataOperations ? handleDeleteRequirement : undefined}
               onPreviewResumeByName={(candName) => {
@@ -3071,6 +3146,7 @@ export const App: React.FC = () => {
               onOpenAddReq={() =>
                 handleOpenWorkflowPage('requirement_new', { fromView: 'pipeline' })
               }
+              onEditReq={(r) => handleOpenRequirementEdit(r, 'pipeline')}
               onUpdateReq={handleUpdateRequirement}
               onDeleteReq={canManageDataOperations ? handleDeleteRequirement : undefined}
             />
@@ -3106,28 +3182,44 @@ export const App: React.FC = () => {
             />
           )}
 
-          {currentView === 'requirement_edit' && !isResolvingCurrentDetail && (
-            <RequirementFormPage
-              mode="edit"
-              initialRequirement={
-                requirements.find((r) => r.id === (selectedReqForDetail?.id || routeTarget.entityId)) ||
-                selectedReqForDetail
-              }
-              clients={clients}
-              users={users}
-              backLabel={
-                selectedReqForDetail?.code
-                  ? `Back to ${selectedReqForDetail.code}`
-                  : 'Back to Requirement'
-              }
-              onBack={() => handleReturnFromWorkflowPage('requirement_detail')}
-              onSaveEdit={async (updated) => {
-                await handleUpdateRequirement(updated);
-                handleOpenRequirementDetail(updated, reqDetailReturnView || 'pipeline');
-              }}
-              showToast={showToast}
-            />
-          )}
+          {currentView === 'requirement_edit' && !isResolvingCurrentDetail && (() => {
+            const editingReq =
+              requirements.find((r) => r.id === (selectedReqForDetail?.id || routeTarget.entityId)) ||
+              selectedReqForDetail;
+            return (
+              <RequirementFormPage
+                mode="edit"
+                initialRequirement={editingReq}
+                clients={clients}
+                users={users}
+                backLabel={
+                  workflowReturnView === 'pipeline'
+                    ? 'Back to Pipeline'
+                    : workflowReturnView === 'dashboard'
+                      ? 'Back to Dashboard'
+                      : editingReq?.code
+                        ? `Back to ${editingReq.code}`
+                        : 'Back to Requirement'
+                }
+                onBack={() => {
+                  if (
+                    !editingReq ||
+                    workflowReturnView === 'pipeline' ||
+                    workflowReturnView === 'dashboard'
+                  ) {
+                    handleNavigateView(workflowReturnView === 'dashboard' ? 'dashboard' : 'pipeline');
+                    return;
+                  }
+                  handleReturnFromWorkflowPage('requirement_detail');
+                }}
+                onSaveEdit={async (updated) => {
+                  const saved = await handleUpdateRequirement(updated);
+                  handleOpenRequirementDetail(saved || updated, reqDetailReturnView || 'pipeline');
+                }}
+                showToast={showToast}
+              />
+            );
+          })()}
 
           {currentView === 'requirement_from_email' && (
             <RequirementFromEmailPage
@@ -3226,6 +3318,11 @@ export const App: React.FC = () => {
               }
               onNavigateToBillable={() => handleNavigateView('billable')}
               canEditCandidate={canManageDataOperations}
+              onEditCandidate={
+                canManageDataOperations
+                  ? (cand) => handleOpenConsultantEdit(cand, 'consultants')
+                  : undefined
+              }
               onUpdateCandidate={canManageDataOperations ? handleUpdateCandidate : undefined}
               onDeleteCandidate={canManageDataOperations ? handleDeleteCandidate : undefined}
             />
@@ -3276,6 +3373,49 @@ export const App: React.FC = () => {
             />
           )}
 
+          {currentView === 'consultant_edit' && !isResolvingCurrentDetail && (() => {
+            const editingCand =
+              candidates.find((c) => c.id === (selectedCandForDetail?.id || routeTarget.entityId)) ||
+              selectedCandForDetail;
+            return (
+              <ConsultantCreatePage
+                mode="edit"
+                initialCandidate={editingCand}
+                users={users}
+                vendors={vendors}
+                rateMasked={rateMasked}
+                backLabel={
+                  workflowReturnView === 'consultants'
+                    ? 'Back to Consultants'
+                    : editingCand?.fullName
+                      ? `Back to ${editingCand.fullName}`
+                      : 'Back to Profile'
+                }
+                onBack={() => {
+                  if (workflowReturnView === 'consultants' || !editingCand) {
+                    handleNavigateView('consultants');
+                    return;
+                  }
+                  handleOpenConsultantDetail(
+                    editingCand,
+                    false,
+                    candDetailReturnView || 'consultants'
+                  );
+                }}
+                onSaveEdit={async (updated, cvFile) => {
+                  const saved = await handleUpdateCandidate(updated, cvFile);
+                  const nextCand = saved || updated;
+                  handleOpenConsultantDetail(
+                    nextCand,
+                    false,
+                    candDetailReturnView || 'consultants'
+                  );
+                }}
+                showToast={showToast}
+              />
+            );
+          })()}
+
           {currentView === 'consultant_detail' && !isResolvingCurrentDetail && (
             <ConsultantDetailPage
               candidate={
@@ -3303,6 +3443,11 @@ export const App: React.FC = () => {
               onOpenRequirement={(req) => handleOpenRequirementDetail(req, 'consultant_detail')}
               onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'consultant_detail')}
               onOpenVendor={(v) => handleOpenVendorDetail(v, false, 'consultant_detail')}
+              onEditCandidate={
+                canManageDataOperations
+                  ? (cand) => handleOpenConsultantEdit(cand, 'consultant_detail')
+                  : undefined
+              }
               onUpdateCandidate={canManageDataOperations ? handleUpdateCandidate : undefined}
               onDeleteCandidate={canManageDataOperations ? handleDeleteCandidate : undefined}
               onNavigateToBillable={() => handleNavigateView('billable')}

@@ -48,7 +48,8 @@ interface ConsultantsViewProps {
   onOpenCsvImport?: () => void;
   onNavigateToBillable?: () => void;
   canEditCandidate?: boolean;
-  onUpdateCandidate?: (candidate: Candidate, cvFile?: File | null) => Promise<void> | void;
+  onEditCandidate?: (candidate: Candidate) => void;
+  onUpdateCandidate?: (candidate: Candidate, cvFile?: File | null) => Promise<Candidate | void> | void;
   onDeleteCandidate?: (candidate: Candidate) => Promise<void> | void;
 }
 
@@ -63,6 +64,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
   onOpenCsvImport,
   onNavigateToBillable,
   canEditCandidate = true,
+  onEditCandidate,
   onUpdateCandidate,
   onDeleteCandidate,
 }) => {
@@ -231,13 +233,13 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2.5">
-            <h2 className="text-lg font-bold text-slate-900 tracking-tight">Consultant Roster</h2>
+            <h1 className="text-lg font-bold text-slate-900 tracking-tight">Consultants</h1>
             <span className="text-xs font-medium text-slate-500 tabular-nums">
               {totalRows} active
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Candidate profiles, work authorizations, verified technical skills, and readiness status.
+            Browse consultant profiles, work authorizations, skills, and availability.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -578,11 +580,17 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                           <span>View</span>
                           <ChevronRight className="w-3 h-3" />
                         </button>
-                        {canEditCandidate && onUpdateCandidate && (
+                        {canEditCandidate && (onEditCandidate || onUpdateCandidate) && (
                           <button
                             type="button"
-                            onClick={() => setEditingCandidate(c)}
-                            title="Edit consultant"
+                            onClick={() => {
+                              if (onEditCandidate) {
+                                onEditCandidate(c);
+                                return;
+                              }
+                              setEditingCandidate(c);
+                            }}
+                            title="Edit consultant profile"
                             className="p-1.5 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer"
                           >
                             <Pencil className="w-3.5 h-3.5" />

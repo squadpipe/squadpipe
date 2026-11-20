@@ -118,7 +118,7 @@ interface RequirementDetailPageProps {
   onSelectPlacement?: (placement: BillablePlacement) => void;
   onOpenPlacementWizard: (req: Requirement, candidate?: Candidate | null) => void;
   onEditReq?: (req: Requirement) => void;
-  onUpdateReq?: (req: Requirement) => Promise<void> | void;
+  onUpdateReq?: (req: Requirement) => Promise<Requirement | void> | void;
   onRequirementUpdated?: (req: Requirement) => void;
   onOpenCsvImport?: (req: Requirement) => void;
   onOpenResumeParser?: (req: Requirement) => void;

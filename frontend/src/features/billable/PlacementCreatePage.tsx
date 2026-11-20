@@ -506,8 +506,8 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
       />
 
       <PageHeader
-        title="Placement Activation & Margin Lock"
-        subtitle="Link a consultant and requisition, lock commercial bill/pay margin spread, verify vendor compliance, and activate the billable SOW."
+        title="New Billable Placement"
+        subtitle="Connect a consultant and job, set bill and pay rates, check vendor terms, and start the contract."
         badges={
           <>
             {activeRequirement && (

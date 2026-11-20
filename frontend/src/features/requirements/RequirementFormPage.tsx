@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Briefcase, MailOpen } from 'lucide-react';
+import { ArrowLeft, Briefcase, MailOpen } from 'lucide-react';
 import { Client, Requirement, User } from '../../types';
 import { parseRateNumber, useCurrency } from '../../utils/currency';
 import { buildClientSafeSummaryHtml } from '../../utils/richText';
@@ -243,8 +243,29 @@ export const RequirementFormPage: React.FC<RequirementFormPageProps> = ({
     .map((s) => s.trim())
     .filter(Boolean).length;
 
+  if (isEdit && !initialRequirement) {
+    return (
+      <section className="max-w-3xl mx-auto py-16 text-center space-y-4">
+        <div className="bg-white rounded-xl border border-slate-200 p-8 card-shadow space-y-3">
+          <h2 className="text-base font-bold text-slate-900">Requirement Not Found</h2>
+          <p className="text-xs text-slate-500">
+            This requisition may have been deleted or could not be loaded.
+          </p>
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>{backLabel}</span>
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <div className="max-w-7xl mx-auto space-y-5 animate-fade-in">
+    <div className="max-w-7xl mx-auto space-y-6 pb-6 animate-fade-in">
       <DetailBreadcrumb
         backLabel={backLabel}
         onBack={() => guardNavigation(onBack)}
@@ -269,11 +290,11 @@ export const RequirementFormPage: React.FC<RequirementFormPageProps> = ({
       />
 
       <PageHeader
-        title={isEdit ? `Edit ${initialRequirement?.code || 'Requirement'}` : 'Create New Requirement'}
+        title={isEdit ? `Edit Requirement · ${initialRequirement?.code || 'Order'}` : 'New Job Requirement'}
         subtitle={
           isEdit
-            ? 'Update client role scope, hiring capacity, target rates, and public posting summary.'
-            : 'Open a new client requisition with commercial rate targets, required skills, and public job summary.'
+            ? 'Update client details, open positions, target rates, and public job summary.'
+            : 'Add a new client job opening with target rates, skills, and a public job summary.'
         }
         badges={
           <>

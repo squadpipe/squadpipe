@@ -224,11 +224,11 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
   return (
     <section className="max-w-7xl mx-auto space-y-6 animate-fade-in">
       <PageHeader
-        title="Workspace Usage & Storage"
+        title="Usage & Storage"
         subtitle={
           isAiActive
-            ? 'Monitor document storage footprint alongside active AI token and action consumption.'
-            : 'Monitor uploaded CV document storage, file format breakdown, and CRM workspace data volume.'
+            ? 'Monitor resume storage, workspace records, and active AI usage.'
+            : 'Monitor uploaded resume storage, file formats, and workspace records.'
         }
         actions={
           <button

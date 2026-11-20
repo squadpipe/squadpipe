@@ -123,9 +123,9 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-slate-900 tracking-tight">Client Companies</h2>
+          <h1 className="text-lg font-bold text-slate-900 tracking-tight">Clients</h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Enterprise accounts, hiring managers, and active staffing agreements.
+            Manage client companies, hiring contacts, and active staffing agreements.
           </p>
         </div>
         <div className="flex items-center gap-3">

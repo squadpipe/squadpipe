@@ -57,6 +57,7 @@ interface DashboardViewProps {
   onNavigate: (view: string) => void;
   onOpenCreateReq: () => void;
   onSelectReq: (req: Requirement) => void;
+  onEditReq?: (req: Requirement) => void;
   onUpdateReq?: (req: Requirement) => void;
   onDeleteReq?: (req: Requirement) => void;
   onPreviewResumeByName: (candidateName: string) => void;
@@ -77,6 +78,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigate,
   onOpenCreateReq,
   onSelectReq,
+  onEditReq,
   onUpdateReq,
   onDeleteReq,
   onPreviewResumeByName,
@@ -203,9 +205,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Top Header matching prototype lines 1965-1980 */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-slate-900 tracking-tight">Recruitment Operations Overview</h2>
+          <h1 className="text-lg font-bold text-slate-900 tracking-tight">Dashboard</h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Real-time candidate placement pipeline, active requirements, and billable roster.
+            Overview of open job requirements, candidate pipeline, and billable placements.
           </p>
         </div>
       </div>
@@ -547,10 +549,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       </td>
                       <td className="px-3.5 py-3 text-right whitespace-nowrap">
                         <div className="inline-flex items-center justify-end gap-1">
-                          {onUpdateReq && (
+                          {(onEditReq || onUpdateReq) && (
                             <button
                               type="button"
-                              onClick={() => setEditingReq({ ...req })}
+                              onClick={() => {
+                                if (onEditReq) {
+                                  onEditReq(req);
+                                  return;
+                                }
+                                setEditingReq({ ...req });
+                              }}
                               title="Edit requirement"
                               className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors cursor-pointer"
                             >

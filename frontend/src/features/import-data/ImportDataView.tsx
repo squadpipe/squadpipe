@@ -32,7 +32,7 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
     <section className="max-w-7xl mx-auto space-y-6 animate-fade-in select-none">
       {/* Header */}
       <div>
-        <h2 className="text-lg font-bold text-slate-900 tracking-tight">Import Candidates &amp; Resumes</h2>
+        <h1 className="text-lg font-bold text-slate-900 tracking-tight">Import Data</h1>
         <p className="text-xs text-slate-500 mt-0.5">
           Bring in candidate spreadsheets or upload resumes directly into {brandName}.
         </p>
