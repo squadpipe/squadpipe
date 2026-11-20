@@ -55,6 +55,10 @@ export const Topbar: React.FC<TopbarProps> = ({
         return 'User Management & Team Permissions';
       case 'application_forms':
         return 'Application Forms';
+      case 'application_form_new':
+        return 'New Application Form';
+      case 'application_form_edit':
+        return 'Edit Application Form';
       case 'custom_fields':
         return 'Custom Form Fields';
       case 'dropdown_lists':

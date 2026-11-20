@@ -542,6 +542,28 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleOpenApplicationFormPage = (
+    target: { mode: 'list' } | { mode: 'new' } | { mode: 'edit'; formId: string },
+    options?: { skipHistory?: boolean }
+  ) => {
+    setResolvingRouteId(null);
+    if (target.mode === 'edit') {
+      setRouteTarget({ view: 'application_form_edit', entityId: target.formId });
+      setCurrentView('application_form_edit');
+      if (!options?.skipHistory) {
+        pushRouteUrl('application_form_edit', {
+          entityId: target.formId,
+          returnView: 'application_forms',
+        });
+      }
+      return;
+    }
+    handleNavigateView(
+      target.mode === 'new' ? 'application_form_new' : 'application_forms',
+      options
+    );
+  };
+
   // Selected items for context modals
   const [activeReq, setActiveReq] = useState<Requirement | null>(null);
   const [activeCandidate, setActiveCandidate] = useState<Candidate | null>(null);
@@ -1357,7 +1379,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (publicApplyToken || (!authToken && !currentUser)) return;
     const targetId = routeTarget.entityId;
-    if (!targetId) {
+    if (!targetId || routeTarget.view === 'application_form_edit') {
       setResolvingRouteId(null);
       return;
     }
@@ -2904,6 +2926,8 @@ export const App: React.FC = () => {
             ))}
 
           {(currentView === 'application_forms' ||
+            currentView === 'application_form_new' ||
+            currentView === 'application_form_edit' ||
             currentView === 'custom_fields' ||
             currentView === 'dropdown_lists') &&
             (isAdmin ? (
@@ -2911,10 +2935,18 @@ export const App: React.FC = () => {
                 pageMode={
                   currentView === 'application_forms'
                     ? 'forms'
-                    : currentView === 'dropdown_lists'
-                      ? 'dropdowns'
-                      : 'fields'
+                    : currentView === 'application_form_new'
+                      ? 'form_create'
+                      : currentView === 'application_form_edit'
+                        ? 'form_edit'
+                        : currentView === 'dropdown_lists'
+                          ? 'dropdowns'
+                          : 'fields'
                 }
+                editingFormId={
+                  currentView === 'application_form_edit' ? routeTarget.entityId : null
+                }
+                onNavigateForms={(target) => handleOpenApplicationFormPage(target)}
                 customFields={customFields}
                 onAddCustomField={(f) => setCustomFields((prev) => [...prev, f])}
                 showToast={showToast}
@@ -2922,7 +2954,9 @@ export const App: React.FC = () => {
             ) : (
               <AccessRestrictedView
                 moduleName={
-                  currentView === 'application_forms'
+                  currentView === 'application_forms' ||
+                  currentView === 'application_form_new' ||
+                  currentView === 'application_form_edit'
                     ? 'Application Forms'
                     : currentView === 'dropdown_lists'
                       ? 'Master Dropdown Lists'

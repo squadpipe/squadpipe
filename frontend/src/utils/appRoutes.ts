@@ -23,6 +23,7 @@ const STATIC_ROUTE_TO_VIEW: Record<string, string> = {
   '/automations': 'automation',
   '/reminders': 'automation',
   '/application-forms': 'application_forms',
+  '/application-forms/new': 'application_form_new',
   '/custom-fields': 'custom_fields',
   '/dropdown-lists': 'dropdown_lists',
   '/import-data': 'import_data',
@@ -41,6 +42,7 @@ const VIEW_TO_STATIC_PATH: Record<string, string> = {
   billable: '/billable',
   automation: '/automations',
   application_forms: '/application-forms',
+  application_form_new: '/application-forms/new',
   custom_fields: '/custom-fields',
   dropdown_lists: '/dropdown-lists',
   import_data: '/import-data',
@@ -64,6 +66,8 @@ const VIEW_TITLE_LABELS: Record<string, string> = {
   placement_detail: 'Placement Details',
   automation: 'Smart Reminders',
   application_forms: 'Application Forms',
+  application_form_new: 'New Application Form',
+  application_form_edit: 'Edit Application Form',
   custom_fields: 'Custom Form Fields',
   dropdown_lists: 'Master Dropdown Lists',
   import_data: 'Import Candidates & Resumes',
@@ -93,6 +97,7 @@ export function parseAppRoute(pathname: string): ParsedAppRoute {
     [/^\/clients\/([^/]+)$/i, 'client_detail'],
     [/^\/vendors\/([^/]+)$/i, 'vendor_detail'],
     [/^\/(?:placements|billable)\/([^/]+)$/i, 'placement_detail'],
+    [/^\/application-forms\/([^/]+)\/edit$/i, 'application_form_edit'],
   ];
 
   for (const [pattern, view] of detailPatterns) {
@@ -121,6 +126,8 @@ export function buildAppPath(view: string, entityId?: string | null): string {
       return id ? `/vendors/${id}` : '/vendors';
     case 'placement_detail':
       return id ? `/placements/${id}` : '/billable';
+    case 'application_form_edit':
+      return id ? `/application-forms/${id}/edit` : '/application-forms';
     default:
       return VIEW_TO_STATIC_PATH[view] || '/dashboard';
   }

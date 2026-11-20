@@ -446,8 +446,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {section.items.map((item) => {
                 const Icon = item.icon;
                 const hasChildren = Boolean(item.children && item.children.length > 0);
+                const matchesNavView = (childView: string) =>
+                  currentView === childView ||
+                  (childView === 'application_forms' &&
+                    (currentView === 'application_form_new' ||
+                      currentView === 'application_form_edit'));
                 const childActive = hasChildren
-                  ? item.children!.some((child) => currentView === child.view)
+                  ? item.children!.some((child) => matchesNavView(child.view))
                   : false;
                 const active = currentView === item.view || childActive;
                 const activeIconClass = item.activeIconClass || 'text-brand-400';
@@ -457,7 +462,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <React.Fragment key={item.view}>
                       {item.children!.map((child) => {
                         const ChildIcon = child.icon;
-                        const isChildActive = currentView === child.view;
+                        const isChildActive = matchesNavView(child.view);
                         return (
                           <button
                             key={child.view}
@@ -539,7 +544,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <div className="ml-6 mr-2 pl-2.5 border-l border-white/[0.1] space-y-0.5 py-0.5">
                           {item.children!.map((child) => {
                             const ChildIcon = child.icon;
-                            const isChildActive = currentView === child.view;
+                            const isChildActive = matchesNavView(child.view);
                             return (
                               <button
                                 key={child.view}

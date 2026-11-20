@@ -20,7 +20,8 @@ import {
   Search,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
-import { CustomField } from '../../types';
+import { ApplicationFormTemplate, CustomField } from '../../types';
+import { ApplicationFormBuilderPage } from './ApplicationFormBuilderPage';
 import { ApplicationFormsSection } from './ApplicationFormsSection';
 import { invalidateSchemaCaches } from '../../components/shared/DynamicCustomFieldsSection';
 import { useCurrency } from '../../utils/currency';
@@ -34,7 +35,11 @@ import { sortArrayByColumn, useTableSort } from '../../utils/tableSort';
 import { INVALID_FIELD_CLASSES } from '../../utils/formValidation';
 
 interface CustomFieldsViewProps {
-  pageMode?: 'forms' | 'fields' | 'dropdowns';
+  pageMode?: 'forms' | 'form_create' | 'form_edit' | 'fields' | 'dropdowns';
+  editingFormId?: string | null;
+  onNavigateForms?: (
+    target: { mode: 'list' | 'new' } | { mode: 'edit'; formId: string }
+  ) => void;
   customFields?: CustomField[];
   onAddCustomField?: (field: CustomField) => void;
   showToast: (title: string, message: string, icon?: string) => void;
@@ -88,16 +93,28 @@ const TAXONOMY_META: Array<{
 
 export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
   pageMode = 'fields',
+  editingFormId,
+  onNavigateForms,
   customFields: propCustomFields,
   onAddCustomField,
   showToast,
 }) => {
   const { symbol: currencySymbol } = useCurrency();
-  const [activeSection, setActiveSection] = useState<'forms' | 'fields' | 'dropdowns'>(pageMode);
+  const [activeSection, setActiveSection] = useState<
+    'forms' | 'form_create' | 'form_edit' | 'fields' | 'dropdowns'
+  >(pageMode);
+  const [localEditFormId, setLocalEditFormId] = useState<string | null>(editingFormId ?? null);
+  const [cachedAppForms, setCachedAppForms] = useState<ApplicationFormTemplate[] | null>(null);
 
   useEffect(() => {
     setActiveSection(pageMode);
   }, [pageMode]);
+
+  useEffect(() => {
+    if (editingFormId !== undefined) {
+      setLocalEditFormId(editingFormId);
+    }
+  }, [editingFormId]);
   const [scope, setScope] = useState<'all' | 'consultant' | 'requirement' | 'client' | 'vendor' | 'placement'>('all');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -452,6 +469,47 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
       {activeSection === 'forms' && (
         <ApplicationFormsSection
           customFields={fieldsList}
+          initialForms={cachedAppForms}
+          onFormsChanged={setCachedAppForms}
+          onCreateForm={() => {
+            if (onNavigateForms) {
+              onNavigateForms({ mode: 'new' });
+            } else {
+              setActiveSection('form_create');
+            }
+          }}
+          onEditForm={(form) => {
+            if (onNavigateForms) {
+              onNavigateForms({ mode: 'edit', formId: form.id });
+            } else {
+              setLocalEditFormId(form.id);
+              setActiveSection('form_edit');
+            }
+          }}
+          showToast={showToast}
+        />
+      )}
+
+      {(activeSection === 'form_create' || activeSection === 'form_edit') && (
+        <ApplicationFormBuilderPage
+          formId={activeSection === 'form_edit' ? editingFormId ?? localEditFormId : null}
+          initialForms={cachedAppForms}
+          customFields={fieldsList}
+          onSaved={(nextForms) => {
+            if (nextForms.length > 0) setCachedAppForms(nextForms);
+            if (onNavigateForms) {
+              onNavigateForms({ mode: 'list' });
+            } else {
+              setActiveSection('forms');
+            }
+          }}
+          onBack={() => {
+            if (onNavigateForms) {
+              onNavigateForms({ mode: 'list' });
+            } else {
+              setActiveSection('forms');
+            }
+          }}
           showToast={showToast}
         />
       )}
