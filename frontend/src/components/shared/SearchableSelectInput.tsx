@@ -163,7 +163,7 @@ export const SearchableSelectInput: React.FC<SearchableSelectInputProps> = ({
         {isOpen && (
           <AnimatedPopover
             key="searchable-select-popover"
-            className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl py-1 max-h-48 overflow-y-auto z-50"
+            className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl popover-shadow py-1 max-h-48 overflow-y-auto z-50"
           >
           {filteredOptions.length === 0 && !value.trim() ? (
             <div className="px-3 py-2 text-[11px] text-slate-400 text-center">
@@ -195,7 +195,7 @@ export const SearchableSelectInput: React.FC<SearchableSelectInputProps> = ({
                         {opt.label}
                       </div>
                       {opt.sublabel && (
-                        <div className="text-[10px] text-slate-400 truncate mt-0.5">
+                        <div className="text-[11px] text-slate-400 truncate mt-0.5">
                           {opt.sublabel}
                         </div>
                       )}
@@ -222,7 +222,7 @@ export const SearchableSelectInput: React.FC<SearchableSelectInputProps> = ({
                     <Check className="w-3.5 h-3.5 text-brand-600 flex-shrink-0" />
                     <span className="truncate">&ldquo;{value.trim()}&rdquo;</span>
                   </span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-white border border-brand-200 text-brand-700 font-medium flex-shrink-0">
+                  <span className="text-[11px] px-1.5 py-0.5 rounded bg-white border border-brand-200 text-brand-700 font-medium flex-shrink-0">
                     {newOptionBadge}
                   </span>
                 </button>

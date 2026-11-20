@@ -328,7 +328,7 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm px-8 py-10 text-center space-y-3 max-w-md w-full">
+        <div className="bg-white border border-slate-200 rounded-xl card-shadow px-8 py-10 text-center space-y-3 max-w-md w-full">
           <Loader2 className="w-7 h-7 text-brand-600 animate-spin mx-auto" />
           <p className="text-sm font-semibold text-slate-800">Loading position details...</p>
         </div>
@@ -339,8 +339,8 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
   if (unavailableMessage || !roleDetails) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm px-8 py-10 text-center space-y-4 max-w-md w-full">
-          <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center mx-auto">
+        <div className="bg-white border border-slate-200 rounded-xl card-shadow px-8 py-10 text-center space-y-4 max-w-md w-full">
+          <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center mx-auto">
             <Briefcase className="w-6 h-6" />
           </div>
           <div className="space-y-1.5">
@@ -357,8 +357,8 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
   if (confirmation) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-md p-8 max-w-lg w-full text-center space-y-5">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto">
+        <div className="bg-white border border-slate-200 rounded-xl card-shadow p-8 max-w-lg w-full text-center space-y-5">
+          <div className="w-14 h-14 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-7 h-7" />
           </div>
           <div className="space-y-1.5">
@@ -434,7 +434,7 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* LEFT SIDE (5 cols): Clean Job Details, Rich Role Scope Summary & Key Skills */}
           <aside className="lg:col-span-5 lg:sticky lg:top-6">
-            <section className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-5">
+            <section className="bg-white rounded-xl border border-slate-200/80 card-shadow p-6 space-y-5">
               {/* Role Badges & Title (Zero Internal Codes) */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -467,29 +467,11 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                 </h1>
               </div>
 
-              {/* Compact Position Snapshot */}
-              <div className="grid grid-cols-2 gap-2.5 pt-3 border-t border-slate-100 text-[11px]">
-                <div className="px-3 py-2 rounded-lg bg-slate-50/90 border border-slate-200/70">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Work Model
-                  </div>
-                  <div className="font-semibold text-slate-800 mt-0.5">{roleDetails.workModel}</div>
-                </div>
-                <div className="px-3 py-2 rounded-lg bg-slate-50/90 border border-slate-200/70">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Location
-                  </div>
-                  <div className="font-semibold text-slate-800 mt-0.5 leading-snug break-words">
-                    {cleanLocationLabel}
-                  </div>
-                </div>
-              </div>
-
               {/* Role Scope & Requirement Summary */}
-              <div className="space-y-2 pt-3 border-t border-slate-100">
-                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="space-y-2.5 pt-4 border-t border-slate-100">
+                <h2 className="text-xs font-semibold text-slate-800">
                   Role Overview &amp; Scope
-                </div>
+                </h2>
                 <div className="bg-slate-50/70 border border-slate-200/70 rounded-xl p-4">
                   <RichTextDisplay content={roleSummaryText} />
                 </div>
@@ -497,11 +479,11 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
 
               {/* Sanitized Responsibilities / Highlights from JD (shown only if not already bulleted inside summary) */}
               {highlights.length > 0 && !summaryAlreadyHasBullets && (
-                <div className="space-y-2 pt-3 border-t border-slate-100">
-                  <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
+                <div className="space-y-2.5 pt-4 border-t border-slate-100">
+                  <h2 className="text-xs font-semibold text-slate-800">
                     Key Responsibilities &amp; Focus
-                  </div>
-                  <ul className="space-y-1.5 text-xs text-slate-600">
+                  </h2>
+                  <ul className="space-y-2 text-xs text-slate-600">
                     {highlights.map((item, idx) => (
                       <li key={idx} className="flex items-start gap-2 leading-relaxed">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
@@ -514,10 +496,10 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
 
               {/* Key Required Skills (Single clean +N more / Show less toggle matching app standard) */}
               {skillList.length > 0 && (
-                <div className="space-y-2.5 pt-3 border-t border-slate-100">
-                  <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
+                <div className="space-y-2.5 pt-4 border-t border-slate-100">
+                  <h2 className="text-xs font-semibold text-slate-800">
                     Key Required Skills ({skillList.length})
-                  </div>
+                  </h2>
                   <div className="flex flex-wrap items-center gap-1.5">
                     {visibleSkills.map((skill, idx) => (
                       <span
@@ -547,12 +529,12 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                 <form
                   noValidate
                   onSubmit={handleSubmit}
-                  className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden"
+                  className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden"
                 >
                   {/* Clean Right-Side Agency Header (Zero Internal Codes) */}
                   <div className="px-6 py-4 bg-[#141615] text-white flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center text-white flex-shrink-0 shadow-xs">
+                      <div className="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center text-white flex-shrink-0">
                         <Briefcase className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
@@ -597,17 +579,17 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                           Resume / CV File *
                         </label>
                         {isParsingCv ? (
-                          <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-brand-700">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700">
                             <Loader2 className="w-3 h-3 animate-spin" />
                             <span>Reading resume details...</span>
                           </span>
                         ) : cvAutoFilled ? (
-                          <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-emerald-700">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
                             <CheckCircle2 className="w-3 h-3" />
                             <span>Fields auto-filled from resume</span>
                           </span>
                         ) : isCvInvalid ? (
-                          <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                          <span className="text-[11px] font-semibold text-rose-600">Required</span>
                         ) : null}
                       </div>
                       {cvFile ? (
@@ -618,7 +600,7 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                             </div>
                             <div className="min-w-0">
                               <div className="font-semibold text-slate-900 truncate">{cvFile.name}</div>
-                              <div className="text-[10.5px] text-slate-500">
+                              <div className="text-[11px] text-slate-500">
                                 {(cvFile.size / 1024).toFixed(0)} KB &bull;{' '}
                                 {isParsingCv ? 'Extracting contact details...' : 'Ready to submit'}
                               </div>
@@ -652,7 +634,7 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                             : 'border-slate-300 hover:border-brand-500 bg-slate-50/70 hover:bg-white'
                             }`}
                         >
-                          <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 text-brand-600 flex items-center justify-center mx-auto shadow-2xs">
+                          <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 text-brand-600 flex items-center justify-center mx-auto">
                             <CloudUpload className="w-4 h-4" />
                           </div>
                           <div className="text-xs font-semibold text-slate-800">
@@ -678,7 +660,7 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                           <label className="block text-[11px] font-semibold text-slate-700">
                             Full Name *
                           </label>
-                          {isFullNameInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                          {isFullNameInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                         </div>
                         <input
                           type="text"
@@ -694,7 +676,7 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                           <label className="block text-[11px] font-semibold text-slate-700">
                             Email Address *
                           </label>
-                          {isEmailInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                          {isEmailInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                         </div>
                         <input
                           type="email"
@@ -710,7 +692,7 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                           <label className="block text-[11px] font-semibold text-slate-700">
                             Phone Number *
                           </label>
-                          {isPhoneInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                          {isPhoneInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                         </div>
                         <input
                           type="tel"
@@ -744,7 +726,7 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                               Current Title / Role {formTemplate.requireCurrentTitle ? '*' : ''}
                             </label>
                             {isCurrentTitleInvalid && (
-                              <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                              <span className="text-[11px] font-semibold text-rose-600">Required</span>
                             )}
                           </div>
                           <input
@@ -772,7 +754,7 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                               {formTemplate.requireExpectedRate ? '*' : '(Optional)'}
                             </label>
                             {isExpectedRateInvalid && (
-                              <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                              <span className="text-[11px] font-semibold text-rose-600">Required</span>
                             )}
                           </div>
                           <input
@@ -800,7 +782,7 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                               {formTemplate.requireNoticePeriod ? '*' : '(Optional)'}
                             </label>
                             {isNoticePeriodInvalid && (
-                              <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                              <span className="text-[11px] font-semibold text-rose-600">Required</span>
                             )}
                           </div>
                           <input
@@ -828,7 +810,7 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                               {formTemplate.requireLinkedinUrl ? '*' : '(Optional)'}
                             </label>
                             {isLinkedinUrlInvalid && (
-                              <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                              <span className="text-[11px] font-semibold text-rose-600">Required</span>
                             )}
                           </div>
                           <input
@@ -856,7 +838,7 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                               {formTemplate.requireVendorName ? '*' : '(Optional)'}
                             </label>
                             {isVendorNameInvalid && (
-                              <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                              <span className="text-[11px] font-semibold text-rose-600">Required</span>
                             )}
                           </div>
                           <input
@@ -882,7 +864,7 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                                 {cf.name} {cf.required ? '*' : ''}
                               </label>
                               {isCfInvalid && (
-                                <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                                <span className="text-[11px] font-semibold text-rose-600">Required</span>
                               )}
                             </div>
                             {cf.type === 'DROPDOWN' && cf.options.length > 0 ? (
@@ -941,7 +923,7 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                       <button
                         type="submit"
                         disabled={isSubmitting}
-                        className="px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-xs font-semibold shadow-xs inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                        className="px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
                       >
                         {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                         <span>{isSubmitting ? 'Submitting Application...' : 'Submit Application'}</span>

@@ -139,7 +139,7 @@ export const EditConsultantModal: React.FC<EditConsultantModalProps> = ({
                   <label className="block text-[11px] font-semibold text-slate-700">
                     Full Name *
                   </label>
-                  {isNameInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                  {isNameInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                 </div>
                 <input
                   type="text"
@@ -155,7 +155,7 @@ export const EditConsultantModal: React.FC<EditConsultantModalProps> = ({
                   <label className="block text-[11px] font-semibold text-slate-700">
                     Current Title *
                   </label>
-                  {isTitleInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                  {isTitleInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                 </div>
                 <input
                   type="text"
@@ -171,7 +171,7 @@ export const EditConsultantModal: React.FC<EditConsultantModalProps> = ({
                   <label className="block text-[11px] font-semibold text-slate-700">
                     Email *
                   </label>
-                  {isEmailInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                  {isEmailInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                 </div>
                 <input
                   type="email"
@@ -328,7 +328,7 @@ export const EditConsultantModal: React.FC<EditConsultantModalProps> = ({
                             ? editForm.resumeName || 'Stored Original CV'
                             : 'No original CV file uploaded yet'}
                       </div>
-                      <div className="text-[10px] text-slate-500">
+                      <div className="text-[11px] text-slate-500">
                         {editCvFile
                           ? `New upload ready (${(editCvFile.size / 1024).toFixed(1)} KB) — saves on update`
                           : editForm.resumeFileUrl

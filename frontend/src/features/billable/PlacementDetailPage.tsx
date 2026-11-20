@@ -317,7 +317,7 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
   ];
 
   return (
-    <section className="max-w-7xl mx-auto space-y-5 animate-fade-in">
+    <section className="max-w-7xl mx-auto space-y-6 pb-6 animate-fade-in">
       <DetailBreadcrumb
         backLabel={backLabel}
         onBack={onBack}
@@ -349,77 +349,73 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
         }
       />
 
-      {/* Unified Placement Hero + 4-Col Metadata Bar + Tabs */}
-      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
-        {/* Title & Action Bar */}
-        <div className="px-6 py-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5 min-w-0 flex-1">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200/70 text-emerald-700 font-bold text-sm flex items-center justify-center flex-shrink-0">
-              {initials || <Briefcase className="w-5 h-5" />}
-            </div>
-            <div className="min-w-0 flex-1 space-y-0.5">
-              <div>
-                <h1 className="text-[17px] sm:text-[18px] font-bold text-slate-900 tracking-tight leading-snug inline align-middle mr-2.5">
-                  {placement.resourceName}
-                </h1>
-                <StatusBadge
-                  label={statusMeta.label}
-                  tone={statusMeta.tone}
-                  size="xs"
-                  className="align-middle"
-                />
-              </div>
-              <p className="text-xs text-slate-500 truncate">
-                <span className="font-medium text-slate-700">{placement.skillRole}</span>
-                {placement.vendorName && (
-                  <span> &middot; via {placement.vendorName}</span>
-                )}
-              </p>
-            </div>
+      {/* Bare Canvas Entity Title & Actions */}
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+        <div className="flex items-center gap-3.5 min-w-0 flex-1">
+          <div className="w-10 h-10 rounded-full bg-[#141615] text-white font-bold text-xs flex items-center justify-center flex-shrink-0">
+            {initials || <Briefcase className="w-4 h-4" />}
           </div>
-
-          <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
-            {onUpdatePlacement && (
-              <button
-                type="button"
-                onClick={() => setEditingPlacement({ ...placement })}
-                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Pencil className="w-3.5 h-3.5" />
-                <span>Edit Placement</span>
-              </button>
-            )}
-            {!ended && onUpdatePlacement && (
-              <button
-                type="button"
-                onClick={() => setEndingPlacement(placement)}
-                title="End consultant placement"
-                className="px-3 py-1.5 rounded-lg border border-rose-200 bg-white hover:bg-rose-50 text-rose-700 font-semibold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <CalendarX className="w-3.5 h-3.5" />
-                <span>End Placement</span>
-              </button>
-            )}
-            {onExtendContract && (
-              <button
-                type="button"
-                onClick={() => setExtendingPlacement(placement)}
-                className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <CalendarPlus className="w-3.5 h-3.5" />
-                <span>{ended ? 'Renew SOW' : 'Extend SOW'}</span>
-              </button>
-            )}
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-xl font-bold text-slate-900 tracking-tight leading-snug">
+                {placement.resourceName}
+              </h1>
+              <StatusBadge
+                label={statusMeta.label}
+                tone={statusMeta.tone}
+                size="xs"
+              />
+            </div>
+            <p className="text-xs text-slate-500 truncate">
+              <span className="font-medium text-slate-700">{placement.skillRole}</span>
+              {placement.vendorName && (
+                <span> &middot; via {placement.vendorName}</span>
+              )}
+            </p>
           </div>
         </div>
 
-        {/* Structured 4-Column Metadata Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 border-t border-slate-100 bg-slate-50/45 text-xs">
+        <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+          {onUpdatePlacement && (
+            <button
+              type="button"
+              onClick={() => setEditingPlacement({ ...placement })}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              <span>Edit Placement</span>
+            </button>
+          )}
+          {!ended && onUpdatePlacement && (
+            <button
+              type="button"
+              onClick={() => setEndingPlacement(placement)}
+              title="End consultant placement"
+              className="px-3 py-1.5 rounded-lg border border-rose-200 bg-white hover:bg-rose-50 text-rose-700 font-semibold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <CalendarX className="w-3.5 h-3.5" />
+              <span>End Placement</span>
+            </button>
+          )}
+          {onExtendContract && (
+            <button
+              type="button"
+              onClick={() => setExtendingPlacement(placement)}
+              className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <CalendarPlus className="w-3.5 h-3.5" />
+              <span>{ended ? 'Renew SOW' : 'Extend SOW'}</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Standalone 4-Column Summary Card */}
+      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 text-xs">
           {/* 1. Client & Engagement Model */}
-          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Client &amp; Model
-            </div>
+          <div className="px-6 py-4 space-y-1.5 min-w-0">
+            <div className="text-xs font-medium text-slate-500">Client &amp; Model</div>
             <div className="font-semibold text-slate-900 leading-snug flex items-start gap-1.5">
               <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
               {linkedClient && onOpenClient ? (
@@ -441,9 +437,9 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
           </div>
 
           {/* 2. Commercial Rates */}
-          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-              <DollarSign className="w-3 h-3 text-emerald-600" />
+          <div className="px-6 py-4 space-y-1.5 min-w-0">
+            <div className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
+              <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
               <span>Commercial Rates</span>
             </div>
             {rateMasked ? (
@@ -474,10 +470,8 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
           </div>
 
           {/* 3. Agreement & Recruiter */}
-          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              PO &amp; Owner
-            </div>
+          <div className="px-6 py-4 space-y-1.5 min-w-0">
+            <div className="text-xs font-medium text-slate-500">PO &amp; Owner</div>
             <div className="font-semibold text-slate-900 truncate font-mono">
               {placement.purchaseOrderNumber || 'No PO / SOW #'}
             </div>
@@ -488,11 +482,9 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
           </div>
 
           {/* 4. Contract Timeline Progress */}
-          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
+          <div className="px-6 py-4 space-y-1.5 min-w-0">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Timeline
-              </span>
+              <span className="text-xs font-medium text-slate-500">Timeline</span>
               <span className="text-[11px] font-mono font-bold text-slate-800">
                 {timeline ? `${ended ? 100 : timeline.progressPct}%` : '—'}
               </span>
@@ -508,18 +500,19 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
             </div>
           </div>
         </div>
-
-        <DetailUnderlineTabs
-          ariaLabel="Placement workspace sections"
-          tabs={placementTabs}
-          activeTab={workspaceTab}
-          onChange={setWorkspaceTab}
-        />
       </div>
+
+      {/* Floating Underline Workspace Tabs */}
+      <DetailUnderlineTabs
+        ariaLabel="Placement workspace sections"
+        tabs={placementTabs}
+        activeTab={workspaceTab}
+        onChange={setWorkspaceTab}
+      />
 
       {/* TAB 1: Billing & Contract */}
       {workspaceTab === 'billing' && (
-        <div className="space-y-5">
+        <div className="space-y-6">
           {!ended && daysLeft !== null && daysLeft <= 30 && onExtendContract && (
             <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
@@ -554,10 +547,8 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
-              <div className="p-6 space-y-1">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Pay Rate
-                </div>
+              <div className="p-6 space-y-1.5">
+                <div className="text-xs font-medium text-slate-500">Pay Rate</div>
                 <div className="text-lg font-extrabold font-mono text-slate-800">
                   <MaskedValue value={formatRate(placement.payRate) || '—'} isMasked={rateMasked} />
                 </div>
@@ -567,10 +558,8 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
                 </div>
               </div>
 
-              <div className="p-6 space-y-1">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Bill Rate
-                </div>
+              <div className="p-6 space-y-1.5">
+                <div className="text-xs font-medium text-slate-500">Bill Rate</div>
                 <div className="text-lg font-extrabold font-mono text-slate-900">
                   <MaskedValue value={formatRate(placement.billing) || '—'} isMasked={rateMasked} />
                 </div>
@@ -580,10 +569,8 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
                 </div>
               </div>
 
-              <div className="p-6 space-y-1 bg-emerald-50/30">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700/80">
-                  Hourly Spread
-                </div>
+              <div className="p-6 space-y-1.5 bg-emerald-50/30">
+                <div className="text-xs font-medium text-emerald-700">Hourly Spread</div>
                 <div
                   className={`text-lg font-extrabold font-mono ${
                     spreadNum < 0 ? 'text-rose-600' : 'text-emerald-700'
@@ -603,10 +590,8 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
                 </div>
               </div>
 
-              <div className="p-6 space-y-1">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Profit Margin
-                </div>
+              <div className="p-6 space-y-1.5">
+                <div className="text-xs font-medium text-slate-500">Profit Margin</div>
                 <div className="text-lg font-extrabold font-mono text-slate-900">
                   <MaskedValue
                     value={
@@ -656,28 +641,22 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
 
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 rounded-xl border border-slate-200/80 bg-slate-50/40">
-                <div className="p-4">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Start Date
-                  </div>
+                <div className="p-5">
+                  <div className="text-xs font-medium text-slate-500">Start Date</div>
                   <div className="text-sm font-bold text-slate-900 mt-1 font-mono">
                     {placement.startDate || '—'}
                   </div>
                 </div>
 
-                <div className="p-4">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    End Date
-                  </div>
+                <div className="p-5">
+                  <div className="text-xs font-medium text-slate-500">End Date</div>
                   <div className="text-sm font-bold text-slate-900 mt-1 font-mono">
                     {placement.endDate || '—'}
                   </div>
                 </div>
 
-                <div className="p-4">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Contract Length
-                  </div>
+                <div className="p-5">
+                  <div className="text-xs font-medium text-slate-500">Contract Length</div>
                   <div className="text-sm font-bold text-slate-900 mt-1 font-mono">
                     {timeline ? `${timeline.totalDays} days` : '—'}
                   </div>
@@ -723,7 +702,7 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/40 flex flex-col justify-between gap-3">
               <div className="space-y-1">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 inline-flex items-center gap-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 inline-flex items-center gap-1">
                   <UserCheck className="w-3 h-3 text-emerald-600" />
                   <span>Consultant</span>
                 </div>
@@ -746,7 +725,7 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
 
             <div className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/40 flex flex-col justify-between gap-3">
               <div className="space-y-1">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 inline-flex items-center gap-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 inline-flex items-center gap-1">
                   <Building2 className="w-3 h-3 text-brand-600" />
                   <span>Client Account</span>
                 </div>
@@ -771,7 +750,7 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
 
             <div className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/40 flex flex-col justify-between gap-3">
               <div className="space-y-1">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 inline-flex items-center gap-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 inline-flex items-center gap-1">
                   <Handshake className="w-3 h-3 text-amber-600" />
                   <span>Staffing Vendor</span>
                 </div>
@@ -802,7 +781,7 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
 
             <div className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/40 flex flex-col justify-between gap-3">
               <div className="space-y-1">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 inline-flex items-center gap-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 inline-flex items-center gap-1">
                   <Briefcase className="w-3 h-3 text-slate-500" />
                   <span>Job Opening</span>
                 </div>
@@ -871,7 +850,7 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
 
             <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-5">
               <div>
-                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                   PO / SOW #
                 </div>
                 <div className="font-semibold font-mono text-slate-900 [overflow-wrap:anywhere]">
@@ -880,7 +859,7 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
               </div>
 
               <div>
-                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                   Placement Model
                 </div>
                 <div className="font-semibold text-slate-900">
@@ -889,7 +868,7 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
               </div>
 
               <div>
-                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                   Deployment
                 </div>
                 <div className="font-semibold text-slate-900">
@@ -898,7 +877,7 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
               </div>
 
               <div>
-                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                   Contract Window
                 </div>
                 <div className="font-semibold font-mono text-slate-900 inline-flex items-center gap-1 flex-wrap">
@@ -909,7 +888,7 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
               </div>
 
               <div>
-                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                   Assigned Recruiter
                 </div>
                 <div className="font-semibold text-slate-900">
@@ -918,7 +897,7 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
               </div>
 
               <div>
-                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                   Client Contact
                 </div>
                 <div className="font-semibold text-slate-900">
@@ -927,7 +906,7 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
               </div>
 
               <div>
-                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1 inline-flex items-center gap-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1 inline-flex items-center gap-1">
                   <Mail className="w-3 h-3" />
                   <span>Work Email</span>
                 </div>
@@ -943,7 +922,7 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
               </div>
 
               <div>
-                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1 inline-flex items-center gap-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1 inline-flex items-center gap-1">
                   <Phone className="w-3 h-3" />
                   <span>Phone</span>
                 </div>
@@ -971,7 +950,7 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
                   </h3>
                 </div>
                 <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono border ${
+                  className={`px-2 py-0.5 rounded-full text-[11px] font-bold font-mono border ${
                     readyCheckCount === agreementChecks.length
                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                       : 'bg-amber-50 text-amber-700 border-amber-200'

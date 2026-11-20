@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  BarChart3,
   Briefcase,
   CheckCircle2,
   Loader2,
@@ -12,6 +11,8 @@ import {
 import { apiClient } from '../../config/api.config';
 import { RecruiterPerformanceRow } from '../../types';
 import { formatUserRole } from '../../utils/entityMappers';
+import { PageHeader } from '../../components/shared/PageHeader';
+import { SegmentedControl } from '../../components/shared/SegmentedControl';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { useClientPagination } from '../../utils/usePagination';
@@ -55,7 +56,7 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
         showToast(
           'Scorecard Refreshed',
           'Recruiter activity and conversion metrics updated.',
-          'fa-solid fa-rotate text-brand-500'
+          'refresh'
         );
       }
     } catch (err: any) {
@@ -63,7 +64,7 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
         showToast(
           'Performance Load Failed',
           err?.response?.data?.message || 'Unable to load recruiter performance metrics.',
-          'fa-solid fa-triangle-exclamation text-rose-500'
+          'error'
         );
       }
     } finally {
@@ -120,85 +121,61 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
     totals.submissions > 0 ? Math.round((totals.placements / totals.submissions) * 100) : 0;
 
   return (
-    <section className="max-w-7xl mx-auto space-y-5 animate-fade-in">
-      {/* Unified Header + 4-Col Team KPI Strip */}
-      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
-        <div className="px-6 py-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-brand-50 border border-brand-200/70 text-brand-600 flex items-center justify-center flex-shrink-0">
-              <BarChart3 className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className="text-[17px] sm:text-[18px] font-bold text-slate-900 tracking-tight">
-                  Team Performance
-                </h1>
-                <span className="px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-slate-100 text-slate-600">
-                  {team.length} {team.length === 1 ? 'Recruiter' : 'Recruiters'}
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Administrator view of recruiter workload, submittal output, interview progress, and placement conversion rates.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap shrink-0">
-            <div className="inline-flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
-              {(
-                [
-                  { id: 'week', label: 'This Week' },
-                  { id: 'month', label: 'This Month' },
-                  { id: 'all', label: 'All Time' },
-                ] as const
-              ).map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => setPeriod(opt.id)}
-                  className={`px-3 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
-                    period === opt.id
-                      ? 'bg-white text-slate-900 shadow-2xs font-semibold'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-
+    <section className="max-w-7xl mx-auto space-y-6 animate-fade-in">
+      <PageHeader
+        title="Team Performance"
+        subtitle="Administrator view of recruiter workload, submittal output, interview progress, and placement conversion rates."
+        badges={
+          <span className="text-xs font-medium text-slate-500 tabular-nums">
+            {team.length} {team.length === 1 ? 'recruiter' : 'recruiters'}
+          </span>
+        }
+        actions={
+          <>
+            <SegmentedControl<PerformancePeriod>
+              value={period}
+              onChange={setPeriod}
+              ariaLabel="Performance time window"
+              options={[
+                { value: 'week', label: 'This Week' },
+                { value: 'month', label: 'This Month' },
+                { value: 'all', label: 'All Time' },
+              ]}
+            />
             <button
               type="button"
               disabled={isLoading}
               onClick={() => void fetchPerformance(period, true)}
               title="Refresh recruiter metrics"
-              className="h-8 px-3 rounded-lg border border-slate-200 bg-white text-slate-700 hover:text-brand-600 hover:bg-slate-50 disabled:opacity-60 inline-flex items-center gap-1.5 text-[11px] font-semibold transition-colors cursor-pointer"
+              className="h-8 px-3 rounded-lg border border-slate-200 bg-white text-slate-700 hover:text-brand-600 hover:bg-slate-50 disabled:opacity-60 inline-flex items-center gap-1.5 text-xs font-semibold transition-colors cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
             </button>
-          </div>
-        </div>
+          </>
+        }
+      />
 
-        {/* 4-Column Summary Strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 border-t border-slate-100 bg-slate-50/45 text-xs">
-          <div className="px-6 py-3.5 space-y-1">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Briefcase className="w-3 h-3 text-slate-400" />
+      {/* 4-Column Team KPI Summary Strip */}
+      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 text-xs">
+          <div className="px-6 py-4 space-y-1.5">
+            <div className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
+              <Briefcase className="w-3.5 h-3.5 text-slate-400" />
               <span>Open Requisitions</span>
             </div>
-            <div className="text-lg font-extrabold text-slate-900 tabular-nums">
+            <div className="text-lg font-bold text-slate-900 tabular-nums">
               {totals.openReqs.toLocaleString()}
             </div>
             <div className="text-[11px] text-slate-500">Assigned active job orders</div>
           </div>
 
-          <div className="px-6 py-3.5 space-y-1">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Send className="w-3 h-3 text-brand-600" />
+          <div className="px-6 py-4 space-y-1.5">
+            <div className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
+              <Send className="w-3.5 h-3.5 text-brand-600" />
               <span>Candidate Submissions</span>
             </div>
-            <div className="text-lg font-extrabold text-slate-900 tabular-nums">
+            <div className="text-lg font-bold text-slate-900 tabular-nums">
               {totals.submissions.toLocaleString()}
             </div>
             <div className="text-[11px] text-slate-500">
@@ -210,12 +187,12 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
             </div>
           </div>
 
-          <div className="px-6 py-3.5 space-y-1">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Users className="w-3 h-3 text-indigo-600" />
+          <div className="px-6 py-4 space-y-1.5">
+            <div className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-indigo-600" />
               <span>Interviews</span>
             </div>
-            <div className="text-lg font-extrabold text-slate-900 tabular-nums">
+            <div className="text-lg font-bold text-slate-900 tabular-nums">
               {totals.interviews.toLocaleString()}
             </div>
             <div className="text-[11px] text-slate-500">
@@ -223,12 +200,12 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
             </div>
           </div>
 
-          <div className="px-6 py-3.5 space-y-1">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+          <div className="px-6 py-4 space-y-1.5">
+            <div className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
               <span>Placements &amp; Conversion</span>
             </div>
-            <div className="text-lg font-extrabold text-emerald-700 tabular-nums">
+            <div className="text-lg font-bold text-emerald-700 tabular-nums">
               {totals.placements.toLocaleString()}
               <span className="ml-2 text-xs font-semibold text-slate-500">
                 ({teamPlacementRate}%)
@@ -278,7 +255,7 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
             </div>
           ) : (
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/80 border-b border-slate-100 text-[10.5px] font-bold text-slate-400 uppercase tracking-wider">
+              <thead className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                 <tr>
                   <SortableTableHeader
                     label="Recruiter"
@@ -356,14 +333,14 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
                     <tr key={row.userId} className="hover:bg-slate-50/70 transition-colors">
                       <td className="pl-6 pr-4 py-3.5">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[10px] flex items-center justify-center flex-shrink-0">
+                          <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[11px] flex items-center justify-center flex-shrink-0">
                             {initials}
                           </div>
                           <div className="min-w-0">
                             <div className="font-semibold text-slate-900 truncate">
                               {row.fullName}
                             </div>
-                            <div className="text-[10.5px] text-slate-400 truncate">
+                            <div className="text-[11px] text-slate-400 truncate">
                               {formatUserRole(row.role)}
                               {row.desk ? ` · ${row.desk}` : ''}
                             </div>
@@ -379,7 +356,7 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
                       <td className="px-4 py-3.5 text-right tabular-nums">
                         <span className="font-semibold text-slate-800">{row.interviews}</span>
                         {row.submissions > 0 && (
-                          <span className="ml-1.5 text-[10px] text-slate-400">
+                          <span className="ml-1.5 text-[11px] text-slate-400">
                             ({interviewRate}%)
                           </span>
                         )}
@@ -389,7 +366,7 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
                       </td>
                       <td className="pl-4 pr-6 py-3.5 text-right whitespace-nowrap tabular-nums">
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-bold border ${
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold border ${
                             placementRate >= 15
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : placementRate > 0

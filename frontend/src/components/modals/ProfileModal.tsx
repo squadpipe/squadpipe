@@ -49,7 +49,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       { label: 'Email Address', valid: Boolean(formData.email.trim()) },
     ]);
     if (missingFields.length > 0) {
-      showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'fa-solid fa-circle-exclamation text-rose-500');
+      showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'error');
       return;
     }
     setIsSaving(true);
@@ -60,7 +60,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         email: formData.email.trim(),
         desk: formData.desk,
       });
-      showToast('Profile Updated', 'Your profile details have been saved.', 'fa-solid fa-circle-check text-emerald-500');
+      showToast('Profile Updated', 'Your profile details have been saved.', 'success');
       onClose();
     } catch {
       // Error toast is displayed by parent handler; keep modal open
@@ -81,8 +81,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       isOpen={Boolean(isOpen && currentUser)}
       onBackdropClick={onClose}
       zIndexClass="z-50"
-      backdropClassName="bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 select-none"
-      panelClassName="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden flex flex-col"
+      backdropClassName="bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center p-4 select-none"
+      panelClassName="bg-white rounded-xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden flex flex-col"
       ariaLabel="My Profile"
     >
       {currentUser && (
@@ -95,7 +95,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">My Profile</h3>
-              <span className="text-[10px] text-slate-400">Account details & preferences</span>
+              <span className="text-[11px] text-slate-400">Account details & preferences</span>
             </div>
           </div>
           <button
@@ -133,7 +133,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             <label className="block text-slate-500 font-medium mb-1">System Role & Clearance</label>
             <div className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium text-xs flex items-center justify-between">
               <span>{currentUser.role}</span>
-              <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-slate-700 bg-white px-2 py-0.5 rounded-full border border-slate-200">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-700 bg-white px-2 py-0.5 rounded-full border border-slate-200">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 <span>Active Session</span>
               </span>
@@ -154,7 +154,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 Rate Masking Status
               </span>
               <span
-                className={`inline-flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                className={`inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full font-medium ${
                   currentUser.rateMasked
                     ? 'bg-slate-200/80 text-slate-700'
                     : 'bg-white text-slate-700 border border-slate-200'
@@ -168,7 +168,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 <span>{currentUser.rateMasked ? '•••• Masked' : 'Rates Visible'}</span>
               </span>
             </div>
-            <p className="text-[10px] text-slate-500 leading-relaxed">
+            <p className="text-[11px] text-slate-500 leading-relaxed">
               {currentUser.rateMasked
                 ? 'Sensitive client billing rates and gross margin numbers are hidden from view.'
                 : 'Full commercial clearance is active on your profile.'}
@@ -193,7 +193,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             loading={isSaving}
             loadingText="Saving..."
             onClick={handleSave}
-            className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold transition-colors cursor-pointer"
           >
             Save Changes
           </ActionButton>

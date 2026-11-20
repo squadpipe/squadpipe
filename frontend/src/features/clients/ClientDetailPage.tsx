@@ -220,7 +220,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
       showToast(
         'Missing Fields',
         formatMissingFieldsMessage(missingFields),
-        'fa-solid fa-circle-exclamation text-rose-500'
+        'error'
       );
       return;
     }
@@ -261,13 +261,13 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
       showToast(
         'Contact Added',
         `${newContact.name} saved to ${client.name}.`,
-        'fa-solid fa-circle-check text-emerald-500'
+        'success'
       );
     } catch (err: any) {
       showToast(
         'Save Failed',
         err?.response?.data?.message || 'Could not add contact.',
-        'fa-solid fa-circle-exclamation text-rose-500'
+        'error'
       );
     } finally {
       setIsSavingContact(false);
@@ -309,7 +309,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
   ];
 
   return (
-    <section className="max-w-7xl mx-auto space-y-5 animate-fade-in">
+    <section className="max-w-7xl mx-auto space-y-6 pb-6 animate-fade-in">
       <DetailBreadcrumb
         backLabel={backLabel}
         onBack={onBack}
@@ -327,59 +327,56 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
         }
       />
 
-      {/* Unified Client Hero + 4-Col Metadata Bar + Tabs */}
-      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
-        {/* Title & Action Bar */}
-        <div className="px-6 py-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5 min-w-0 flex-1">
-            <div className="w-10 h-10 rounded-xl bg-brand-50 border border-brand-200/70 text-brand-600 flex items-center justify-center flex-shrink-0">
-              <Building2 className="w-5 h-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-[17px] sm:text-[18px] font-bold text-slate-900 tracking-tight leading-snug inline align-middle mr-2.5">
-                {client.name}
-              </h1>
-              {activeClientPlacements.length > 0 && (
-                <StatusBadge
-                  label={`${activeClientPlacements.length} Active Placement${
-                    activeClientPlacements.length === 1 ? '' : 's'
-                  }`}
-                  tone="emerald"
-                  size="xs"
-                  className="align-middle"
-                />
-              )}
-            </div>
+      {/* Bare Canvas Entity Title & Actions */}
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight leading-snug">
+              {client.name}
+            </h1>
+            {activeClientPlacements.length > 0 && (
+              <StatusBadge
+                label={`${activeClientPlacements.length} Active Placement${
+                  activeClientPlacements.length === 1 ? '' : 's'
+                }`}
+                tone="emerald"
+                size="xs"
+              />
+            )}
           </div>
-
-          <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
-            <button
-              type="button"
-              onClick={() => setIsEditingClient(true)}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Pencil className="w-3.5 h-3.5" />
-              <span>Edit Client</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowAddContact(true)}
-              className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
-              <span>Add Contact</span>
-            </button>
-          </div>
+          <p className="text-xs text-slate-500 truncate">
+            <span>{client.location || 'Enterprise Client Account'}</span>
+            {primaryContactName && <span> &middot; Primary: {primaryContactName}</span>}
+          </p>
         </div>
 
-        {/* Structured 4-Column Metadata Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 border-t border-slate-100 bg-slate-50/45 text-xs">
+        <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsEditingClient(true)}
+            className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            <span>Edit Client</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowAddContact(true)}
+            className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" strokeWidth={1.75} />
+            <span>Add Contact</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Standalone 4-Column Summary Card */}
+      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 text-xs">
           {/* 1. HQ & Channels */}
-          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              HQ &amp; Website
-            </div>
+          <div className="px-6 py-4 space-y-1.5 min-w-0">
+            <div className="text-xs font-medium text-slate-500">HQ &amp; Website</div>
             <div className="font-semibold text-slate-900 flex items-start gap-1.5 leading-snug">
               <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
               <span className="break-words">{client.location || 'Location not set'}</span>
@@ -405,10 +402,8 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
           </div>
 
           {/* 2. Primary Contact */}
-          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Primary Contact
-            </div>
+          <div className="px-6 py-4 space-y-1.5 min-w-0">
+            <div className="text-xs font-medium text-slate-500">Primary Contact</div>
             <div className="font-semibold text-slate-900 leading-snug break-words">
               {primaryContactName || 'No primary contact'}
             </div>
@@ -426,10 +421,8 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
           </div>
 
           {/* 3. Job Requisitions */}
-          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Job Requisitions
-            </div>
+          <div className="px-6 py-4 space-y-1.5 min-w-0">
+            <div className="text-xs font-medium text-slate-500">Job Requisitions</div>
             <div className="font-semibold text-slate-900 leading-snug">
               {openClientReqsCount} Open &middot; {clientReqs.length} Total
             </div>
@@ -441,10 +434,8 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
           </div>
 
           {/* 4. Billable & MSA */}
-          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Billable &amp; Agreement
-            </div>
+          <div className="px-6 py-4 space-y-1.5 min-w-0">
+            <div className="text-xs font-medium text-slate-500">Billable &amp; Agreement</div>
             <div className="font-semibold text-slate-900 leading-snug">
               <span className="text-emerald-700">{activeClientPlacements.length} Active</span>{' '}
               &middot; {clientPlacements.length} Placements
@@ -454,14 +445,15 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
             </div>
           </div>
         </div>
-
-        <DetailUnderlineTabs
-          ariaLabel="Client workspace sections"
-          tabs={clientTabs}
-          activeTab={workspaceTab}
-          onChange={setWorkspaceTab}
-        />
       </div>
+
+      {/* Floating Underline Workspace Tabs */}
+      <DetailUnderlineTabs
+        ariaLabel="Client workspace sections"
+        tabs={clientTabs}
+        activeTab={workspaceTab}
+        onChange={setWorkspaceTab}
+      />
 
       {/* TAB 1: Job Requisitions */}
       {workspaceTab === 'requisitions' && (
@@ -487,9 +479,9 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                       key={f.id}
                       type="button"
                       onClick={() => setReqFilter(f.id)}
-                      className={`px-2 py-0.5 rounded-md text-[10.5px] font-medium transition-colors cursor-pointer ${
+                      className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
                         reqFilter === f.id
-                          ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+                          ? 'bg-white text-slate-900 shadow-sm font-semibold'
                           : 'text-slate-500 hover:text-slate-800'
                       }`}
                     >
@@ -534,7 +526,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50/80 border-b border-slate-100 text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
+                  <thead className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     <tr>
                       <SortableTableHeader
                         label="Req ID"
@@ -591,7 +583,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                         }
                       >
                         <td className="pl-6 pr-4 py-3.5 whitespace-nowrap">
-                          <span className="text-[10.5px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                          <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
                             {r.code}
                           </span>
                         </td>
@@ -651,7 +643,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               onClick={() => setShowAddContact(true)}
               className="text-brand-600 font-semibold hover:underline text-xs inline-flex items-center gap-1 cursor-pointer"
             >
-              <Plus className="w-3 h-3" strokeWidth={2.4} />
+              <Plus className="w-3 h-3" strokeWidth={1.75} />
               <span>Add Contact</span>
             </button>
           </div>
@@ -664,7 +656,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50/80 border-b border-slate-100 text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
+                  <thead className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     <tr>
                       <SortableTableHeader
                         label="Contact"
@@ -732,9 +724,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                         </td>
                         <td className="pl-4 pr-6 py-3.5 text-right whitespace-nowrap">
                           {cnt.isPrimary ? (
-                            <span className="inline-flex items-center text-[10.5px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                              Primary Lead
-                            </span>
+                            <StatusBadge tone="brand" size="xs" label="Primary Lead" />
                           ) : (
                             <span className="text-[11px] text-slate-400">Contact</span>
                           )}
@@ -777,7 +767,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50/80 border-b border-slate-100 text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
+                  <thead className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     <tr>
                       <SortableTableHeader
                         label="Consultant"
@@ -895,21 +885,21 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-5">
                 <div>
-                  <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                     HQ Location
                   </div>
                   <div className="font-semibold text-slate-900">{client.location || '—'}</div>
                 </div>
 
                 <div>
-                  <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                     Board Phone
                   </div>
                   <div className="font-semibold text-slate-900">{client.boardNumber || '—'}</div>
                 </div>
 
                 <div>
-                  <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                     Website
                   </div>
                   <div className="font-semibold text-slate-900 truncate">
@@ -930,7 +920,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                 </div>
 
                 <div>
-                  <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                     Primary Contact
                   </div>
                   <div className="font-semibold text-slate-900 truncate">
@@ -939,7 +929,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                 </div>
 
                 <div>
-                  <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                     Contact Email
                   </div>
                   <div className="font-semibold text-slate-900 truncate">
@@ -955,10 +945,10 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
               </div>
 
               <div className="pt-4 border-t border-slate-100">
-                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
                   Master Services Agreement
                 </div>
-                <p className="text-[11.5px] text-slate-600 leading-relaxed bg-slate-50/70 border border-slate-200/70 rounded-xl p-3.5">
+                <p className="text-xs text-slate-600 leading-relaxed bg-slate-50/70 border border-slate-200/70 rounded-xl p-4">
                   Corporate staffing account under standard Master Services Agreement (MSA). Direct
                   engagement for C2C, W2, contract-to-hire, and project-based staffing requirements.
                 </p>
@@ -1103,7 +1093,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                         Full Name *
                       </label>
                       {isContactNameInvalid && (
-                        <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                        <span className="text-[11px] font-semibold text-rose-600">Required</span>
                       )}
                     </div>
                     <input
@@ -1137,7 +1127,7 @@ export const ClientDetailPage: React.FC<ClientDetailPageProps> = ({
                         Email *
                       </label>
                       {isContactEmailInvalid && (
-                        <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                        <span className="text-[11px] font-semibold text-rose-600">Required</span>
                       )}
                     </div>
                     <input

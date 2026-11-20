@@ -24,12 +24,12 @@ export const ImportDataView: React.FC<ImportDataViewProps> = ({
     showToast(
       'Sample CSV Downloaded',
       `Downloaded ${sampleCsvFilename} template with 3 formatted sample candidates.`,
-      'fa-solid fa-file-csv text-emerald-500'
+      'csv'
     );
   };
 
   return (
-    <section className="max-w-7xl mx-auto space-y-5 animate-fade-in select-none">
+    <section className="max-w-7xl mx-auto space-y-6 animate-fade-in select-none">
       {/* Header */}
       <div>
         <h2 className="text-lg font-bold text-slate-900 tracking-tight">Import Candidates &amp; Resumes</h2>

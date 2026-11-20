@@ -137,7 +137,7 @@ export const EditVendorModal: React.FC<EditVendorModalProps> = ({
                   <label className="block text-[11px] font-semibold text-slate-700">
                     Vendor Company *
                   </label>
-                  {isVendorNameInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                  {isVendorNameInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                 </div>
                 <input
                   type="text"
@@ -272,7 +272,7 @@ export const EditVendorModal: React.FC<EditVendorModalProps> = ({
                             })),
                           })
                         }
-                        className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border cursor-pointer transition-colors ${
+                        className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded border cursor-pointer transition-colors ${
                           contact.isPrimary
                             ? 'bg-[#141615] text-white border-[#141615]'
                             : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'

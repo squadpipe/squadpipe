@@ -149,7 +149,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
         const { user, token } = res.data;
         setAuthSession(token, user, rememberMe);
 
-        showToast('Authentication Successful', `Welcome back, ${user.name}!`, 'fa-solid fa-circle-check text-emerald-500');
+        showToast('Authentication Successful', `Welcome back, ${user.name}!`, 'success');
         onLoginSuccess(user, token);
       } else {
         setErrorMessage(res.data?.message || 'Login failed. Please verify credentials.');
@@ -157,7 +157,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Unable to connect to authentication server. Please check backend status.';
       setErrorMessage(msg);
-      showToast('Authentication Error', msg, 'fa-solid fa-triangle-exclamation text-rose-500');
+      showToast('Authentication Error', msg, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -212,7 +212,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
       if (res.data?.success && res.data.token) {
         const { user, token } = res.data;
         setAuthSession(token, user, true);
-        showToast('Account Created', `Welcome to SquadPipe, ${user.name}!`, 'fa-solid fa-circle-check text-emerald-500');
+        showToast('Account Created', `Welcome to SquadPipe, ${user.name}!`, 'success');
         onLoginSuccess(user, token);
       } else {
         setErrorMessage(res.data?.message || 'Registration failed.');
@@ -220,7 +220,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Failed to create account. Please try again.';
       setErrorMessage(msg);
-      showToast('Signup Failed', msg, 'fa-solid fa-circle-exclamation text-rose-500');
+      showToast('Signup Failed', msg, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -264,7 +264,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
         showToast(
           'Verification Requested',
           'Check your email inbox for your 6-digit verification code.',
-          'fa-solid fa-key text-brand-500'
+          'key'
         );
       } else {
         setErrorMessage(res.data?.message || 'Email lookup failed.');
@@ -305,7 +305,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
         showToast(
           'Code Resent',
           'Check your inbox for the new 6-digit verification code.',
-          'fa-solid fa-paper-plane text-brand-500'
+          'send'
         );
       } else {
         setErrorMessage(res.data?.message || 'Failed to resend verification code.');
@@ -400,7 +400,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
         showToast(
           'Password Reset',
           'Password updated! Please sign in with your new password.',
-          'fa-solid fa-circle-check text-emerald-500'
+          'success'
         );
         setEmail(forgotEmail || email);
         setPassword(newPassword);
@@ -465,7 +465,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
         showToast(
           'Onboarding Complete',
           res.data.message || `Welcome to ${res.data.user.agencyName}!`,
-          'fa-solid fa-circle-check text-emerald-500'
+          'success'
         );
         onLoginSuccess(res.data.user, res.data.token);
       } else {
@@ -646,7 +646,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-slate-700 font-medium">Email address</label>
                   {loginEmailInvalid && !email.trim() && (
-                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    <span className="text-[11px] font-semibold text-rose-600">Required</span>
                   )}
                 </div>
                 <input
@@ -663,7 +663,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                   <div className="flex items-center gap-2">
                     <label className="text-slate-700 font-medium">Password</label>
                     {loginPasswordInvalid && (
-                      <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                      <span className="text-[11px] font-semibold text-rose-600">Required</span>
                     )}
                   </div>
                   <button
@@ -743,7 +743,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-slate-700 font-medium">Full name *</label>
                   {signupNameInvalid && (
-                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    <span className="text-[11px] font-semibold text-rose-600">Required</span>
                   )}
                 </div>
                 <input
@@ -759,7 +759,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-slate-700 font-medium">Company name *</label>
                   {signupCompanyInvalid && (
-                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    <span className="text-[11px] font-semibold text-rose-600">Required</span>
                   )}
                 </div>
                 <input
@@ -775,7 +775,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-slate-700 font-medium">Work email *</label>
                   {signupEmailInvalid && !signupEmail.trim() && (
-                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    <span className="text-[11px] font-semibold text-rose-600">Required</span>
                   )}
                 </div>
                 <input
@@ -791,7 +791,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-slate-700 font-medium">Password *</label>
                   {signupPasswordInvalid && !signupPassword && (
-                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    <span className="text-[11px] font-semibold text-rose-600">Required</span>
                   )}
                 </div>
                 <div className="relative">
@@ -817,7 +817,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-slate-700 font-medium">Confirm password *</label>
                   {signupConfirmInvalid && !signupConfirmPassword && (
-                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    <span className="text-[11px] font-semibold text-rose-600">Required</span>
                   )}
                 </div>
                 <div className="relative">
@@ -877,7 +877,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-slate-700 font-medium">Email address</label>
                   {forgotEmailInvalid && !forgotEmail.trim() && (
-                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    <span className="text-[11px] font-semibold text-rose-600">Required</span>
                   )}
                 </div>
                 <input
@@ -929,7 +929,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                     6-digit verification code *
                   </label>
                   {otpInvalid && (
-                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    <span className="text-[11px] font-semibold text-rose-600">Required</span>
                   )}
                 </div>
                 <input
@@ -996,7 +996,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-slate-700 font-medium">New password *</label>
                   {newPasswordInvalid && !newPassword && (
-                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    <span className="text-[11px] font-semibold text-rose-600">Required</span>
                   )}
                 </div>
                 <div className="relative">
@@ -1022,7 +1022,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-slate-700 font-medium">Confirm new password *</label>
                   {confirmNewPasswordInvalid && !confirmNewPassword && (
-                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    <span className="text-[11px] font-semibold text-rose-600">Required</span>
                   )}
                 </div>
                 <div className="relative">
@@ -1105,7 +1105,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="block text-slate-700 font-medium">Full name *</label>
                       {inviteNameInvalid && (
-                        <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                        <span className="text-[11px] font-semibold text-rose-600">Required</span>
                       )}
                     </div>
                     <input
@@ -1121,7 +1121,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="block text-slate-700 font-medium">Create password *</label>
                       {invitePassInvalid && !invitePassword && (
-                        <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                        <span className="text-[11px] font-semibold text-rose-600">Required</span>
                       )}
                     </div>
                     <div className="relative">
@@ -1147,7 +1147,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="block text-slate-700 font-medium">Confirm password *</label>
                       {inviteConfirmInvalid && !inviteConfirmPassword && (
-                        <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                        <span className="text-[11px] font-semibold text-rose-600">Required</span>
                       )}
                     </div>
                     <div className="relative">

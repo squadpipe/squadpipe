@@ -24,6 +24,7 @@ import {
   INVALID_FIELD_CLASSES,
 } from '../../utils/formValidation';
 import { CustomSelect } from '../../components/shared/CustomSelect';
+import { SegmentedControl } from '../../components/shared/SegmentedControl';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapUserFromApi } from '../../utils/entityMappers';
 import { getWorkspaceBrandSlug } from '../../utils/workspaceBrand';
@@ -181,7 +182,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
     ]);
     if (missingFields.length > 0) {
       setInviteValidationAttempted(true);
-      showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'fa-solid fa-circle-exclamation text-rose-500');
+      showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'error');
       return;
     }
     setInviteValidationAttempted(false);
@@ -228,7 +229,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   };
 
   return (
-    <section className="max-w-7xl mx-auto space-y-5 animate-fade-in select-none">
+    <section className="max-w-7xl mx-auto space-y-6 animate-fade-in select-none">
       {/* Clean Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -248,7 +249,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
           </button>
           <button
             onClick={() => setShowInviteModal(true)}
-            className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <UserPlus className="w-3.5 h-3.5" />
             <span>Invite Member</span>
@@ -289,21 +290,17 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
               ]}
             />
 
-            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-              {(['All', 'Active', 'Invited', 'Suspended'] as const).map((st) => (
-                <button
-                  key={st}
-                  onClick={() => setStatusFilter(st)}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
-                    statusFilter === st
-                      ? 'bg-white text-slate-900 shadow-2xs font-semibold'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  {st}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl<'All' | 'Active' | 'Invited' | 'Suspended'>
+              value={statusFilter}
+              onChange={setStatusFilter}
+              ariaLabel="Filter team members by status"
+              options={[
+                { value: 'All', label: 'All' },
+                { value: 'Active', label: 'Active' },
+                { value: 'Invited', label: 'Invited' },
+                { value: 'Suspended', label: 'Suspended' },
+              ]}
+            />
           </div>
 
           <div className="text-[11px] text-slate-500">
@@ -311,10 +308,10 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
           </div>
         </div>
 
-        <div className="max-h-[440px] overflow-auto">
+        <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)]">
-              <tr className="text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr className="text-slate-500 font-semibold uppercase text-[11px] tracking-wider">
                 <SortableTableHeader
                   label="Member"
                   column="fullName"
@@ -421,7 +418,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                             <div className="font-semibold text-slate-900 flex items-center gap-1.5">
                               <span>{u.name}</span>
                               {u.isCurrentUser && (
-                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                                <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
                                   You
                                 </span>
                               )}
@@ -555,7 +552,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
         isOpen={Boolean(userToDelete)}
         onBackdropClick={() => !isDeleting && setUserToDelete(null)}
         zIndexClass="z-50"
-        backdropClassName="bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+        backdropClassName="bg-slate-900/55 backdrop-blur-[2px] flex items-center justify-center p-4"
         panelClassName="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-sm p-6 space-y-4"
         ariaLabel="Remove Team Member"
       >
@@ -612,7 +609,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
         isOpen={showInviteModal}
         onBackdropClick={() => setShowInviteModal(false)}
         zIndexClass="z-50"
-        backdropClassName="bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+        backdropClassName="bg-slate-900/55 backdrop-blur-[2px] flex items-center justify-center p-4"
         panelClassName="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden"
         ariaLabel="Invite Team Member"
       >
@@ -635,7 +632,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                   <label className="block text-[11px] font-semibold text-slate-700">
                     Full Name <span className="text-rose-500">*</span>
                   </label>
-                  {isInviteNameInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                  {isInviteNameInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                 </div>
                 <input
                   type="text"
@@ -653,7 +650,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                   <label className="block text-[11px] font-semibold text-slate-700">
                     Corporate Email <span className="text-rose-500">*</span>
                   </label>
-                  {isInviteEmailInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                  {isInviteEmailInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                 </div>
                 <input
                   type="email"
@@ -740,7 +737,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
         isOpen={Boolean(editingUser)}
         onBackdropClick={() => !isUpdating && setEditingUser(null)}
         zIndexClass="z-50"
-        backdropClassName="bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+        backdropClassName="bg-slate-900/55 backdrop-blur-[2px] flex items-center justify-center p-4"
         panelClassName="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden"
         ariaLabel="Edit Team Member"
       >
@@ -770,7 +767,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                 ]);
                 if (missingFields.length > 0) {
                   setEditValidationAttempted(true);
-                  showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'fa-solid fa-circle-exclamation text-rose-500');
+                  showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'error');
                   return;
                 }
                 setEditValidationAttempted(false);
@@ -789,7 +786,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-[11px] font-semibold text-slate-700">Full Name *</label>
-                  {isEditNameInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                  {isEditNameInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                 </div>
                 <input
                   type="text"
@@ -804,7 +801,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-[11px] font-semibold text-slate-700">Email *</label>
-                  {isEditEmailInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                  {isEditEmailInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                 </div>
                 <input
                   type="email"

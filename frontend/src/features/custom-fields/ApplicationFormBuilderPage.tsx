@@ -4,9 +4,7 @@ import {
   ChevronDown,
   ChevronUp,
   Eye,
-  FileText,
   Plus,
-  Star,
   Trash2,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
@@ -24,7 +22,14 @@ import { INVALID_FIELD_CLASSES } from '../../utils/formValidation';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { DetailBreadcrumb } from '../../components/shared/DetailPageShell';
+import { PageHeader } from '../../components/shared/PageHeader';
+import {
+  FieldWidthToggle,
+  RequiredToggle,
+  SegmentedControl,
+} from '../../components/shared/SegmentedControl';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { UnsavedChangesModal, useFormShortcuts } from '../../hooks/useFormShortcuts';
 import { ApplicationFormPreview } from './ApplicationFormPreview';
 
 interface ApplicationFormBuilderPageProps {
@@ -158,100 +163,6 @@ const QUICK_QUESTION_PRESETS: Array<{
   },
 ];
 
-function SegmentedToggle<T extends string>({
-  value,
-  options,
-  onChange,
-  ariaLabel,
-  fullWidth = false,
-}: {
-  value: T;
-  options: Array<{ value: T; label: React.ReactNode; title?: string }>;
-  onChange: (next: T) => void;
-  ariaLabel: string;
-  fullWidth?: boolean;
-}) {
-  return (
-    <div
-      className={`inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5 shrink-0 ${
-        fullWidth ? 'w-full' : ''
-      }`}
-      role="group"
-      aria-label={ariaLabel}
-    >
-      {options.map((opt) => {
-        const active = value === opt.value;
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            title={opt.title}
-            className={`${
-              fullWidth ? 'flex-1 justify-center' : ''
-            } inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10.5px] font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-              active
-                ? 'bg-slate-900 text-white shadow-2xs'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            {opt.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-const FieldWidthToggle: React.FC<{
-  value: ApplicationFormFieldWidth;
-  onChange: (next: ApplicationFormFieldWidth) => void;
-  ariaLabel?: string;
-  fullWidth?: boolean;
-}> = ({ value, onChange, ariaLabel = 'Field width', fullWidth = false }) => (
-  <SegmentedToggle
-    value={value}
-    onChange={onChange}
-    ariaLabel={ariaLabel}
-    fullWidth={fullWidth}
-    options={[
-      { value: 'half', label: 'Half', title: 'Half width (50%)' },
-      { value: 'full', label: 'Full', title: 'Full width (100%)' },
-    ]}
-  />
-);
-
-const RequiredToggle: React.FC<{
-  required: boolean;
-  onChange: (next: boolean) => void;
-  ariaLabel?: string;
-  fullWidth?: boolean;
-}> = ({ required, onChange, ariaLabel = 'Requirement setting', fullWidth = false }) => (
-  <SegmentedToggle<'optional' | 'required'>
-    value={required ? 'required' : 'optional'}
-    onChange={(next) => onChange(next === 'required')}
-    ariaLabel={ariaLabel}
-    fullWidth={fullWidth}
-    options={[
-      { value: 'optional', label: 'Optional', title: 'Applicant may skip this field' },
-      {
-        value: 'required',
-        label: (
-          <span className="inline-flex items-center gap-1">
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                required ? 'bg-amber-400' : 'bg-amber-500/70'
-              }`}
-            />
-            <span>Required</span>
-          </span>
-        ),
-        title: 'Applicant must complete this field',
-      },
-    ]}
-  />
-);
-
 function buildDraftFromForm(form: ApplicationFormTemplate): {
   draft: Omit<ApplicationFormTemplate, 'id'>;
   optionsText: Record<string, string>;
@@ -335,6 +246,9 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
   const [validationAttempted, setValidationAttempted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [mobileTab, setMobileTab] = useState<'edit' | 'preview'>('edit');
+  const [baselineSnapshot, setBaselineSnapshot] = useState(() =>
+    JSON.stringify(initialMatched ? buildDraftFromForm(initialMatched).draft : EMPTY_FORM_DRAFT)
+  );
 
   const formNameInputRef = useRef<HTMLInputElement>(null);
   const newCustomNameRef = useRef<HTMLInputElement>(null);
@@ -345,6 +259,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
       setNotFound(false);
       setEditingOriginalIsDefault(false);
       setDraft(EMPTY_FORM_DRAFT);
+      setBaselineSnapshot(JSON.stringify(EMPTY_FORM_DRAFT));
       setCustomOptionsText({});
       setValidationAttempted(false);
       const timer = setTimeout(() => formNameInputRef.current?.focus(), 40);
@@ -355,6 +270,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
     if (existing) {
       const prepared = buildDraftFromForm(existing);
       setDraft(prepared.draft);
+      setBaselineSnapshot(JSON.stringify(prepared.draft));
       setCustomOptionsText(prepared.optionsText);
       setEditingOriginalIsDefault(Boolean(existing.isDefault));
       setNotFound(false);
@@ -380,6 +296,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
         }
         const prepared = buildDraftFromForm(target);
         setDraft(prepared.draft);
+        setBaselineSnapshot(JSON.stringify(prepared.draft));
         setCustomOptionsText(prepared.optionsText);
         setEditingOriginalIsDefault(Boolean(target.isDefault));
       })
@@ -389,6 +306,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
         if (fallback) {
           const prepared = buildDraftFromForm(fallback);
           setDraft(prepared.draft);
+          setBaselineSnapshot(JSON.stringify(prepared.draft));
           setCustomOptionsText(prepared.optionsText);
           setEditingOriginalIsDefault(Boolean(fallback.isDefault));
         } else {
@@ -518,7 +436,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
       showToast(
         'Missing Required Fields',
         'Please enter a Form Name.',
-        'fa-solid fa-circle-exclamation text-amber-500'
+        'warning'
       );
       return;
     }
@@ -542,7 +460,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
       showToast(
         'Missing Dropdown Options',
         `Please add at least one option for "${emptyDropdown.name}".`,
-        'fa-solid fa-circle-exclamation text-amber-500'
+        'warning'
       );
       return;
     }
@@ -573,14 +491,15 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
       showToast(
         formId ? 'Application Form Updated' : 'Application Form Created',
         `"${payload.name}" is ready to attach to job requirements.`,
-        'fa-solid fa-circle-check text-emerald-500'
+        'success'
       );
+      setBaselineSnapshot(JSON.stringify(draft));
       onSaved(savedList);
     } catch (err: any) {
       showToast(
         'Save Failed',
         err?.response?.data?.message || 'Could not save application form.',
-        'fa-solid fa-triangle-exclamation text-rose-500'
+        'error'
       );
     } finally {
       setIsSaving(false);
@@ -637,6 +556,13 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
     ).length +
     draftCustomWithGhost.filter((cf) => (cf.width || 'half') === 'half').length;
 
+  const isDirty = Boolean(newCustomName.trim()) || JSON.stringify(draft) !== baselineSnapshot;
+  const { showLeaveModal, guardNavigation, confirmLeave, cancelLeave } = useFormShortcuts({
+    isDirty,
+    isSubmitting: isSaving,
+    onSubmit: () => handleSaveForm(),
+  });
+
   if (isLoadingForm) {
     return (
       <div className="space-y-4">
@@ -685,90 +611,74 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
     <div className="space-y-5">
       <DetailBreadcrumb
         backLabel="Back to Application Forms"
-        onBack={onBack}
+        onBack={() => guardNavigation(onBack)}
         title={isEditMode ? draft.name.trim() || 'Edit Application Form' : 'New Application Form'}
         codePill={isEditMode ? 'Edit Template' : 'New Template'}
       />
 
-      {/* Top Action Header */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-3.5 min-w-0">
-          <span className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-xs shrink-0">
-            <FileText className="w-4 h-4" />
-          </span>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-base font-bold text-slate-900 tracking-tight truncate">
-                {isEditMode
-                  ? draft.name.trim() || 'Edit Application Form'
-                  : 'Create New Application Form'}
-              </h1>
-              <StatusBadge
-                tone="brand"
-                shape="rounded"
-                label={`${totalDraftFieldCount} Active Fields`}
-                className="tabular-nums"
-              />
-              {editingOriginalIsDefault && (
-                <StatusBadge
-                  tone="emerald"
-                  shape="rounded"
-                  label="Workspace Default"
-                />
-              )}
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Configure form identity, Half / Full field widths, and custom screening questions with a live applicant preview.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-auto text-xs">
-          <button
-            type="button"
-            disabled={isSaving}
-            onClick={onBack}
-            className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-semibold cursor-pointer disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <ActionButton
-            type="button"
-            onClick={() => handleSaveForm()}
-            loading={isSaving}
-            loadingText="Saving..."
-            className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-xs cursor-pointer"
-          >
-            {isEditMode ? 'Save Changes' : 'Create Form'}
-          </ActionButton>
-        </div>
-      </div>
+      <PageHeader
+        title={
+          isEditMode
+            ? draft.name.trim() || 'Edit Application Form'
+            : 'Create Application Form'
+        }
+        subtitle="Configure form identity, half/full field widths, and custom screening questions with a live applicant preview."
+        badges={
+          <>
+            <StatusBadge
+              tone="brand"
+              size="xs"
+              label={`${totalDraftFieldCount} Active Fields`}
+              className="tabular-nums"
+            />
+            {editingOriginalIsDefault && (
+              <StatusBadge tone="emerald" size="xs" label="Workspace Default" />
+            )}
+          </>
+        }
+        actions={
+          <>
+            <button
+              type="button"
+              disabled={isSaving}
+              onClick={() => guardNavigation(onBack)}
+              className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold cursor-pointer disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <ActionButton
+              type="button"
+              onClick={() => handleSaveForm()}
+              loading={isSaving}
+              loadingText="Saving..."
+              className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold cursor-pointer"
+            >
+              {isEditMode ? 'Save Changes' : 'Create Form'}
+            </ActionButton>
+          </>
+        }
+      />
 
       {/* Tablet / Mobile Builder vs Preview Switcher */}
-      <div className="xl:hidden bg-white rounded-xl border border-slate-200 p-1.5 flex items-center gap-1.5 text-xs">
-        <button
-          type="button"
-          onClick={() => setMobileTab('edit')}
-          className={`flex-1 py-2 rounded-lg font-semibold transition-colors cursor-pointer ${
-            mobileTab === 'edit'
-              ? 'bg-slate-900 text-white shadow-2xs'
-              : 'text-slate-600 hover:bg-slate-50'
-          }`}
-        >
-          Form Builder
-        </button>
-        <button
-          type="button"
-          onClick={() => setMobileTab('preview')}
-          className={`flex-1 py-2 rounded-lg font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
-            mobileTab === 'preview'
-              ? 'bg-slate-900 text-white shadow-2xs'
-              : 'text-slate-600 hover:bg-slate-50'
-          }`}
-        >
-          <Eye className="w-3.5 h-3.5" />
-          <span>Live Preview</span>
-        </button>
+      <div className="xl:hidden">
+        <SegmentedControl<'edit' | 'preview'>
+          value={mobileTab}
+          onChange={setMobileTab}
+          ariaLabel="Switch between form builder and live preview"
+          fullWidth
+          options={[
+            { value: 'edit', label: 'Form Builder' },
+            {
+              value: 'preview',
+              label: (
+                <span className="inline-flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Live Preview</span>
+                </span>
+              ),
+            },
+          ]}
+        />
       </div>
 
       {/* Main Dedicated 12-Column Builder + Live Preview Workspace */}
@@ -784,13 +694,13 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
           }`}
         >
           {/* Card 1: Form Identity */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200 p-5 card-shadow space-y-4">
             <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
               <div>
-                <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                  1. Form Identity &amp; Copy
+                <h2 className="text-sm font-semibold text-slate-900">
+                  Form identity &amp; copy
                 </h2>
-                <p className="text-[11px] text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Name shown to recruiters and heading shown to candidates on the application page.
                 </p>
               </div>
@@ -799,9 +709,9 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="font-semibold text-slate-700">Form Name *</label>
+                  <label className="text-xs font-medium text-slate-700">Form Name *</label>
                   {isNameInvalid && (
-                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    <span className="text-[11px] font-semibold text-rose-600">Required</span>
                   )}
                 </div>
                 <input
@@ -817,7 +727,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-medium text-slate-700 mb-1">
                   Public Form Title
                 </label>
                 <input
@@ -831,7 +741,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-medium text-slate-700 mb-1">
                 Applicant Instructions (Optional)
               </label>
               <input
@@ -850,9 +760,9 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                     type="checkbox"
                     checked={draft.isDefault}
                     onChange={(e) => setDraft({ ...draft, isDefault: e.target.checked })}
-                    className="w-4 h-4 rounded text-brand-600 cursor-pointer"
+                    className="w-4 h-4 rounded-md text-brand-600 cursor-pointer"
                   />
-                  <span className="font-semibold text-slate-700">
+                  <span className="font-medium text-slate-700">
                     Set as default form for job links
                   </span>
                 </label>
@@ -861,35 +771,35 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
           </div>
 
           {/* Card 2: Core & Standard Fields */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200 p-5 card-shadow space-y-4">
             <div className="flex items-start justify-between gap-2 flex-wrap pb-2.5 border-b border-slate-100">
               <div>
-                <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                  2. Core &amp; Standard Fields
+                <h2 className="text-sm font-semibold text-slate-900">
+                  Core &amp; standard fields
                 </h2>
-                <p className="text-[11px] text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Toggle optional fields ({enabledStandardCount} of {STANDARD_TOGGLE_FIELDS.length}{' '}
                   active) and choose Half (50%) or Full (100%) row width.
                 </p>
               </div>
               {totalHalfFieldsCount % 2 === 1 && (
-                <span className="px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-[10.5px] font-medium text-slate-600">
-                  Tip: {totalHalfFieldsCount} Half-width fields active — pair in twos or use Full to avoid row gaps
+                <span className="px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-[11px] font-medium text-slate-600">
+                  Tip: {totalHalfFieldsCount} Half-width fields active — pair in twos or use Full
                 </span>
               )}
             </div>
 
             {/* Core Mandatory Strip */}
-            <div className="px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mr-1">
-                Always Required:
+            <div className="px-3.5 py-2.5 rounded-lg bg-slate-50 border border-slate-200/80 flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] font-medium text-slate-500 mr-1">
+                Always required:
               </span>
-              {['Resume / CV *', 'Full Name *', 'Email *', 'Phone *', 'Work Auth *'].map((label) => (
+              {['Resume / CV', 'Full Name', 'Email', 'Phone', 'Work Auth'].map((label) => (
                 <span
                   key={label}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[10.5px] font-semibold text-slate-700"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[11px] font-medium text-slate-700"
                 >
-                  <Check className="w-2.5 h-2.5 text-emerald-600" />
+                  <Check className="w-3 h-3 text-emerald-600" />
                   <span>{label}</span>
                 </span>
               ))}
@@ -960,7 +870,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                         />
                       </div>
                     ) : (
-                      <span className="text-[10.5px] text-slate-400 shrink-0">Hidden</span>
+                      <span className="text-[11px] text-slate-400 shrink-0">Hidden</span>
                     )}
                   </div>
                 );
@@ -969,21 +879,21 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
           </div>
 
           {/* Card 3: Custom Questions */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200 p-5 card-shadow space-y-4">
             <div className="flex items-center justify-between gap-2 flex-wrap pb-2.5 border-b border-slate-100">
               <div>
-                <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                  3. Custom Screening Questions ({(draft.customFields || []).length})
+                <h2 className="text-sm font-semibold text-slate-900">
+                  Custom screening questions ({(draft.customFields || []).length})
                 </h2>
-                <p className="text-[11px] text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Add extra questions saved directly to candidates on this form. Reorder, resize (Half/Full), or pick from common presets.
                 </p>
               </div>
             </div>
 
-            {/* Added Questions List */}
+            {/* Added Questions List (Hairline-divided rows matching Standard Fields) */}
             {(draft.customFields || []).length > 0 ? (
-              <div className="space-y-2.5">
+              <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 overflow-hidden">
                 {(draft.customFields || []).map((cf, idx, arr) => {
                   const rawChoices =
                     customOptionsText[cf.key] !== undefined
@@ -997,11 +907,11 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                   return (
                     <div
                       key={cf.key}
-                      className="p-3.5 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition-colors flex items-start gap-3"
+                      className="p-3.5 bg-white hover:bg-slate-50/40 transition-colors flex items-start gap-3"
                     >
                       {/* Left Rail: Index Badge + Move Controls */}
                       <div className="w-11 shrink-0 flex flex-col items-center gap-1 pt-0.5">
-                        <span className="w-full h-6 rounded-md bg-slate-100 border border-slate-200/80 text-slate-700 font-bold text-[10px] inline-flex items-center justify-center tabular-nums">
+                        <span className="w-full h-6 rounded-md bg-slate-100 text-slate-700 font-semibold text-[11px] inline-flex items-center justify-center tabular-nums">
                           Q{idx + 1}
                         </span>
                         <div className="inline-flex items-center gap-0.5">
@@ -1010,7 +920,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                             disabled={idx === 0}
                             onClick={() => handleMoveCustomField(idx, -1)}
                             title="Move question up"
-                            className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-25 cursor-pointer"
+                            className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-25 cursor-pointer"
                           >
                             <ChevronUp className="w-3.5 h-3.5" />
                           </button>
@@ -1019,7 +929,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                             disabled={idx === arr.length - 1}
                             onClick={() => handleMoveCustomField(idx, 1)}
                             title="Move question down"
-                            className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-25 cursor-pointer"
+                            className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-25 cursor-pointer"
                           >
                             <ChevronDown className="w-3.5 h-3.5" />
                           </button>
@@ -1035,7 +945,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                             value={cf.name}
                             onChange={(e) => handleUpdateCustomField(cf.key, { name: e.target.value })}
                             placeholder="Question label..."
-                            className="flex-1 min-w-0 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-800 focus:border-brand-500 focus:outline-none"
+                            className="flex-1 min-w-0 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-800 focus:border-brand-500 focus:outline-none"
                           />
                           <button
                             type="button"
@@ -1085,9 +995,9 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
 
                         {/* Row 3: Dropdown Options */}
                         {cf.type === 'DROPDOWN' && (
-                          <div className="pt-1 border-t border-slate-100 space-y-1.5">
-                            <label className="block text-[10.5px] font-semibold text-slate-500">
-                              Dropdown Options (comma separated)
+                          <div className="pt-2 border-t border-slate-100 space-y-1.5">
+                            <label className="block text-[11px] font-medium text-slate-500">
+                              Dropdown choices (comma separated)
                             </label>
                             <input
                               type="text"
@@ -1110,7 +1020,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                                 {parsedChoices.map((choice, cIdx) => (
                                   <span
                                     key={`${cf.key}_opt_${cIdx}`}
-                                    className="px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200/80 text-slate-600 text-[10px] font-medium"
+                                    className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[11px] font-medium"
                                   >
                                     {choice}
                                   </span>
@@ -1125,16 +1035,16 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                 })}
               </div>
             ) : (
-              <div className="px-4 py-3 rounded-xl bg-slate-50/70 border border-dashed border-slate-200 text-[11px] text-slate-500">
+              <div className="px-4 py-3 rounded-lg bg-slate-50/70 border border-dashed border-slate-200 text-[11px] text-slate-500">
                 No custom questions added yet. Pick a quick preset or compose a new question below.
               </div>
             )}
 
             {/* Quick Add Common Presets */}
             {availablePresets.length > 0 && (
-              <div className="space-y-2">
-                <div className="text-[10.5px] font-semibold text-slate-500 uppercase tracking-wider">
-                  Quick Add Common Questions
+              <div className="space-y-2 pt-1">
+                <div className="text-[11px] font-medium text-slate-500">
+                  Quick add common questions
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {availablePresets.map((preset) => (
@@ -1142,12 +1052,12 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                       key={preset.name}
                       type="button"
                       onClick={() => handleAddPresetQuestion(preset)}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-700 text-[11px] font-medium transition-colors cursor-pointer shadow-2xs"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-700 text-[11px] font-medium transition-colors cursor-pointer"
                     >
                       <Plus className="w-3 h-3 text-brand-600" />
                       <span>{preset.name}</span>
-                      <span className="px-1.5 py-0.5 rounded bg-slate-100 text-[9.5px] font-semibold text-slate-500">
-                        {preset.width === 'full' ? 'Full' : 'Half'}
+                      <span className="text-[11px] text-slate-400">
+                        · {preset.width === 'full' ? 'Full' : 'Half'}
                       </span>
                     </button>
                   ))}
@@ -1155,13 +1065,13 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
               </div>
             )}
 
-            {/* Compact Question Composer */}
-            <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200 space-y-3">
+            {/* Flat Bottom Composer Section (Hairline divider instead of nested box) */}
+            <div className="pt-4 border-t border-slate-100 space-y-3">
               <div className="flex items-center justify-between gap-2 flex-wrap">
-                <span className="text-[11px] font-bold text-slate-800">
-                  Add a New Custom Question
+                <span className="text-xs font-semibold text-slate-800">
+                  Add a new custom question
                 </span>
-                <span className="text-[10.5px] text-slate-400">
+                <span className="text-[11px] text-slate-400">
                   {newCustomName.trim()
                     ? 'Showing live preview on the right'
                     : 'Press Enter or click Add Question'}
@@ -1170,11 +1080,11 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
 
               <div>
                 <div className="flex items-center justify-between gap-2 mb-1">
-                  <label className="text-[11px] font-semibold text-slate-700">
+                  <label className="text-xs font-medium text-slate-700">
                     Question Label *
                   </label>
                   {customDraftError && !newCustomName.trim() && (
-                    <span className="text-[10.5px] font-semibold text-rose-600">
+                    <span className="text-[11px] font-semibold text-rose-600">
                       {customDraftError}
                     </span>
                   )}
@@ -1205,7 +1115,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
               <div className="flex flex-wrap items-end justify-between gap-2.5 pt-0.5">
                 <div className="flex flex-wrap items-end gap-2.5">
                   <div className="w-32">
-                    <label className="block text-[10.5px] font-semibold text-slate-600 mb-1">
+                    <label className="block text-[11px] font-medium text-slate-600 mb-1">
                       Answer Type
                     </label>
                     <CustomSelect
@@ -1221,7 +1131,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                   </div>
 
                   <div>
-                    <label className="block text-[10.5px] font-semibold text-slate-600 mb-1">
+                    <label className="block text-[11px] font-medium text-slate-600 mb-1">
                       Width
                     </label>
                     <FieldWidthToggle
@@ -1232,7 +1142,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                   </div>
 
                   <div>
-                    <label className="block text-[10.5px] font-semibold text-slate-600 mb-1">
+                    <label className="block text-[11px] font-medium text-slate-600 mb-1">
                       Requirement
                     </label>
                     <RequiredToggle
@@ -1246,7 +1156,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                 <button
                   type="button"
                   onClick={handleAddInlineCustomField}
-                  className="h-[30px] px-3.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-2xs"
+                  className="h-[30px] px-3.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add Question</span>
@@ -1254,13 +1164,13 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
               </div>
 
               {newCustomType === 'DROPDOWN' && (
-                <div className="pt-1 border-t border-slate-200/70 space-y-1.5">
+                <div className="pt-2 border-t border-slate-100 space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
-                    <label className="block text-[11px] font-semibold text-slate-700">
+                    <label className="block text-xs font-medium text-slate-700">
                       Dropdown Choices (comma separated) *
                     </label>
                     {customDraftError && parsedComposerOptions.length === 0 && (
-                      <span className="text-[10.5px] font-semibold text-rose-600">
+                      <span className="text-[11px] font-semibold text-rose-600">
                         {customDraftError}
                       </span>
                     )}
@@ -1286,11 +1196,11 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                     }`}
                   />
                   {parsedComposerOptions.length > 0 && (
-                    <div className="flex flex-wrap gap-1 pt-0.5">
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
                       {parsedComposerOptions.map((opt, idx) => (
                         <span
                           key={`new_opt_${idx}`}
-                          className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600 text-[10px] font-medium"
+                          className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[11px] font-medium"
                         >
                           {opt}
                         </span>
@@ -1301,38 +1211,6 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
               )}
             </div>
           </div>
-
-          {/* Bottom Save Strip */}
-          <div className="bg-white rounded-xl border border-slate-200 px-5 py-3.5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            {editingOriginalIsDefault ? (
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg self-start sm:self-auto">
-                <Star className="w-3.5 h-3.5 fill-emerald-500 text-emerald-600" />
-                <span>Currently Workspace Default Form</span>
-              </span>
-            ) : (
-              <span className="text-[11px] text-slate-500">
-                Changes apply immediately to job links using this template.
-              </span>
-            )}
-            <div className="flex items-center justify-end gap-2.5">
-              <button
-                type="button"
-                disabled={isSaving}
-                onClick={onBack}
-                className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold cursor-pointer disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <ActionButton
-                type="submit"
-                loading={isSaving}
-                loadingText="Saving..."
-                className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-xs cursor-pointer"
-              >
-                {isEditMode ? 'Save Changes' : 'Create Form'}
-              </ActionButton>
-            </div>
-          </div>
         </div>
 
         {/* Right Live Preview Column */}
@@ -1341,13 +1219,13 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
             mobileTab === 'edit' ? 'hidden xl:block' : 'block'
           }`}
         >
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden xl:max-h-[calc(100vh-7rem)] xl:flex xl:flex-col">
+          <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden xl:max-h-[calc(100vh-7rem)] xl:flex xl:flex-col">
             <div className="px-4 py-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between gap-2 shrink-0">
-              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
                 <Eye className="w-3.5 h-3.5 text-brand-600" />
                 <span>Live Form Preview</span>
               </div>
-              <span className="text-[10.5px] text-slate-400">
+              <span className="text-[11px] text-slate-400">
                 Updates live as you edit
               </span>
             </div>
@@ -1357,6 +1235,12 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
           </div>
         </div>
       </form>
+
+      <UnsavedChangesModal
+        isOpen={showLeaveModal}
+        onConfirmLeave={confirmLeave}
+        onCancelLeave={cancelLeave}
+      />
     </div>
   );
 };

@@ -30,6 +30,7 @@ import { SortableTableHeader } from '../../components/shared/SortableTableHeader
 import { TablePagination } from '../../components/shared/TablePagination';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { CustomSelect } from '../../components/shared/CustomSelect';
+import { PageHeader } from '../../components/shared/PageHeader';
 import { useDebounce } from '../../utils/useDebounce';
 import { sortArrayByColumn, useTableSort } from '../../utils/tableSort';
 import { INVALID_FIELD_CLASSES } from '../../utils/formValidation';
@@ -274,7 +275,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
     const val = (newTaxInput[category] || '').trim();
     if (!val) return;
     if (masterTaxonomies[category].some((item) => item.toLowerCase() === val.toLowerCase())) {
-      showToast('Already Exists', `"${val}" is already in this list.`, 'fa-solid fa-circle-info text-amber-500');
+      showToast('Already Exists', `"${val}" is already in this list.`, 'warning');
       return;
     }
     try {
@@ -285,7 +286,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
     setMasterTaxonomies((prev) => ({ ...prev, [category]: [...prev[category], val] }));
     invalidateSchemaCaches();
     setNewTaxInput((prev) => ({ ...prev, [category]: '' }));
-    showToast('Option Added', `Added "${val}" to master dropdown.`, 'fa-solid fa-circle-check text-emerald-500');
+    showToast('Option Added', `Added "${val}" to master dropdown.`, 'success');
   };
 
   const handleSaveEditTaxonomy = async () => {
@@ -312,7 +313,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
     }));
     invalidateSchemaCaches();
     setEditingTax(null);
-    showToast('Option Updated', `Updated "${oldValue}" to "${trimmed}".`, 'fa-solid fa-circle-check text-emerald-500');
+    showToast('Option Updated', `Updated "${oldValue}" to "${trimmed}".`, 'success');
   };
 
   const handleRemoveTaxonomyOption = async (category: TaxonomyKey, optionValue: string) => {
@@ -329,7 +330,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
     if (editingTax && editingTax.category === category && masterTaxonomies[category][editingTax.index] === optionValue) {
       setEditingTax(null);
     }
-    showToast('Option Removed', `Removed "${optionValue}" from master dropdown.`, 'fa-solid fa-trash-can text-slate-500');
+    showToast('Option Removed', `Removed "${optionValue}" from master dropdown.`, 'delete');
   };
 
   const handleDeleteField = async (id: string) => {
@@ -340,7 +341,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
     }
     setFieldsList((prev) => prev.filter((f) => f.id !== id));
     invalidateSchemaCaches();
-    showToast('Field Removed', 'Custom field removed from registry.', 'fa-solid fa-trash-can text-slate-500');
+    showToast('Field Removed', 'Custom field removed from registry.', 'delete');
   };
 
   const handleToggleFieldActive = (id: string) => {
@@ -388,7 +389,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
       }
 
       setShowAddModal(false);
-      showToast('Field Registered', `Added "${created.name}" to ${created.entityLabel} registry!`, 'fa-solid fa-circle-check text-brand-600');
+      showToast('Field Registered', `Added "${created.name}" to ${created.entityLabel} registry!`, 'success-brand');
       setNewField({
         name: '',
         entity: 'consultant',
@@ -400,7 +401,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
       showToast(
         'Failed to Save',
         err?.response?.data?.message || 'Could not save custom field. Please try again.',
-        'fa-solid fa-triangle-exclamation text-rose-500'
+        'error'
       );
     } finally {
       setIsCreatingField(false);
@@ -408,61 +409,40 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
   };
 
   return (
-    <section className="max-w-7xl mx-auto space-y-5 animate-fade-in select-none">
-      {/* Dedicated Page Header per Menu View */}
+    <section className="max-w-7xl mx-auto space-y-6 animate-fade-in select-none">
+      {/* Bare Canvas Page Headers per Menu View */}
       {activeSection === 'fields' && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <span className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-xs shrink-0">
-              <Columns className="w-4 h-4" />
+        <PageHeader
+          title="Custom Form Fields"
+          subtitle="Add custom attributes (Text, Dropdown, Date, Currency/Number, Yes/No) to Consultants, Requirements, Clients, Vendors, and Placements."
+          badges={
+            <span className="text-xs font-medium text-slate-500 tabular-nums">
+              {fieldsList.length} {fieldsList.length === 1 ? 'field' : 'fields'}
             </span>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base font-bold text-slate-900 tracking-tight">
-                  Custom Form Fields
-                </h2>
-                <span className="px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[10.5px] font-semibold text-slate-600">
-                  {fieldsList.length} {fieldsList.length === 1 ? 'Field' : 'Fields'}
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Add custom attributes (Text, Dropdown, Date, Currency/Number, Yes/No) to Consultants, Requirements, Clients, Vendors, and Placements.
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setShowAddModal(true)}
-            className="px-3.5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-xs inline-flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer self-start sm:self-auto shrink-0"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Custom Field</span>
-          </button>
-        </div>
+          }
+          actions={
+            <button
+              type="button"
+              onClick={() => setShowAddModal(true)}
+              className="px-3.5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Custom Field</span>
+            </button>
+          }
+        />
       )}
 
       {activeSection === 'dropdowns' && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <span className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-xs shrink-0">
-              <Layers className="w-4 h-4" />
+        <PageHeader
+          title="Master Dropdown Lists"
+          subtitle="Customize workspace-wide dropdown choices for Work Authorizations, Payment Terms, Education Degrees, and Pipeline Stages."
+          badges={
+            <span className="text-xs font-medium text-slate-500 tabular-nums">
+              {TAXONOMY_META.length} lists
             </span>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base font-bold text-slate-900 tracking-tight">
-                  Master Dropdown Lists
-                </h2>
-                <span className="px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[10.5px] font-semibold text-slate-600">
-                  {TAXONOMY_META.length} Lists
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Customize workspace-wide dropdown choices for Work Authorizations, Payment Terms, Education Degrees, and Pipeline Stages.
-              </p>
-            </div>
-          </div>
-        </div>
+          }
+        />
       )}
 
       {/* Page 1: Public Application Form Templates */}
@@ -516,7 +496,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
 
       {/* Tab 1: Custom Form Fields */}
       {activeSection === 'fields' && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
           <div className="px-5 py-3.5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
             <div className="flex flex-wrap items-center gap-1.5 text-xs">
               {(
@@ -535,7 +515,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                   onClick={() => setScope(tab.key)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                     scope === tab.key
-                      ? 'bg-slate-900 text-white shadow-2xs'
+                      ? 'bg-slate-900 text-white shadow-sm'
                       : 'text-slate-600 hover:bg-white hover:text-slate-900'
                   }`}
                 >
@@ -558,9 +538,9 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
             </div>
           </div>
 
-          <div className="max-h-[440px] overflow-auto">
+          <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)]">
+              <thead className="bg-slate-50 border-b border-slate-200">
                 <tr className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   <SortableTableHeader
                     label="Field Name"
@@ -736,7 +716,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
         const currentOptions = masterTaxonomies[activeTaxonomy] || [];
 
         return (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
             <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[420px]">
               {/* Left Sidebar: 4 Dropdown Categories */}
               <div className="lg:col-span-4 border-b lg:border-b-0 lg:border-r border-slate-200 bg-slate-50/50 p-4 space-y-1.5">
@@ -756,7 +736,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                       }}
                       className={`w-full text-left px-3.5 py-3 rounded-xl border transition-all flex items-center justify-between gap-3 cursor-pointer ${
                         isActive
-                          ? 'bg-white border-slate-300 shadow-xs text-slate-900'
+                          ? 'bg-white border-slate-300 shadow-sm text-slate-900'
                           : 'bg-transparent border-transparent text-slate-600 hover:bg-white/70 hover:text-slate-900'
                       }`}
                     >
@@ -921,8 +901,8 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
         isOpen={showAddModal}
         onBackdropClick={() => !isCreatingField && setShowAddModal(false)}
         zIndexClass="z-50"
-        backdropClassName="bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
-        panelClassName="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden"
+        backdropClassName="bg-slate-900/55 backdrop-blur-[2px] flex items-center justify-center p-4"
+        panelClassName="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden"
         ariaLabel="Add Custom Field"
       >
             <div className="px-6 py-4 bg-[#141615] text-white flex items-center justify-between border-b border-white/10">
@@ -950,7 +930,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                     Field Label <span className="text-rose-500">*</span>
                   </label>
                   {createValidationAttempted && !newField.name.trim() && (
-                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    <span className="text-[11px] font-semibold text-rose-600">Required</span>
                   )}
                 </div>
                 <input
@@ -1041,7 +1021,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                   loading={isCreatingField}
                   loadingText="Registering..."
                   icon={<Plus className="w-3.5 h-3.5" />}
-                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-semibold rounded-lg text-xs shadow-xs transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-semibold rounded-lg text-xs transition-colors cursor-pointer"
                 >
                   Register Field
                 </ActionButton>
@@ -1054,8 +1034,8 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
         isOpen={Boolean(editingField)}
         onBackdropClick={() => !isUpdatingField && setEditingField(null)}
         zIndexClass="z-50"
-        backdropClassName="bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
-        panelClassName="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden"
+        backdropClassName="bg-slate-900/55 backdrop-blur-[2px] flex items-center justify-center p-4"
+        panelClassName="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden"
         ariaLabel="Edit Custom Field"
       >
         {editingField && (
@@ -1130,7 +1110,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-[11px] font-semibold text-slate-700">Field Label *</label>
                   {editValidationAttempted && !editingField.name.trim() && (
-                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    <span className="text-[11px] font-semibold text-rose-600">Required</span>
                   )}
                 </div>
                 <input
@@ -1231,7 +1211,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
         isOpen={Boolean(confirmDelete)}
         onBackdropClick={() => !isDeletingField && setConfirmDelete(null)}
         zIndexClass="z-50"
-        backdropClassName="bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+        backdropClassName="bg-slate-900/55 backdrop-blur-[2px] flex items-center justify-center p-4"
         panelClassName="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden"
         ariaLabel="Delete Custom Field or Option"
       >
@@ -1284,7 +1264,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                       setIsDeletingField(false);
                     }
                   }}
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg text-xs shadow-xs transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg text-xs transition-colors cursor-pointer"
                 >
                   Delete
                 </ActionButton>

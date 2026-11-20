@@ -98,19 +98,11 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
           {/* Header */}
           <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-amber-600">
+              <div className="w-8 h-8 rounded-md bg-slate-100 flex items-center justify-center text-slate-600">
                 <Bell className="w-4 h-4" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-slate-800 text-sm">Action Center</h3>
-                  {aiCapabilities.enabled && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9.5px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80">
-                      <Sparkles className="w-2.5 h-2.5" />
-                      <span>AI</span>
-                    </span>
-                  )}
-                </div>
+                <h3 className="font-bold text-slate-800 text-sm">Action Center</h3>
                 <p className="text-[11px] text-slate-400">
                   {pendingCount} {pendingCount === 1 ? 'reminder' : 'reminders'} needing your attention
                 </p>
@@ -159,7 +151,7 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
                   <span>{tab.label}</span>
                   {count > 0 && (
                     <span
-                      className={`text-[9px] px-1.5 py-0.2 rounded-full ${
+                      className={`text-[11px] px-1.5 py-0.5 rounded-full ${
                         activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
                       }`}
                     >
@@ -214,14 +206,14 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
                     {item.title}
                   </h4>
                   <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">{item.desc}</p>
-                  <div className="text-[10px] text-slate-400 mt-2">{item.meta}</div>
+                  <div className="text-[11px] text-slate-400 mt-2">{item.meta}</div>
 
                   {!item.done &&
                     item.agentPayload?.kind === 'candidate_shortlist' &&
                     Array.isArray(item.agentPayload.suggestions) &&
                     item.agentPayload.suggestions.length > 0 && (
                       <div className="mt-3 p-3 rounded-xl bg-indigo-50/50 border border-indigo-200/70 space-y-2">
-                        <div className="flex items-center justify-between gap-2 text-[10.5px] font-bold text-indigo-800">
+                        <div className="flex items-center justify-between gap-2 text-[11px] font-bold text-indigo-800">
                           <span className="inline-flex items-center gap-1">
                             {aiCapabilities.enabled && item.agentPayload.evaluatedWithAi ? (
                               <Sparkles className="w-3 h-3" />
@@ -230,7 +222,7 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
                             )}
                             <span>Top Bench Matches ({item.agentPayload.suggestions.length})</span>
                           </span>
-                          <span className="text-[9.5px] font-semibold text-indigo-600">
+                          <span className="text-[11px] font-semibold text-indigo-600">
                             Human Review
                           </span>
                         </div>
@@ -244,16 +236,16 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
                                 <span className="font-bold text-slate-800 truncate">
                                   {sug.fullName}
                                 </span>
-                                <span className="px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold tabular-nums flex-shrink-0">
+                                <span className="px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-bold tabular-nums flex-shrink-0">
                                   {sug.fitScore}% Fit
                                 </span>
                               </div>
-                              <div className="text-[10px] text-slate-500 truncate">
+                              <div className="text-[11px] text-slate-500 truncate">
                                 {sug.currentTitle}
                                 {sug.workAuth ? ` • ${sug.workAuth}` : ''}
                               </div>
                               {sug.oneLineSummary && (
-                                <div className="text-[10px] text-slate-600 leading-snug">
+                                <div className="text-[11px] text-slate-600 leading-snug">
                                   {sug.oneLineSummary}
                                 </div>
                               )}
@@ -269,7 +261,7 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
                     item.agentPayload.draftBody && (
                       <div className="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2 text-[11px]">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="inline-flex items-center gap-1 font-bold text-slate-700 text-[10.5px]">
+                          <span className="inline-flex items-center gap-1 font-bold text-slate-700 text-[11px]">
                             {aiCapabilities.enabled && item.agentPayload.evaluatedWithAi && (
                               <Sparkles className="w-3 h-3 text-indigo-600" />
                             )}
@@ -283,18 +275,18 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
                                 [item.id]: !prev[item.id],
                               }))
                             }
-                            className="text-[10px] font-semibold text-brand-600 hover:underline cursor-pointer"
+                            className="text-[11px] font-semibold text-brand-600 hover:underline cursor-pointer"
                           >
                             {expandedDraftIds[item.id] ? 'Collapse' : 'Preview'}
                           </button>
                         </div>
                         {item.agentPayload.draftSubject && (
-                          <div className="text-[10.5px] font-semibold text-slate-800 truncate">
+                          <div className="text-[11px] font-semibold text-slate-800 truncate">
                             {item.agentPayload.draftSubject}
                           </div>
                         )}
                         <div
-                          className={`text-[10.5px] text-slate-600 whitespace-pre-line leading-relaxed ${
+                          className={`text-[11px] text-slate-600 whitespace-pre-line leading-relaxed ${
                             expandedDraftIds[item.id] ? '' : 'line-clamp-3'
                           }`}
                         >
@@ -361,7 +353,7 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
           {/* Footer */}
           <div className="p-4 border-t border-slate-100 bg-slate-50/80 text-[11px] text-slate-500 flex justify-between items-center">
             <span>Automatic Reminders Active</span>
-            <span className="text-[10px] bg-slate-200 px-2 py-0.5 rounded text-slate-700">
+            <span className="text-[11px] bg-slate-200 px-2 py-0.5 rounded text-slate-700">
               Auto-Checking
             </span>
           </div>

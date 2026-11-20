@@ -260,7 +260,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
   ];
 
   return (
-    <section className="max-w-7xl mx-auto space-y-5 animate-fade-in">
+    <section className="max-w-7xl mx-auto space-y-6 pb-6 animate-fade-in">
       <DetailBreadcrumb
         backLabel={backLabel}
         onBack={onBack}
@@ -277,48 +277,45 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
         }
       />
 
-      {/* Unified Vendor Hero + 4-Col Metadata Bar + Tabs */}
-      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
-        {/* Title & Action Bar */}
-        <div className="px-6 py-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5 min-w-0 flex-1">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200/70 text-emerald-700 flex items-center justify-center flex-shrink-0">
-              <Handshake className="w-5 h-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-[17px] sm:text-[18px] font-bold text-slate-900 tracking-tight leading-snug inline align-middle mr-2.5">
-                {vendor.name}
-              </h1>
-              <StatusBadge
-                label={isMsaExecuted ? 'MSA Executed' : 'Pending Review'}
-                tone={isMsaExecuted ? 'emerald' : 'amber'}
-                size="xs"
-                className="align-middle"
-              />
-            </div>
+      {/* Bare Canvas Entity Title & Actions */}
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight leading-snug">
+              {vendor.name}
+            </h1>
+            <StatusBadge
+              label={isMsaExecuted ? 'MSA Executed' : 'Pending Review'}
+              tone={isMsaExecuted ? 'emerald' : 'amber'}
+              size="xs"
+            />
           </div>
-
-          <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
-            {onUpdateVendor && (
-              <button
-                type="button"
-                onClick={openEditModal}
-                className="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Pencil className="w-3.5 h-3.5" />
-                <span>Edit Vendor</span>
-              </button>
-            )}
-          </div>
+          <p className="text-xs text-slate-500 truncate">
+            <span>{vendor.location || 'Sub-Tier Staffing Partner'}</span>
+            {primaryContact?.fullName && <span> &middot; Contact: {primaryContact.fullName}</span>}
+          </p>
         </div>
 
-        {/* Structured 4-Column Metadata Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 border-t border-slate-100 bg-slate-50/45 text-xs">
+        <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+          {onUpdateVendor && (
+            <button
+              type="button"
+              onClick={openEditModal}
+              className="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              <span>Edit Vendor</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Standalone 4-Column Summary Card + Embedded Specializations */}
+      <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 text-xs">
           {/* 1. Location & Primary Contact */}
-          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Location &amp; Contact
-            </div>
+          <div className="px-6 py-4 space-y-1.5 min-w-0">
+            <div className="text-xs font-medium text-slate-500">Location &amp; Contact</div>
             <div className="font-semibold text-slate-900 flex items-start gap-1.5 leading-snug">
               <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
               <span className="break-words">{vendor.location || 'Location not specified'}</span>
@@ -336,10 +333,8 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
           </div>
 
           {/* 2. Agreement & Compliance */}
-          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Compliance &amp; COI
-            </div>
+          <div className="px-6 py-4 space-y-1.5 min-w-0">
+            <div className="text-xs font-medium text-slate-500">Compliance &amp; COI</div>
             <div className="font-semibold text-slate-900 flex items-center gap-1.5 leading-snug">
               <ShieldCheck
                 className={`w-3.5 h-3.5 shrink-0 ${
@@ -368,10 +363,8 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
           </div>
 
           {/* 3. Payment & Invoicing */}
-          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Payment Terms
-            </div>
+          <div className="px-6 py-4 space-y-1.5 min-w-0">
+            <div className="text-xs font-medium text-slate-500">Payment Terms</div>
             <div className="font-semibold text-slate-900 leading-snug break-words">
               {vendor.paymentTerms || 'Not specified'}
             </div>
@@ -384,10 +377,8 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
           </div>
 
           {/* 4. Bench & Est. Monthly Payout */}
-          <div className="px-6 py-3.5 space-y-1.5 min-w-0">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Bench &amp; Active C2C
-            </div>
+          <div className="px-6 py-4 space-y-1.5 min-w-0">
+            <div className="text-xs font-medium text-slate-500">Bench &amp; Active C2C</div>
             <div className="font-semibold text-slate-900 leading-snug">
               {vendorCandidates.length} Consultants &middot;{' '}
               <span className="text-emerald-700">{activeVendorPlacements.length} Active C2C</span>
@@ -408,23 +399,26 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
           </div>
         </div>
 
-        <DetailUnderlineTabs
-          ariaLabel="Vendor workspace sections"
-          tabs={vendorTabs}
-          activeTab={workspaceTab}
-          onChange={setWorkspaceTab}
+        <DetailExpandableSkillsBar
+          embedded
+          label="Specializations:"
+          skills={specializations}
+          editLabel="Edit skills"
+          onEdit={onUpdateVendor ? openEditModal : undefined}
         />
       </div>
 
+      {/* Floating Underline Workspace Tabs */}
+      <DetailUnderlineTabs
+        ariaLabel="Vendor workspace sections"
+        tabs={vendorTabs}
+        activeTab={workspaceTab}
+        onChange={setWorkspaceTab}
+      />
+
       {/* TAB 1: Consultants & Specializations */}
       {workspaceTab === 'consultants' && (
-        <div className="space-y-5">
-          <DetailExpandableSkillsBar
-            label="Specializations:"
-            skills={specializations}
-            editLabel="Edit skills"
-            onEdit={onUpdateVendor ? openEditModal : undefined}
-          />
+        <div className="space-y-6">
 
           <section className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -466,7 +460,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
               <>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50/80 border-b border-slate-100 text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
+                    <thead className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                       <tr>
                         <SortableTableHeader
                           label="Consultant"
@@ -585,7 +579,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50/80 border-b border-slate-100 text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
+                  <thead className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     <tr>
                       <SortableTableHeader
                         label="Contact"
@@ -653,7 +647,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
                         </td>
                         <td className="pl-4 pr-6 py-3.5 text-right whitespace-nowrap">
                           {cnt.isPrimary ? (
-                            <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
                               <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
                               <span>Primary</span>
                             </span>
@@ -699,7 +693,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50/80 border-b border-slate-100 text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
+                  <thead className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     <tr>
                       <SortableTableHeader
                         label="Consultant"
@@ -839,7 +833,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
 
             <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-5">
               <div>
-                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                   MSA Status
                 </div>
                 <div className="font-semibold text-slate-900">
@@ -848,7 +842,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
               </div>
 
               <div>
-                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                   Insurance Expiry
                 </div>
                 <div
@@ -871,7 +865,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
               </div>
 
               <div>
-                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                   Payment Terms
                 </div>
                 <div className="font-semibold text-slate-900">
@@ -880,7 +874,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
               </div>
 
               <div>
-                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                   Invoicing Schedule
                 </div>
                 <div className="font-semibold text-slate-900">
@@ -889,7 +883,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
               </div>
 
               <div>
-                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                   Location
                 </div>
                 <div className="font-semibold text-slate-900">
@@ -898,7 +892,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
               </div>
 
               <div>
-                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                   Primary Contact
                 </div>
                 <div className="font-semibold text-slate-900 truncate">
@@ -1018,7 +1012,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
           }
         }}
         zIndexClass="z-50"
-        panelClassName="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
+        panelClassName="bg-white rounded-xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
         ariaLabel={`Vendor Compliance Audit for ${vendor.name}`}
       >
         {(() => {
@@ -1081,7 +1075,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
                       <h2 className="text-sm font-bold text-white">Vendor Compliance Audit</h2>
                       {auditCoiDays !== null && auditCoiDays <= 30 && (
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                          className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
                             auditCoiDays < 0
                               ? 'bg-rose-500/20 text-rose-200 border border-rose-400/30'
                               : 'bg-amber-500/20 text-amber-200 border border-amber-400/30'
@@ -1164,8 +1158,8 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
                             className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-60 ${
                               selected
                                 ? opt.id === 'Active'
-                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow-2xs'
-                                  : 'bg-amber-50 border-amber-300 text-amber-800 shadow-2xs'
+                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                                  : 'bg-amber-50 border-amber-300 text-amber-800'
                                 : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                             }`}
                           >
@@ -1189,7 +1183,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
                       </label>
                       {auditCoiDays !== null && (
                         <span
-                          className={`text-[10.5px] font-semibold ${
+                          className={`text-[11px] font-semibold ${
                             auditCoiDays < 0
                               ? 'text-rose-600'
                               : auditCoiDays <= 30
@@ -1247,7 +1241,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
                   {primaryContact && (
                     <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3.5 flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                           Compliance Contact
                         </div>
                         <div className="text-xs font-semibold text-slate-900 mt-0.5 truncate">
@@ -1307,7 +1301,7 @@ export const VendorDetailPage: React.FC<VendorDetailPageProps> = ({
                         loading={isSavingAudit}
                         loadingText="Saving Audit..."
                         icon={<Check className="w-3.5 h-3.5" />}
-                        className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-xs cursor-pointer"
+                        className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold cursor-pointer"
                       >
                         Save Audit &amp; Update Terms
                       </ActionButton>

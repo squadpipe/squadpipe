@@ -83,7 +83,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
     ]);
     if (missingFields.length > 0) {
       setValidationAttempted(true);
-      showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'fa-solid fa-triangle-exclamation text-amber-500');
+      showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'warning');
       return;
     }
 
@@ -113,13 +113,13 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
       await onSave(newReq);
       setForm(getInitialForm());
       setCustomValues({});
-      showToast('Requirement Created', `${newReq.opportunityTitle} (${openPosNum} open ${openPosNum === 1 ? 'position' : 'positions'}) added to pipeline!`, 'fa-solid fa-circle-check text-brand-600');
+      showToast('Requirement Created', `${newReq.opportunityTitle} (${openPosNum} open ${openPosNum === 1 ? 'position' : 'positions'}) added to pipeline!`, 'success-brand');
       onClose();
     } catch (err: any) {
       showToast(
         'Save Failed',
         err?.response?.data?.message || err?.message || 'Could not create requirement.',
-        'fa-solid fa-triangle-exclamation text-rose-500'
+        'error'
       );
     } finally {
       setIsSaving(false);
@@ -131,7 +131,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
       isOpen={isOpen}
       onBackdropClick={onClose}
       zIndexClass="z-50"
-      backdropClassName="bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 select-none"
+      backdropClassName="bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center p-4 select-none"
       panelClassName="bg-white rounded-xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
       ariaLabel="Create New Job Requirement"
     >
@@ -166,7 +166,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block font-semibold text-slate-700">Requirement / Role Title *</label>
-                  {isTitleInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                  {isTitleInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                 </div>
                 <input
                   value={form.opportunityTitle}
@@ -180,7 +180,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block font-semibold text-slate-700">Client Company *</label>
-                  {isCompanyInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                  {isCompanyInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                 </div>
                 <SearchableSelectInput
                   value={form.companyName}
@@ -237,7 +237,7 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block font-semibold text-slate-700">No. of Open Positions *</label>
-                  {isOpenPosInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                  {isOpenPosInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                 </div>
                 <input
                   type="number"
@@ -370,8 +370,8 @@ export const AddRequirementModal: React.FC<AddRequirementModalProps> = ({
               type="submit"
               loading={isSaving}
               loadingText="Creating..."
-              icon={<Plus className="w-3.5 h-3.5" strokeWidth={2.4} />}
-              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              icon={<Plus className="w-3.5 h-3.5" strokeWidth={1.75} />}
+              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold transition-colors cursor-pointer"
             >
               Create Requirement & Add to Pipeline
             </ActionButton>

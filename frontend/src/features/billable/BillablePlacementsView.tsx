@@ -262,7 +262,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={handleExport}
-            className="px-3 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 bg-white text-slate-700 text-xs font-medium flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+            className="px-3 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 bg-white text-slate-700 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
             <span>Export to Excel</span>
@@ -270,7 +270,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
           {onOpenNewPlacement && (
           <button
             onClick={onOpenNewPlacement}
-            className="px-3.5 py-1.5 rounded-lg bg-brand-600 text-white text-xs font-semibold hover:bg-brand-700 active:bg-brand-800 shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="px-3.5 py-1.5 rounded-lg bg-brand-600 text-white text-xs font-semibold hover:bg-brand-700 active:bg-brand-800 flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add Placement</span>
@@ -288,56 +288,56 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
 
       {/* 4 Executive Financial KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
-            <DollarSign className="w-5 h-5" />
+        <div className="bg-white p-4 rounded-xl border border-slate-200/80 card-shadow flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-xs font-medium">Active Billing</span>
+            <div className="w-7 h-7 rounded-md bg-slate-100 text-slate-600 flex items-center justify-center flex-shrink-0">
+              <DollarSign className="w-3.5 h-3.5" />
+            </div>
           </div>
-          <div>
-            <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Active Billing</div>
-            <div className="text-lg font-bold text-slate-900">{activePlacements.length} Consultants</div>
-            <div className="text-[10px] text-emerald-600 font-medium mt-0.5">{placements.length} Total Ledger Records</div>
+          <div className="text-lg font-bold text-slate-900 tabular-nums">{activePlacements.length} Consultants</div>
+          <div className="text-[11px] text-emerald-700 font-medium mt-0.5 tabular-nums">{placements.length} Total Ledger Records</div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200/80 card-shadow flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-xs font-medium">Avg. Hourly Spread</span>
+            <div className="w-7 h-7 rounded-md bg-slate-100 text-slate-600 flex items-center justify-center flex-shrink-0">
+              <TrendingUp className="w-3.5 h-3.5" />
+            </div>
+          </div>
+          <div className="text-lg font-bold text-brand-700 tabular-nums">
+            <MaskedValue value={`+${currencySymbol}${avgHourlySpread}/hr`} isMasked={rateMasked} />
+          </div>
+          <div className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
+            <MaskedValue value={`${avgMarginPercent}% Gross Profit Margin`} isMasked={rateMasked} />
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center flex-shrink-0">
-            <TrendingUp className="w-5 h-5" />
+        <div className="bg-white p-4 rounded-xl border border-slate-200/80 card-shadow flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-xs font-medium">Monthly Gross Profit</span>
+            <div className="w-7 h-7 rounded-md bg-slate-100 text-slate-600 flex items-center justify-center flex-shrink-0">
+              <Wallet className="w-3.5 h-3.5" />
+            </div>
           </div>
-          <div>
-            <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Avg. Hourly Spread</div>
-            <div className="text-lg font-bold text-brand-700">
-              <MaskedValue value={`+${currencySymbol}${avgHourlySpread}/hr`} isMasked={rateMasked} />
-            </div>
-            <div className="text-[10px] text-slate-500 mt-0.5">
-              <MaskedValue value={`${avgMarginPercent}% Gross Profit Margin`} isMasked={rateMasked} />
-            </div>
+          <div className="text-lg font-bold text-slate-900 tabular-nums">
+            <MaskedValue value={`${currencySymbol}${totalMonthlyGrossProfit.toLocaleString()}/mo`} isMasked={rateMasked} />
+          </div>
+          <div className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
+            <MaskedValue value={`${currencySymbol}${Math.round(totalMonthlyGrossProfit * 12).toLocaleString()} Annual Run-Rate`} isMasked={rateMasked} />
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center flex-shrink-0">
-            <Wallet className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Monthly Gross Profit</div>
-            <div className="text-lg font-bold text-emerald-800">
-              <MaskedValue value={`${currencySymbol}${totalMonthlyGrossProfit.toLocaleString()}/mo`} isMasked={rateMasked} />
-            </div>
-            <div className="text-[10px] text-slate-500 mt-0.5">
-              <MaskedValue value={`${currencySymbol}${Math.round(totalMonthlyGrossProfit * 12).toLocaleString()} Annual Run-Rate`} isMasked={rateMasked} />
+        <div className="bg-white p-4 rounded-xl border border-slate-200/80 card-shadow flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-xs font-medium">Contract Expiry Radar</span>
+            <div className="w-7 h-7 rounded-md bg-slate-100 text-amber-700 flex items-center justify-center flex-shrink-0">
+              <CalendarClock className="w-3.5 h-3.5" />
             </div>
           </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0">
-            <CalendarClock className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Contract Expiry Radar</div>
-            <div className="text-lg font-bold text-amber-700">{contractsExpiringSoon} Pending Renewal</div>
-            <div className="text-[10px] text-amber-700 font-medium mt-0.5">Expiring within 30 days</div>
-          </div>
+          <div className="text-lg font-bold text-amber-700 tabular-nums">{contractsExpiringSoon} Pending Renewal</div>
+          <div className="text-[11px] text-amber-700 font-medium mt-0.5">Expiring within 30 days</div>
         </div>
       </div>
 
@@ -387,16 +387,16 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search consultants, clients, PO#..."
-                className="pl-8 pr-3 py-1 text-xs border border-slate-200 rounded-md bg-white w-56 text-slate-700 outline-none focus:border-brand-500"
+                className="pl-8 pr-3 py-1 text-xs border border-slate-200 rounded-lg bg-white w-56 text-slate-700 outline-none focus:border-brand-500"
               />
             </div>
           </div>
         </div>
 
         {/* Ledger Table */}
-        <div className="max-h-[440px] overflow-auto">
+        <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+            <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
               <tr>
                 <SortableTableHeader
                   label="Customer &amp; PO"
@@ -511,7 +511,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                         <div className={`font-bold text-slate-900 ${onSelectPlacement ? 'group-hover:text-brand-700 transition-colors' : ''}`}>{p.customer}</div>
                         <div className="text-[11px] text-slate-500 font-sans mt-0.5">{p.customerContact || 'Hiring Manager'}</div>
                         {p.purchaseOrderNumber && (
-                          <div className="mt-1 inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                          <div className="mt-1 inline-flex items-center gap-1 text-[11px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
                             <FileText className="w-2.5 h-2.5" />
                             <span>PO: {p.purchaseOrderNumber}</span>
                           </div>
@@ -522,13 +522,13 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                       <td className="px-3.5 py-3">
                         <div className="font-bold text-slate-900 flex items-center gap-1.5">
                           <span className={onSelectPlacement ? 'group-hover:text-brand-700 transition-colors' : ''}>{p.resourceName}</span>
-                          <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                          <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
                             {p.deployment}
                           </span>
                         </div>
                         <div className="text-[11px] text-slate-500 font-sans mt-0.5">{p.skillRole}</div>
                         {p.vendorName && (
-                          <div className="text-[10px] text-amber-700 font-medium mt-0.5">via {p.vendorName}</div>
+                          <div className="text-[11px] text-amber-700 font-medium mt-0.5">via {p.vendorName}</div>
                         )}
                       </td>
 
@@ -536,7 +536,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                       <td className="px-3.5 py-3 space-y-1.5">
                         <div>
                           <span
-                            className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium ${
+                            className={`inline-block px-2 py-0.5 rounded text-[11px] font-medium ${
                               p.placementType && p.placementType.includes('W2')
                                 ? 'bg-brand-500/[0.08] text-brand-800'
                                 : 'bg-slate-100 text-slate-700'
@@ -563,7 +563,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                         <div className="font-bold text-emerald-600 text-xs">
                           <MaskedValue value={formatSpread(p.hourlySpread, currencySymbol)} isMasked={rateMasked} />
                         </div>
-                        <div className="text-[10px] text-slate-400">
+                        <div className="text-[11px] text-slate-400">
                           <MaskedValue value={formatMargin(p.marginPct)} isMasked={rateMasked} />
                         </div>
                       </td>
@@ -577,7 +577,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                         </div>
                         {daysLeft !== null && !ended && (
                           <div
-                            className={`mt-0.5 text-[10px] font-sans font-medium ${
+                            className={`mt-0.5 text-[11px] font-sans font-medium ${
                               daysLeft <= 30 && daysLeft >= 0
                                 ? 'text-amber-700'
                                 : daysLeft < 0
@@ -592,7 +592,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                               : `${daysLeft}d remaining`}
                           </div>
                         )}
-                        {ended && <div className="mt-0.5 text-[10px] font-sans text-slate-400">Contract ended</div>}
+                        {ended && <div className="mt-0.5 text-[11px] font-sans text-slate-400">Contract ended</div>}
                       </td>
 
                       {/* Actions */}
@@ -604,7 +604,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                           {onExtendContract && (
                           <button
                             onClick={() => setExtendingPlacement(p)}
-                            className="px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[10px] font-semibold transition-colors cursor-pointer inline-flex items-center gap-1"
+                            className="px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-semibold transition-colors cursor-pointer inline-flex items-center gap-1"
                           >
                             <CalendarPlus className="w-3 h-3 text-brand-600" />
                             <span>{ended ? 'Renew SOW' : 'Extend SOW'}</span>
@@ -614,7 +614,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                             <button
                               onClick={() => setEndingPlacement(p)}
                               title="End consultant placement"
-                              className="px-2.5 py-1 rounded bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-200 hover:border-rose-200 text-[10px] font-semibold transition-colors cursor-pointer inline-flex items-center gap-1"
+                              className="px-2.5 py-1 rounded bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-200 hover:border-rose-200 text-[11px] font-semibold transition-colors cursor-pointer inline-flex items-center gap-1"
                             >
                               <CalendarX className="w-3 h-3 text-rose-500" />
                               <span>End</span>

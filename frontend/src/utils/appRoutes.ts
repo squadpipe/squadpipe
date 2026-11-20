@@ -17,9 +17,12 @@ const STATIC_ROUTE_TO_VIEW: Record<string, string> = {
   '/dashboard': 'dashboard',
   '/pipeline': 'pipeline',
   '/requirements': 'pipeline',
+  '/requirements/new': 'requirement_new',
   '/requirements/from-email': 'requirement_from_email',
   '/consultants': 'consultants',
+  '/consultants/new': 'consultant_new',
   '/candidates': 'consultants',
+  '/candidates/new': 'consultant_new',
   '/clients': 'clients',
   '/vendors': 'vendors',
   '/billable': 'billable',
@@ -44,8 +47,10 @@ const STATIC_ROUTE_TO_VIEW: Record<string, string> = {
 const VIEW_TO_STATIC_PATH: Record<string, string> = {
   dashboard: '/dashboard',
   pipeline: '/pipeline',
+  requirement_new: '/requirements/new',
   requirement_from_email: '/requirements/from-email',
   consultants: '/consultants',
+  consultant_new: '/consultants/new',
   clients: '/clients',
   vendors: '/vendors',
   billable: '/billable',
@@ -67,9 +72,12 @@ const VIEW_TO_STATIC_PATH: Record<string, string> = {
 const VIEW_TITLE_LABELS: Record<string, string> = {
   dashboard: 'Dashboard Overview',
   pipeline: 'Opportunity Pipeline',
+  requirement_new: 'New Requirement',
+  requirement_edit: 'Edit Requirement',
   requirement_from_email: 'Create Job from Email',
   requirement_detail: 'Requirement Details',
   consultants: 'Consultant Directory',
+  consultant_new: 'New Consultant',
   consultant_detail: 'Consultant Profile',
   clients: 'Client Directory',
   client_detail: 'Client Details',
@@ -132,6 +140,7 @@ export function parseAppRoute(pathname: string, search?: string): ParsedAppRoute
   }
 
   const detailPatterns: Array<[RegExp, string]> = [
+    [/^\/requirements\/([^/]+)\/edit$/i, 'requirement_edit'],
     [/^\/requirements\/([^/]+)$/i, 'requirement_detail'],
     [/^\/(?:consultants|candidates)\/([^/]+)$/i, 'consultant_detail'],
     [/^\/clients\/([^/]+)$/i, 'client_detail'],
@@ -162,6 +171,9 @@ export function buildAppPath(
   const id = entityId ? encodeURIComponent(entityId) : '';
   let basePath: string;
   switch (view) {
+    case 'requirement_edit':
+      basePath = id ? `/requirements/${id}/edit` : '/pipeline';
+      break;
     case 'requirement_detail':
       basePath = id ? `/requirements/${id}` : '/pipeline';
       break;

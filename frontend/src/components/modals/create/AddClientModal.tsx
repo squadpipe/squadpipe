@@ -64,7 +64,7 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
     ]);
     if (missingFields.length > 0) {
       setValidationAttempted(true);
-      showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'fa-solid fa-triangle-exclamation text-amber-500');
+      showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'warning');
       return;
     }
 
@@ -91,7 +91,7 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
       await onSave(newClient);
       setForm({ ...INITIAL_CLIENT_FORM });
       setCustomValues({});
-      showToast('Client Registered', `${newClient.name} account registered under active MSA!`, 'fa-solid fa-circle-check text-brand-600');
+      showToast('Client Registered', `${newClient.name} account registered under active MSA!`, 'success-brand');
       onClose();
     } catch {
       // Error toast is already displayed by the parent handler
@@ -105,7 +105,7 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
       isOpen={isOpen}
       onBackdropClick={onClose}
       zIndexClass="z-50"
-      backdropClassName="bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 select-none"
+      backdropClassName="bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center p-4 select-none"
       panelClassName="bg-white rounded-xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
       ariaLabel="Register Client Account"
     >
@@ -140,7 +140,7 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block font-semibold text-slate-700">Company Legal Name *</label>
-                  {isNameInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                  {isNameInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                 </div>
                 <input
                   value={form.name}
@@ -166,7 +166,7 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block font-semibold text-slate-700">Headquarters Location *</label>
-                  {isLocationInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                  {isLocationInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                 </div>
                 <input
                   value={form.location}
@@ -196,7 +196,7 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block font-semibold text-slate-700">Contact Person Name *</label>
-                    {isContactInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                    {isContactInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                   </div>
                   <input
                     value={form.contactName}
@@ -221,7 +221,7 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block font-semibold text-slate-700">Contact Email *</label>
-                    {isEmailInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                    {isEmailInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                   </div>
                   <input
                     type="email"
@@ -267,8 +267,8 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
               type="submit"
               loading={isSaving}
               loadingText="Saving Client..."
-              icon={<Plus className="w-3.5 h-3.5" strokeWidth={2.4} />}
-              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              icon={<Plus className="w-3.5 h-3.5" strokeWidth={1.75} />}
+              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold transition-colors cursor-pointer"
             >
               Save & Register Client Account
             </ActionButton>

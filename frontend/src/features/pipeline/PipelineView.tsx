@@ -39,7 +39,6 @@ import {
   Pencil,
   Plus,
   Search,
-  Sparkles,
   Trash2,
   UsersRound,
   X,
@@ -163,13 +162,12 @@ const DroppableKanbanColumn: React.FC<DroppableKanbanColumnProps> = ({
     <div
       ref={setNodeRef}
       data-kanban-stage={stage}
-      className={`p-3 rounded-xl border flex flex-col min-h-[560px] max-h-[calc(100vh-195px)] transition-all duration-200 ${
-        isMovingIntoStage
-          ? 'bg-brand-50/45 border-brand-300 ring-2 ring-brand-500/15'
-          : isDropTarget
+      className={`p-3 rounded-xl border flex flex-col min-h-[560px] max-h-[calc(100vh-195px)] transition-all duration-200 ${isMovingIntoStage
+        ? 'bg-brand-50/45 border-brand-300 ring-2 ring-brand-500/15'
+        : isDropTarget
           ? 'border-slate-300 bg-slate-100/95'
           : 'bg-slate-100/70 border-slate-200/80'
-      }`}
+        }`}
     >
       {/* Column Header */}
       <div className="flex items-center justify-between gap-2 px-0.5 pb-2.5 mb-2.5 border-b border-slate-200/80 flex-shrink-0">
@@ -178,12 +176,12 @@ const DroppableKanbanColumn: React.FC<DroppableKanbanColumnProps> = ({
           <span className="font-bold text-xs text-slate-800 tracking-tight truncate">
             {stage}
           </span>
-          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-white border border-slate-200/90 text-slate-700 flex-shrink-0 tabular-nums shadow-2xs">
+          <span className="px-1.5 py-0.5 rounded-md text-[11px] font-bold bg-white border border-slate-200/90 text-slate-700 flex-shrink-0 tabular-nums">
             {totalCount}
           </span>
         </div>
         {totalOpenings > 0 && (
-          <span className="text-[10px] font-medium text-slate-400 tabular-nums whitespace-nowrap flex-shrink-0">
+          <span className="text-[11px] font-medium text-slate-400 tabular-nums whitespace-nowrap flex-shrink-0">
             {totalOpenings} {totalOpenings === 1 ? 'opening' : 'openings'}
           </span>
         )}
@@ -231,11 +229,10 @@ const SortableKanbanCard: React.FC<SortableKanbanCardProps> = ({ req, children }
       style={style}
       {...attributes}
       {...listeners}
-      className={`group/card flex-shrink-0 rounded-xl border overflow-hidden select-none touch-none transition-all duration-150 ${
-        isDragging
-          ? 'opacity-35 border-dashed border-brand-400 bg-brand-50/40 shadow-none ring-1 ring-brand-300/60'
-          : 'bg-white border-slate-200/90 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_6px_16px_rgba(15,23,42,0.08)] hover:border-slate-300 cursor-grab active:cursor-grabbing'
-      }`}
+      className={`group/card flex-shrink-0 rounded-xl border overflow-hidden select-none touch-none transition-all duration-150 ${isDragging
+        ? 'opacity-35 border-dashed border-brand-400 bg-brand-50/40 shadow-none ring-1 ring-brand-300/60'
+        : 'bg-white border-slate-200/90 card-shadow card-hover cursor-grab active:cursor-grabbing'
+        }`}
     >
       {children}
     </div>
@@ -807,12 +804,12 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
         setKanbanColumns((prev) =>
           prev[overContainer]
             ? {
-                ...prev,
-                [overContainer]: {
-                  ...prev[overContainer],
-                  items: finalTargetItems,
-                },
-              }
+              ...prev,
+              [overContainer]: {
+                ...prev[overContainer],
+                items: finalTargetItems,
+              },
+            }
             : prev
         );
         setServerReqs((prev) => {
@@ -912,8 +909,8 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
       activeSubs.length > 0
         ? activeSubs.slice(0, 3).map((s) => s.fullName)
         : req.resourceName
-        ? [req.resourceName]
-        : [];
+          ? [req.resourceName]
+          : [];
     const timeLabel = formatRelativeTime(req.createdAt);
     const openPos = Math.max(1, Number(req.openPositions) || 1);
     const filledPos = req.filledPositions ?? req.activePlacements?.length ?? 0;
@@ -935,13 +932,12 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             </button>
 
             <span
-              className={`px-1.5 py-0.5 rounded text-[10px] font-semibold tabular-nums whitespace-nowrap ${
-                filledPos >= openPos
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/70'
-                  : filledPos > 0
+              className={`px-1.5 py-0.5 rounded text-[11px] font-semibold tabular-nums whitespace-nowrap ${filledPos >= openPos
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/70'
+                : filledPos > 0
                   ? 'bg-brand-50 text-brand-700 border border-brand-200/70'
                   : 'bg-slate-100 text-slate-600'
-              }`}
+                }`}
             >
               {filledPos > 0 ? `${filledPos}/${openPos} Filled` : `${openPos} Open`}
             </span>
@@ -949,11 +945,11 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
 
           {!rateMasked && Boolean(req.targetBillRate) && (
             <span className="tabular-nums whitespace-nowrap bg-slate-50 border border-slate-200/80 px-1.5 py-0.5 rounded-md">
-              <span className="text-[11.5px] font-bold font-mono text-slate-800">
+              <span className="text-[12px] font-bold font-mono text-slate-800">
                 {currencySymbol}
                 {req.targetBillRate}
               </span>
-              <span className="text-[10px] font-normal text-slate-400">/hr</span>
+              <span className="text-[11px] font-normal text-slate-400">/hr</span>
             </span>
           )}
         </div>
@@ -963,11 +959,11 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
           <h4
             onClick={() => handleCardTitleClick(req)}
             title={req.opportunityTitle}
-            className="font-semibold text-[13.5px] text-slate-900 leading-[1.35] line-clamp-2 tracking-[-0.01em] cursor-pointer hover:text-brand-600 transition-colors"
+            className="font-semibold text-sm text-slate-900 leading-[1.35] line-clamp-2 tracking-tight cursor-pointer hover:text-brand-600 transition-colors"
           >
             {req.opportunityTitle}
           </h4>
-          <div className="flex items-center gap-1.5 text-[11.5px] text-slate-500 min-w-0">
+          <div className="flex items-center gap-1.5 text-[12px] text-slate-500 min-w-0">
             <Building2 className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
             <span className="truncate font-medium text-slate-600" title={req.companyName}>
               {req.companyName}
@@ -988,7 +984,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               <span
                 key={sk}
                 title={sk}
-                className="px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200/80 text-slate-600 text-[10.5px] font-medium whitespace-nowrap truncate max-w-[145px]"
+                className="px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200/80 text-slate-600 text-[11px] font-medium whitespace-nowrap truncate max-w-[145px]"
               >
                 {sk}
               </span>
@@ -996,7 +992,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             {extraSkillCount > 0 && (
               <span
                 title={skills.slice(visibleSkills.length).join(', ')}
-                className="px-1.5 py-0.5 rounded-md bg-slate-100/80 text-slate-500 text-[10px] font-semibold whitespace-nowrap flex-shrink-0"
+                className="px-1.5 py-0.5 rounded-md bg-slate-100/80 text-slate-500 text-[11px] font-semibold whitespace-nowrap flex-shrink-0"
               >
                 +{extraSkillCount}
               </span>
@@ -1013,8 +1009,8 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               activeSubs.length > 0
                 ? activeSubs.map((s) => `${s.fullName} (${s.stage})`).join(', ')
                 : totalApplicants > 0
-                ? singleApplicantName
-                : `Posted ${timeLabel}`
+                  ? singleApplicantName
+                  : `Posted ${timeLabel}`
             }
             className="flex items-center gap-1.5 min-w-0 flex-1 text-left cursor-pointer group/app"
           >
@@ -1025,9 +1021,8 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                     {previewNames.map((name, idx) => (
                       <span
                         key={`${name}_${idx}`}
-                        className={`w-5 h-5 rounded-full text-[9px] font-bold text-white flex items-center justify-center ring-2 ring-white ${
-                          avatarPalette[idx % avatarPalette.length]
-                        }`}
+                        className={`w-5 h-5 rounded-full text-[11px] font-bold text-white flex items-center justify-center ring-2 ring-white ${avatarPalette[idx % avatarPalette.length]
+                          }`}
                       >
                         {previewNames.length === 1 ? getTwoInitials(name) : getSingleInitial(name)}
                       </span>
@@ -1036,7 +1031,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                 ) : (
                   <UsersRound className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                 )}
-                <span className="text-[11.5px] font-medium text-slate-700 group-hover/app:text-brand-600 truncate transition-colors">
+                <span className="text-[12px] font-medium text-slate-700 group-hover/app:text-brand-600 truncate transition-colors">
                   {totalApplicants === 1 && previewNames.length === 1
                     ? singleApplicantName
                     : `${totalApplicants} applicants`}
@@ -1079,11 +1074,10 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                     ? `Protected: ${filledPos} active billable consultant(s) attached`
                     : 'Delete requirement'
                 }
-                className={`p-1 rounded-md opacity-0 group-hover/card:opacity-100 focus:opacity-100 transition-all cursor-pointer ${
-                  filledPos > 0
-                    ? 'text-amber-500 hover:text-amber-700 hover:bg-amber-50'
-                    : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
-                }`}
+                className={`p-1 rounded-md opacity-0 group-hover/card:opacity-100 focus:opacity-100 transition-all cursor-pointer ${filledPos > 0
+                  ? 'text-amber-500 hover:text-amber-700 hover:bg-amber-50'
+                  : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
+                  }`}
               >
                 {filledPos > 0 ? <Lock className="w-3 h-3" /> : <Trash2 className="w-3 h-3" />}
               </button>
@@ -1092,7 +1086,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
               type="button"
               onClick={() => onOpenMatcher(req)}
               title="Match bench consultants"
-              className="px-2 py-1 rounded-md bg-brand-50/80 hover:bg-brand-600 text-brand-700 hover:text-white border border-brand-200/80 hover:border-brand-600 text-[11px] font-semibold inline-flex items-center gap-1 transition-all cursor-pointer whitespace-nowrap"
+              className="px-2 py-1 rounded-md border border-slate-200 bg-white hover:border-brand-300 hover:bg-brand-50/40 text-slate-700 hover:text-brand-700 text-[11px] font-semibold inline-flex items-center gap-1 transition-all cursor-pointer whitespace-nowrap"
             >
               <UsersRound className="w-3 h-3 flex-shrink-0" />
               <span>Match</span>
@@ -1104,7 +1098,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
   };
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {/* Header matching Prototype */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -1116,26 +1110,17 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={onOpenEmailParser}
-            className="px-3 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50 shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            {aiCapabilities.enabled ? (
-              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-            ) : (
-              <MailOpen className="w-3.5 h-3.5 text-brand-600" />
-            )}
+            <MailOpen className="w-3.5 h-3.5 text-brand-600" />
             <span>Import from Email</span>
-            {aiCapabilities.enabled && (
-              <span className="px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-200/80 text-[9.5px] font-bold text-indigo-700 leading-none">
-                AI
-              </span>
-            )}
           </button>
           {onOpenAddReq && (
             <button
               onClick={onOpenAddReq}
-              className="px-3.5 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3.5 py-1.5 rounded-lg bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
+              <Plus className="w-3.5 h-3.5" strokeWidth={1.75} />
               <span>Add Requirement</span>
             </button>
           )}
@@ -1148,22 +1133,20 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
           <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200/80">
             <button
               onClick={() => setDisplayMode('kanban')}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                displayMode === 'kanban'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${displayMode === 'kanban'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800'
+                }`}
             >
               <Columns className="w-3.5 h-3.5" />
               <span>Kanban</span>
             </button>
             <button
               onClick={() => setDisplayMode('list')}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                displayMode === 'list'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${displayMode === 'list'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800'
+                }`}
             >
               <List className="w-3.5 h-3.5" />
               <span>Table</span>
@@ -1197,14 +1180,14 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
             <button
               type="button"
               onClick={handleExportExcel}
-              className="px-3 py-1.5 rounded-md border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-medium flex items-center gap-1.5 bg-white shadow-2xs transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-medium flex items-center gap-1.5 bg-white transition-colors cursor-pointer"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
               <span>Export to Excel</span>
             </button>
           )}
-          <span className="px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 font-medium text-slate-700">
-            {totalReqs} {totalReqs === 1 ? 'Requisition' : 'Requisitions'}
+          <span className="text-xs font-medium text-slate-500 tabular-nums px-1">
+            {totalReqs} {totalReqs === 1 ? 'requisition' : 'requisitions'}
           </span>
           {displayMode === 'kanban' && (
             <span className="hidden md:inline text-slate-400">Drag cards between columns to update stage</span>
@@ -1259,11 +1242,10 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                   >
                     {reqsInStage.length === 0 ? (
                       <div
-                        className={`h-32 flex flex-col items-center justify-center p-4 text-center text-[11px] rounded-xl transition-all ${
-                          isMovingIntoStage
-                            ? 'bg-brand-50/70 text-brand-700 font-semibold border-2 border-dashed border-brand-300 shadow-xs'
-                            : 'border border-dashed border-slate-200/90 bg-white/55 text-slate-400'
-                        }`}
+                        className={`h-32 flex flex-col items-center justify-center p-4 text-center text-[11px] rounded-xl transition-all ${isMovingIntoStage
+                          ? 'bg-brand-50/70 text-brand-700 font-semibold border-2 border-dashed border-brand-300 shadow-sm'
+                          : 'border border-dashed border-slate-200/90 bg-white/55 text-slate-400'
+                          }`}
                       >
                         <Columns className="w-4 h-4 mb-1.5 text-slate-300" />
                         <p className="font-medium text-slate-500">
@@ -1275,7 +1257,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                           <button
                             type="button"
                             onClick={onOpenAddReq}
-                            className="mt-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-slate-200 text-slate-600 hover:text-brand-600 hover:border-brand-200 text-[10px] font-semibold transition-colors cursor-pointer"
+                            className="mt-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-slate-200 text-slate-600 hover:text-brand-600 hover:border-brand-200 text-[11px] font-semibold transition-colors cursor-pointer"
                           >
                             <Plus className="w-3 h-3" />
                             <span>Add Requirement</span>
@@ -1315,7 +1297,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                   animate={{ scale: 1.025, rotate: 1.25 }}
                   transition={{ type: 'spring', stiffness: 460, damping: 30 }}
                   style={{ width: activeDragWidth ?? undefined }}
-                  className="pointer-events-none select-none bg-white rounded-xl border border-brand-300/80 ring-2 ring-brand-500/20 shadow-[0_24px_48px_rgba(15,23,42,0.18)] overflow-hidden"
+                  className="pointer-events-none select-none bg-white rounded-xl border border-brand-300/80 ring-2 ring-brand-500/20 shadow-2xl overflow-hidden"
                 >
                   {renderCardBody(activeDragReq)}
                 </motion.div>
@@ -1326,10 +1308,10 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
       ) : (
         /* List Mode */
         <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
-          <div className="max-h-[440px] overflow-auto">
+          <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)]">
-                <tr className="text-[10px] uppercase font-bold text-slate-400">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr className="text-[11px] uppercase font-bold text-slate-400">
                   <SortableTableHeader
                     label="Code &amp; Role"
                     column="title"
@@ -1411,7 +1393,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                         >
                           {req.opportunityTitle}
                         </span>
-                        <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+                        <div className="text-[11px] text-slate-400 font-medium mt-0.5">
                           {req.code} &bull; {req.location}
                         </div>
                       </td>
@@ -1428,15 +1410,14 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                             <div className="space-y-1">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span
-                                  className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                    filledPos >= openPos
-                                      ? 'bg-emerald-500/[0.08] text-emerald-800'
-                                      : 'bg-slate-100 text-slate-700'
-                                  }`}
+                                  className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium ${filledPos >= openPos
+                                    ? 'bg-emerald-500/[0.08] text-emerald-800'
+                                    : 'bg-slate-100 text-slate-700'
+                                    }`}
                                 >
                                   {filledPos > 0 ? `${filledPos}/${openPos} Filled` : `${openPos} Open`}
                                 </span>
-                                <span className="text-[10px] font-medium text-slate-500">
+                                <span className="text-[11px] font-medium text-slate-500">
                                   {activeSubs.length} {activeSubs.length === 1 ? 'Applicant' : 'Applicants'}
                                 </span>
                               </div>
@@ -1466,7 +1447,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                       <td className="py-3 px-4 text-right whitespace-nowrap">
                         <button
                           onClick={() => onOpenMatcher(req)}
-                          className="px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[10px] font-semibold cursor-pointer transition-colors"
+                          className="px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-semibold cursor-pointer transition-colors"
                         >
                           Match
                         </button>
@@ -1489,11 +1470,10 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                                   ? `Protected: ${rowFilledPos} active billable consultant(s) attached`
                                   : 'Delete requirement'
                               }
-                              className={`ml-1 p-1 rounded transition-colors cursor-pointer ${
-                                rowFilledPos > 0
-                                  ? 'text-amber-500 hover:text-amber-700 hover:bg-amber-50'
-                                  : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
-                              }`}
+                              className={`ml-1 p-1 rounded transition-colors cursor-pointer ${rowFilledPos > 0
+                                ? 'text-amber-500 hover:text-amber-700 hover:bg-amber-50'
+                                : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
+                                }`}
                             >
                               {rowFilledPos > 0 ? (
                                 <Lock className="w-3.5 h-3.5" />
@@ -1617,12 +1597,11 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                       setEditOpenPositions(e.target.value);
                       if (editOpenPosError) setEditOpenPosError('');
                     }}
-                    className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
-                      editOpenPosError ? 'border-rose-400 focus:border-rose-500' : 'border-slate-200 focus:border-brand-600'
-                    }`}
+                    className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${editOpenPosError ? 'border-rose-400 focus:border-rose-500' : 'border-slate-200 focus:border-brand-600'
+                      }`}
                   />
                   {editOpenPosError && (
-                    <p className="text-[10px] font-semibold text-rose-600 mt-1">{editOpenPosError}</p>
+                    <p className="text-[11px] font-semibold text-rose-600 mt-1">{editOpenPosError}</p>
                   )}
                 </div>
                 <div>
@@ -1717,7 +1696,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
         isOpen={Boolean(reqToDelete)}
         onBackdropClick={() => setReqToDelete(null)}
         zIndexClass="z-50"
-        panelClassName="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden"
+        panelClassName="bg-white rounded-xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden"
       >
         {reqToDelete && (() => {
           const activePlacedCount = reqToDelete.filledPositions ?? reqToDelete.activePlacements?.length ?? 0;
@@ -1787,7 +1766,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                       setReqToDelete(null);
                       onSelectReq(target);
                     }}
-                    className="px-4 py-2 text-xs font-semibold bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer"
+                    className="px-4 py-2 text-xs font-semibold bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors cursor-pointer"
                   >
                     View Placed Consultants &rarr;
                   </button>
@@ -1809,7 +1788,7 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                         setIsDeletingReq(false);
                       }
                     }}
-                    className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer"
+                    className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition-colors cursor-pointer"
                   >
                     Delete Requisition
                   </ActionButton>

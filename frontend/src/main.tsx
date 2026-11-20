@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { MotionConfig } from 'framer-motion';
+import '@fontsource-variable/inter';
 import App from './App';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import './styles/index.css';

@@ -93,7 +93,7 @@ export const MaskedPdfToggle: React.FC<MaskedPdfToggleProps> = ({
             key="masked-pdf-info-popover"
             role="dialog"
             aria-label="About Masked PDF"
-            className={`absolute ${verticalClass} ${horizontalClass} w-72 bg-white border border-slate-200 rounded-xl shadow-xl p-3.5 z-50 text-left`}
+            className={`absolute ${verticalClass} ${horizontalClass} w-72 bg-white border border-slate-200 rounded-xl popover-shadow p-3.5 z-50 text-left`}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
@@ -113,7 +113,7 @@ export const MaskedPdfToggle: React.FC<MaskedPdfToggleProps> = ({
               Hides the candidate&apos;s personal email address and phone number on the exported PDF
               so you can introduce them to clients safely before an interview.
             </p>
-            <p className="text-[10.5px] text-slate-500 mt-1.5 pt-1.5 border-t border-slate-100">
+            <p className="text-[11px] text-slate-500 mt-1.5 pt-1.5 border-t border-slate-100">
               Their name, skills, work history, and your agency details remain visible.
             </p>
           </AnimatedPopover>

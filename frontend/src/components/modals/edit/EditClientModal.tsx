@@ -62,7 +62,7 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
     ]);
     if (missingFields.length > 0) {
       setValidationAttempted(true);
-      showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'fa-solid fa-triangle-exclamation text-amber-500');
+      showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'warning');
       return;
     }
     setValidationAttempted(false);
@@ -126,7 +126,7 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
                   <label className="block text-[11px] font-semibold text-slate-700">
                     Company Name *
                   </label>
-                  {isNameInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                  {isNameInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                 </div>
                 <input
                   type="text"
@@ -165,7 +165,7 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
                   <label className="block text-[11px] font-semibold text-slate-700">
                     HQ Location *
                   </label>
-                  {isLocationInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                  {isLocationInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                 </div>
                 <input
                   type="text"

@@ -106,7 +106,7 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
                   onClose();
                   onBlockedAction();
                 }}
-                className="px-4 py-2 text-xs font-semibold bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                className="px-4 py-2 text-xs font-semibold bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5"
               >
                 <span>{blockedActionLabel}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -119,7 +119,7 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
               loadingText={loadingText}
               icon={<Trash2 className="w-3.5 h-3.5" />}
               onClick={handleConfirm}
-              className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer"
+              className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition-colors cursor-pointer"
             >
               {confirmLabel}
             </ActionButton>

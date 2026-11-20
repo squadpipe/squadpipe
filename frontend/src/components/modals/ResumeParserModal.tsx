@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ExternalLink, FileText, Files, Sparkles, X } from 'lucide-react';
+import { ExternalLink, FileText, Files, X } from 'lucide-react';
 import { Candidate, Requirement, User } from '../../types';
 import { useAiCapabilities } from '../../utils/workspaceBrand';
 import { MAX_BULK_CV_FILES } from '../../utils/resumeDraftMapper';
@@ -55,14 +55,14 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
       isOpen={isOpen}
       onBackdropClick={onClose}
       zIndexClass="z-[70]"
-      backdropClassName="bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto select-none"
-      panelClassName="bg-white rounded-2xl shadow-2xl max-w-5xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
+      backdropClassName="bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center p-4 overflow-y-auto select-none"
+      panelClassName="bg-white rounded-xl shadow-2xl max-w-5xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
       ariaLabel="Add Consultant from Resume"
     >
       {/* Modal Header */}
       <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between gap-3 bg-[#141615] text-white shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shrink-0 shadow-xs">
+          <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shrink-0">
             {mode === 'bulk' ? <Files className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
           </div>
           <div className="min-w-0">
@@ -72,9 +72,8 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
                   ? `Parse & Attach Resumes to ${effectiveReq.code}`
                   : 'Add Consultant from Resume'}
               </span>
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded">
-                {aiCapabilities.enabled && <Sparkles className="w-2.5 h-2.5" />}
-                <span>{aiCapabilities.enabled ? 'AI Auto-Fill' : 'Auto-Fill'}</span>
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded-md">
+                <span>{aiCapabilities.enabled ? 'Smart Auto-Fill' : 'Auto-Fill'}</span>
               </span>
             </h2>
             <div className="text-[11px] text-slate-400 mt-0.5 truncate">

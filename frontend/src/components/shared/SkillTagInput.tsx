@@ -83,7 +83,7 @@ export const SkillTagInput: React.FC<SkillTagInputProps> = ({
           {skillTags.map((tag) => (
             <span
               key={tag}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-medium"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-medium"
             >
               <span>{tag}</span>
               <button
@@ -142,8 +142,8 @@ export const SkillTagInput: React.FC<SkillTagInputProps> = ({
             className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white text-slate-800 focus:border-brand-600 focus:outline-none"
           />
           {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute left-0 right-0 mt-1 z-30 bg-white border border-slate-200 rounded-xl shadow-xl p-2 max-h-48 overflow-y-auto">
-              <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 px-1 pb-1.5">
+            <div className="absolute left-0 right-0 mt-1 z-30 bg-white border border-slate-200 rounded-xl popover-shadow p-2 max-h-48 overflow-y-auto">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1 pb-1.5">
                 Suggested Skills ({suggestions.length})
               </div>
               <div className="flex flex-wrap gap-1.5">

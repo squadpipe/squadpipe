@@ -21,14 +21,14 @@ export const SignOutModal: React.FC<SignOutModalProps> = ({
       isOpen={Boolean(isOpen && currentUser)}
       onBackdropClick={onClose}
       zIndexClass="z-50"
-      backdropClassName="bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 select-none"
-      panelClassName="bg-white rounded-2xl shadow-2xl max-w-sm w-full border border-slate-200 overflow-hidden flex flex-col"
+      backdropClassName="bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center p-4 select-none"
+      panelClassName="bg-white rounded-xl shadow-2xl max-w-sm w-full border border-slate-200 overflow-hidden flex flex-col"
       ariaLabel="Sign Out Confirmation"
     >
       {currentUser && (
         <>
         <div className="p-6 text-center space-y-4">
-          <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center mx-auto shadow-xs">
+          <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center mx-auto">
             <LogOut className="w-5 h-5" />
           </div>
 
@@ -40,7 +40,7 @@ export const SignOutModal: React.FC<SignOutModalProps> = ({
           </div>
 
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-left text-xs space-y-1">
-            <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
+            <div className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">
               Active Account
             </div>
             <div className="font-semibold text-slate-800">{currentUser.name}</div>
@@ -59,7 +59,7 @@ export const SignOutModal: React.FC<SignOutModalProps> = ({
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Yes, Sign Out</span>

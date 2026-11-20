@@ -366,7 +366,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
     showToast?.(
       isMaskedPdf ? 'Masked PDF Downloaded' : 'Profile PDF Downloaded',
       `Saved ${fileName} so you can attach it to your email.`,
-      'fa-solid fa-file-arrow-down text-emerald-500'
+      'download'
     );
   };
 
@@ -381,7 +381,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
       showToast?.(
         'Original CV Downloaded',
         `Downloaded ${fileName} for email attachment.`,
-        'fa-solid fa-file-arrow-down text-emerald-500'
+        'download'
       );
     } catch (err: any) {
       setDraftError(err?.response?.data?.message || err?.message || 'Failed to download original CV.');
@@ -406,7 +406,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
         {/* Clean Header */}
         <div className="flex-shrink-0 px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-full bg-white border border-slate-200 text-brand-700 flex items-center justify-center flex-shrink-0 shadow-2xs">
+            <div className="w-9 h-9 rounded-full bg-white border border-slate-200 text-brand-700 flex items-center justify-center flex-shrink-0">
               <Mail className="w-4 h-4" />
             </div>
             <div className="min-w-0">
@@ -415,7 +415,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                   Prepare Email Draft &mdash; {candidateName}
                 </h3>
                 {hasActiveDraft && !controlsDisabled && aiUsed && aiCapabilities.enabled && (
-                  <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-0.5 rounded-full">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-0.5 rounded-full">
                     <Sparkles className="w-2.5 h-2.5 shrink-0" />
                     <span>AI Drafted</span>
                   </span>
@@ -423,7 +423,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                 {hasActiveDraft && !controlsDisabled && isCached && (
                   <span
                     title="Loaded from saved draft (no extra AI tokens used)"
-                    className="inline-flex items-center gap-1 text-[10.5px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full"
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full"
                   >
                     <Check className="w-2.5 h-2.5 shrink-0" />
                     <span>Saved Draft</span>
@@ -451,7 +451,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
         <div className="flex-shrink-0 px-6 py-3 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between gap-4">
           <div className="space-y-1.5 min-w-0">
             <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="text-[10.5px] font-semibold text-slate-500 w-9 shrink-0">Type</span>
+              <span className="text-[11px] font-semibold text-slate-500 w-9 shrink-0">Type</span>
               <div className="inline-flex items-center p-0.5 rounded-lg bg-slate-200/70 border border-slate-200/80">
                 {PURPOSE_OPTIONS.map((item) => {
                   const isSelected = purpose === item.id;
@@ -466,7 +466,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                       onClick={() => handleTypeSelect(item.id)}
                       className={`px-3 py-1 rounded-md text-[11px] font-semibold inline-flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-60 ${
                         isSelected
-                          ? 'bg-slate-900 text-white shadow-2xs'
+                          ? 'bg-slate-900 text-white shadow-sm'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
@@ -484,7 +484,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
             </div>
 
             <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="text-[10.5px] font-semibold text-slate-500 w-9 shrink-0">Tone</span>
+              <span className="text-[11px] font-semibold text-slate-500 w-9 shrink-0">Tone</span>
               <div className="inline-flex items-center p-0.5 rounded-lg bg-slate-200/70 border border-slate-200/80">
                 {TONE_OPTIONS.map((t) => {
                   const isSelected = pitchTone === t.id;
@@ -497,7 +497,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                       onClick={() => handleToneSelect(t.id)}
                       className={`px-2.5 py-1 rounded-md text-[11px] font-semibold inline-flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-60 ${
                         isSelected
-                          ? 'bg-brand-600 text-white shadow-2xs'
+                          ? 'bg-brand-600 text-white shadow-sm'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
@@ -522,7 +522,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                 disabled={controlsDisabled}
                 onClick={() => void loadDraft(purpose, pitchTone, { forceRegenerate: true })}
                 title="Generate a fresh variation for this Type and Tone"
-                className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-semibold inline-flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors disabled:opacity-50"
+                className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`} />
                 <span>{isRegenerating ? 'Regenerating...' : 'Regenerate'}</span>
@@ -561,7 +561,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                   </div>
                 )}
 
-                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 px-6 py-10 text-center space-y-4">
+                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 px-6 py-10 text-center space-y-4">
                   <div className="w-11 h-11 rounded-full bg-brand-50 border border-brand-200 text-brand-700 flex items-center justify-center mx-auto">
                     {aiCapabilities.enabled ? (
                       <Sparkles className="w-5 h-5" />
@@ -574,7 +574,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                     <h4 className="text-sm font-bold text-slate-900">
                       Prepare {getPurposeLabel(purpose)}
                     </h4>
-                    <p className="text-[11.5px] text-slate-500 leading-relaxed">
+                    <p className="text-xs text-slate-500 leading-relaxed">
                       <strong className="font-semibold text-slate-800">
                         {getToneLabel(pitchTone)}
                       </strong>{' '}
@@ -587,7 +587,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                       ) : null}
                     </p>
                     {rateMasked && (
-                      <p className="text-[10.5px] text-slate-400">
+                      <p className="text-[11px] text-slate-400">
                         Rate-safe mode enabled: bill &amp; pay rates are automatically omitted.
                       </p>
                     )}
@@ -598,7 +598,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                       type="button"
                       disabled={controlsDisabled}
                       onClick={() => void loadDraft(purpose, pitchTone)}
-                      className="h-9 px-5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold inline-flex items-center gap-2 shadow-sm cursor-pointer transition-colors disabled:opacity-60"
+                      className="h-9 px-5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold inline-flex items-center gap-2  cursor-pointer transition-colors disabled:opacity-60"
                     >
                       {isLoading ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -609,7 +609,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                         {isLoading ? 'Generating Draft...' : `Generate ${getPurposeLabel(purpose)}`}
                       </span>
                       {!isLoading && aiCapabilities.enabled && (
-                        <span className="px-1.5 py-0.5 rounded bg-white/15 text-[9.5px] font-bold uppercase tracking-wide leading-none">
+                        <span className="px-1.5 py-0.5 rounded bg-white/15 text-[11px] font-bold uppercase tracking-wide leading-none">
                           AI
                         </span>
                       )}
@@ -618,7 +618,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
 
                   {savedCombos.length > 0 && (
                     <div className="pt-3 border-t border-slate-200/80 flex flex-col items-center gap-2">
-                      <span className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-400">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                         Saved Drafts Ready
                       </span>
                       <div className="flex flex-wrap items-center justify-center gap-1.5">
@@ -657,7 +657,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                 )}
 
                 {/* Unified Email Composer Sheet */}
-                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/10 transition-all">
+                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden card-shadow focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/10 transition-all">
                   {/* Recipient Row */}
                   <div className="px-4 py-2 border-b border-slate-100 bg-slate-50/40 flex items-center gap-2.5">
                     <label
@@ -701,7 +701,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                     <button
                       type="button"
                       onClick={() => void handleCopy('subject')}
-                      className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-slate-500 hover:text-brand-600 cursor-pointer shrink-0 px-2 py-0.5 rounded-md hover:bg-slate-100 transition-colors"
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-brand-600 cursor-pointer shrink-0 px-2 py-0.5 rounded-md hover:bg-slate-100 transition-colors"
                     >
                       {copiedTarget === 'subject' ? (
                         <>
@@ -720,17 +720,17 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                   {/* Body Status Sub-header */}
                   <div className="px-4 py-1.5 border-b border-slate-100 bg-slate-50/40 flex items-center justify-between gap-2 min-h-[28px]">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                         Message
                       </span>
                       {isSaving && (
-                        <span className="text-[10.5px] font-medium text-slate-400 inline-flex items-center gap-1">
+                        <span className="text-[11px] font-medium text-slate-400 inline-flex items-center gap-1">
                           <Loader2 className="w-2.5 h-2.5 animate-spin" />
                           <span>Saving...</span>
                         </span>
                       )}
                       {!isSaving && saveStatusText === 'Saved' && (
-                        <span className="text-[10.5px] font-medium text-emerald-600 inline-flex items-center gap-1">
+                        <span className="text-[11px] font-medium text-emerald-600 inline-flex items-center gap-1">
                           <Check className="w-2.5 h-2.5" />
                           <span>Edits saved</span>
                         </span>
@@ -739,7 +739,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                         <button
                           type="button"
                           onClick={() => void persistEditsIfDirty()}
-                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 px-2 py-0.5 rounded-full cursor-pointer"
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 px-2 py-0.5 rounded-full cursor-pointer"
                         >
                           <Save className="w-2.5 h-2.5" />
                           <span>Save Edits</span>
@@ -747,7 +747,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                       )}
                     </div>
                     {rateMasked && (
-                      <span className="text-[10.5px] font-medium text-slate-500">
+                      <span className="text-[11px] font-medium text-slate-500">
                         Rate-safe copy (bill/pay rates omitted)
                       </span>
                     )}
@@ -766,7 +766,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                       }}
                       onBlur={() => void persistEditsIfDirty()}
                       disabled={isLoading}
-                      className="w-full min-h-[290px] p-4 bg-white text-[12.5px] text-slate-800 leading-relaxed focus:outline-none disabled:opacity-60 resize-y"
+                      className="w-full min-h-[290px] p-4 bg-white text-sm text-slate-800 leading-relaxed focus:outline-none disabled:opacity-60 resize-y"
                     />
                     {isLoading && (
                       <div className="absolute inset-0 bg-white/80 backdrop-blur-[1px] flex items-center justify-center gap-2 text-xs font-semibold text-brand-700">
@@ -876,7 +876,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                   }
                   void persistEditsIfDirty();
                 }}
-                className={`h-8 px-4 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-xs inline-flex items-center gap-1.5 transition-colors ${
+                className={`h-8 px-4 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold inline-flex items-center gap-1.5 transition-colors ${
                   controlsDisabled ? 'opacity-60 pointer-events-none' : ''
                 }`}
               >

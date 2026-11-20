@@ -64,7 +64,7 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
     ]);
     if (missingFields.length > 0) {
       setValidationAttempted(true);
-      showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'fa-solid fa-triangle-exclamation text-amber-500');
+      showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'warning');
       return;
     }
 
@@ -88,7 +88,7 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
       await onSave(newVendor);
       setForm({ ...INITIAL_VENDOR_FORM });
       setCustomValues({});
-      showToast('Vendor Onboarded', `${newVendor.name} added to vendor network!`, 'fa-solid fa-circle-check text-brand-600');
+      showToast('Vendor Onboarded', `${newVendor.name} added to vendor network!`, 'success-brand');
       onClose();
     } catch {
       // Error toast is already displayed by the parent handler
@@ -102,7 +102,7 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
       isOpen={isOpen}
       onBackdropClick={onClose}
       zIndexClass="z-50"
-      backdropClassName="bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 select-none"
+      backdropClassName="bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center p-4 select-none"
       panelClassName="bg-white rounded-xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
       ariaLabel="Register Staffing Vendor Partner"
     >
@@ -137,7 +137,7 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block font-semibold text-slate-700">Vendor Agency Name *</label>
-                  {isNameInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                  {isNameInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                 </div>
                 <input
                   value={form.name}
@@ -163,7 +163,7 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block font-semibold text-slate-700">Partner Contact Person *</label>
-                  {isContactInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                  {isContactInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                 </div>
                 <input
                   value={form.contactName}
@@ -188,7 +188,7 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block font-semibold text-slate-700">Contact Email Address *</label>
-                {isEmailInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                {isEmailInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
               </div>
               <input
                 type="email"
@@ -271,8 +271,8 @@ export const AddVendorModal: React.FC<AddVendorModalProps> = ({
               type="submit"
               loading={isSaving}
               loadingText="Saving Vendor..."
-              icon={<Plus className="w-3.5 h-3.5" strokeWidth={2.4} />}
-              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              icon={<Plus className="w-3.5 h-3.5" strokeWidth={1.75} />}
+              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-semibold transition-colors cursor-pointer"
             >
               Save & Register Vendor Partner
             </ActionButton>

@@ -117,7 +117,7 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
               disabled={isLoading}
               className={`min-w-[24px] h-6 px-1.5 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
                 token === currentPage
-                  ? 'bg-slate-900 text-white shadow-2xs'
+                  ? 'bg-slate-900 text-white shadow-sm'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >

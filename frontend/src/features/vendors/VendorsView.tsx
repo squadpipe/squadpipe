@@ -122,7 +122,7 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
   const filtered = tableRows;
 
   return (
-    <section className="max-w-7xl mx-auto space-y-5 animate-fade-in">
+    <section className="max-w-7xl mx-auto space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -133,9 +133,9 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
         </div>
         <button
           onClick={onOpenAddVendor}
-          className="px-3.5 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+          className="px-3.5 py-1.5 rounded-lg bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 flex items-center gap-1.5 transition-colors cursor-pointer"
         >
-          <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
+          <Plus className="w-3.5 h-3.5" strokeWidth={1.75} />
           <span>Add Vendor</span>
         </button>
       </div>
@@ -154,15 +154,15 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search staffing vendors, terms..."
-              className="pl-8 pr-3 py-1 text-xs border border-slate-200 rounded-md bg-white w-64 text-slate-700 outline-none focus:border-brand-500"
+              className="pl-8 pr-3 py-1 text-xs border border-slate-200 rounded-lg bg-white w-64 text-slate-700 outline-none focus:border-brand-500"
             />
           </div>
         </div>
 
         {/* Table */}
-        <div className="max-h-[440px] overflow-auto">
+        <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase">
+            <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase">
               <tr>
                 <SortableTableHeader
                   label="Vendor Company"
@@ -279,13 +279,13 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                       >
                         <span className="font-medium">{primaryContact?.fullName || v.contactName || '—'}</span>
                         {extraCount > 0 && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-semibold">
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[11px] font-semibold">
                             <Users className="w-2.5 h-2.5" />+{extraCount}
                           </span>
                         )}
                       </div>
                       {primaryContact?.designation && (
-                        <div className="text-[10px] text-slate-400">{primaryContact.designation}</div>
+                        <div className="text-[11px] text-slate-400">{primaryContact.designation}</div>
                       )}
                     </td>
                     <td className="px-4 py-3 text-[11px] text-slate-500">
@@ -293,7 +293,7 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                       {primaryContact?.email || v.email || '—'}
                     </td>
                     <td className="px-4 py-3 text-slate-600">{v.location}</td>
-                    <td className="px-4 py-3 text-[10px]">{v.skillSpecialization}</td>
+                    <td className="px-4 py-3 text-[11px]">{v.skillSpecialization}</td>
                     <td className="px-4 py-3 font-medium">{v.paymentTerms}</td>
                     <td className="px-4 py-3 text-slate-600">{v.invoicingTerms}</td>
                     <td className="px-4 py-3 whitespace-nowrap">

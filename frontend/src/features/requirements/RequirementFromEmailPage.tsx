@@ -5,9 +5,7 @@ import {
   Eraser,
   Info,
   Loader2,
-  MailOpen,
   Plus,
-  Sparkles,
   X,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
@@ -22,8 +20,10 @@ import { SearchableSelectInput } from '../../components/shared/SearchableSelectI
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { RoleSummaryField } from '../../components/shared/RichTextEditor';
 import { DetailBreadcrumb } from '../../components/shared/DetailPageShell';
+import { PageHeader } from '../../components/shared/PageHeader';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
+import { UnsavedChangesModal, useFormShortcuts } from '../../hooks/useFormShortcuts';
 
 const PLACEHOLDER_FIELD_RE =
   /^(?:not\s+(?:explicitly\s+)?(?:specified|mentioned|provided|stated|disclosed|available|found|given|listed|known|applicable|included)(?:\s+in\s+(?:the\s+)?(?:email|message|thread|resume|cv|document)(?:\s+body)?)?|unspecified|none|n\/?a|unknown|unk|tbd|tba|to\s+be\s+(?:determined|confirmed)|missing|pending(?:\s+confirmation)?|blank|empty|nil|null|undisclosed)$/i;
@@ -249,7 +249,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
       showToast(
         'Parse Failed',
         err.response?.data?.message || err.message || 'Could not parse email right now.',
-        'fa-solid fa-triangle-exclamation text-rose-500'
+        'error'
       );
     } finally {
       setIsParsing(false);
@@ -404,7 +404,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
       showToast(
         'Validation Required',
         formatMissingFieldsMessage(missingFields, 'before creating the requisition'),
-        'fa-solid fa-triangle-exclamation text-amber-500'
+        'warning'
       );
       return;
     }
@@ -461,103 +461,95 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
       showToast(
         'Requirement Created',
         `${newReq.code} (${newReq.opportunityTitle}) saved to pipeline!`,
-        'fa-solid fa-circle-check text-emerald-500'
+        'success'
       );
       onApprove(newReq);
     } catch (err: any) {
       showToast(
         'Save Failed',
         err.response?.data?.message || 'Could not save requisition. Please try again.',
-        'fa-solid fa-triangle-exclamation text-rose-500'
+        'error'
       );
     } finally {
       setIsSaving(false);
     }
   };
 
+  const isDirty = Boolean(
+    rawEmailText.trim() ||
+      extractedReq.opportunityTitle.trim() ||
+      extractedReq.companyName.trim()
+  );
+  const { showLeaveModal, guardNavigation, confirmLeave, cancelLeave } = useFormShortcuts({
+    isDirty,
+    isSubmitting: isSaving || isParsing,
+    onSubmit: () => handleApprove(),
+  });
+
   return (
     <div className="max-w-7xl mx-auto space-y-5 animate-fade-in">
       <DetailBreadcrumb
         backLabel={backLabel}
-        onBack={onBack}
+        onBack={() => guardNavigation(onBack)}
         title="Create Job from Client Email"
         codePill="From Email"
       />
 
-      {/* Page Header Card */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-3.5 min-w-0">
-          <span className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-xs shrink-0">
-            <MailOpen className="w-4 h-4" />
-          </span>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-base font-bold text-slate-900 tracking-tight">
-                Create Job from Client Email
-              </h1>
-              {aiCapabilities.enabled && (
-                <StatusBadge
-                  tone="brand"
-                  shape="rounded"
-                  icon={<Sparkles className="w-3 h-3 text-indigo-600" />}
-                  label="AI Email Extraction"
-                />
-              )}
-              {marginSpread > 0 && (
-                <StatusBadge
-                  tone="emerald"
-                  shape="rounded"
-                  label={`Est. Spread: +${currencySymbol}${marginSpread}/hr`}
-                  className="tabular-nums"
-                />
-              )}
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Paste any hiring manager email on the left to automatically populate client, role, skills, rates, and a client-safe public job description.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto text-xs">
-          {(rawEmailText || extractedReq.companyName) && (
+      <PageHeader
+        title="Create Job from Client Email"
+        subtitle="Paste any hiring manager email on the left to populate client, role, skills, rates, and a client-safe public job description."
+        badges={
+          marginSpread > 0 ? (
+            <StatusBadge
+              tone="emerald"
+              size="xs"
+              label={`Est. Spread: +${currencySymbol}${marginSpread}/hr`}
+              className="tabular-nums"
+            />
+          ) : undefined
+        }
+        actions={
+          <>
+            {(rawEmailText || extractedReq.companyName) && (
+              <button
+                type="button"
+                onClick={handleClearAll}
+                disabled={isSaving || isParsing}
+                className="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Eraser className="w-3.5 h-3.5" />
+                <span>Clear</span>
+              </button>
+            )}
             <button
               type="button"
-              onClick={handleClearAll}
-              disabled={isSaving || isParsing}
-              className="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              onClick={() => guardNavigation(onBack)}
+              disabled={isSaving}
+              className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold cursor-pointer disabled:opacity-50"
             >
-              <Eraser className="w-3.5 h-3.5" />
-              <span>Clear</span>
+              Cancel
             </button>
-          )}
-          <button
-            type="button"
-            onClick={onBack}
-            disabled={isSaving}
-            className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold cursor-pointer disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <ActionButton
-            loading={isSaving}
-            loadingText="Creating..."
-            disabled={isParsing}
-            onClick={handleApprove}
-            icon={<Plus className="w-3.5 h-3.5" strokeWidth={2.4} />}
-            className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-semibold shadow-xs cursor-pointer"
-          >
-            Create Requisition
-          </ActionButton>
-        </div>
-      </div>
+            <ActionButton
+              loading={isSaving}
+              loadingText="Creating..."
+              disabled={isParsing}
+              onClick={handleApprove}
+              icon={<Plus className="w-3.5 h-3.5" strokeWidth={2} />}
+              className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-semibold cursor-pointer"
+            >
+              Create Requisition
+            </ActionButton>
+          </>
+        }
+      />
 
       {/* Main 12-Column Split Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Left Column: Raw Email Input */}
-        <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-3 lg:sticky lg:top-4">
+        <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 p-5 card-shadow space-y-3 lg:sticky lg:top-4">
           <div className="flex items-center justify-between gap-2">
-            <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-              1. Paste Raw Client Email
+            <label className="text-sm font-semibold text-slate-900">
+              Client email source
             </label>
             <div className="flex items-center gap-2">
               {isParsing ? (
@@ -566,10 +558,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
                   <span>Extracting fields...</span>
                 </span>
               ) : hasParsed ? (
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                  <Check className="w-3 h-3" strokeWidth={2.4} />
-                  <span>Parsed</span>
-                </span>
+                <StatusBadge tone="emerald" size="xs" label="Parsed" />
               ) : null}
             </div>
           </div>
@@ -607,18 +596,13 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
         </div>
 
         {/* Right Column: Structured Extracted Requirement Form */}
-        <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4 text-xs">
+        <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 p-5 card-shadow space-y-4 text-xs">
           <div className="flex items-center justify-between gap-2 flex-wrap border-b border-slate-100 pb-3">
-            <div className="font-bold text-slate-900 text-xs flex items-center gap-2">
+            <div className="font-semibold text-slate-900 text-sm flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span>2. Review &amp; Complete Extracted Fields</span>
+              <span>Extracted requirement details</span>
               {hasParsed && aiUsed && aiCapabilities.enabled && (
-                <StatusBadge
-                  tone="brand"
-                  icon={<Sparkles className="w-3 h-3 text-indigo-600" />}
-                  label="AI Enhanced"
-                  size="xs"
-                />
+                <StatusBadge tone="brand" label="Auto-Structured" size="xs" />
               )}
             </div>
             <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
@@ -630,9 +614,9 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <div className="flex items-center justify-between gap-2">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Target Company *</label>
+                <label className="text-xs font-medium text-slate-700">Target Company *</label>
                 {showCompanyError && (
-                  <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                  <span className="text-[11px] font-semibold text-rose-600">Required</span>
                 )}
               </div>
               <SearchableSelectInput
@@ -674,7 +658,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
                     extractedReq.companyName.trim().toLowerCase()
                 ) && (
                   <div className="mt-1">
-                    <span className="inline-block text-[10px] font-medium text-brand-800 bg-brand-500/[0.08] px-1.5 py-0.5 rounded">
+                    <span className="inline-block text-[11px] font-medium text-brand-800 bg-brand-500/[0.08] px-1.5 py-0.5 rounded">
                       New client (auto-saved on create)
                     </span>
                   </div>
@@ -683,11 +667,11 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
 
             <div>
               <div className="flex items-center justify-between gap-2">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">
+                <label className="text-xs font-medium text-slate-700">
                   Job / Opportunity Title *
                 </label>
                 {showTitleError && (
-                  <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                  <span className="text-[11px] font-semibold text-rose-600">Required</span>
                 )}
               </div>
               <input
@@ -708,7 +692,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase">
+              <label className="text-xs font-medium text-slate-700">
                 Client Contact Name
               </label>
               <input
@@ -722,7 +706,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
               />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase">
+              <label className="text-xs font-medium text-slate-700">
                 Contact Designation
               </label>
               <input
@@ -736,7 +720,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
               />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase">
+              <label className="text-xs font-medium text-slate-700">
                 Contact Email
               </label>
               <input
@@ -754,11 +738,11 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
             <div>
               <div className="flex items-center justify-between gap-2">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">
+                <label className="text-xs font-medium text-slate-700">
                   Open Positions *
                 </label>
                 {showOpenPosError && (
-                  <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                  <span className="text-[11px] font-semibold text-rose-600">Required</span>
                 )}
               </div>
               <input
@@ -782,7 +766,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
               />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Location</label>
+              <label className="text-xs font-medium text-slate-700">Location</label>
               <input
                 type="text"
                 value={extractedReq.location}
@@ -792,7 +776,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
               />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Work Model</label>
+              <label className="text-xs font-medium text-slate-700">Work Model</label>
               <div className="mt-0.5 grid grid-cols-3 gap-1.5">
                 {(['Remote', 'Hybrid', 'Onsite'] as const).map((wm) => (
                   <button
@@ -814,7 +798,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase">
+              <label className="text-xs font-medium text-slate-700">
                 Bill Rate ({currencySymbol}/hr)
               </label>
               <input
@@ -835,7 +819,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
               />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase">
+              <label className="text-xs font-medium text-slate-700">
                 Pay Rate ({currencySymbol}/hr)
               </label>
               <input
@@ -850,7 +834,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
               />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase">
+              <label className="text-xs font-medium text-slate-700">
                 Assigned Recruiter
               </label>
               <SearchableSelectInput
@@ -869,7 +853,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
               />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase">
+              <label className="text-xs font-medium text-slate-700">
                 Initial Stage
               </label>
               <CustomSelect
@@ -885,7 +869,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
 
           {/* Required Skillset with Interactive Chips */}
           <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase">
+            <label className="text-xs font-medium text-slate-700">
               Required Skillset
             </label>
             {skillTags.length > 0 && (
@@ -952,8 +936,8 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
                   className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 focus:border-brand-600 focus:outline-none"
                 />
                 {showSkillSuggestions && skillSuggestions.length > 0 && (
-                  <div className="absolute left-0 right-0 mt-1 z-30 bg-white border border-slate-200 rounded-xl shadow-xl p-2 max-h-48 overflow-y-auto">
-                    <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 px-1 pb-1.5">
+                  <div className="absolute left-0 right-0 mt-1 z-30 bg-white border border-slate-200 rounded-xl popover-shadow p-2 max-h-48 overflow-y-auto">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1 pb-1.5">
                       Suggested Skills ({skillSuggestions.length})
                     </div>
                     <div className="flex flex-wrap gap-1.5">
@@ -1000,7 +984,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
 
           <RoleSummaryField
             label="Role Scope & Public Summary (Candidate-Facing)"
-            labelClassName="text-[10px] font-bold text-slate-500 uppercase"
+            labelClassName="text-xs font-medium text-slate-700"
             value={extractedReq.publicDescription}
             onChange={(nextHtml) =>
               setExtractedReq((prev) => ({ ...prev, publicDescription: nextHtml }))
@@ -1026,40 +1010,25 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
           />
 
           <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase">
-              AI Extraction Notes / Missing Info
+            <label className="text-xs font-medium text-slate-700">
+              Extraction Notes / Missing Info
             </label>
             <input
               type="text"
               value={extractedReq.missingNotes}
               onChange={(e) => setExtractedReq({ ...extractedReq, missingNotes: e.target.value })}
               placeholder="Missing follow-up notes or client SLA instructions..."
-              className="mt-0.5 w-full px-3 py-2 text-xs bg-amber-50/50 border border-amber-200/80 rounded-lg text-slate-700 focus:bg-white focus:border-amber-400 focus:outline-none"
+              className="mt-1 w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:bg-white focus:border-brand-600 focus:outline-none"
             />
-          </div>
-
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={onBack}
-              disabled={isSaving}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-            <ActionButton
-              loading={isSaving}
-              loadingText="Creating Requisition..."
-              disabled={isParsing}
-              onClick={handleApprove}
-              icon={<Plus className="w-3.5 h-3.5" strokeWidth={2.4} />}
-              className="px-5 py-2 text-xs font-semibold bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white rounded-lg shadow-xs cursor-pointer"
-            >
-              Approve &amp; Create Requisition
-            </ActionButton>
           </div>
         </div>
       </div>
+
+      <UnsavedChangesModal
+        isOpen={showLeaveModal}
+        onConfirmLeave={confirmLeave}
+        onCancelLeave={cancelLeave}
+      />
     </div>
   );
 };

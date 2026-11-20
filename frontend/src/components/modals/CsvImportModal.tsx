@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ExternalLink, FileSpreadsheet, X } from 'lucide-react';
 import { Requirement } from '../../types';
 import { AnimatedModal } from '../shared/MotionPrimitives';
-import { CsvImportResult, CsvImportWorkspace } from '../../features/import-data/CsvImportPage';
+import { CsvImportResult, CsvImportWorkspace } from '../../features/import-data/CsvImportWorkspace';
 
 interface CsvImportModalProps {
   isOpen: boolean;
@@ -44,8 +44,8 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
         if (!isImporting) onClose();
       }}
       zIndexClass="z-[70]"
-      backdropClassName="bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 select-none"
-      panelClassName="bg-white rounded-2xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
+      backdropClassName="bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center p-4 select-none"
+      panelClassName="bg-white rounded-xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
       ariaLabel="Import Candidates from Spreadsheet"
     >
       <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3 bg-slate-50 shrink-0">

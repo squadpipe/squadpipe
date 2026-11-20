@@ -23,6 +23,7 @@ import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { TablePagination } from '../../components/shared/TablePagination';
+import { PageHeader } from '../../components/shared/PageHeader';
 import { ApplicationFormPreview } from './ApplicationFormPreview';
 
 interface ApplicationFormsSectionProps {
@@ -156,13 +157,13 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
       showToast(
         'Default Form Updated',
         `"${form.name}" is now the default application form.`,
-        'fa-solid fa-star text-emerald-500'
+        'star'
       );
     } catch (err: any) {
       showToast(
         'Update Failed',
         err?.response?.data?.message || 'Could not set default application form.',
-        'fa-solid fa-triangle-exclamation text-rose-500'
+        'error'
       );
     } finally {
       setSettingDefaultId(null);
@@ -183,14 +184,14 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
         showToast(
           'Form Duplicated',
           `Created "${form.name} (Copy)".`,
-          'fa-solid fa-copy text-brand-500'
+          'copy'
         );
       }
     } catch (err: any) {
       showToast(
         'Duplicate Failed',
         err?.response?.data?.message || 'Could not duplicate application form.',
-        'fa-solid fa-triangle-exclamation text-rose-500'
+        'error'
       );
     } finally {
       setDuplicatingId(null);
@@ -199,39 +200,28 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
 
   return (
     <div className="space-y-4">
-      {/* Page Header */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <span className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-xs shrink-0">
-            <FileText className="w-4 h-4" />
+      <PageHeader
+        title="Application Forms"
+        subtitle="Create application forms for your job links, add custom questions directly on any form, and set one as your default."
+        badges={
+          <span className="text-xs font-medium text-slate-500 tabular-nums">
+            {forms.length} {forms.length === 1 ? 'form' : 'forms'}
           </span>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-base font-bold text-slate-900 tracking-tight">
-                Application Forms
-              </h2>
-              <span className="px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                {forms.length} {forms.length === 1 ? 'Form' : 'Forms'}
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Create application forms for your job links, add custom questions directly on any form, and set one as your default.
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={onCreateForm}
-          className="px-3.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 self-start sm:self-auto"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>New Application Form</span>
-        </button>
-      </div>
+        }
+        actions={
+          <button
+            type="button"
+            onClick={onCreateForm}
+            className="px-3.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Application Form</span>
+          </button>
+        }
+      />
 
       {/* List View with Filter, Sort & Pagination */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
         <div className="px-5 py-3.5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
           <div className="flex flex-wrap items-center gap-1.5 text-xs">
             <button
@@ -239,7 +229,7 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
               onClick={() => setFilterScope('all')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                 filterScope === 'all'
-                  ? 'bg-slate-900 text-white shadow-2xs'
+                  ? 'bg-slate-900 text-white shadow-sm'
                   : 'text-slate-600 hover:bg-white hover:text-slate-900'
               }`}
             >
@@ -250,7 +240,7 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
               onClick={() => setFilterScope('with_custom')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                 filterScope === 'with_custom'
-                  ? 'bg-slate-900 text-white shadow-2xs'
+                  ? 'bg-slate-900 text-white shadow-sm'
                   : 'text-slate-600 hover:bg-white hover:text-slate-900'
               }`}
             >
@@ -376,7 +366,7 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
                           {visibleChips.map((chip, idx) => (
                             <span
                               key={`${chip.label}_${idx}`}
-                              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10.5px] font-medium border ${
+                              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium border ${
                                 chip.isCustom
                                   ? 'bg-white border-slate-300/90 text-slate-800'
                                   : chip.required
@@ -538,7 +528,7 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-sm font-bold text-white truncate">{previewForm.name}</h3>
                     {previewForm.isDefault && (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-[10px] font-semibold text-emerald-300">
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-[11px] font-semibold text-emerald-300">
                         Default
                       </span>
                     )}
@@ -609,7 +599,7 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
           showToast(
             'Application Form Deleted',
             `Removed "${formToDelete.name}".`,
-            'fa-solid fa-trash-can text-slate-500'
+            'delete'
           );
         }}
       />

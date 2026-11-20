@@ -133,7 +133,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
         assignedRecruiter: '',
         pipelineStage: 'Available / Bench',
       });
-      showToast('Candidate Registered', `${conForm.fullName} added to bench!`, 'fa-solid fa-circle-check text-emerald-400');
+      showToast('Candidate Registered', `${conForm.fullName} added to bench!`, 'success');
     } else if (activeTab === 'requirement') {
       const openPosNum = Number(reqForm.openPositions);
       const missingFields = getMissingFieldLabels([
@@ -159,7 +159,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
         targetBillRate: reqForm.targetBillRate,
         targetPayRate: reqForm.targetPayRate,
       });
-      showToast('Job Requisition Open', `${reqForm.opportunityTitle} added to pipeline!`, 'fa-solid fa-circle-check text-emerald-400');
+      showToast('Job Requisition Open', `${reqForm.opportunityTitle} added to pipeline!`, 'success');
     } else if (activeTab === 'client') {
       if (!cliForm.name.trim()) {
         showToast('Required Fields', 'Client Name is required.');
@@ -181,7 +181,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
           },
         ],
       });
-      showToast('Client Account Added', `${cliForm.name} registered to client directory!`, 'fa-solid fa-circle-check text-emerald-400');
+      showToast('Client Account Added', `${cliForm.name} registered to client directory!`, 'success');
     } else if (activeTab === 'vendor') {
       if (!venForm.name.trim()) {
         showToast('Required Fields', 'Vendor Name is required.');
@@ -191,7 +191,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
         id: 'ven_' + Date.now(),
         ...venForm,
       });
-      showToast('Staffing Vendor Added', `${venForm.name} registered!`, 'fa-solid fa-circle-check text-emerald-400');
+      showToast('Staffing Vendor Added', `${venForm.name} registered!`, 'success');
     } else if (activeTab === 'placement') {
       const missingFields = getMissingFieldLabels([
         { label: 'Resource Name', valid: Boolean(placeForm.resourceName.trim()) },
@@ -212,7 +212,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
         hourlySpread: spread,
         marginPct: Math.round(margin * 10) / 10,
       });
-      showToast('Placement Activated', `${placeForm.resourceName} placed at ${placeForm.customer}!`, 'fa-solid fa-circle-check text-emerald-400');
+      showToast('Placement Activated', `${placeForm.resourceName} placed at ${placeForm.customer}!`, 'success');
     }
     onClose();
   };
@@ -222,15 +222,15 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
       isOpen={isOpen}
       onBackdropClick={onClose}
       zIndexClass="z-50"
-      backdropClassName="bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
-      panelClassName="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 card-shadow overflow-hidden flex flex-col max-h-[90vh]"
+      backdropClassName="bg-slate-900/55 backdrop-blur-[2px] flex items-center justify-center p-4 overflow-y-auto"
+      panelClassName="bg-white rounded-xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
       ariaLabel="Universal Quick Add"
     >
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white">
-              <Plus className="w-4 h-4" strokeWidth={2.4} />
+              <Plus className="w-4 h-4" strokeWidth={1.75} />
             </div>
             <div>
               <h3 className="font-bold text-slate-800 text-sm">Universal Quick Add</h3>
@@ -268,7 +268,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
           {activeTab === 'consultant' && (
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="col-span-2">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Full Name *</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Full Name *</label>
                 <input
                   type="text"
                   value={conForm.fullName}
@@ -278,7 +278,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Email *</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Email *</label>
                 <input
                   type="email"
                   value={conForm.email}
@@ -288,7 +288,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Phone</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Phone</label>
                 <input
                   type="text"
                   value={conForm.phone}
@@ -298,7 +298,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Current Job Title</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Current Job Title</label>
                 <input
                   type="text"
                   value={conForm.currentTitle}
@@ -308,7 +308,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Work Authorization</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Work Authorization</label>
                 <CustomSelect
                   value={conForm.workAuth}
                   onChange={(val) => setConForm({ ...conForm, workAuth: val })}
@@ -318,7 +318,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 />
               </div>
               <div className="col-span-2">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Core Skills (Comma-separated)</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Core Skills (Comma-separated)</label>
                 <input
                   type="text"
                   value={conForm.skillset}
@@ -333,7 +333,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
           {activeTab === 'requirement' && (
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Company Name *</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Company Name *</label>
                 <input
                   type="text"
                   value={reqForm.companyName}
@@ -343,7 +343,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Opportunity Title *</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Opportunity Title *</label>
                 <input
                   type="text"
                   value={reqForm.opportunityTitle}
@@ -353,7 +353,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">No. of Open Positions *</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">No. of Open Positions *</label>
                 <input
                   type="number"
                   min={1}
@@ -366,7 +366,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Required Skillset</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Required Skillset</label>
                 <input
                   type="text"
                   value={reqForm.skillsRequired}
@@ -376,7 +376,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Client Contact</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Client Contact</label>
                 <input
                   type="text"
                   value={reqForm.clientContact}
@@ -386,7 +386,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Location</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Location</label>
                 <input
                   type="text"
                   value={reqForm.location}
@@ -401,7 +401,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
           {activeTab === 'client' && (
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Client Name *</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Client Name *</label>
                 <input
                   type="text"
                   value={cliForm.name}
@@ -411,7 +411,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Website</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Website</label>
                 <input
                   type="text"
                   value={cliForm.website}
@@ -421,7 +421,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Corporate Location</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Corporate Location</label>
                 <input
                   type="text"
                   value={cliForm.location}
@@ -431,7 +431,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Primary Contact</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Primary Contact</label>
                 <input
                   type="text"
                   value={cliForm.contactName}
@@ -446,7 +446,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
           {activeTab === 'vendor' && (
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="col-span-2">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Vendor Agency Name *</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Vendor Agency Name *</label>
                 <input
                   type="text"
                   value={venForm.name}
@@ -456,7 +456,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Contact Person</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Contact Person</label>
                 <input
                   type="text"
                   value={venForm.contactName}
@@ -466,7 +466,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Payment Terms</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Payment Terms</label>
                 <CustomSelect
                   value={venForm.paymentTerms}
                   onChange={(val) => setVenForm({ ...venForm, paymentTerms: val })}
@@ -485,7 +485,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
           {activeTab === 'placement' && (
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Placed Candidate *</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Placed Candidate *</label>
                 <input
                   type="text"
                   value={placeForm.resourceName}
@@ -495,7 +495,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Customer Client *</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Customer Client *</label>
                 <input
                   type="text"
                   value={placeForm.customer}
@@ -505,7 +505,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Role / Job Title</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Role / Job Title</label>
                 <input
                   type="text"
                   value={placeForm.skillRole}
@@ -515,7 +515,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Deployment</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Deployment</label>
                 <CustomSelect
                   value={placeForm.deployment}
                   onChange={(val) => setPlaceForm({ ...placeForm, deployment: val })}
@@ -525,7 +525,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Contact Phone</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Contact Phone</label>
                 <input
                   type="text"
                   value={placeForm.phone}
@@ -535,7 +535,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Contact Email</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Contact Email</label>
                 <input
                   type="email"
                   value={placeForm.email}
@@ -545,7 +545,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Billing Rate</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Billing Rate</label>
                 <input
                   type="text"
                   value={placeForm.billing}
@@ -554,7 +554,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Pay Rate</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Pay Rate</label>
                 <input
                   type="text"
                   value={placeForm.payRate}
@@ -576,9 +576,9 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 text-xs font-semibold bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow-sm shadow-brand-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+            className="px-4 py-2 text-xs font-semibold bg-brand-600 hover:bg-brand-700 text-white rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <Check className="w-3.5 h-3.5" strokeWidth={2.5} />
+            <Check className="w-3.5 h-3.5" strokeWidth={1.75} />
             <span>Save Record</span>
           </button>
         </div>

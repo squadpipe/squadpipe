@@ -9,7 +9,6 @@ import {
   Plus,
   Search,
   ShieldAlert,
-  Sparkles,
   Trash2,
   X,
 } from 'lucide-react';
@@ -227,14 +226,14 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
   };
 
   return (
-    <section className="max-w-7xl mx-auto space-y-5 animate-fade-in">
+    <section className="max-w-7xl mx-auto space-y-6 animate-fade-in">
       {/* Header with Title & Action Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <h2 className="text-lg font-bold text-slate-900 tracking-tight">Consultant Roster</h2>
-            <span className="px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200/80 text-[11px] font-semibold text-slate-600">
-              {totalRows} Active
+            <span className="text-xs font-medium text-slate-500 tabular-nums">
+              {totalRows} active
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -245,7 +244,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
           {onOpenCsvImport && (
             <button
               onClick={onOpenCsvImport}
-              className="px-3 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
               <span>Import CSV</span>
@@ -253,26 +252,17 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
           )}
           <button
             onClick={onOpenResumeParser}
-            className="px-3 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+            className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            {aiCapabilities.enabled ? (
-              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-            ) : (
-              <FileText className="w-3.5 h-3.5 text-brand-600" />
-            )}
+            <FileText className="w-3.5 h-3.5 text-brand-600" />
             <span>Upload Resume</span>
-            {aiCapabilities.enabled && (
-              <span className="px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-200/80 text-[9.5px] font-bold text-indigo-700 leading-none">
-                AI
-              </span>
-            )}
           </button>
           {onOpenAddConsultant && (
             <button
               onClick={onOpenAddConsultant}
-              className="px-3.5 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3.5 py-1.5 rounded-lg bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
+              <Plus className="w-3.5 h-3.5" strokeWidth={1.75} />
               <span>Add Consultant</span>
             </button>
           )}
@@ -374,9 +364,9 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
         </div>
 
         {/* Data Table */}
-        <div className="max-h-[440px] overflow-auto">
+        <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-600 uppercase">
+            <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase">
               <tr>
                 <SortableTableHeader
                   label="Full Name"
@@ -478,145 +468,144 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                 </tr>
               ) : (
                 filtered.map((c) => (
-                <tr
-                  key={c.id}
-                  onClick={() => onPreviewResume(c, false)}
-                  className="hover:bg-slate-50/80 transition-colors cursor-pointer"
-                >
-                  {/* Full Name & Contacts */}
-                  <td className="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">
-                    <div className="font-semibold text-slate-900">
-                      {c.fullName}
-                    </div>
-                    <div className="text-[10px] text-slate-400">
-                      {c.email} &bull; {c.phone}
-                    </div>
-                  </td>
-
-                  {/* Work Auth */}
-                  <td className="px-4 py-3 whitespace-nowrap text-[10px]">
-                    <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200">
-                      {c.workAuth}
-                    </span>
-                  </td>
-
-                  {/* Current Title */}
-                  <td className="px-4 py-3 text-slate-800 font-medium min-w-[160px] max-w-[220px]">
-                    <div className="leading-snug">{c.currentTitle}</div>
-                    {c.vendorName && (
-                      <div className="text-[10px] text-amber-700 font-medium mt-0.5 truncate">
-                        via {c.vendorName}
+                  <tr
+                    key={c.id}
+                    onClick={() => onPreviewResume(c, false)}
+                    className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                  >
+                    {/* Full Name & Contacts */}
+                    <td className="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">
+                      <div className="font-semibold text-slate-900">
+                        {c.fullName}
                       </div>
-                    )}
-                    {search.trim() && (() => {
-                      const excerpt = extractResumeMatchExcerpt(c.rawSnippet, search);
-                      return excerpt ? (
-                        <div className="text-[10px] font-normal text-brand-700 bg-brand-50/70 border border-brand-200/70 rounded px-1.5 py-0.5 mt-1 max-w-xs truncate" title={excerpt}>
-                          CV match: {excerpt}
+                      <div className="text-[11px] text-slate-400">
+                        {c.email} &bull; {c.phone}
+                      </div>
+                    </td>
+
+                    {/* Work Auth */}
+                    <td className="px-4 py-3 whitespace-nowrap text-[11px]">
+                      <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200">
+                        {c.workAuth}
+                      </span>
+                    </td>
+
+                    {/* Current Title */}
+                    <td className="px-4 py-3 text-slate-800 font-medium min-w-[160px] max-w-[220px]">
+                      <div className="leading-snug">{c.currentTitle}</div>
+                      {c.vendorName && (
+                        <div className="text-[11px] text-amber-700 font-medium mt-0.5 truncate">
+                          via {c.vendorName}
                         </div>
-                      ) : null;
-                    })()}
-                  </td>
+                      )}
+                      {search.trim() && (() => {
+                        const excerpt = extractResumeMatchExcerpt(c.rawSnippet, search);
+                        return excerpt ? (
+                          <div className="text-[11px] font-normal text-brand-700 bg-brand-50/70 border border-brand-200/70 rounded px-1.5 py-0.5 mt-1 max-w-xs truncate" title={excerpt}>
+                            CV match: {excerpt}
+                          </div>
+                        ) : null;
+                      })()}
+                    </td>
 
-                  {/* Key Skillset */}
-                  <td className="px-4 py-3 max-w-[240px]">
-                    {(() => {
-                      const skills = (c.skillset || '')
-                        .split(',')
-                        .map((s) => s.trim())
-                        .filter(Boolean);
-                      const visible = skills.slice(0, 2);
-                      const remaining = skills.length - visible.length;
-                      return (
-                        <div className="flex flex-wrap items-center gap-1">
-                          {visible.map((sk) => (
-                            <span
-                              key={sk}
-                              title={sk}
-                              className="inline-block max-w-[130px] truncate text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-medium"
-                            >
-                              {sk}
-                            </span>
-                          ))}
-                          {remaining > 0 && (
-                            <span
-                              title={skills.slice(2).join(', ')}
-                              className="inline-block text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-semibold whitespace-nowrap"
-                            >
-                              +{remaining}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </td>
+                    {/* Key Skillset */}
+                    <td className="px-4 py-3 max-w-[240px]">
+                      {(() => {
+                        const skills = (c.skillset || '')
+                          .split(',')
+                          .map((s) => s.trim())
+                          .filter(Boolean);
+                        const visible = skills.slice(0, 2);
+                        const remaining = skills.length - visible.length;
+                        return (
+                          <div className="flex flex-wrap items-center gap-1">
+                            {visible.map((sk) => (
+                              <span
+                                key={sk}
+                                title={sk}
+                                className="inline-block max-w-[130px] truncate text-[11px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-medium"
+                              >
+                                {sk}
+                              </span>
+                            ))}
+                            {remaining > 0 && (
+                              <span
+                                title={skills.slice(2).join(', ')}
+                                className="inline-block text-[11px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-semibold whitespace-nowrap"
+                              >
+                                +{remaining}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </td>
 
-                  {/* Hourly Rate */}
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <MaskedValue value={c.hourlyRate} isMasked={rateMasked} />
-                  </td>
+                    {/* Hourly Rate */}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <MaskedValue value={c.hourlyRate} isMasked={rateMasked} />
+                    </td>
 
-                  {/* Relocation */}
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded font-medium ${
-                        c.relocation === 'Yes'
+                    {/* Relocation */}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span
+                        className={`text-[11px] px-2 py-0.5 rounded font-medium ${c.relocation === 'Yes'
                           ? 'bg-emerald-500/[0.08] text-emerald-800'
                           : 'bg-slate-100 text-slate-600'
-                      }`}
-                    >
-                      {c.relocation === 'Yes' ? 'Open' : 'Local Only'}
-                    </span>
-                  </td>
-
-                  {/* Pipeline Stage */}
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <StatusBadge stage={c.pipelineStage} size="xs" />
-                  </td>
-
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <div
-                      className="inline-flex items-center gap-1"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => onPreviewResume(c, false)}
-                        title="View consultant profile"
-                        aria-label={`View profile for ${c.fullName}`}
-                        className="px-2 py-1 rounded text-[11px] font-semibold text-brand-600 hover:bg-brand-50 inline-flex items-center gap-0.5 transition-colors cursor-pointer"
+                          }`}
                       >
-                        <span>View</span>
-                        <ChevronRight className="w-3 h-3" />
-                      </button>
-                      {canEditCandidate && onUpdateCandidate && (
+                        {c.relocation === 'Yes' ? 'Open' : 'Local Only'}
+                      </span>
+                    </td>
+
+                    {/* Pipeline Stage */}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <StatusBadge stage={c.pipelineStage} size="xs" />
+                    </td>
+
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <div
+                        className="inline-flex items-center gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <button
                           type="button"
-                          onClick={() => setEditingCandidate(c)}
-                          title="Edit consultant"
-                          className="p-1.5 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer"
+                          onClick={() => onPreviewResume(c, false)}
+                          title="View consultant profile"
+                          aria-label={`View profile for ${c.fullName}`}
+                          className="px-2 py-1 rounded text-[11px] font-semibold text-brand-600 hover:bg-brand-50 inline-flex items-center gap-0.5 transition-colors cursor-pointer"
                         >
-                          <Pencil className="w-3.5 h-3.5" />
+                          <span>View</span>
+                          <ChevronRight className="w-3 h-3" />
                         </button>
-                      )}
-                      {onDeleteCandidate && (
-                        <button
-                          type="button"
-                          onClick={() => setCandidateToDelete(c)}
-                          title={
-                            isConsultantBillable(c)
-                              ? 'Billable consultant — remove from Billable Consultants before deleting'
-                              : 'Delete consultant'
-                          }
-                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))
+                        {canEditCandidate && onUpdateCandidate && (
+                          <button
+                            type="button"
+                            onClick={() => setEditingCandidate(c)}
+                            title="Edit consultant"
+                            className="p-1.5 text-slate-400 hover:text-brand-600 rounded hover:bg-brand-50 transition-colors cursor-pointer"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {onDeleteCandidate && (
+                          <button
+                            type="button"
+                            onClick={() => setCandidateToDelete(c)}
+                            title={
+                              isConsultantBillable(c)
+                                ? 'Billable consultant — remove from Billable Consultants before deleting'
+                                : 'Delete consultant'
+                            }
+                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
@@ -642,7 +631,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
           if (!isDeleting) setCandidateToDelete(null);
         }}
         zIndexClass="z-50"
-        panelClassName="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden"
+        panelClassName="bg-white rounded-xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden"
         ariaLabel="Delete Consultant Confirmation"
       >
         {candidateToDelete && (() => {
@@ -652,11 +641,10 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
             <div className="p-6 space-y-4">
               <div className="flex items-start gap-3.5">
                 <div
-                  className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${
-                    isBillable
-                      ? 'bg-amber-50 border-amber-200 text-amber-600'
-                      : 'bg-rose-50 border-rose-200 text-rose-600'
-                  }`}
+                  className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${isBillable
+                    ? 'bg-amber-50 border-amber-200 text-amber-600'
+                    : 'bg-rose-50 border-rose-200 text-rose-600'
+                    }`}
                 >
                   {isBillable ? (
                     <ShieldAlert className="w-5 h-5" />
@@ -720,7 +708,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                         setCandidateToDelete(null);
                         onNavigateToBillable();
                       }}
-                      className="px-4 py-2 text-xs font-semibold bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                      className="px-4 py-2 text-xs font-semibold bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5"
                     >
                       <span>Go to Billable Consultants</span>
                       <ArrowRight className="w-3.5 h-3.5" />
@@ -742,7 +730,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                         setIsDeleting(false);
                       }
                     }}
-                    className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-lg shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                    className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>{isDeleting ? 'Deleting...' : 'Delete Consultant'}</span>

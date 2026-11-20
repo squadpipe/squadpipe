@@ -199,7 +199,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                   maxHeight: coords.maxHeight,
                   zIndex: 9999,
                 }}
-                className="bg-white border border-slate-200/95 rounded-xl shadow-xl py-1 overflow-y-auto custom-scrollbar select-none"
+                className="bg-white border border-slate-200/95 rounded-xl popover-shadow py-1 overflow-y-auto custom-scrollbar select-none"
               >
             {normalizedOptions.length === 0 ? (
               <div className="px-3 py-2 text-[11px] text-slate-400 text-center">No options</div>

@@ -50,7 +50,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
     (tone ? TONE_DOT_CLASS[tone] : stage ? getStageDotClass(stage) : TONE_DOT_CLASS.slate);
 
   const sizeClass =
-    size === 'xs' ? 'px-2 py-0.5 text-[10px]' : 'px-2.5 py-0.5 text-[11px]';
+    size === 'xs' ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-0.5 text-[11px]';
   const shapeClass = shape === 'rounded' ? 'rounded-md' : 'rounded-full';
 
   return (

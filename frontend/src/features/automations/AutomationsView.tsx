@@ -354,7 +354,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
           type="button"
           onClick={handleEvaluateAll}
           disabled={isEvaluating}
-          className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+          className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isEvaluating ? 'animate-spin' : ''}`} />
           <span>{isEvaluating ? 'Checking...' : 'Check Now'}</span>
@@ -416,7 +416,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                   } ${isActive ? 'bg-emerald-500' : 'bg-slate-200'}`}
                 >
                   <span
-                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-xs transition-transform ${
+                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform ${
                       isActive ? 'translate-x-4' : 'translate-x-1'
                     }`}
                   />
@@ -482,7 +482,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
             <Activity className="w-4 h-4 text-slate-500" />
             <h3 className="font-bold text-xs text-slate-900">Recent Reminder Activity</h3>
             <span className="text-[11px] text-slate-400">({totalLogs})</span>
-            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-500 text-[10px] font-medium">
+            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-500 text-[11px] font-medium">
               Saved for 30 days
             </span>
           </div>
@@ -500,7 +500,7 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
 
         <div className="max-h-[340px] overflow-auto">
           <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[10.5px] font-semibold text-slate-500 uppercase tracking-wider">
+            <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
                 <SortableTableHeader
                   label="Time"

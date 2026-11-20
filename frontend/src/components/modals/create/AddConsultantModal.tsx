@@ -66,7 +66,7 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
     if (!file) return;
     const validationError = validateCvFileSelection(file);
     if (validationError) {
-      showToast('Invalid CV File', validationError, 'fa-solid fa-triangle-exclamation text-amber-500');
+      showToast('Invalid CV File', validationError, 'warning');
       e.target.value = '';
       return;
     }
@@ -84,7 +84,7 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
     ]);
     if (missingFields.length > 0) {
       setValidationAttempted(true);
-      showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'fa-solid fa-triangle-exclamation text-amber-500');
+      showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'warning');
       return;
     }
 
@@ -124,14 +124,14 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
         selectedCvFile
           ? `${newCandidate.fullName} and original CV saved to talent roster!`
           : `${newCandidate.fullName} registered to talent roster!`,
-        'fa-solid fa-circle-check text-emerald-500'
+        'success'
       );
       onClose();
     } catch (err: any) {
       showToast(
         'Save Failed',
         err?.response?.data?.message || err?.message || 'Could not save consultant.',
-        'fa-solid fa-circle-exclamation text-rose-500'
+        'error'
       );
     } finally {
       setIsSaving(false);
@@ -143,7 +143,7 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
       isOpen={isOpen}
       onBackdropClick={onClose}
       zIndexClass="z-50"
-      backdropClassName="bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 select-none"
+      backdropClassName="bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center p-4 select-none"
       panelClassName="bg-white rounded-xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
       ariaLabel="Add New Consultant Profile"
     >
@@ -178,7 +178,7 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block font-semibold text-slate-700">Full Name *</label>
-                  {isFullNameInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                  {isFullNameInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                 </div>
                 <input
                   value={form.fullName}
@@ -227,7 +227,7 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block font-semibold text-slate-700">Email Address *</label>
-                  {isEmailInvalid && <span className="text-[10px] font-semibold text-rose-600">Required</span>}
+                  {isEmailInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
                 </div>
                 <input
                   type="email"
@@ -397,12 +397,12 @@ export const AddConsultantModal: React.FC<AddConsultantModalProps> = ({
             <button
               type="submit"
               disabled={isSaving}
-              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               {isSaving ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
-                <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
+                <Plus className="w-3.5 h-3.5" strokeWidth={1.75} />
               )}
               <span>{isSaving ? 'Saving...' : 'Save & Add Consultant to Roster'}</span>
             </button>

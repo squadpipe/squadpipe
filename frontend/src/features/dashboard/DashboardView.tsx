@@ -13,7 +13,6 @@ import {
   Plus,
   RefreshCw,
   Send,
-  Sparkles,
   Trash2,
   UserCheck,
   X,
@@ -212,7 +211,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* 6 KPI Summary Cards matching prototype lines 1983-2049 */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3.5">
         {/* Card 1: Active Reqs */}
         <div
           onClick={() => setStatusFilter('all')}
@@ -224,8 +223,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <Briefcase className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="text-2xl font-bold text-slate-900">{activeReqsCount}</div>
-          <div className="text-[10px] text-slate-400 mt-1">
+          <div className="text-2xl font-bold text-slate-900 tabular-nums">{activeReqsCount}</div>
+          <div className="text-[11px] text-slate-500 mt-1">
             <span className="text-brand-700 font-medium">Open pipeline</span> orders
           </div>
         </div>
@@ -237,12 +236,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         >
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium">Submitted</span>
-            <div className="w-6 h-6 rounded-md bg-amber-50 text-amber-700 flex items-center justify-center">
+            <div className="w-6 h-6 rounded-md bg-slate-100 text-slate-600 group-hover:bg-amber-50 group-hover:text-amber-700 flex items-center justify-center transition-colors">
               <Send className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="text-2xl font-bold text-slate-900">{submittedCount}</div>
-          <div className="text-[10px] text-slate-400 mt-1">
+          <div className="text-2xl font-bold text-slate-900 tabular-nums">{submittedCount}</div>
+          <div className="text-[11px] text-slate-500 mt-1">
             <span className="text-amber-700 font-medium">Client review</span>
           </div>
         </div>
@@ -254,12 +253,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         >
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium">Interviews</span>
-            <div className="w-6 h-6 rounded-md bg-brand-50 text-brand-700 flex items-center justify-center">
+            <div className="w-6 h-6 rounded-md bg-slate-100 text-slate-600 group-hover:bg-brand-50 group-hover:text-brand-600 flex items-center justify-center transition-colors">
               <CalendarCheck className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="text-2xl font-bold text-slate-900">{interviewsCount}</div>
-          <div className="text-[10px] text-slate-400 mt-1">
+          <div className="text-2xl font-bold text-slate-900 tabular-nums">{interviewsCount}</div>
+          <div className="text-[11px] text-slate-500 mt-1">
             <span className="text-brand-700 font-medium">Active rounds</span>
           </div>
         </div>
@@ -271,13 +270,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         >
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium">Selected</span>
-            <div className="w-6 h-6 rounded-md bg-zinc-100 text-zinc-700 flex items-center justify-center">
+            <div className="w-6 h-6 rounded-md bg-slate-100 text-slate-600 group-hover:bg-slate-200 group-hover:text-slate-800 flex items-center justify-center transition-colors">
               <Award className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="text-2xl font-bold text-slate-900">{selectedCount}</div>
-          <div className="text-[10px] text-slate-400 mt-1">
-            <span className="text-zinc-700 font-medium">Offers finalized</span>
+          <div className="text-2xl font-bold text-slate-900 tabular-nums">{selectedCount}</div>
+          <div className="text-[11px] text-slate-500 mt-1">
+            <span className="text-slate-700 font-medium">Offers finalized</span>
           </div>
         </div>
 
@@ -288,12 +287,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         >
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium">Onboarding</span>
-            <div className="w-6 h-6 rounded-md bg-slate-100 text-slate-700 flex items-center justify-center">
+            <div className="w-6 h-6 rounded-md bg-slate-100 text-slate-600 group-hover:bg-slate-200 group-hover:text-slate-800 flex items-center justify-center transition-colors">
               <UserCheck className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="text-2xl font-bold text-slate-900">{onboardingCount}</div>
-          <div className="text-[10px] text-slate-400 mt-1">
+          <div className="text-2xl font-bold text-slate-900 tabular-nums">{onboardingCount}</div>
+          <div className="text-[11px] text-slate-500 mt-1">
             <span className="text-slate-600 font-medium">Background check</span>
           </div>
         </div>
@@ -301,25 +300,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Card 6: Active Billable */}
         <div
           onClick={() => onNavigate('billable')}
-          className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/30 card-shadow card-hover cursor-pointer group"
+          className="p-4 rounded-xl border border-slate-200/80 bg-white card-shadow card-hover cursor-pointer group"
         >
-          <div className="flex items-center justify-between text-emerald-800 mb-2">
-            <span className="text-xs font-semibold">Active Billable</span>
-            <div className="w-6 h-6 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-xs font-medium">Active Billable</span>
+            <div className="w-6 h-6 rounded-md bg-slate-100 text-emerald-700 group-hover:bg-emerald-50 flex items-center justify-center transition-colors">
               <DollarSign className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="text-2xl font-bold text-emerald-950">{activeBillableCount}</div>
-          <div className="text-[10px] text-emerald-700 mt-1">Generating revenue</div>
+          <div className="text-2xl font-bold text-slate-900 tabular-nums">{activeBillableCount}</div>
+          <div className="text-[11px] text-emerald-700 font-medium mt-1">Generating revenue</div>
         </div>
       </div>
 
       {/* Requirements Overview Table matching prototype lines 2052-2134 */}
       <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden">
         <div className="px-5 py-3.5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <span className="font-semibold text-xs text-slate-900">Requirements Overview</span>
-            <span className="text-[11px] text-slate-400 bg-white border border-slate-200 px-1.5 py-0.2 rounded">
+            <span className="text-xs font-medium text-slate-400 tabular-nums">
               {totalRows} rows
             </span>
           </div>
@@ -350,16 +349,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             />
             <button
               onClick={onOpenCreateReq}
-              className="px-2.5 py-1 rounded border border-slate-200 hover:bg-white text-xs font-medium text-slate-700 shadow-2xs transition-colors cursor-pointer inline-flex items-center gap-1"
+              className="px-2.5 py-1 rounded border border-slate-200 hover:bg-white text-xs font-medium text-slate-700 transition-colors cursor-pointer inline-flex items-center gap-1"
             >
-              <Plus className="w-3 h-3" strokeWidth={2.3} /> Add Req
+              <Plus className="w-3 h-3" strokeWidth={1.75} /> Add Req
             </button>
           </div>
         </div>
 
-        <div className="max-h-[420px] overflow-auto">
+        <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)] text-[10.5px] font-semibold text-slate-500 uppercase tracking-wider">
+            <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
                 <SortableTableHeader
                   label="Req #"
@@ -474,7 +473,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         <div className="font-mono font-semibold text-[11px] text-slate-700">
                           {req.code}
                         </div>
-                        <div className="text-[10px] text-slate-400 tabular-nums mt-0.5">
+                        <div className="text-[11px] text-slate-400 tabular-nums mt-0.5">
                           {dateStr}
                         </div>
                       </td>
@@ -487,7 +486,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           {req.opportunityTitle}
                         </div>
                         {req.skillsRequired && (
-                          <div className="text-[10.5px] text-slate-400 truncate mt-0.5" title={req.skillsRequired}>
+                          <div className="text-[11px] text-slate-400 truncate mt-0.5" title={req.skillsRequired}>
                             {req.skillsRequired}
                           </div>
                         )}
@@ -499,7 +498,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                               {contactName}
                             </div>
                             {contactTitle && (
-                              <div className="text-[10px] text-slate-400 truncate" title={contactTitle}>
+                              <div className="text-[11px] text-slate-400 truncate" title={contactTitle}>
                                 {contactTitle}
                               </div>
                             )}
@@ -608,14 +607,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     tone="emerald"
                     size="xs"
                   />
-                  {aiCapabilities.enabled && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9.5px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80">
-                      <Sparkles className="w-2.5 h-2.5" />
-                      <span>AI</span>
-                    </span>
-                  )}
                 </div>
-                <span className="text-[10px] text-slate-400">
+                <span className="text-[11px] text-slate-400">
                   Client follow-ups, upcoming interviews, and ending contracts
                 </span>
               </div>
@@ -631,7 +624,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     await onRefreshSla?.();
                     showToast('Reminders Checked', `Checked your pipeline (${count} new reminder${count === 1 ? '' : 's'} found).`);
                   } catch {
-                    showToast('Check Failed', 'Unable to check reminders right now.', 'fa-solid fa-triangle-exclamation text-rose-500');
+                    showToast('Check Failed', 'Unable to check reminders right now.', 'error');
                   } finally {
                     setIsEvaluatingSla(false);
                   }
@@ -683,7 +676,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           />
                           <span className="font-semibold text-slate-800 text-[11px] truncate">{item.title}</span>
                         </div>
-                        <div className="text-[10px] text-slate-500 truncate">{item.desc}</div>
+                        <div className="text-[11px] text-slate-500 truncate">{item.desc}</div>
                       </div>
                       {actionType === 'matcher' ? (
                         <button
@@ -698,21 +691,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                                 : undefined) || requirements[0];
                             if (r) onOpenMatcher(r);
                           }}
-                          className="flex-shrink-0 px-2.5 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[10px] font-semibold transition-colors cursor-pointer"
+                          className="flex-shrink-0 px-2.5 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-semibold transition-colors cursor-pointer"
                         >
                           Match
                         </button>
                       ) : actionType === 'billable' ? (
                         <button
                           onClick={() => (onTaskAction ? onTaskAction(item) : onNavigate('billable'))}
-                          className="flex-shrink-0 px-2.5 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[10px] font-semibold transition-colors cursor-pointer"
+                          className="flex-shrink-0 px-2.5 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-semibold transition-colors cursor-pointer"
                         >
                           Review
                         </button>
                       ) : actionType === 'checklist' ? (
                         <button
                           onClick={() => (onTaskAction ? onTaskAction(item) : onNavigate('vendors'))}
-                          className="flex-shrink-0 px-2.5 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[10px] font-semibold transition-colors cursor-pointer"
+                          className="flex-shrink-0 px-2.5 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-semibold transition-colors cursor-pointer"
                         >
                           Audit
                         </button>
@@ -729,7 +722,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             if (r) onSelectReq(r);
                             else onNavigate('pipeline');
                           }}
-                          className="flex-shrink-0 px-2.5 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[10px] font-semibold transition-colors cursor-pointer"
+                          className="flex-shrink-0 px-2.5 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-semibold transition-colors cursor-pointer"
                         >
                           View
                         </button>
@@ -750,7 +743,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
               <div>
                 <h3 className="font-bold text-xs text-slate-900">Active Billable Consultants (Live Sync)</h3>
-                <span className="text-[10px] text-slate-400">Auto-updated when candidates complete onboarding</span>
+                <span className="text-[11px] text-slate-400">Auto-updated when candidates complete onboarding</span>
               </div>
             </div>
             <button
@@ -781,11 +774,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       >
                         {b.resourceName}
                       </span>
-                      <span className="text-[9px] bg-white border border-slate-200 px-1 py-0.2 rounded text-slate-600">
+                      <span className="text-[11px] bg-white border border-slate-200 px-1 py-0.5 rounded text-slate-600">
                         {b.deployment}
                       </span>
                     </div>
-                    <div className="text-[10px] text-slate-500">
+                    <div className="text-[11px] text-slate-500">
                       {b.customer} &bull; {b.skillRole}
                     </div>
                   </div>
@@ -793,7 +786,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <span className="font-bold text-emerald-700 text-xs">
                       <MaskedValue value={b.billing} isMasked={rateMasked} />
                     </span>
-                    <div className="text-[9px] text-slate-400">Ends {b.endDate}</div>
+                    <div className="text-[11px] text-slate-400">Ends {b.endDate}</div>
                   </div>
                 </div>
               ))
@@ -807,7 +800,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         isOpen={Boolean(editingReq)}
         onBackdropClick={() => setEditingReq(null)}
         zIndexClass="z-50"
-        panelClassName="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
+        panelClassName="bg-white rounded-xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
         ariaLabel="Edit Requisition"
       >
         {editingReq && (
@@ -838,7 +831,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 ]);
                 if (missingFields.length > 0) {
                   setReqValidationAttempted(true);
-                  showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'fa-solid fa-triangle-exclamation text-amber-500');
+                  showToast('Validation Error', formatMissingFieldsMessage(missingFields), 'warning');
                   return;
                 }
                 setReqValidationAttempted(false);
@@ -858,7 +851,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-[11px] font-semibold text-slate-700">Opportunity Title *</label>
                   {reqValidationAttempted && !editingReq.opportunityTitle.trim() && (
-                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    <span className="text-[11px] font-semibold text-rose-600">Required</span>
                   )}
                 </div>
                 <input
@@ -878,7 +871,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-[11px] font-semibold text-slate-700">Client Company *</label>
                     {reqValidationAttempted && !editingReq.companyName.trim() && (
-                      <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                      <span className="text-[11px] font-semibold text-rose-600">Required</span>
                     )}
                   </div>
                   <input
@@ -960,7 +953,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         isOpen={Boolean(reqToDelete)}
         onBackdropClick={() => setReqToDelete(null)}
         zIndexClass="z-50"
-        panelClassName="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden"
+        panelClassName="bg-white rounded-xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden"
         ariaLabel="Delete Requirement"
       >
         {reqToDelete && (
@@ -1009,7 +1002,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       setIsDeletingReq(false);
                     }
                   }}
-                  className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer"
+                  className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition-colors cursor-pointer"
                 >
                   Delete Requisition
                 </ActionButton>

@@ -204,7 +204,7 @@ export const RequirementNotesModal: React.FC<RequirementNotesModalProps> = ({
       zIndexClass="z-50"
       panelClassName={`w-full ${
         isNotesMode ? 'max-w-xl' : 'max-w-lg'
-      } bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-visible flex flex-col`}
+      } bg-white rounded-xl border border-slate-200 shadow-2xl overflow-visible flex flex-col`}
       ariaLabel={`Notes and schedule for ${displayName}`}
     >
       {sub && (
@@ -215,7 +215,7 @@ export const RequirementNotesModal: React.FC<RequirementNotesModalProps> = ({
         }}
         className="flex flex-col"
       >
-        <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 rounded-t-2xl flex items-center justify-between gap-3">
+        <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 rounded-t-xl flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
               {modalInitials}
@@ -303,7 +303,7 @@ export const RequirementNotesModal: React.FC<RequirementNotesModalProps> = ({
                         onChangeNotesText(`${clean}\n${reason}`);
                       }
                     }}
-                    className="px-2 py-0.5 rounded-md bg-rose-50/70 hover:bg-rose-100/80 border border-rose-200/80 text-[10.5px] font-medium text-rose-700 transition-colors cursor-pointer"
+                    className="px-2 py-0.5 rounded-md bg-rose-50/70 hover:bg-rose-100/80 border border-rose-200/80 text-[11px] font-medium text-rose-700 transition-colors cursor-pointer"
                   >
                     + {reason}
                   </button>
@@ -331,7 +331,7 @@ export const RequirementNotesModal: React.FC<RequirementNotesModalProps> = ({
 
           {isNotesMode && (
             <div className="space-y-2 pt-1 border-t border-slate-100">
-              <div className="flex items-center justify-between text-[10.5px] font-bold uppercase tracking-wider text-slate-500">
+              <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 <span>All Notes ({liveNotes.length})</span>
               </div>
               {liveNotes.length === 0 ? (
@@ -355,7 +355,7 @@ export const RequirementNotesModal: React.FC<RequirementNotesModalProps> = ({
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 text-[10.5px] text-slate-400 flex-wrap min-w-0">
+                          <div className="flex items-center gap-1.5 text-[11px] text-slate-400 flex-wrap min-w-0">
                             <span className="font-semibold text-slate-700 whitespace-nowrap">
                               {note.authorName}
                             </span>
@@ -369,7 +369,7 @@ export const RequirementNotesModal: React.FC<RequirementNotesModalProps> = ({
                           </div>
                           <div className="flex items-center gap-1 flex-shrink-0">
                             {confirmDeleteNoteId === note.id ? (
-                              <div className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 rounded-md px-1.5 py-0.5 text-[10px]">
+                              <div className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 rounded-md px-1.5 py-0.5 text-[11px]">
                                 {busyNoteId === note.id ? (
                                   <span className="inline-flex items-center gap-1 text-rose-700 font-semibold px-1 py-0.5">
                                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -439,7 +439,7 @@ export const RequirementNotesModal: React.FC<RequirementNotesModalProps> = ({
           )}
         </div>
 
-        <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 rounded-b-2xl flex items-center justify-end gap-2">
+        <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 rounded-b-xl flex items-center justify-end gap-2">
           <button
             type="button"
             disabled={isSavingNotes}
@@ -454,7 +454,7 @@ export const RequirementNotesModal: React.FC<RequirementNotesModalProps> = ({
             loadingText="Saving..."
             disabled={submitDisabled}
             spinnerClassName="w-3.5 h-3.5 animate-spin flex-shrink-0"
-            className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+            className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-semibold transition-colors cursor-pointer"
           >
             {submitLabel}
           </ActionButton>
@@ -593,7 +593,7 @@ export const EditRequirementModal: React.FC<EditRequirementModalProps> = ({
                 }`}
               />
               {editOpenPosError && (
-                <p className="text-[10px] font-semibold text-rose-600 mt-1">{editOpenPosError}</p>
+                <p className="text-[11px] font-semibold text-rose-600 mt-1">{editOpenPosError}</p>
               )}
             </div>
             <div>
@@ -747,7 +747,7 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
       isOpen={Boolean(modalOpen && submission)}
       onBackdropClick={() => !isEvaluating && onClose()}
       zIndexClass="z-50"
-      panelClassName="w-full max-w-xl bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+      panelClassName="w-full max-w-xl bg-white rounded-xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
       ariaLabel={`Fit breakdown for ${displayName}`}
     >
       {submission && (
@@ -761,7 +761,7 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
               <div className="flex items-center gap-2 flex-wrap">
                 <h4 className="text-sm font-bold text-slate-900 truncate">{displayName}</h4>
                 {submission.workAuth && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200/80 text-slate-600 font-medium whitespace-nowrap">
+                  <span className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200/80 text-slate-600 font-medium whitespace-nowrap">
                     {submission.workAuth}
                   </span>
                 )}
@@ -824,7 +824,7 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
 
           {/* Verdict */}
           <div className="space-y-1.5">
-            <h5 className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500">
+            <h5 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
               Assessment Verdict
             </h5>
             {summary?.verdict ? (
@@ -843,7 +843,7 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
           {/* Strengths */}
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <h5 className="text-[10.5px] font-bold uppercase tracking-wider text-emerald-700 inline-flex items-center gap-1.5">
+              <h5 className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 inline-flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 <span>Matched Strengths</span>
               </h5>
@@ -872,7 +872,7 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
           {/* Gaps */}
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <h5 className="text-[10.5px] font-bold uppercase tracking-wider text-amber-800 inline-flex items-center gap-1.5">
+              <h5 className="text-[11px] font-bold uppercase tracking-wider text-amber-800 inline-flex items-center gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5" />
                 <span>Skill &amp; Experience Gaps</span>
               </h5>

@@ -87,7 +87,7 @@ export function useBulkResumeQueue({
       showToastRef.current(
         'Batch In Progress',
         'Wait for the current bulk upload batch to finish or stop it first.',
-        'fa-solid fa-hourglass-half text-amber-500'
+        'hourglass'
       );
       return;
     }
@@ -102,7 +102,7 @@ export function useBulkResumeQueue({
       showToastRef.current(
         'Batch Limit Applied',
         `Processing the first ${MAX_BULK_CV_FILES} resumes in this batch.`,
-        'fa-solid fa-triangle-exclamation text-amber-500'
+        'warning'
       );
     }
 
@@ -249,8 +249,8 @@ export function useBulkResumeQueue({
       wasCancelled ? 'Bulk Upload Stopped' : 'Bulk Upload Complete',
       `Added: ${addedCount} • Duplicate Email: ${duplicateCount} • Failed: ${failedCount}`,
       addedCount > 0
-        ? 'fa-solid fa-circle-check text-emerald-500'
-        : 'fa-solid fa-circle-info text-slate-500'
+        ? 'success'
+        : 'info-muted'
     );
   };
 

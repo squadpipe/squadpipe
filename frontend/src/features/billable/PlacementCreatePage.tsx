@@ -24,8 +24,10 @@ import { SearchableSelectInput } from '../../components/shared/SearchableSelectI
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { DynamicCustomFieldsSection } from '../../components/shared/DynamicCustomFieldsSection';
 import { DetailBreadcrumb } from '../../components/shared/DetailPageShell';
+import { PageHeader } from '../../components/shared/PageHeader';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
+import { UnsavedChangesModal, useFormShortcuts } from '../../hooks/useFormShortcuts';
 
 interface PlacementCreatePageProps {
   initialRequirement?: Requirement | null;
@@ -323,15 +325,15 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
   const isResourceInvalid = validationAttempted && !form.resourceName.trim();
   const isCustomerInvalid = validationAttempted && !form.customer.trim();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (isSubmitting) return;
 
     if (isPositionsFull) {
       showToast(
         'Positions Filled',
         `All ${openPositions} open position(s) for this requirement are already placed (${filledPositions}/${openPositions}).`,
-        'fa-solid fa-triangle-exclamation text-amber-500'
+        'warning'
       );
       return;
     }
@@ -345,7 +347,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
       showToast(
         'Validation Error',
         formatMissingFieldsMessage(missingFields),
-        'fa-solid fa-triangle-exclamation text-amber-500'
+        'warning'
       );
       return;
     }
@@ -356,7 +358,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
       showToast(
         'PO Number Required',
         'Please enter a PO / SOW Number before activating this placement.',
-        'fa-solid fa-triangle-exclamation text-amber-500'
+        'warning'
       );
       return;
     }
@@ -476,11 +478,25 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
       ? getVendorComplianceWarning(selectedVendor)
       : null;
 
+  const isDirty = Boolean(
+    userEditedRef.current ||
+      Object.values(customValues).some((v) => String(v || '').trim().length > 0)
+  );
+  const { showLeaveModal, guardNavigation, confirmLeave, cancelLeave } = useFormShortcuts({
+    isDirty,
+    isSubmitting,
+    onSubmit: () => {
+      if (!isPositionsFull) {
+        void handleSubmit();
+      }
+    },
+  });
+
   return (
     <div className="max-w-7xl mx-auto space-y-5 animate-fade-in">
       <DetailBreadcrumb
         backLabel={backLabel}
-        onBack={onBack}
+        onBack={() => guardNavigation(onBack)}
         title={
           activeRequirement
             ? `Activate Placement · ${activeRequirement.code}`
@@ -489,65 +505,32 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
         codePill={activeRequirement ? activeRequirement.code : 'Placement & SOW'}
       />
 
-      {/* Page Header */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-3.5 min-w-0">
-          <span className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
-            <DollarSign className="w-5 h-5" />
-          </span>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-base font-bold text-slate-900 tracking-tight">
-                Placement Activation &amp; Margin Lock
-              </h1>
-              {activeRequirement && (
-                <StatusBadge
-                  tone={isPositionsFull ? 'amber' : 'emerald'}
-                  shape="rounded"
-                  label={`Positions: ${filledPositions} / ${openPositions} Filled`}
-                  className="tabular-nums"
-                />
-              )}
-              {requirePoForPlacement && (
-                <StatusBadge tone="amber" shape="rounded" label="PO / SOW Required" />
-              )}
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Link a consultant and requisition, lock commercial bill/pay margin spread, verify vendor compliance, and activate the billable SOW.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto text-xs">
-          <button
-            type="button"
-            onClick={onBack}
-            disabled={isSubmitting}
-            className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold cursor-pointer disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <ActionButton
-            loading={isSubmitting}
-            loadingText="Activating..."
-            disabled={isPositionsFull}
-            onClick={handleSubmit}
-            icon={<Lock className="w-3.5 h-3.5" />}
-            className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs cursor-pointer"
-          >
-            {isPositionsFull
-              ? `All ${openPositions} Positions Filled`
-              : 'Confirm & Activate Placement'}
-          </ActionButton>
-        </div>
-      </div>
+      <PageHeader
+        title="Placement Activation & Margin Lock"
+        subtitle="Link a consultant and requisition, lock commercial bill/pay margin spread, verify vendor compliance, and activate the billable SOW."
+        badges={
+          <>
+            {activeRequirement && (
+              <StatusBadge
+                tone={isPositionsFull ? 'amber' : 'emerald'}
+                size="xs"
+                label={`Positions: ${filledPositions} / ${openPositions} Filled`}
+                className="tabular-nums"
+              />
+            )}
+            {requirePoForPlacement && (
+              <StatusBadge tone="amber" size="xs" label="PO / SOW Required" />
+            )}
+          </>
+        }
+      />
 
       {isPositionsFull && activeRequirement && (
-        <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex items-center gap-2.5 text-xs">
+        <div className="px-4 py-3 rounded-lg bg-slate-50 border border-slate-200 border-l-2 border-l-amber-500 text-slate-700 flex items-center gap-2.5 text-xs">
           <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
           <span>
-            All <strong>{openPositions}</strong> open position(s) on{' '}
-            <strong>{activeRequirement.code}</strong> are already placed. Switch to another requisition or unlink the requisition above to create a standalone placement.
+            All <strong className="text-slate-900">{openPositions}</strong> open position(s) on{' '}
+            <strong className="text-slate-900">{activeRequirement.code}</strong> are already placed. Switch to another requisition or unlink the requisition above to create a standalone placement.
           </span>
         </div>
       )}
@@ -557,11 +540,11 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
         {/* Left: Placement Configuration Cards */}
         <div className="lg:col-span-8 space-y-5 text-xs">
           {/* Card 1: Requisition & Consultant Linking */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200 p-5 card-shadow space-y-4">
             <div className="flex items-center justify-between gap-2 flex-wrap border-b border-slate-100 pb-3">
-              <div className="font-bold text-slate-900 text-xs flex items-center gap-2">
+              <div className="font-semibold text-slate-900 text-sm flex items-center gap-2">
                 <UserCheck className="w-4 h-4 text-brand-600" />
-                <span>1. Requisition &amp; Consultant Selection</span>
+                <span>Requisition &amp; consultant selection</span>
               </div>
               {activeRequirement && (
                 <div className="inline-flex items-center rounded-lg bg-slate-100 p-0.5 border border-slate-200 text-[11px] font-semibold">
@@ -570,7 +553,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
                     onClick={() => setConsultantSource('submitted')}
                     className={`px-2.5 py-1 rounded-md cursor-pointer transition-colors ${
                       consultantSource === 'submitted'
-                        ? 'bg-white text-slate-900 shadow-2xs'
+                        ? 'bg-white text-slate-900 shadow-sm'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
@@ -581,7 +564,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
                     onClick={() => setConsultantSource('roster')}
                     className={`px-2.5 py-1 rounded-md cursor-pointer transition-colors ${
                       consultantSource === 'roster'
-                        ? 'bg-white text-slate-900 shadow-2xs'
+                        ? 'bg-white text-slate-900 shadow-sm'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
@@ -593,7 +576,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase mb-1">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-slate-700 mb-1">
                   <Briefcase className="w-3.5 h-3.5 text-brand-600" />
                   <span>Link Requisition (Optional)</span>
                 </label>
@@ -613,7 +596,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
               </div>
 
               <div>
-                <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase mb-1">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-slate-700 mb-1">
                   <UserCheck className="w-3.5 h-3.5 text-brand-600" />
                   <span>Select / Switch Placed Consultant</span>
                 </label>
@@ -625,7 +608,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
                   >
                     {selectedEntry ? (
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-700 font-bold text-[10px] flex items-center justify-center shrink-0">
+                        <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-700 font-bold text-[11px] flex items-center justify-center shrink-0">
                           {selectedEntry.candidate.fullName.charAt(0).toUpperCase()}
                         </span>
                         <span className="font-semibold text-slate-900 truncate">
@@ -648,7 +631,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
                   </button>
 
                   {consultantMenuOpen && (
-                    <div className="absolute left-0 right-0 mt-1.5 z-30 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
+                    <div className="absolute left-0 right-0 mt-1.5 z-30 bg-white border border-slate-200 rounded-xl popover-shadow overflow-hidden">
                       <div className="p-2 border-b border-slate-100 bg-slate-50/70">
                         <div className="relative">
                           <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -700,7 +683,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
                                 }`}
                               >
                                 <div className="flex items-center gap-2.5 min-w-0">
-                                  <span className="w-6 h-6 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[10px] flex items-center justify-center shrink-0">
+                                  <span className="w-6 h-6 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[11px] flex items-center justify-center shrink-0">
                                     {c.fullName.charAt(0).toUpperCase()}
                                   </span>
                                   <div className="min-w-0">
@@ -708,7 +691,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
                                       {c.fullName}
                                     </div>
                                     {c.currentTitle && (
-                                      <div className="text-[10px] text-slate-500 truncate">
+                                      <div className="text-[11px] text-slate-500 truncate">
                                         {c.currentTitle}
                                       </div>
                                     )}
@@ -732,11 +715,11 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">
+                  <label className="text-xs font-medium text-slate-700">
                     Placed Consultant Name *
                   </label>
                   {isResourceInvalid && (
-                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    <span className="text-[11px] font-semibold text-rose-600">Required</span>
                   )}
                 </div>
                 <input
@@ -752,7 +735,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-medium text-slate-700 mb-1">
                   Skill / Placement Role Title *
                 </label>
                 <input
@@ -766,7 +749,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-medium text-slate-700 mb-1">
                   Consultant Phone
                 </label>
                 <input
@@ -777,7 +760,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-medium text-slate-700 mb-1">
                   Consultant Work Email
                 </label>
                 <input
@@ -792,20 +775,20 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
           </div>
 
           {/* Card 2: Client, Commercial Rates & Contract Terms */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
-            <div className="font-bold text-slate-900 text-xs flex items-center gap-2 border-b border-slate-100 pb-3">
-              <DollarSign className="w-4 h-4 text-emerald-600" />
-              <span>2. Client, Rates &amp; SOW Contract Terms</span>
+          <div className="bg-white rounded-xl border border-slate-200 p-5 card-shadow space-y-4">
+            <div className="font-semibold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
+              <DollarSign className="w-4 h-4 text-brand-600" />
+              <span>Client, rates &amp; SOW contract terms</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">
+                  <label className="text-xs font-medium text-slate-700">
                     Client Customer Company *
                   </label>
                   {isCustomerInvalid && (
-                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                    <span className="text-[11px] font-semibold text-rose-600">Required</span>
                   )}
                 </div>
                 <SearchableSelectInput
@@ -835,7 +818,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-medium text-slate-700 mb-1">
                   Customer Approver / Timesheet Contact
                 </label>
                 <input
@@ -849,7 +832,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-medium text-slate-700 mb-1">
                   Client Bill Rate ({currencySymbol}/hr) *
                 </label>
                 <div className="relative">
@@ -872,7 +855,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-medium text-slate-700 mb-1">
                   Consultant Pay Rate ({currencySymbol}/hr) *
                 </label>
                 <div className="relative">
@@ -897,7 +880,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-medium text-slate-700 mb-1">
                   Placement Model
                 </label>
                 <CustomSelect
@@ -910,7 +893,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-medium text-slate-700 mb-1">
                   Deployment Model
                 </label>
                 <CustomSelect
@@ -927,7 +910,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-medium text-slate-700 mb-1">
                   Placing Recruiter
                 </label>
                 <CustomSelect
@@ -950,7 +933,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
             >
               {form.placementType === 'C2C Subcontractor' && (
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
                     Sub-Vendor Partner
                   </label>
                   <SearchableSelectInput
@@ -975,7 +958,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
               )}
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-medium text-slate-700 mb-1">
                   PO / SOW Number{requirePoForPlacement ? ' *' : ''}
                 </label>
                 <input
@@ -999,7 +982,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
                 {poError ? (
                   <p className="mt-1 text-[11px] font-medium text-rose-600">{poError}</p>
                 ) : requirePoForPlacement ? (
-                  <p className="mt-1 text-[10px] text-amber-700">
+                  <p className="mt-1 text-[11px] text-amber-700">
                     Required by workspace General Settings before activation.
                   </p>
                 ) : null}
@@ -1008,7 +991,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-medium text-slate-700 mb-1">
                   Contract Start Date *
                 </label>
                 <input
@@ -1020,7 +1003,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                <label className="block text-xs font-medium text-slate-700 mb-1">
                   Projected End Date *
                 </label>
                 <input
@@ -1044,22 +1027,22 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
 
         {/* Right: Sticky Commercial Summary Panel */}
         <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-4">
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4 text-xs">
+          <div className="bg-white rounded-xl border border-slate-200 p-5 card-shadow space-y-4 text-xs">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2 font-bold text-slate-900">
                 <TrendingUp className="w-4 h-4 text-emerald-600" />
                 <span>Commercial Margin Lock</span>
               </div>
               <span
-                className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${marginBadgeClass}`}
+                className={`text-[11px] font-semibold px-2 py-0.5 rounded border ${marginBadgeClass}`}
               >
                 {marginPct}% margin
               </span>
             </div>
 
-            <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-4 space-y-3">
+            <div className="bg-slate-50 border border-slate-200/90 rounded-lg p-4 space-y-3">
               <div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                <div className="text-[11px] font-medium text-slate-500">
                   Hourly Margin Spread
                 </div>
                 <div className="text-2xl font-extrabold text-emerald-700 mt-0.5 tabular-nums">
@@ -1068,11 +1051,11 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
                     : `-${currencySymbol}${Math.abs(spread).toFixed(2)}/hr`}
                 </div>
               </div>
-              <div className="pt-2.5 border-t border-emerald-200/70 flex items-center justify-between">
-                <span className="text-[11px] font-medium text-emerald-800">
+              <div className="pt-2.5 border-t border-slate-200 flex items-center justify-between">
+                <span className="text-[11px] font-medium text-slate-600">
                   Est. Monthly Gross Profit (160h)
                 </span>
-                <span className="text-sm font-extrabold text-emerald-700 tabular-nums">
+                <span className="text-sm font-bold text-slate-900 tabular-nums">
                   {currencySymbol}
                   {monthlyGrossProfit.toLocaleString()}/mo
                 </span>
@@ -1121,7 +1104,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
                 loadingText="Activating Placement..."
                 disabled={isPositionsFull}
                 icon={<Lock className="w-3.5 h-3.5" />}
-                className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs cursor-pointer"
+                className="w-full py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold cursor-pointer"
               >
                 {isPositionsFull
                   ? `All ${openPositions} Positions Filled`
@@ -1129,7 +1112,7 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
               </ActionButton>
               <button
                 type="button"
-                onClick={onBack}
+                onClick={() => guardNavigation(onBack)}
                 disabled={isSubmitting}
                 className="w-full py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer disabled:opacity-50"
               >
@@ -1139,6 +1122,12 @@ export const PlacementCreatePage: React.FC<PlacementCreatePageProps> = ({
           </div>
         </div>
       </form>
+
+      <UnsavedChangesModal
+        isOpen={showLeaveModal}
+        onConfirmLeave={confirmLeave}
+        onCancelLeave={cancelLeave}
+      />
     </div>
   );
 };

@@ -649,7 +649,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <h4 className="text-sm font-bold text-slate-900">Attach Bench Candidates</h4>
-                <div className="flex items-center gap-1.5 text-[10px] font-semibold">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold">
                   <span className="px-2 py-0.5 rounded-md bg-slate-200/75 text-slate-700">
                     {openPositions} Open
                   </span>
@@ -668,7 +668,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
 
             <div className="flex items-center gap-1.5 shrink-0">
               {(onOpenResumeParser || onOpenCsvImport) && (
-                <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white shadow-2xs overflow-hidden">
+                <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white overflow-hidden">
                   {onOpenResumeParser && (
                     <button
                       type="button"
@@ -717,13 +717,13 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
           {reqSkillList.length > 0 && (
             <div className="px-5 py-2.5 bg-slate-50/50 border-b border-slate-200/70">
               <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-0.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-0.5">
                   Required Skills:
                 </span>
                 {(showAllReqSkills ? reqSkillList : reqSkillList.slice(0, 6)).map((skill, idx) => (
                   <span
                     key={idx}
-                    className="px-2 py-0.5 rounded-md bg-white border border-slate-200/90 text-slate-700 text-[10.5px] font-medium"
+                    className="px-2 py-0.5 rounded-md bg-white border border-slate-200/90 text-slate-700 text-[11px] font-medium"
                   >
                     {skill}
                   </span>
@@ -732,7 +732,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowAllReqSkills((prev) => !prev)}
-                    className="ml-0.5 text-[10.5px] font-semibold text-brand-600 hover:text-brand-700 underline underline-offset-2 cursor-pointer transition-colors"
+                    className="ml-0.5 text-[11px] font-semibold text-brand-600 hover:text-brand-700 underline underline-offset-2 cursor-pointer transition-colors"
                   >
                     {showAllReqSkills ? 'Show less' : `+${reqSkillList.length - 6} more`}
                   </button>
@@ -785,7 +785,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                       {totalBenchCount === 1 ? '' : 's'}
                     </span>
                     {aiRankScopeNote && (
-                      <span className="text-[10.5px] font-medium text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-full">
+                      <span className="text-[11px] font-medium text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-full">
                         {aiRankScopeNote}
                       </span>
                     )}
@@ -878,7 +878,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                           <div className="min-w-0">
                             <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5 flex-wrap">
                               <span className="truncate">{con.fullName}</span>
-                              <span className="text-[10px] font-normal text-slate-400">
+                              <span className="text-[11px] font-normal text-slate-400">
                                 ({con.workAuth})
                               </span>
                             </div>
@@ -892,7 +892,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                         <div className="flex items-center gap-2 flex-shrink-0">
                           {showMatch && (
                             <span
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold tabular-nums ${getMatchScoreBadgeClass(
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] font-bold tabular-nums ${getMatchScoreBadgeClass(
                                 match.score
                               )}`}
                               title={
@@ -910,7 +910,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                             </span>
                           )}
                           {alreadyAttached ? (
-                            <span className="px-2 py-0.5 rounded bg-emerald-500/[0.1] text-emerald-800 text-[10px] font-semibold">
+                            <span className="px-2 py-0.5 rounded bg-emerald-500/[0.1] text-emerald-800 text-[11px] font-semibold">
                               Attached{attachedStage ? ` (${attachedStage})` : ''}
                             </span>
                           ) : (
@@ -921,7 +921,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                                 e.stopPropagation();
                                 handleQuickSingleAttach(con);
                               }}
-                              className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[10px] font-semibold transition-colors cursor-pointer"
+                              className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-semibold transition-colors cursor-pointer"
                             >
                               {latestDup ? 'Attach Anyway' : 'Quick Attach'}
                             </button>
@@ -946,13 +946,13 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 {match.matched.length > 0 && (
                                   <>
-                                    <span className="text-[10px] font-semibold text-emerald-700">
+                                    <span className="text-[11px] font-semibold text-emerald-700">
                                       Matched:
                                     </span>
                                     {visibleMatched.map((skill, idx) => (
                                       <span
                                         key={idx}
-                                        className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/[0.08] text-emerald-800 font-medium"
+                                        className="px-1.5 py-0.5 rounded text-[11px] bg-emerald-500/[0.08] text-emerald-800 font-medium"
                                       >
                                         {skill}
                                       </span>
@@ -967,7 +967,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                                             [con.id]: true,
                                           }));
                                         }}
-                                        className="text-[10px] font-semibold text-emerald-700 hover:underline cursor-pointer"
+                                        className="text-[11px] font-semibold text-emerald-700 hover:underline cursor-pointer"
                                       >
                                         +{match.matched.length - 4} more
                                       </button>
@@ -977,7 +977,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                                 {match.missing.length > 0 && (
                                   <>
                                     <span
-                                      className={`text-[10px] font-medium text-slate-400 ${
+                                      className={`text-[11px] font-medium text-slate-400 ${
                                         match.matched.length > 0 ? 'ml-1.5' : ''
                                       }`}
                                     >
@@ -986,7 +986,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                                     {visibleMissing.map((skill, idx) => (
                                       <span
                                         key={idx}
-                                        className="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-500"
+                                        className="px-1.5 py-0.5 rounded text-[11px] bg-slate-100 text-slate-500"
                                       >
                                         {skill}
                                       </span>
@@ -1001,7 +1001,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                                             [con.id]: true,
                                           }));
                                         }}
-                                        className="text-[10px] font-semibold text-brand-600 hover:underline cursor-pointer"
+                                        className="text-[11px] font-semibold text-brand-600 hover:underline cursor-pointer"
                                       >
                                         +{match.missing.length - 3} more
                                       </button>
@@ -1018,7 +1018,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                                         [con.id]: false,
                                       }));
                                     }}
-                                    className="text-[10px] font-semibold text-brand-600 hover:underline cursor-pointer ml-1"
+                                    className="text-[11px] font-semibold text-brand-600 hover:underline cursor-pointer ml-1"
                                   >
                                     Show less
                                   </button>
@@ -1027,7 +1027,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                             );
                           })()}
                           {isAiRanked && oneLineSummary && (
-                            <div className="text-[10.5px] text-indigo-700 font-medium">
+                            <div className="text-[11px] text-indigo-700 font-medium">
                               {oneLineSummary}
                             </div>
                           )}
@@ -1035,13 +1035,13 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                       )}
 
                       {cvExcerpt && (
-                        <div className="pl-6 text-[10px] text-brand-700 truncate">
+                        <div className="pl-6 text-[11px] text-brand-700 truncate">
                           CV match: {cvExcerpt}
                         </div>
                       )}
 
                       {latestDup && (
-                        <div className="ml-6 inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-50 border border-amber-200 text-amber-900 text-[10px] font-medium">
+                        <div className="ml-6 inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium">
                           <AlertTriangle className="w-3 h-3 text-amber-600 flex-shrink-0" />
                           <span>
                             Already submitted to <strong>{latestDup.clientName}</strong>{' '}
@@ -1063,12 +1063,12 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                   );
                 })}
                 {isLoadingMoreBench && (
-                  <div className="py-2 text-center text-[10px] font-medium text-slate-400">
+                  <div className="py-2 text-center text-[11px] font-medium text-slate-400">
                     Loading next {BENCH_PAGE_SIZE} consultants...
                   </div>
                 )}
                 {!isLoadingMoreBench && hasMoreBench && (
-                  <div className="py-1.5 text-center text-[10px] text-slate-400">
+                  <div className="py-1.5 text-center text-[11px] text-slate-400">
                     Scroll to load more ({pagedCandidates.length} of {totalBenchCount})
                   </div>
                 )}
@@ -1120,7 +1120,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                   loadingText="Attaching..."
                   disabled={selectedCandidateIds.length === 0}
                   onClick={handleBatchAttach}
-                  className={`px-4 py-1.5 rounded-lg disabled:opacity-50 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer ${selectedDupCount > 0
+                  className={`px-4 py-1.5 rounded-lg disabled:opacity-50 text-white text-xs font-semibold transition-colors cursor-pointer ${selectedDupCount > 0
                     ? 'bg-amber-600 hover:bg-amber-700'
                     : 'bg-brand-600 hover:bg-brand-700'
                     }`}

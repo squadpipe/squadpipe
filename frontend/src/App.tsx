@@ -33,6 +33,8 @@ import { normalizeSlaBadgeClass } from './utils/stageStyles';
 import { Sidebar } from './components/layout/Sidebar';
 import { Topbar } from './components/layout/Topbar';
 import { SlaDrawer } from './components/layout/SlaDrawer';
+import { CommandPaletteModal } from './components/layout/CommandPaletteModal';
+import { PageSkeleton } from './components/shared/PageSkeleton';
 import { AccessRestrictedView } from './components/shared/AccessRestrictedView';
 
 // Feature Views
@@ -106,6 +108,16 @@ const RequirementFromEmailPage = React.lazy(() =>
     default: m.RequirementFromEmailPage,
   }))
 );
+const RequirementFormPage = React.lazy(() =>
+  import('./features/requirements/RequirementFormPage').then((m) => ({
+    default: m.RequirementFormPage,
+  }))
+);
+const ConsultantCreatePage = React.lazy(() =>
+  import('./features/consultants/ConsultantCreatePage').then((m) => ({
+    default: m.ConsultantCreatePage,
+  }))
+);
 const ResumeImportPage = React.lazy(() =>
   import('./features/import-data/ResumeImportPage').then((m) => ({
     default: m.ResumeImportPage,
@@ -144,8 +156,6 @@ import { LoginView } from './features/auth/LoginView';
 import { SkillMatcherModal } from './features/modals/SkillMatcherModal';
 import { ResumeParserModal } from './components/modals/ResumeParserModal';
 import { CsvImportModal } from './components/modals/CsvImportModal';
-import { AddConsultantModal } from './components/modals/create/AddConsultantModal';
-import { AddRequirementModal } from './components/modals/create/AddRequirementModal';
 import { AddClientModal } from './components/modals/create/AddClientModal';
 import { AddVendorModal } from './components/modals/create/AddVendorModal';
 import { SignOutModal } from './components/modals/SignOutModal';
@@ -375,12 +385,17 @@ export const App: React.FC = () => {
   const [isInlineCsvModalOpen, setIsInlineCsvModalOpen] = useState(false);
   const [inlineImportTargetReq, setInlineImportTargetReq] = useState<Requirement | null>(null);
   const [benchPickerCloseToken, setBenchPickerCloseToken] = useState(0);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [activeCreateModal, setActiveCreateModal] = useState<
-    'consultant' | 'requirement' | 'client' | 'vendor' | null
+    'client' | 'vendor' | null
   >(null);
   const [workflowReturnView, setWorkflowReturnView] = useState<string>(() => {
     if (initialRoute.query?.from) return initialRoute.query.from;
-    if (initialRoute.view === 'requirement_from_email') return 'pipeline';
+    if (initialRoute.view === 'requirement_from_email' || initialRoute.view === 'requirement_new') {
+      return 'pipeline';
+    }
+    if (initialRoute.view === 'requirement_edit') return 'requirement_detail';
+    if (initialRoute.view === 'consultant_new') return 'consultants';
     if (initialRoute.view === 'import_resume' || initialRoute.view === 'import_csv') {
       return initialRoute.query?.requirementId ? 'requirement_detail' : 'import_data';
     }
@@ -472,6 +487,29 @@ export const App: React.FC = () => {
     setCurrentView('requirement_detail');
     if (!options?.skipHistory) {
       pushRouteUrl('requirement_detail', { entityId: req.id, returnView });
+    }
+  };
+
+  const handleOpenRequirementEdit = (
+    req: Requirement,
+    fromView?: string,
+    options?: { skipHistory?: boolean }
+  ) => {
+    const returnView =
+      fromView || (currentView !== 'requirement_edit' ? currentView : reqDetailReturnView);
+    setReqDetailReturnView(returnView);
+    setWorkflowReturnView(returnView);
+    setWorkflowReturnReqId(req.id);
+    setSelectedReqForDetail(req);
+    setResolvingRouteId(null);
+    setRouteTarget({ view: 'requirement_edit', entityId: req.id });
+    setCurrentView('requirement_edit');
+    if (!options?.skipHistory) {
+      pushRouteUrl('requirement_edit', {
+        entityId: req.id,
+        returnView,
+        returnReqId: req.id,
+      });
     }
   };
 
@@ -615,7 +653,13 @@ export const App: React.FC = () => {
   };
 
   const handleOpenWorkflowPage = (
-    targetView: 'requirement_from_email' | 'import_resume' | 'import_csv' | 'placement_new',
+    targetView:
+      | 'requirement_new'
+      | 'requirement_from_email'
+      | 'consultant_new'
+      | 'import_resume'
+      | 'import_csv'
+      | 'placement_new',
     options?: {
       requirementId?: string;
       candidateId?: string;
@@ -627,9 +671,15 @@ export const App: React.FC = () => {
   ) => {
     const resolvedFrom =
       options?.fromView ||
-      (!['requirement_from_email', 'import_resume', 'import_csv', 'placement_new'].includes(
-        currentView
-      )
+      (![
+        'requirement_new',
+        'requirement_edit',
+        'requirement_from_email',
+        'consultant_new',
+        'import_resume',
+        'import_csv',
+        'placement_new',
+      ].includes(currentView)
         ? currentView
         : workflowReturnView);
     const resolvedReturnReqId =
@@ -720,7 +770,7 @@ export const App: React.FC = () => {
   const showToast = (
     title: string,
     message: string,
-    icon = 'fa-solid fa-circle-check text-emerald-500'
+    icon = 'success'
   ) => {
     setToast({ title, message: sanitizeToastMessage(message), icon });
     setTimeout(() => {
@@ -730,7 +780,7 @@ export const App: React.FC = () => {
 
   const showApiErrorToast = (e: any, title: string, fallback: string) => {
     const msg = e?.response?.data?.message || e?.response?.data?.error || fallback;
-    showToast(title, msg, 'fa-solid fa-circle-exclamation text-rose-500');
+    showToast(title, msg, 'error');
   };
 
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -796,7 +846,7 @@ export const App: React.FC = () => {
       showToast(
         'Session Expired',
         customEvent.detail?.message || 'Please sign in again to continue.',
-        'fa-solid fa-shield-halved text-amber-500'
+        'shield-warn'
       );
     };
     window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
@@ -995,7 +1045,7 @@ export const App: React.FC = () => {
           name: rl.name,
           category: formatCategory(rl.category),
           triggerEvent: rl.triggerEvent,
-          icon: rl.icon || 'fa-solid fa-gear',
+          icon: rl.icon || 'settings',
           color: rl.color || 'amber',
           active: rl.active ?? rl.isActive ?? true,
           whenText: rl.whenText || '',
@@ -1376,6 +1426,7 @@ export const App: React.FC = () => {
   const routeHandlersRef = React.useRef({
     handleNavigateView,
     handleOpenRequirementDetail,
+    handleOpenRequirementEdit,
     handleOpenConsultantDetail,
     handleOpenClientDetail,
     handleOpenVendorDetail,
@@ -1385,12 +1436,26 @@ export const App: React.FC = () => {
   routeHandlersRef.current = {
     handleNavigateView,
     handleOpenRequirementDetail,
+    handleOpenRequirementEdit,
     handleOpenConsultantDetail,
     handleOpenClientDetail,
     handleOpenVendorDetail,
     handleOpenPlacementDetail,
     handleOpenWorkflowPage,
   };
+
+  // Global Cmd+K / Ctrl+K shortcut for Command Palette
+  useEffect(() => {
+    if (publicApplyToken || (!authToken && !currentUser)) return;
+    const handleGlobalCmdK = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setShowCommandPalette((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalCmdK);
+    return () => window.removeEventListener('keydown', handleGlobalCmdK);
+  }, [publicApplyToken, authToken, currentUser]);
 
   // Sync `/` -> `/dashboard` once authenticated (preserving query tokens like ?inviteToken=)
   useEffect(() => {
@@ -1445,13 +1510,20 @@ export const App: React.FC = () => {
 
       if (!parsed.entityId) {
         if (
-          ['requirement_from_email', 'import_resume', 'import_csv', 'placement_new'].includes(
-            parsed.view
-          )
+          [
+            'requirement_new',
+            'requirement_from_email',
+            'consultant_new',
+            'import_resume',
+            'import_csv',
+            'placement_new',
+          ].includes(parsed.view)
         ) {
           routeHandlersRef.current.handleOpenWorkflowPage(
             parsed.view as
+              | 'requirement_new'
               | 'requirement_from_email'
+              | 'consultant_new'
               | 'import_resume'
               | 'import_csv'
               | 'placement_new',
@@ -1472,7 +1544,17 @@ export const App: React.FC = () => {
       const stateSnapshot = routeStateRef.current;
       const entityId = parsed.entityId;
 
-      if (parsed.view === 'requirement_detail') {
+      if (parsed.view === 'requirement_edit') {
+        const matched = stateSnapshot.requirements.find((r) => r.id === entityId);
+        if (matched) {
+          routeHandlersRef.current.handleOpenRequirementEdit(matched, returnView, {
+            skipHistory: true,
+          });
+          return;
+        }
+        if (returnView) setReqDetailReturnView(returnView);
+        setSelectedReqForDetail(null);
+      } else if (parsed.view === 'requirement_detail') {
         const matched = stateSnapshot.requirements.find((r) => r.id === entityId);
         if (matched) {
           routeHandlersRef.current.handleOpenRequirementDetail(matched, returnView, {
@@ -1544,7 +1626,7 @@ export const App: React.FC = () => {
 
     const snapshot = routeStateRef.current;
     if (
-      (routeTarget.view === 'requirement_detail' &&
+      ((routeTarget.view === 'requirement_detail' || routeTarget.view === 'requirement_edit') &&
         (snapshot.selectedReqForDetail?.id === targetId ||
           snapshot.requirements.some((r) => r.id === targetId))) ||
       (routeTarget.view === 'consultant_detail' &&
@@ -1560,12 +1642,21 @@ export const App: React.FC = () => {
         (snapshot.selectedPlacementForDetail?.id === targetId ||
           snapshot.placements.some((p) => p.id === targetId)))
     ) {
-      if (routeTarget.view === 'requirement_detail' && !snapshot.selectedReqForDetail) {
+      if (
+        (routeTarget.view === 'requirement_detail' || routeTarget.view === 'requirement_edit') &&
+        !snapshot.selectedReqForDetail
+      ) {
         const cached = snapshot.requirements.find((r) => r.id === targetId);
         if (cached) {
-          routeHandlersRef.current.handleOpenRequirementDetail(cached, undefined, {
-            skipHistory: true,
-          });
+          if (routeTarget.view === 'requirement_edit') {
+            routeHandlersRef.current.handleOpenRequirementEdit(cached, undefined, {
+              skipHistory: true,
+            });
+          } else {
+            routeHandlersRef.current.handleOpenRequirementDetail(cached, undefined, {
+              skipHistory: true,
+            });
+          }
           return;
         }
       } else if (routeTarget.view === 'consultant_detail' && !snapshot.selectedCandForDetail) {
@@ -1610,7 +1701,7 @@ export const App: React.FC = () => {
 
     const resolveDetailRoute = async () => {
       try {
-        if (routeTarget.view === 'requirement_detail') {
+        if (routeTarget.view === 'requirement_detail' || routeTarget.view === 'requirement_edit') {
           const res = await apiClient.get(`/requirements/${encodeURIComponent(targetId)}`);
           if (!cancelled && res.data?.data) {
             const mapped = mapRequirementFromApi(res.data.data);
@@ -1619,9 +1710,15 @@ export const App: React.FC = () => {
                 ? prev.map((r) => (r.id === mapped.id ? mapped : r))
                 : [mapped, ...prev]
             );
-            routeHandlersRef.current.handleOpenRequirementDetail(mapped, undefined, {
-              skipHistory: true,
-            });
+            if (routeTarget.view === 'requirement_edit') {
+              routeHandlersRef.current.handleOpenRequirementEdit(mapped, undefined, {
+                skipHistory: true,
+              });
+            } else {
+              routeHandlersRef.current.handleOpenRequirementDetail(mapped, undefined, {
+                skipHistory: true,
+              });
+            }
           }
         } else if (routeTarget.view === 'consultant_detail') {
           const res = await apiClient.get(`/candidates/${encodeURIComponent(targetId)}`);
@@ -1676,20 +1773,29 @@ export const App: React.FC = () => {
     };
   }, [routeTarget, authToken, currentUser]);
 
-  // Ensure clients, users, and vendors are available when opening create or inline modals
+  // Ensure clients, users, and vendors are available when opening create/edit workflows or Cmd+K
   useEffect(() => {
     if (!authToken && !currentUser) return;
     if (isInlineResumeModalOpen && !loadedEntities.current.has('users')) {
       fetchUsers();
     }
-    if (activeCreateModal === 'requirement' || activeCreateModal === 'consultant') {
+    if (
+      currentView === 'requirement_new' ||
+      currentView === 'requirement_edit' ||
+      currentView === 'consultant_new' ||
+      showCommandPalette
+    ) {
       if (!loadedEntities.current.has('clients')) fetchClients();
       if (!loadedEntities.current.has('users')) fetchUsers();
-      if (activeCreateModal === 'consultant') {
+      if (currentView === 'consultant_new' || showCommandPalette) {
         if (!loadedEntities.current.has('vendors')) fetchVendors();
       }
+      if (showCommandPalette) {
+        if (!loadedEntities.current.has('requirements')) fetchRequirements();
+        if (!loadedEntities.current.has('candidates')) fetchCandidates();
+      }
     }
-  }, [activeCreateModal, isInlineResumeModalOpen, authToken]);
+  }, [currentView, isInlineResumeModalOpen, showCommandPalette, authToken]);
 
   // Financial KPI calculations
   const totalMonthlyGrossProfit = placements.reduce(
@@ -1966,11 +2072,11 @@ export const App: React.FC = () => {
         singleCand
           ? `${singleCand.fullName} submitted to ${req.code}!`
           : `${addedCount} applicant${addedCount === 1 ? '' : 's'} submitted to ${req.code}!`,
-        'fa-solid fa-circle-check text-emerald-400'
+        'success'
       );
     } catch (e: any) {
       const msg = e?.response?.data?.message || 'Could not attach applicant(s) to requirement.';
-      showToast('Attachment Notice', msg, 'fa-solid fa-triangle-exclamation text-amber-500');
+      showToast('Attachment Notice', msg, 'warning');
       throw e;
     }
   };
@@ -2018,13 +2124,13 @@ export const App: React.FC = () => {
       showToast(
         'Applicant Stage Updated',
         `Updated applicant stage on ${req.code} to ${stage}.`,
-        'fa-solid fa-circle-check text-brand-600'
+        'success-brand'
       );
     } catch (e: any) {
       showToast(
         'Update Failed',
         e?.response?.data?.message || 'Could not update applicant stage.',
-        'fa-solid fa-circle-exclamation text-rose-500'
+        'error'
       );
       throw e;
     }
@@ -2060,13 +2166,13 @@ export const App: React.FC = () => {
         payload.action === 'delete'
           ? `Removed applicant note on ${req.code}.`
           : `Saved applicant call notes & feedback on ${req.code}.`,
-        'fa-solid fa-circle-check text-brand-600'
+        'success-brand'
       );
     } catch (e: any) {
       showToast(
         'Save Failed',
         e?.response?.data?.message || 'Could not save applicant notes.',
-        'fa-solid fa-circle-exclamation text-rose-500'
+        'error'
       );
       throw e;
     }
@@ -2090,13 +2196,13 @@ export const App: React.FC = () => {
       showToast(
         'Applicant Removed',
         `Detached applicant from ${req.code}.`,
-        'fa-solid fa-trash-can text-slate-500'
+        'delete'
       );
     } catch (e: any) {
       showToast(
         'Detach Failed',
         e?.response?.data?.message || 'Could not remove applicant from requirement.',
-        'fa-solid fa-circle-exclamation text-rose-500'
+        'error'
       );
       throw e;
     }
@@ -2118,7 +2224,7 @@ export const App: React.FC = () => {
         e?.response?.data?.error ||
         e?.message ||
         'Could not activate placement.';
-      showToast('Placement Blocked', msg, 'fa-solid fa-triangle-exclamation text-amber-500');
+      showToast('Placement Blocked', msg, 'warning');
       throw e;
     }
     setPlacements((prev) => [savedPlacement, ...prev]);
@@ -2151,7 +2257,7 @@ export const App: React.FC = () => {
     showToast(
       'Placement Activated',
       `Locked in commercial placement for ${savedPlacement.resourceName}!`,
-      'fa-solid fa-file-invoice-dollar text-emerald-400'
+      'invoice'
     );
   };
 
@@ -2183,14 +2289,14 @@ export const App: React.FC = () => {
       showToast(
         cvFile ? 'CV & Consultant Updated' : 'Consultant Updated',
         cvFile ? `${saved.fullName} profile and CV file saved.` : `${saved.fullName} details saved.`,
-        'fa-solid fa-circle-check text-emerald-500'
+        'success'
       );
     } catch (e: any) {
       console.warn('API update candidate failed:', e);
       showToast(
         'Update Failed',
         e?.response?.data?.message || e?.response?.data?.error || `Could not update ${updated.fullName}.`,
-        'fa-solid fa-circle-exclamation text-rose-500'
+        'error'
       );
       throw e;
     }
@@ -2203,10 +2309,10 @@ export const App: React.FC = () => {
         ? mapRequirementFromApi(res.data.data)
         : updated;
       syncUpdatedRequirement(saved);
-      showToast('Requirement Updated', `${saved.opportunityTitle} saved.`, 'fa-solid fa-circle-check text-emerald-500');
+      showToast('Requirement Updated', `${saved.opportunityTitle} saved.`, 'success');
     } catch (e: any) {
       console.warn('API update requirement failed:', e);
-      showToast('Update Failed', e?.response?.data?.message || e?.response?.data?.error || `Could not update ${updated.opportunityTitle}.`, 'fa-solid fa-circle-exclamation text-rose-500');
+      showToast('Update Failed', e?.response?.data?.message || e?.response?.data?.error || `Could not update ${updated.opportunityTitle}.`, 'error');
       throw e;
     }
   };
@@ -2219,10 +2325,10 @@ export const App: React.FC = () => {
       setSelectedVendorForDetail((prev) => (prev && prev.id === saved.id ? { ...prev, ...saved } : prev));
       fetchSlaTasks();
       fetchAutomations();
-      showToast('Vendor Updated', `${saved.name} details saved.`, 'fa-solid fa-circle-check text-emerald-500');
+      showToast('Vendor Updated', `${saved.name} details saved.`, 'success');
     } catch (e: any) {
       console.warn('API update vendor failed:', e);
-      showToast('Update Failed', e?.response?.data?.error || `Could not update ${updated.name}.`, 'fa-solid fa-circle-exclamation text-rose-500');
+      showToast('Update Failed', e?.response?.data?.error || `Could not update ${updated.name}.`, 'error');
       throw e;
     }
   };
@@ -2282,10 +2388,10 @@ export const App: React.FC = () => {
         showToast(
           'Placement Ended',
           `${saved.resourceName}'s engagement marked ${saved.status} and bench availability updated.`,
-          'fa-solid fa-circle-check text-emerald-500'
+          'success'
         );
       } else {
-        showToast('Placement Updated', `${saved.resourceName} placement saved.`, 'fa-solid fa-circle-check text-emerald-500');
+        showToast('Placement Updated', `${saved.resourceName} placement saved.`, 'success');
       }
     } catch (e: any) {
       console.warn('API update placement failed:', e);
@@ -2299,7 +2405,7 @@ export const App: React.FC = () => {
       const res = await apiClient.put(`/users/${updated.id}`, updated);
       const saved: User = res.data?.data ?? updated;
       setUsers((prev) => prev.map((u) => (u.id === saved.id ? { ...u, ...saved } : u)));
-      showToast('Member Updated', `${saved.name} profile saved.`, 'fa-solid fa-circle-check text-emerald-500');
+      showToast('Member Updated', `${saved.name} profile saved.`, 'success');
     } catch (e: any) {
       console.warn('API update user failed:', e);
       showApiErrorToast(e, 'Update Failed', `Could not update ${updated.name}.`);
@@ -2312,13 +2418,13 @@ export const App: React.FC = () => {
       await apiClient.delete(`/candidates/${candidate.id}`);
       setCandidates((prev) => prev.filter((c) => c.id !== candidate.id));
       fetchSidebarCounts();
-      showToast('Consultant Removed', `${candidate.fullName} removed from roster.`, 'fa-solid fa-trash-can text-slate-500');
+      showToast('Consultant Removed', `${candidate.fullName} removed from roster.`, 'delete');
     } catch (e: any) {
       console.warn('API delete candidate:', e);
       showToast(
         'Delete Failed',
         e?.response?.data?.message || `Could not delete ${candidate.fullName}.`,
-        'fa-solid fa-circle-exclamation text-rose-500'
+        'error'
       );
       throw e;
     }
@@ -2330,14 +2436,14 @@ export const App: React.FC = () => {
       setRequirements((prev) => prev.filter((r) => r.id !== req.id));
       fetchSidebarCounts();
       fetchSlaTasks();
-      showToast('Requisition Removed', `${req.code} (${req.opportunityTitle}) deleted.`, 'fa-solid fa-trash-can text-slate-500');
+      showToast('Requisition Removed', `${req.code} (${req.opportunityTitle}) deleted.`, 'delete');
     } catch (e: any) {
       console.warn('API delete requirement:', e);
       const msg =
         e?.response?.data?.message ||
         e?.response?.data?.error ||
         `Could not delete ${req.code}.`;
-      showToast('Delete Blocked', msg, 'fa-solid fa-circle-exclamation text-rose-500');
+      showToast('Delete Blocked', msg, 'error');
       throw e;
     }
   };
@@ -2347,7 +2453,7 @@ export const App: React.FC = () => {
       await apiClient.delete(`/clients/${client.id}`);
       setClients((prev) => prev.filter((cl) => cl.id !== client.id));
       fetchSidebarCounts();
-      showToast('Client Removed', `${client.name} deleted.`, 'fa-solid fa-trash-can text-slate-500');
+      showToast('Client Removed', `${client.name} deleted.`, 'delete');
     } catch (e: any) {
       console.warn('API delete client:', e);
       showApiErrorToast(e, 'Delete Failed', `Could not delete ${client.name}.`);
@@ -2361,7 +2467,7 @@ export const App: React.FC = () => {
       setVendors((prev) => prev.filter((v) => v.id !== vendor.id));
       fetchSidebarCounts();
       fetchSlaTasks();
-      showToast('Vendor Removed', `${vendor.name} deleted.`, 'fa-solid fa-trash-can text-slate-500');
+      showToast('Vendor Removed', `${vendor.name} deleted.`, 'delete');
     } catch (e: any) {
       console.warn('API delete vendor:', e);
       showApiErrorToast(e, 'Delete Failed', `Could not delete ${vendor.name}.`);
@@ -2393,7 +2499,7 @@ export const App: React.FC = () => {
       }
       fetchSidebarCounts();
       fetchSlaTasks();
-      showToast('Placement Removed', `${placement.resourceName}'s placement removed.`, 'fa-solid fa-trash-can text-slate-500');
+      showToast('Placement Removed', `${placement.resourceName}'s placement removed.`, 'delete');
     } catch (e: any) {
       console.warn('API delete placement:', e);
       showApiErrorToast(e, 'Delete Failed', `Could not delete placement.`);
@@ -2453,7 +2559,7 @@ export const App: React.FC = () => {
       showToast(
         'Contract Extended',
         `SOW for ${placement.resourceName} extended through ${newEnd}!`,
-        'fa-solid fa-circle-check text-emerald-400'
+        'success'
       );
     } catch (e: any) {
       console.warn('API placement extension failed:', e);
@@ -2518,7 +2624,7 @@ export const App: React.FC = () => {
     showToast(
       'Signed Out',
       `You have been signed out of ${getWorkspaceBrand().agencyName || 'your workspace'}.`,
-      'fa-solid fa-arrow-right-from-bracket text-slate-700'
+      'logout'
     );
   };
 
@@ -2546,7 +2652,7 @@ export const App: React.FC = () => {
     showToast(
       'Persona Switched',
       `Active account switched to ${persona.name} (${persona.role}).`,
-      'fa-solid fa-arrows-rotate text-brand-600'
+      'refresh'
     );
   };
 
@@ -2655,7 +2761,7 @@ export const App: React.FC = () => {
   const isResolvingCurrentDetail =
     Boolean(resolvingRouteId) &&
     routeTarget.view === currentView &&
-    ((currentView === 'requirement_detail' &&
+    (((currentView === 'requirement_detail' || currentView === 'requirement_edit') &&
       !requirements.some((r) => r.id === resolvingRouteId) &&
       selectedReqForDetail?.id !== resolvingRouteId) ||
       (currentView === 'consultant_detail' &&
@@ -2732,7 +2838,7 @@ export const App: React.FC = () => {
                       {bulkResumeQueue.isRunning ? 'Parsing Resumes' : 'Bulk Upload Complete'}
                     </span>
                     {batchReq && (
-                      <span className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono text-emerald-300">
+                      <span className="px-1.5 py-0.5 rounded bg-white/10 text-[11px] font-mono text-emerald-300">
                         {batchReq.code}
                       </span>
                     )}
@@ -2803,7 +2909,13 @@ export const App: React.FC = () => {
       {/* Obsidian Dark Sidebar with live counts & profile popover */}
       <Sidebar
         currentView={
-          currentView === 'requirement_detail'
+          currentView === 'requirement_new' ||
+          currentView === 'requirement_edit' ||
+          currentView === 'requirement_from_email'
+            ? 'pipeline'
+            : currentView === 'consultant_new'
+              ? 'consultants'
+              : currentView === 'requirement_detail'
             ? reqDetailReturnView === 'dashboard'
               ? 'dashboard'
               : reqDetailReturnView === 'client_detail'
@@ -2858,11 +2970,20 @@ export const App: React.FC = () => {
 
       {/* Main Container */}
       <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
-        {/* Topbar with clean design matching prototype (Left: View Title, Right: + Quick Add dropdown) */}
+        {/* Topbar with clean design matching prototype + Global Cmd+K Command Palette trigger */}
         <Topbar
           currentView={currentView}
           canCreatePlacement={!rateMasked}
+          onOpenCommandPalette={() => setShowCommandPalette(true)}
           onOpenCreateModal={(type) => {
+            if (type === 'requirement') {
+              handleOpenWorkflowPage('requirement_new', { fromView: currentView });
+              return;
+            }
+            if (type === 'consultant') {
+              handleOpenWorkflowPage('consultant_new', { fromView: currentView });
+              return;
+            }
             if (type === 'placement') {
               if (!rateMasked) {
                 handleOpenWorkflowPage('placement_new', { fromView: currentView });
@@ -2878,17 +2999,22 @@ export const App: React.FC = () => {
         <main className="flex-1 overflow-y-auto p-6 space-y-6">
           <React.Suspense
             fallback={
-              <div className="flex items-center justify-center py-20 text-xs font-medium text-slate-400">
-                Loading workspace module...
-              </div>
+              <PageSkeleton
+                variant={
+                  [
+                    'requirement_detail',
+                    'consultant_detail',
+                    'client_detail',
+                    'vendor_detail',
+                    'placement_detail',
+                  ].includes(currentView)
+                    ? 'detail'
+                    : 'workspace'
+                }
+              />
             }
           >
-            {isResolvingCurrentDetail && (
-              <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-400">
-                <div className="w-6 h-6 rounded-full border-2 border-brand-600 border-t-transparent animate-spin" />
-                <p className="text-xs font-medium">Loading record details...</p>
-              </div>
-            )}
+            {isResolvingCurrentDetail && <PageSkeleton variant="detail" />}
 
             {currentView === 'dashboard' && (
             <DashboardView
@@ -2898,7 +3024,9 @@ export const App: React.FC = () => {
               slaTasks={slaTasks}
               rateMasked={rateMasked}
               onNavigate={handleNavigateView}
-              onOpenCreateReq={() => setActiveCreateModal('requirement')}
+              onOpenCreateReq={() =>
+                handleOpenWorkflowPage('requirement_new', { fromView: 'dashboard' })
+              }
               onSelectReq={(r) => handleOpenRequirementDetail(r, 'dashboard')}
               onUpdateReq={handleUpdateRequirement}
               onDeleteReq={canManageDataOperations ? handleDeleteRequirement : undefined}
@@ -2940,9 +3068,64 @@ export const App: React.FC = () => {
                 })
               }
               onSelectReq={(r) => handleOpenRequirementDetail(r, 'pipeline')}
-              onOpenAddReq={() => setActiveCreateModal('requirement')}
+              onOpenAddReq={() =>
+                handleOpenWorkflowPage('requirement_new', { fromView: 'pipeline' })
+              }
               onUpdateReq={handleUpdateRequirement}
               onDeleteReq={canManageDataOperations ? handleDeleteRequirement : undefined}
+            />
+          )}
+
+          {currentView === 'requirement_new' && (
+            <RequirementFormPage
+              mode="create"
+              clients={clients}
+              users={users}
+              backLabel={
+                workflowReturnView === 'dashboard' ? 'Back to Dashboard' : 'Back to Pipeline'
+              }
+              onBack={() => handleReturnFromWorkflowPage('pipeline')}
+              onOpenFromEmail={() =>
+                handleOpenWorkflowPage('requirement_from_email', {
+                  fromView: workflowReturnView,
+                  replaceHistory: true,
+                })
+              }
+              onSaveCreate={async (r) => {
+                const res = await apiClient.post('/requirements', r);
+                const saved = res.data?.data ? mapRequirementFromApi(res.data.data) : r;
+                fetchClients();
+                fetchSidebarCounts();
+                fetchSlaTasks();
+                fetchAutomations();
+                setRequirements((prev) => [saved, ...prev]);
+                handleOpenRequirementDetail(saved, 'pipeline');
+                return saved;
+              }}
+              showToast={showToast}
+            />
+          )}
+
+          {currentView === 'requirement_edit' && !isResolvingCurrentDetail && (
+            <RequirementFormPage
+              mode="edit"
+              initialRequirement={
+                requirements.find((r) => r.id === (selectedReqForDetail?.id || routeTarget.entityId)) ||
+                selectedReqForDetail
+              }
+              clients={clients}
+              users={users}
+              backLabel={
+                selectedReqForDetail?.code
+                  ? `Back to ${selectedReqForDetail.code}`
+                  : 'Back to Requirement'
+              }
+              onBack={() => handleReturnFromWorkflowPage('requirement_detail')}
+              onSaveEdit={async (updated) => {
+                await handleUpdateRequirement(updated);
+                handleOpenRequirementDetail(updated, reqDetailReturnView || 'pipeline');
+              }}
+              showToast={showToast}
             />
           )}
 
@@ -3004,6 +3187,7 @@ export const App: React.FC = () => {
                   returnReqId: req.id,
                 })
               }
+              onEditReq={(req) => handleOpenRequirementEdit(req, 'requirement_detail')}
               onUpdateReq={handleUpdateRequirement}
               onRequirementUpdated={syncUpdatedRequirement}
               onOpenCsvImport={
@@ -3032,7 +3216,9 @@ export const App: React.FC = () => {
               onPreviewResume={(c, startEditing) =>
                 handleOpenConsultantDetail(c, Boolean(startEditing), 'consultants')
               }
-              onOpenAddConsultant={() => setActiveCreateModal('consultant')}
+              onOpenAddConsultant={() =>
+                handleOpenWorkflowPage('consultant_new', { fromView: 'consultants' })
+              }
               onOpenCsvImport={
                 canManageDataOperations
                   ? () => handleOpenWorkflowPage('import_csv', { fromView: 'consultants' })
@@ -3042,6 +3228,51 @@ export const App: React.FC = () => {
               canEditCandidate={canManageDataOperations}
               onUpdateCandidate={canManageDataOperations ? handleUpdateCandidate : undefined}
               onDeleteCandidate={canManageDataOperations ? handleDeleteCandidate : undefined}
+            />
+          )}
+
+          {currentView === 'consultant_new' && (
+            <ConsultantCreatePage
+              users={users}
+              vendors={vendors}
+              backLabel={
+                workflowReturnView === 'dashboard' ? 'Back to Dashboard' : 'Back to Consultants'
+              }
+              onBack={() => handleReturnFromWorkflowPage('consultants')}
+              onOpenResumeParser={() =>
+                handleOpenWorkflowPage('import_resume', {
+                  fromView: workflowReturnView,
+                  replaceHistory: true,
+                })
+              }
+              onSave={async (c, cvFile) => {
+                const payload = {
+                  fullName: c.fullName,
+                  email: c.email,
+                  phone: c.phone,
+                  currentTitle: c.currentTitle,
+                  workAuth: c.workAuth,
+                  education: c.education,
+                  skillset: c.skillset,
+                  hourlyRateDisplay: c.hourlyRate,
+                  relocation: c.relocation,
+                  assignedRecruiter: c.assignedRecruiter,
+                  pipelineStage: c.pipelineStage,
+                  vendorId: c.vendorId || undefined,
+                  vendorName: c.vendorName || undefined,
+                  resumeFileName: cvFile ? cvFile.name : c.resumeName,
+                  resumeFormat: cvFile ? undefined : c.resumeFormat,
+                  customFields: c.customFields,
+                };
+                const requestBody = cvFile ? buildCandidateFormData(payload, cvFile) : payload;
+                const res = await apiClient.post('/candidates', requestBody);
+                const saved = res.data?.data ? mapCandidateFromApi(res.data.data) : c;
+                fetchSidebarCounts();
+                setCandidates((prev) => [saved, ...prev]);
+                handleOpenConsultantDetail(saved, false, 'consultants');
+                return saved;
+              }}
+              showToast={showToast}
             />
           )}
 
@@ -3369,7 +3600,7 @@ export const App: React.FC = () => {
                     setUsers((prev) =>
                       prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u))
                     );
-                    showToast('Status Updated', `${user.name} is now ${newStatus}.`, 'fa-solid fa-user-shield text-brand-600');
+                    showToast('Status Updated', `${user.name} is now ${newStatus}.`, 'shield');
                   } catch (e: any) {
                     console.warn('API toggle status failed:', e);
                     showApiErrorToast(e, 'Status Update Failed', `Could not update status for ${user.name}.`);
@@ -3380,7 +3611,7 @@ export const App: React.FC = () => {
                   try {
                     await apiClient.delete(`/users/${user.id}`);
                     setUsers((prev) => prev.filter((u) => u.id !== user.id));
-                    showToast('Member Removed', `${user.name} has been removed from agency roster.`, 'fa-solid fa-trash-can text-slate-500');
+                    showToast('Member Removed', `${user.name} has been removed from agency roster.`, 'delete');
                   } catch (e: any) {
                     console.warn('API delete user failed:', e);
                     showApiErrorToast(e, 'Remove Failed', `Could not remove ${user.name}.`);
@@ -3689,7 +3920,7 @@ export const App: React.FC = () => {
             await Promise.all([fetchSlaTasks(), fetchAutomations(), fetchSidebarCounts()]);
             showToast('Reminders Checked', `Checked active reminders (${count} new alert${count === 1 ? '' : 's'} found).`);
           } catch {
-            showToast('Check Failed', 'Could not check reminders right now.', 'fa-solid fa-triangle-exclamation text-rose-500');
+            showToast('Check Failed', 'Could not check reminders right now.', 'error');
           }
         }}
         onToggleTaskDone={async (id) => {
@@ -3836,59 +4067,26 @@ export const App: React.FC = () => {
         showToast={showToast}
       />
 
-      {/* 5 Distinct Dedicated Add Modals matching Prototype lines 3700-4210 */}
-      <AddConsultantModal
-        isOpen={activeCreateModal === 'consultant'}
-        onClose={() => setActiveCreateModal(null)}
-        users={users}
-        vendors={vendors}
-        onSave={async (c, cvFile) => {
-          const payload = {
-            fullName: c.fullName,
-            email: c.email,
-            phone: c.phone,
-            currentTitle: c.currentTitle,
-            workAuth: c.workAuth,
-            education: c.education,
-            skillset: c.skillset,
-            hourlyRateDisplay: c.hourlyRate,
-            relocation: c.relocation,
-            assignedRecruiter: c.assignedRecruiter,
-            pipelineStage: c.pipelineStage,
-            vendorId: c.vendorId || undefined,
-            vendorName: c.vendorName || undefined,
-            resumeFileName: cvFile ? cvFile.name : c.resumeName,
-            resumeFormat: cvFile ? undefined : c.resumeFormat,
-            customFields: c.customFields,
-          };
-          const requestBody = cvFile
-            ? buildCandidateFormData(payload, cvFile)
-            : payload;
-          const res = await apiClient.post('/candidates', requestBody);
-          const saved = res.data?.data ? mapCandidateFromApi(res.data.data) : c;
-          fetchSidebarCounts();
-          setCandidates((prev) => [saved, ...prev]);
-        }}
-        showToast={showToast}
-      />
-
-      <AddRequirementModal
-        isOpen={activeCreateModal === 'requirement'}
-        onClose={() => setActiveCreateModal(null)}
+      <CommandPaletteModal
+        isOpen={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        isAdmin={isAdmin}
+        canManageDataOperations={canManageDataOperations}
+        canCreatePlacement={!rateMasked}
+        requirements={requirements}
+        candidates={candidates}
         clients={clients}
-        users={users}
-        onSave={async (r) => {
-          const res = await apiClient.post('/requirements', r);
-          const saved = res.data?.data ? mapRequirementFromApi(res.data.data) : r;
-          fetchClients();
-          fetchSidebarCounts();
-          fetchSlaTasks();
-          fetchAutomations();
-          setRequirements((prev) => [saved, ...prev]);
-        }}
-        showToast={showToast}
+        vendors={vendors}
+        onNavigate={(view) => handleNavigateView(view)}
+        onOpenWorkflowPage={(view) => handleOpenWorkflowPage(view, { fromView: currentView })}
+        onOpenCreateModal={(type) => setActiveCreateModal(type)}
+        onSelectRequirement={(req) => handleOpenRequirementDetail(req, currentView)}
+        onSelectConsultant={(cand) => handleOpenConsultantDetail(cand, false, currentView)}
+        onSelectClient={(cl) => handleOpenClientDetail(cl, false, currentView)}
+        onSelectVendor={(v) => handleOpenVendorDetail(v, false, currentView)}
       />
 
+      {/* Focused Short Entity Modals (Client & Vendor) */}
       <AddClientModal
         isOpen={activeCreateModal === 'client'}
         onClose={() => setActiveCreateModal(null)}

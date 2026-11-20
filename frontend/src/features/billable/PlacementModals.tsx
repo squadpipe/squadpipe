@@ -198,7 +198,7 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="font-semibold text-slate-700 text-[11px]">Quick Extension Presets</label>
-                  <span className="text-[10px] text-slate-400">Current End: {extendingPlacement.endDate}</span>
+                  <span className="text-[11px] text-slate-400">Current End: {extendingPlacement.endDate}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   {[
@@ -407,7 +407,7 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-[11px] font-semibold text-slate-700">Consultant Name *</label>
                     {editValidationAttempted && !editDraft.resourceName.trim() && (
-                      <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                      <span className="text-[11px] font-semibold text-rose-600">Required</span>
                     )}
                   </div>
                   <input
@@ -425,7 +425,7 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-[11px] font-semibold text-slate-700">Skill / Role *</label>
                     {editValidationAttempted && !editDraft.skillRole.trim() && (
-                      <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                      <span className="text-[11px] font-semibold text-rose-600">Required</span>
                     )}
                   </div>
                   <input
@@ -446,7 +446,7 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-[11px] font-semibold text-slate-700">Client / Customer *</label>
                     {editValidationAttempted && !editDraft.customer.trim() && (
-                      <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                      <span className="text-[11px] font-semibold text-rose-600">Required</span>
                     )}
                   </div>
                   <input
@@ -734,7 +734,7 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
         onBackdropClick={() => !isEndingPlacement && onCloseEnd()}
         zIndexClass="z-50"
         backdropClassName="bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4"
-        panelClassName="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden"
+        panelClassName="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden"
         ariaLabel="End Consultant Placement"
       >
         {endingPlacement && (
@@ -787,7 +787,7 @@ export const PlacementModals: React.FC<PlacementModalsProps> = ({
                         }`}
                       >
                         <div className="text-xs font-bold text-slate-900">{outcome}</div>
-                        <div className="text-[10px] text-slate-500 mt-0.5">
+                        <div className="text-[11px] text-slate-500 mt-0.5">
                           {outcome === 'Completed' ? 'SOW term fulfilled naturally' : 'Early exit or client offboard'}
                         </div>
                       </button>

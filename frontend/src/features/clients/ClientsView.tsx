@@ -119,7 +119,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   const filtered = serverClients;
 
   return (
-    <section className="max-w-7xl mx-auto space-y-5 animate-fade-in">
+    <section className="max-w-7xl mx-auto space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -136,14 +136,14 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search enterprise clients..."
-              className="pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-md text-xs w-64 text-slate-700 outline-none focus:border-brand-500"
+              className="pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs w-64 text-slate-700 outline-none focus:border-brand-500"
             />
           </div>
           <button
             onClick={onOpenAddClient}
-            className="px-3.5 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="px-3.5 py-1.5 rounded-lg bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
+            <Plus className="w-3.5 h-3.5" strokeWidth={1.75} />
             <span>Add Client</span>
           </button>
         </div>
@@ -151,10 +151,10 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
 
       {/* Clients Table List View */}
       <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
-        <div className="max-h-[440px] overflow-auto">
+        <div className="overflow-x-auto">
           <table className="w-full text-left">
-            <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_rgb(226,232,240)]">
-              <tr className="text-[10px] font-bold uppercase text-slate-500 tracking-wider">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr className="text-[11px] font-bold uppercase text-slate-500 tracking-wider">
                 <SortableTableHeader
                   label="Client Company"
                   column="name"
@@ -249,7 +249,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                       <td className="px-4 py-3">
                         <div className="font-semibold text-slate-900">{client.name}</div>
                         {cleanWebsite && cleanWebsite !== 'https://' && (
-                          <div className="text-[10px] text-brand-600 flex items-center gap-1 mt-0.5">
+                          <div className="text-[11px] text-brand-600 flex items-center gap-1 mt-0.5">
                             <Globe className="w-2.5 h-2.5 flex-shrink-0" />
                             <span className="truncate max-w-[200px]">{cleanWebsite}</span>
                           </div>
@@ -261,13 +261,13 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                             {primaryContact?.name || (primaryContact as any)?.fullName || '—'}
                           </span>
                           {extraContactsCount > 0 && (
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-semibold">
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[11px] font-semibold">
                               <Users className="w-2.5 h-2.5" />+{extraContactsCount}
                             </span>
                           )}
                         </div>
                         {primaryContact?.designation && (
-                          <div className="text-[10px] text-slate-400">{primaryContact.designation}</div>
+                          <div className="text-[11px] text-slate-400">{primaryContact.designation}</div>
                         )}
                       </td>
                       <td className="px-4 py-3 text-[11px] text-slate-500">
@@ -276,7 +276,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                           <span>{client.boardNumber || primaryContact?.phone || '—'}</span>
                         </div>
                         {primaryContact?.email && (
-                          <div className="text-[10px] text-slate-400 truncate max-w-[200px]">
+                          <div className="text-[11px] text-slate-400 truncate max-w-[200px]">
                             {primaryContact.email}
                           </div>
                         )}

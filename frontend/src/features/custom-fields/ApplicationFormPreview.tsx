@@ -30,7 +30,7 @@ export const ApplicationFormPreview: React.FC<ApplicationFormPreviewProps> = ({
   const vendorWidth = resolveFormFieldWidth(template, 'vendorName', 'full');
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden text-xs">
+    <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs">
       {/* Agency Header */}
       <div className="px-5 py-3.5 bg-[#141615] text-white flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -39,10 +39,10 @@ export const ApplicationFormPreview: React.FC<ApplicationFormPreviewProps> = ({
           </div>
           <div className="min-w-0">
             <div className="text-xs font-bold text-white truncate">{agencyName}</div>
-            <div className="text-[10px] text-slate-400">Job Application &amp; Resume Upload</div>
+            <div className="text-[11px] text-slate-400">Job Application &amp; Resume Upload</div>
           </div>
         </div>
-        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/25 text-[10px] font-semibold text-emerald-300 whitespace-nowrap">
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/25 text-[11px] font-semibold text-emerald-300 whitespace-nowrap">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
           <span>Open Position</span>
         </span>
@@ -71,7 +71,7 @@ export const ApplicationFormPreview: React.FC<ApplicationFormPreviewProps> = ({
             <div className="text-[11px] font-medium text-slate-700">
               Drop your resume here, or <span className="text-brand-600 underline">browse file</span>
             </div>
-            <div className="text-[10px] text-slate-400 mt-0.5">
+            <div className="text-[11px] text-slate-400 mt-0.5">
               PDF, DOCX, DOC, TXT, or RTF (max 15 MB)
             </div>
           </div>
@@ -236,7 +236,7 @@ export const ApplicationFormPreview: React.FC<ApplicationFormPreviewProps> = ({
 
         {/* Footer Preview */}
         <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 text-[10.5px] text-slate-400">
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
             <span>Direct encrypted submission</span>
           </div>
