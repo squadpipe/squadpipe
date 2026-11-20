@@ -21,29 +21,30 @@ const RIGHT_X = PAGE_WIDTH - MARGIN_X; // 570pt
 const BOTTOM_LIMIT_Y = 64;
 
 const PALETTE = {
-  navy: [15, 23, 42] as RgbColor,
-  navyAlt: [30, 41, 59] as RgbColor,
-  slateBorderDark: [71, 85, 105] as RgbColor,
+  obsidian: [20, 22, 21] as RgbColor,
+  ink: [15, 23, 42] as RgbColor,
+  inkAlt: [30, 41, 59] as RgbColor,
   slateText: [51, 65, 85] as RgbColor,
   mutedText: [100, 116, 139] as RgbColor,
   softText: [148, 163, 184] as RgbColor,
   lightSlateText: [203, 213, 225] as RgbColor,
-  brandIndigo: [79, 70, 229] as RgbColor,
-  brandIndigoSoft: [199, 210, 254] as RgbColor,
-  surfaceSubtle: [248, 250, 252] as RgbColor,
-  pillBg: [241, 245, 249] as RgbColor,
-  borderLight: [226, 232, 240] as RgbColor,
-  borderMedium: [203, 213, 225] as RgbColor,
+  // SquadPipe Deep Spruce Pine brand scale
+  brandPrimary: [15, 92, 86] as RgbColor, // #0F5C56 (brand-600)
+  brandDark: [11, 70, 65] as RgbColor, // #0B4641 (brand-700)
+  brandSoftBg: [240, 247, 245] as RgbColor, // #F0F7F5 (brand-50)
+  brandSoftBorder: [184, 217, 207] as RgbColor, // #B8D9CF (brand-200)
+  // Neutral canvas, cards, and borders
+  cardBg: [250, 250, 250] as RgbColor, // #FAFAFA warm neutral card
+  surfaceSubtle: [248, 250, 252] as RgbColor, // #F8FAFC (slate-50)
+  borderLight: [226, 232, 240] as RgbColor, // #E2E8F0 (slate-200)
+  borderMedium: [203, 213, 225] as RgbColor, // #CBD5E1 (slate-300)
   white: [255, 255, 255] as RgbColor,
-  emeraldBg: [236, 253, 245] as RgbColor,
-  emeraldBorder: [167, 243, 208] as RgbColor,
-  emeraldText: [4, 120, 87] as RgbColor,
-  blueBg: [239, 246, 255] as RgbColor,
-  blueBorder: [191, 219, 254] as RgbColor,
-  blueText: [29, 78, 216] as RgbColor,
-  indigoBg: [238, 242, 255] as RgbColor,
-  indigoBorder: [199, 210, 254] as RgbColor,
-  indigoText: [67, 56, 202] as RgbColor,
+  // Unified semantic status dots matching stageStyles.ts
+  dotEmerald: [16, 185, 129] as RgbColor, // #10B981
+  dotAmber: [245, 158, 11] as RgbColor, // #F59E0B
+  dotZinc: [63, 63, 70] as RgbColor, // #3F3F46
+  dotRose: [244, 63, 94] as RgbColor, // #F43F5E
+  dotSlate: [148, 163, 184] as RgbColor, // #94A3B8
 };
 
 const SUMMARY_SECTION_TITLES = new Set([
@@ -294,18 +295,40 @@ function cleanDisplayUrl(url?: string): string {
     .replace(/\/+$/, '');
 }
 
-function getStageColors(stage?: string): { bg: RgbColor; border: RgbColor; text: RgbColor } {
+function getStageColors(stage?: string): {
+  bg: RgbColor;
+  border: RgbColor;
+  text: RgbColor;
+  dot: RgbColor;
+} {
   const key = (stage || '').trim().toLowerCase();
-  if (key.includes('available') || key.includes('bench')) {
-    return { bg: PALETTE.emeraldBg, border: PALETTE.emeraldBorder, text: PALETTE.emeraldText };
+  const base = { bg: PALETTE.white, border: PALETTE.borderLight, text: PALETTE.slateText };
+
+  if (
+    key.includes('available') ||
+    key.includes('bench') ||
+    key.includes('onboarding') ||
+    key.includes('placed') ||
+    key.includes('billable') ||
+    key.includes('active') ||
+    key.includes('extended') ||
+    key.includes('msa executed')
+  ) {
+    return { ...base, dot: PALETTE.dotEmerald };
   }
-  if (key.includes('submitted')) {
-    return { bg: PALETTE.blueBg, border: PALETTE.blueBorder, text: PALETTE.blueText };
+  if (key.includes('submitted') || key.includes('expiring')) {
+    return { ...base, dot: PALETTE.dotAmber };
   }
-  if (key.includes('billable') || key.includes('selected')) {
-    return { bg: PALETTE.indigoBg, border: PALETTE.indigoBorder, text: PALETTE.indigoText };
+  if (key.includes('interview')) {
+    return { ...base, dot: PALETTE.brandPrimary };
   }
-  return { bg: PALETTE.pillBg, border: PALETTE.borderMedium, text: PALETTE.slateText };
+  if (key.includes('selected')) {
+    return { ...base, dot: PALETTE.dotZinc };
+  }
+  if (key.includes('closed') || key.includes('terminated')) {
+    return { ...base, dot: PALETTE.dotRose };
+  }
+  return { ...base, dot: PALETTE.dotSlate };
 }
 
 function maskCandidateContacts(text: string): string {
@@ -403,7 +426,7 @@ export function generateCandidateResumePdf(
 
     drawRect(cmds, 0, PAGE_HEIGHT - 40, PAGE_WIDTH, 40, PALETTE.surfaceSubtle);
     drawLine(cmds, 0, PAGE_HEIGHT - 40, PAGE_WIDTH, PAGE_HEIGHT - 40, PALETTE.borderLight, 0.8);
-    drawRect(cmds, 0, PAGE_HEIGHT - 42, PAGE_WIDTH, 2, PALETTE.brandIndigo);
+    drawRect(cmds, 0, PAGE_HEIGHT - 42, PAGE_WIDTH, 2, PALETTE.brandPrimary);
     drawText(
       cmds,
       `${truncateTextToWidth(brandName, 250, 8.8, true)}  |  Executive Consultant Profile`,
@@ -411,7 +434,7 @@ export function generateCandidateResumePdf(
       PAGE_HEIGHT - 25,
       8.8,
       true,
-      PALETTE.navy
+      PALETTE.ink
     );
     drawText(
       cmds,
@@ -442,7 +465,7 @@ export function generateCandidateResumePdf(
   // =========================================================================
   // 1. MINIMALIST TOP ACCENT & BRAND HEADER (Page 1)
   // =========================================================================
-  drawRect(cmds, 0, PAGE_HEIGHT - 3.5, PAGE_WIDTH, 3.5, PALETTE.navy);
+  drawRect(cmds, 0, PAGE_HEIGHT - 3.5, PAGE_WIDTH, 3.5, PALETTE.brandPrimary);
 
   const brandSize = measurePdfTextWidth(brandName, 12.5, true) > 280 ? 10.5 : 12.5;
   drawText(
@@ -452,7 +475,7 @@ export function generateCandidateResumePdf(
     756,
     brandSize,
     true,
-    PALETTE.navy
+    PALETTE.obsidian
   );
 
   drawText(
@@ -462,7 +485,7 @@ export function generateCandidateResumePdf(
     761,
     7.6,
     true,
-    PALETTE.brandIndigo,
+    PALETTE.brandPrimary,
     'right'
   );
   drawText(cmds, `Prepared ${preparedDate}`, RIGHT_X, 748, 8.0, false, PALETTE.mutedText, 'right');
@@ -473,7 +496,7 @@ export function generateCandidateResumePdf(
   drawText(cmds, 'PRESENTED CONSULTANT', MARGIN_X, 718, 7.2, true, PALETTE.mutedText);
 
   const fullNameText = truncateTextToWidth(candidate.fullName || 'Consultant Profile', 360, 21.5, true);
-  drawText(cmds, fullNameText, MARGIN_X, 691, 21.5, true, PALETTE.navy);
+  drawText(cmds, fullNameText, MARGIN_X, 691, 21.5, true, PALETTE.ink);
 
   const roleTitleText = truncateTextToWidth(candidate.currentTitle || 'Technology Consultant', 260, 10.2, false);
   const roleTitleW = measurePdfTextWidth(roleTitleText, 10.2, false);
@@ -481,18 +504,19 @@ export function generateCandidateResumePdf(
 
   const stageLabel = candidate.pipelineStage || 'Available / Bench';
   const stagePalette = getStageColors(stageLabel);
-  const stagePillW = Math.min(148, Math.max(66, measurePdfTextWidth(stageLabel, 7.8, true) + 20));
+  const stagePillW = Math.min(148, Math.max(66, measurePdfTextWidth(stageLabel, 7.8, true) + 27));
   const stagePillX = MARGIN_X + roleTitleW + 10;
-  drawRoundedRect(cmds, stagePillX, 664.2, stagePillW, 16, 8, stagePalette.bg, stagePalette.border, 0.5);
+  drawRoundedRect(cmds, stagePillX, 664.2, stagePillW, 16, 8, stagePalette.bg, stagePalette.border, 0.6);
+  drawRoundedRect(cmds, stagePillX + 8.5, 669.9, 4.6, 4.6, 2.3, stagePalette.dot);
   drawText(
     cmds,
-    truncateTextToWidth(stageLabel, stagePillW - 14, 7.8, true),
-    stagePillX + stagePillW / 2,
+    truncateTextToWidth(stageLabel, stagePillW - 25.5, 7.8, true),
+    stagePillX + 17.5,
     669.4,
     7.8,
     true,
     stagePalette.text,
-    'center'
+    'left'
   );
 
   // Right-aligned Bill / Target Rate block
@@ -507,7 +531,7 @@ export function generateCandidateResumePdf(
     if (suffixRate) {
       drawText(cmds, suffixRate, RIGHT_X, 692, 9.2, false, PALETTE.mutedText, 'right');
     }
-    drawText(cmds, mainRate, RIGHT_X - suffixW - (suffixW ? 1.5 : 0), 691, 21.5, true, PALETTE.navy, 'right');
+    drawText(cmds, mainRate, RIGHT_X - suffixW - (suffixW ? 1.5 : 0), 691, 21.5, true, PALETTE.ink, 'right');
 
     const rateTypeLabel = String((candidate as any).rateType || '').trim();
     if (rateTypeLabel) {
@@ -520,11 +544,11 @@ export function generateCandidateResumePdf(
   // =========================================================================
   // 3. CLEAN SECTION HEADER HELPER (Short rounded accent dash + Uppercase label)
   // =========================================================================
-  const softCardBg: RgbColor = [245, 246, 250];
+  const softCardBg = PALETTE.cardBg;
   const drawSectionHeader = (title: string) => {
     ensureSpace(44);
-    drawRoundedRect(cmds, MARGIN_X, cursorY + 1.5, 13, 2.4, 1.2, PALETTE.navy);
-    drawText(cmds, title.toUpperCase(), MARGIN_X + 19, cursorY, 7.8, true, PALETTE.navy);
+    drawRoundedRect(cmds, MARGIN_X, cursorY + 1.5, 13, 2.4, 1.2, PALETTE.brandPrimary);
+    drawText(cmds, title.toUpperCase(), MARGIN_X + 19, cursorY, 7.8, true, PALETTE.ink);
     cursorY -= 16;
   };
 
@@ -564,7 +588,7 @@ export function generateCandidateResumePdf(
   ];
 
   contactCards.forEach((card) => {
-    drawRoundedRect(cmds, card.x, contactBottom, card.w, contactCardH, 7, softCardBg);
+    drawRoundedRect(cmds, card.x, contactBottom, card.w, contactCardH, 7, softCardBg, PALETTE.borderLight, 0.55);
     if (card.twoLineLabel) {
       drawText(cmds, card.label, card.x + 12, contactBottom + 34.5, 6.5, true, PALETTE.mutedText);
       drawText(cmds, card.twoLineLabel, card.x + 12, contactBottom + 26.5, 6.5, true, PALETTE.mutedText);
@@ -575,7 +599,7 @@ export function generateCandidateResumePdf(
         contactBottom + 11.5,
         9.0,
         true,
-        PALETTE.navy
+        PALETTE.ink
       );
     } else {
       drawText(cmds, card.label, card.x + 12, contactBottom + 31.5, 6.5, true, PALETTE.mutedText);
@@ -586,7 +610,7 @@ export function generateCandidateResumePdf(
         contactBottom + 15.5,
         9.0,
         true,
-        PALETTE.navy
+        PALETTE.ink
       );
     }
   });
@@ -645,8 +669,8 @@ export function generateCandidateResumePdf(
       }
 
       const pillBottom = cursorY - pillHeight + 11;
-      drawRoundedRect(cmds, pillX, pillBottom, pillW, pillHeight, 9.5, PALETTE.white, PALETTE.borderMedium, 0.7);
-      drawText(cmds, safeLabel, pillX + pillW / 2, pillBottom + 6.8, 8.2, true, PALETTE.navyAlt, 'center');
+      drawRoundedRect(cmds, pillX, pillBottom, pillW, pillHeight, 9.5, PALETTE.white, PALETTE.borderLight, 0.65);
+      drawText(cmds, safeLabel, pillX + pillW / 2, pillBottom + 6.8, 8.2, true, PALETTE.slateText, 'center');
       pillX += pillW + gapX;
     }
     cursorY -= 34;
@@ -667,6 +691,7 @@ export function generateCandidateResumePdf(
     label2?: string;
     value: string;
     valueColor?: RgbColor;
+    statusDot?: RgbColor;
   }> = [
     {
       label1: 'PRIMARY',
@@ -676,7 +701,8 @@ export function generateCandidateResumePdf(
     {
       label1: 'PIPELINE READINESS',
       value: stageLabel,
-      valueColor: stagePalette.text,
+      valueColor: PALETTE.ink,
+      statusDot: stagePalette.dot,
     },
     {
       label1: 'WORK AUTHORIZATION',
@@ -690,19 +716,23 @@ export function generateCandidateResumePdf(
 
   readinessCards.forEach((rc, idx) => {
     const cx = MARGIN_X + idx * (col4W + gridGap);
-    drawRoundedRect(cmds, cx, readinessBottom, col4W, readinessCardH, 7, softCardBg);
+    drawRoundedRect(cmds, cx, readinessBottom, col4W, readinessCardH, 7, softCardBg, PALETTE.borderLight, 0.55);
     if (rc.label2) {
       drawText(cmds, rc.label1, cx + 11, readinessBottom + 41.5, 6.4, true, PALETTE.mutedText);
       drawText(cmds, rc.label2, cx + 11, readinessBottom + 33.5, 6.4, true, PALETTE.mutedText);
       const valLines = wrapText(rc.value, col4W - 22, 8.8, true).slice(0, 2);
       valLines.forEach((vl, lIdx) => {
-        drawText(cmds, vl, cx + 11, readinessBottom + 19 - lIdx * 11, 8.8, true, rc.valueColor || PALETTE.navy);
+        drawText(cmds, vl, cx + 11, readinessBottom + 19 - lIdx * 11, 8.8, true, rc.valueColor || PALETTE.ink);
       });
     } else {
       drawText(cmds, rc.label1, cx + 11, readinessBottom + 40, 6.4, true, PALETTE.mutedText);
-      const valLines = wrapText(rc.value, col4W - 22, 8.8, true).slice(0, 2);
+      if (rc.statusDot) {
+        drawRoundedRect(cmds, cx + 11, readinessBottom + 23.9, 4.4, 4.4, 2.2, rc.statusDot);
+      }
+      const valLines = wrapText(rc.value, col4W - (rc.statusDot ? 30 : 22), 8.8, true).slice(0, 2);
       valLines.forEach((vl, lIdx) => {
-        drawText(cmds, vl, cx + 11, readinessBottom + 23 - lIdx * 11, 8.8, true, rc.valueColor || PALETTE.navy);
+        const valX = rc.statusDot && lIdx === 0 ? cx + 19 : cx + 11;
+        drawText(cmds, vl, valX, readinessBottom + 23 - lIdx * 11, 8.8, true, rc.valueColor || PALETTE.ink);
       });
     }
   });
@@ -714,10 +744,10 @@ export function generateCandidateResumePdf(
   const eduCardH = Math.max(44, 26 + Math.max(1, eduLines.length) * 12);
   ensureSpace(eduCardH + 10);
   const eduBottom = cursorY - eduCardH;
-  drawRoundedRect(cmds, MARGIN_X, eduBottom, CONTENT_WIDTH, eduCardH, 7, softCardBg);
+  drawRoundedRect(cmds, MARGIN_X, eduBottom, CONTENT_WIDTH, eduCardH, 7, softCardBg, PALETTE.borderLight, 0.55);
   drawText(cmds, 'EDUCATION', MARGIN_X + 12, eduBottom + eduCardH - 15, 6.5, true, PALETTE.mutedText);
   eduLines.forEach((line, idx) => {
-    drawText(cmds, line, MARGIN_X + 12, eduBottom + eduCardH - 30 - idx * 12, 9.0, true, PALETTE.navy);
+    drawText(cmds, line, MARGIN_X + 12, eduBottom + eduCardH - 30 - idx * 12, 9.0, true, PALETTE.ink);
   });
   cursorY = eduBottom - 22;
 
@@ -728,7 +758,7 @@ export function generateCandidateResumePdf(
     drawSectionHeader('Experience & Profile Highlights');
     for (const section of detailSections) {
       ensureSpace(26);
-      drawText(cmds, section.title.toUpperCase(), MARGIN_X, cursorY, 8.4, true, PALETTE.brandIndigo);
+      drawText(cmds, section.title.toUpperCase(), MARGIN_X, cursorY, 8.4, true, PALETTE.brandPrimary);
       cursorY -= 14;
 
       for (const rawLine of section.items) {
@@ -743,7 +773,7 @@ export function generateCandidateResumePdf(
         wrapped.forEach((wLine, idx) => {
           ensureSpace(14);
           if (isBullet && idx === 0) {
-            drawRoundedRect(cmds, MARGIN_X + 4, cursorY + 2.2, 3.2, 3.2, 1.6, PALETTE.brandIndigo);
+            drawRoundedRect(cmds, MARGIN_X + 4, cursorY + 2.2, 3.2, 3.2, 1.6, PALETTE.brandPrimary);
           }
           if (wLine) {
             drawText(
@@ -776,7 +806,7 @@ export function generateCandidateResumePdf(
       valLines.forEach((vl, idx) => {
         ensureSpace(14);
         if (idx === 0) {
-          drawText(cmds, labelPrefix, MARGIN_X + 4, cursorY, 8.8, true, PALETTE.navy);
+          drawText(cmds, labelPrefix, MARGIN_X + 4, cursorY, 8.8, true, PALETTE.ink);
         }
         drawText(cmds, vl, MARGIN_X + 4 + prefixW, cursorY, 8.8, false, PALETTE.slateText);
         cursorY -= 13.5;
@@ -799,7 +829,7 @@ export function generateCandidateResumePdf(
       32,
       7.8,
       true,
-      PALETTE.slateText
+      PALETTE.inkAlt
     );
     drawText(
       pageCmds,
