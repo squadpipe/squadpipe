@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { resolveAiConfig } from '../../src/config/ai.config';
 import { AiService } from '../../src/services/ai/ai.service';
 import {
+  CapabilityService,
   evaluateCandidateCapabilityPure,
   formatRecommendationLabel,
   preFilterCandidatesForMatch,
@@ -173,6 +174,79 @@ export const runCapabilityTests = async () => {
   assert.equal(sortedBatch.rankings[0].fitScore, 94);
   assert.ok(sortedBatch.rankings[0].fitScore >= sortedBatch.rankings[1].fitScore);
   assert.ok(sortedBatch.rankings[1].fitScore >= sortedBatch.rankings[2].fitScore);
+
+  // 6. Auto-attach capability hook never persists misleading 0% non-AI Low Fit placeholders
+  const capabilitySvc = new CapabilityService();
+  await capabilitySvc.evaluateNewlyAttachedSubmissions(
+    [
+      {
+        id: 'sub-unscored-single',
+        candidate: {
+          id: 'cand-1',
+          fullName: 'Samira Rao',
+          currentTitle: 'QA Analyst',
+          skillset: 'Selenium, Postman',
+          workAuth: 'US Citizen',
+          relocation: 'No',
+          hourlyRateDisplay: '$60/hr',
+          rawSnippet: 'Manual and Selenium API QA testing.',
+        },
+      },
+    ],
+    {
+      id: 'req-1',
+      code: 'REQ-900',
+      companyName: 'Apex Cloud',
+      opportunityTitle: 'Principal Rust Kernel Engineer',
+      skillsRequired: 'Rust, Linux Kernel, eBPF',
+      location: 'Remote',
+      workModel: 'Remote',
+      rawEmailText: null,
+    },
+    { tenantId: 'tenant-1', aiSvc: offlineAi }
+  );
+
+  await capabilitySvc.evaluateNewlyAttachedSubmissions(
+    [
+      {
+        id: 'sub-batch-1',
+        candidate: {
+          id: 'c-b1',
+          fullName: 'Dev One',
+          currentTitle: 'Backend Engineer',
+          skillset: 'Java, Spring Boot',
+          workAuth: 'GC',
+          relocation: 'No',
+          hourlyRateDisplay: null,
+          rawSnippet: 'Java microservices.',
+        },
+      },
+      {
+        id: 'sub-batch-2',
+        candidate: {
+          id: 'c-b2',
+          fullName: 'Dev Two',
+          currentTitle: 'Frontend Engineer',
+          skillset: 'React, TypeScript',
+          workAuth: 'USC',
+          relocation: 'No',
+          hourlyRateDisplay: null,
+          rawSnippet: 'React dashboards.',
+        },
+      },
+    ],
+    {
+      id: 'req-2',
+      code: 'REQ-901',
+      companyName: 'Apex Cloud',
+      opportunityTitle: 'Platform Architect',
+      skillsRequired: 'Rust, Kubernetes, Terraform',
+      location: 'Remote',
+      workModel: 'Remote',
+      rawEmailText: null,
+    },
+    { tenantId: 'tenant-1', aiSvc: activeAi }
+  );
 
   console.log('✅ Submitted Resume Capability Check Tests: PASSED');
 };

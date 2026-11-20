@@ -46,6 +46,20 @@ export interface CapabilityBadgeStyle {
 }
 
 /**
+ * Returns whether a submission already has an evaluated fit score (treating non-AI 0%
+ * placeholders as unchecked when AI evaluation is enabled).
+ */
+export function hasEvaluatedFitScore(
+  score?: number | null,
+  summary?: CapabilitySummary | null,
+  aiEnabled = false
+): boolean {
+  if (typeof score !== 'number') return false;
+  if (score === 0 && !summary?.evaluatedWithAi && aiEnabled) return false;
+  return true;
+}
+
+/**
  * Resolve color tokens and label for a submission's capability fit score.
  */
 export function getCapabilityBadgeStyle(
@@ -706,7 +720,11 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
   }, [modalOpen, isEvaluating, onClose]);
 
   const { displayName, initials } = formatSubmissionPersonName(submission?.fullName);
-  const hasScore = typeof submission?.capabilityScore === 'number';
+  const hasScore = hasEvaluatedFitScore(
+    submission?.capabilityScore,
+    submission?.capabilitySummary,
+    aiEnabled
+  );
   const score = hasScore
     ? Math.max(0, Math.min(100, Math.round(submission!.capabilityScore!)))
     : null;

@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check,
-  CheckCircle2,
   ChevronDown,
   ChevronUp,
   Copy,
+  Eye,
   FileText,
   Pencil,
   Plus,
@@ -14,11 +14,17 @@ import {
   X,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
-import { ApplicationFormCustomField, ApplicationFormTemplate } from '../../types';
+import {
+  ApplicationFormCustomField,
+  ApplicationFormFieldWidth,
+  ApplicationFormTemplate,
+} from '../../types';
 import {
   DEFAULT_APPLICATION_FORMS,
+  resolveFormFieldWidth,
   summarizeFormTemplateFields,
 } from '../../utils/applicationForms';
+import { ApplicationFormPreview } from './ApplicationFormPreview';
 import { INVALID_FIELD_CLASSES } from '../../utils/formValidation';
 import { sortArrayByColumn, useTableSort } from '../../utils/tableSort';
 import { useDebounce } from '../../utils/useDebounce';
@@ -27,6 +33,7 @@ import { ConfirmDeleteModal } from '../../components/shared/ConfirmDeleteModal';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
+import { StatusBadge } from '../../components/shared/StatusBadge';
 import { TablePagination } from '../../components/shared/TablePagination';
 
 interface ApplicationFormsSectionProps {
@@ -52,6 +59,9 @@ const EMPTY_FORM_DRAFT: Omit<ApplicationFormTemplate, 'id'> = {
   requireNoticePeriod: false,
   includeLinkedinUrl: false,
   requireLinkedinUrl: false,
+  fieldWidths: {
+    vendorName: 'full',
+  },
   customFieldKeys: [],
   customFields: [],
 };
@@ -69,31 +79,43 @@ const STANDARD_TOGGLE_FIELDS: Array<{
     | 'requireVendorName'
     | 'requireNoticePeriod'
     | 'requireLinkedinUrl';
+  widthKey: 'currentTitle' | 'expectedRate' | 'vendorName' | 'noticePeriod' | 'linkedinUrl';
+  defaultWidth: ApplicationFormFieldWidth;
   label: string;
 }> = [
   {
     includeKey: 'includeCurrentTitle',
     requireKey: 'requireCurrentTitle',
+    widthKey: 'currentTitle',
+    defaultWidth: 'half',
     label: 'Current Job Title',
   },
   {
     includeKey: 'includeExpectedRate',
     requireKey: 'requireExpectedRate',
+    widthKey: 'expectedRate',
+    defaultWidth: 'half',
     label: 'Expected Hourly Rate',
   },
   {
     includeKey: 'includeVendorName',
     requireKey: 'requireVendorName',
+    widthKey: 'vendorName',
+    defaultWidth: 'full',
     label: 'Partner / Vendor Agency Name',
   },
   {
     includeKey: 'includeNoticePeriod',
     requireKey: 'requireNoticePeriod',
+    widthKey: 'noticePeriod',
+    defaultWidth: 'half',
     label: 'Availability / Notice Period',
   },
   {
     includeKey: 'includeLinkedinUrl',
     requireKey: 'requireLinkedinUrl',
+    widthKey: 'linkedinUrl',
+    defaultWidth: 'half',
     label: 'LinkedIn Profile URL',
   },
 ];
@@ -107,6 +129,34 @@ const CUSTOM_TYPE_OPTIONS: Array<{ value: CustomQuestionType; label: string }> =
   { value: 'BOOLEAN', label: 'Yes / No' },
   { value: 'DROPDOWN', label: 'Dropdown' },
 ];
+
+const FieldWidthToggle: React.FC<{
+  value: ApplicationFormFieldWidth;
+  onChange: (next: ApplicationFormFieldWidth) => void;
+  ariaLabel?: string;
+}> = ({ value, onChange, ariaLabel = 'Field width' }) => (
+  <div
+    className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 p-0.5 shrink-0"
+    role="group"
+    aria-label={ariaLabel}
+  >
+    {(['half', 'full'] as const).map((opt) => (
+      <button
+        key={opt}
+        type="button"
+        onClick={() => onChange(opt)}
+        title={opt === 'half' ? 'Half width (50%)' : 'Full width (100%)'}
+        className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors cursor-pointer ${
+          value === opt
+            ? 'bg-slate-900 text-white shadow-2xs'
+            : 'text-slate-500 hover:text-slate-800'
+        }`}
+      >
+        {opt === 'half' ? 'Half' : 'Full'}
+      </button>
+    ))}
+  </div>
+);
 
 export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = ({
   customFields,
@@ -135,11 +185,14 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
   const [newCustomType, setNewCustomType] = useState<CustomQuestionType>('TEXT');
   const [newCustomOptions, setNewCustomOptions] = useState('');
   const [newCustomRequired, setNewCustomRequired] = useState(false);
+  const [newCustomWidth, setNewCustomWidth] = useState<ApplicationFormFieldWidth>('half');
   const [customDraftError, setCustomDraftError] = useState('');
   const [validationAttempted, setValidationAttempted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [mobileModalTab, setMobileModalTab] = useState<'edit' | 'preview'>('edit');
 
-  // Row quick actions state
+  // Row quick actions & preview modal state
+  const [previewForm, setPreviewForm] = useState<ApplicationFormTemplate | null>(null);
   const [settingDefaultId, setSettingDefaultId] = useState<string | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [formToDelete, setFormToDelete] = useState<ApplicationFormTemplate | null>(null);
@@ -235,6 +288,7 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
     setNewCustomType('TEXT');
     setNewCustomOptions('');
     setNewCustomRequired(false);
+    setNewCustomWidth('half');
     setCustomDraftError('');
   };
 
@@ -245,13 +299,17 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
     setCustomOptionsText({});
     resetCustomQuestionAdder();
     setValidationAttempted(false);
+    setMobileModalTab('edit');
     setIsModalOpen(true);
   };
 
   const openEditModal = (form: ApplicationFormTemplate) => {
     setEditingFormId(form.id);
     setEditingOriginalIsDefault(Boolean(form.isDefault));
-    const initialCustomFields = [...(form.customFields || [])];
+    const initialCustomFields = [...(form.customFields || [])].map((cf) => ({
+      ...cf,
+      width: cf.width || ('half' as ApplicationFormFieldWidth),
+    }));
     const optionsMap: Record<string, string> = {};
     for (const cf of initialCustomFields) {
       if (cf.type === 'DROPDOWN') {
@@ -277,11 +335,16 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
       requireNoticePeriod: form.requireNoticePeriod,
       includeLinkedinUrl: form.includeLinkedinUrl,
       requireLinkedinUrl: form.requireLinkedinUrl,
+      fieldWidths: {
+        vendorName: 'full',
+        ...(form.fieldWidths || {}),
+      },
       customFieldKeys: [...(form.customFieldKeys || [])],
       customFields: initialCustomFields,
     });
     resetCustomQuestionAdder();
     setValidationAttempted(false);
+    setMobileModalTab('edit');
     setIsModalOpen(true);
   };
 
@@ -305,6 +368,7 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
       name: trimmed,
       type: newCustomType,
       required: newCustomRequired,
+      width: newCustomWidth,
       ...(newCustomType === 'DROPDOWN' ? { options: parsedOptions } : {}),
     };
   };
@@ -655,11 +719,7 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
                     <tr
                       key={form.id}
                       onClick={() => openEditModal(form)}
-                      className={`transition-colors cursor-pointer ${
-                        form.isDefault
-                          ? 'bg-emerald-50/20 hover:bg-emerald-50/40'
-                          : 'hover:bg-slate-50/70'
-                      }`}
+                      className="hover:bg-slate-50/70 transition-colors cursor-pointer"
                     >
                       <td className="py-3.5 px-5 align-top max-w-[260px]">
                         <div className="font-bold text-slate-900 leading-snug break-words">
@@ -678,16 +738,21 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
                           {visibleChips.map((chip, idx) => (
                             <span
                               key={`${chip.label}_${idx}`}
-                              className={`px-2 py-0.5 rounded-md text-[10.5px] font-medium border ${
+                              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10.5px] font-medium border ${
                                 chip.isCustom
-                                  ? 'bg-indigo-50/70 border-indigo-200 text-indigo-700'
+                                  ? 'bg-white border-slate-300/90 text-slate-800'
                                   : chip.required
-                                    ? 'bg-slate-100 border-slate-200 text-slate-800 font-semibold'
-                                    : 'bg-white border-slate-200 text-slate-600'
+                                    ? 'bg-slate-100/80 border-slate-200/90 text-slate-800 font-semibold'
+                                    : 'bg-white border-slate-200/80 text-slate-600'
                               }`}
                             >
-                              {chip.label}
-                              {chip.required ? ' *' : ''}
+                              {chip.isCustom && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-brand-600 shrink-0" />
+                              )}
+                              <span>
+                                {chip.label}
+                                {chip.required ? ' *' : ''}
+                              </span>
                             </span>
                           ))}
                           {hiddenCount > 0 && (
@@ -709,10 +774,14 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
 
                       <td className="py-3.5 px-4 align-top whitespace-nowrap">
                         {customChips.length > 0 ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10.5px] font-semibold">
-                            {customChips.length}{' '}
-                            {customChips.length === 1 ? 'Question' : 'Questions'}
-                          </span>
+                          <StatusBadge
+                            tone="brand"
+                            shape="rounded"
+                            label={`${customChips.length} ${
+                              customChips.length === 1 ? 'Question' : 'Questions'
+                            }`}
+                            className="py-1 tabular-nums"
+                          />
                         ) : (
                           <span className="text-[11px] text-slate-400">Standard only</span>
                         )}
@@ -723,18 +792,20 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
                         onClick={(e) => e.stopPropagation()}
                       >
                         {form.isDefault ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>Default</span>
-                          </span>
+                          <StatusBadge
+                            tone="emerald"
+                            shape="rounded"
+                            label="Default"
+                            className="py-1 font-semibold"
+                          />
                         ) : (
                           <button
                             type="button"
                             disabled={settingDefaultId === form.id || isLoading}
                             onClick={() => handleSetDefault(form)}
-                            className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-brand-50 hover:border-brand-200 text-slate-700 hover:text-brand-700 text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                            className="px-2.5 py-1 rounded-md border border-slate-200/90 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-600 hover:text-slate-900 text-[11px] font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
                           >
-                            <Star className="w-3 h-3" />
+                            <Star className="w-3 h-3 text-slate-400" />
                             <span>
                               {settingDefaultId === form.id ? 'Setting...' : 'Make Default'}
                             </span>
@@ -747,6 +818,15 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="inline-flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewForm(form)}
+                            title="Preview application form"
+                            className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-brand-50 hover:border-brand-200 text-slate-700 hover:text-brand-700 text-[11px] font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>Preview</span>
+                          </button>
                           <button
                             type="button"
                             onClick={() => openEditModal(form)}
@@ -806,10 +886,10 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
         isOpen={isModalOpen}
         onBackdropClick={() => !isSaving && setIsModalOpen(false)}
         zIndexClass="z-50"
-        panelClassName="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        panelClassName="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-5xl overflow-hidden flex flex-col max-h-[92vh]"
         ariaLabel={editingFormId ? 'Edit Application Form' : 'New Application Form'}
       >
-        <div className="px-6 py-4 bg-[#141615] text-white border-b border-white/10 flex items-center justify-between gap-3">
+        <div className="px-6 py-4 bg-[#141615] text-white border-b border-white/10 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center shrink-0">
               <FileText className="w-4 h-4" />
@@ -824,7 +904,7 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Configure applicant fields and extra screening questions in one place.
+                Configure fields, choose Half / Full row width, and preview the applicant form live.
               </p>
             </div>
           </div>
@@ -838,7 +918,40 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
           </button>
         </div>
 
-        <form noValidate onSubmit={handleSaveForm} className="p-6 overflow-y-auto space-y-5 text-xs">
+        {/* Mobile Builder / Live Preview Switcher */}
+        <div className="lg:hidden px-5 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setMobileModalTab('edit')}
+            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+              mobileModalTab === 'edit'
+                ? 'bg-slate-900 text-white shadow-2xs'
+                : 'bg-white border border-slate-200 text-slate-600'
+            }`}
+          >
+            Form Builder
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileModalTab('preview')}
+            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+              mobileModalTab === 'preview'
+                ? 'bg-slate-900 text-white shadow-2xs'
+                : 'bg-white border border-slate-200 text-slate-600'
+            }`}
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span>Live Preview</span>
+          </button>
+        </div>
+
+        <form noValidate onSubmit={handleSaveForm} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+            <div
+              className={`lg:col-span-7 overflow-y-auto p-6 space-y-5 text-xs ${
+                mobileModalTab === 'preview' ? 'hidden lg:block' : 'block'
+              }`}
+            >
           {/* 1. Form Identity */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -905,22 +1018,27 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
 
           {/* 2. Optional / Required Standard Fields */}
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500">
                 Standard Fields ({enabledStandardCount} of {STANDARD_TOGGLE_FIELDS.length} active)
               </span>
               <span className="text-[10.5px] text-slate-400">
-                Click pill on right to switch Optional / Required
+                Set Half / Full width &amp; Optional / Required
               </span>
             </div>
             <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden">
               {STANDARD_TOGGLE_FIELDS.map((field) => {
                 const included = Boolean(draft[field.includeKey]);
                 const required = Boolean(draft[field.requireKey]);
+                const fieldWidth = resolveFormFieldWidth(
+                  draft,
+                  field.widthKey,
+                  field.defaultWidth
+                );
                 return (
                   <div
                     key={field.includeKey}
-                    className={`px-3.5 py-2.5 flex items-center justify-between gap-3 transition-colors ${
+                    className={`px-3.5 py-2.5 flex items-center justify-between gap-2.5 transition-colors ${
                       included ? 'bg-white' : 'bg-slate-50/50'
                     }`}
                   >
@@ -938,7 +1056,7 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
                         className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 cursor-pointer"
                       />
                       <span
-                        className={`font-semibold ${
+                        className={`font-semibold truncate ${
                           included ? 'text-slate-800' : 'text-slate-400'
                         }`}
                       >
@@ -947,22 +1065,37 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
                     </label>
 
                     {included ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            [field.requireKey]: !required,
-                          }))
-                        }
-                        className={`px-2.5 py-1 rounded-md text-[10.5px] font-semibold border transition-colors cursor-pointer shrink-0 ${
-                          required
-                            ? 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100'
-                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                        }`}
-                      >
-                        {required ? 'Required *' : 'Optional'}
-                      </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <FieldWidthToggle
+                          value={fieldWidth}
+                          ariaLabel={`${field.label} width`}
+                          onChange={(nextWidth) =>
+                            setDraft((prev) => ({
+                              ...prev,
+                              fieldWidths: {
+                                ...(prev.fieldWidths || {}),
+                                [field.widthKey]: nextWidth,
+                              },
+                            }))
+                          }
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDraft((prev) => ({
+                              ...prev,
+                              [field.requireKey]: !required,
+                            }))
+                          }
+                          className={`px-2.5 py-1 rounded-md text-[10.5px] font-semibold border transition-colors cursor-pointer shrink-0 ${
+                            required
+                              ? 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100'
+                              : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          {required ? 'Required *' : 'Optional'}
+                        </button>
+                      </div>
                     ) : (
                       <span className="text-[10.5px] text-slate-400 shrink-0">Hidden</span>
                     )}
@@ -974,12 +1107,12 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
 
           {/* 3. Custom Questions Directly on This Form */}
           <div className="space-y-2.5">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500">
                 Custom Form Questions ({(draft.customFields || []).length})
               </span>
               <span className="text-[10.5px] text-slate-400">
-                Saved directly to candidates on this form
+                Choose Half (50%) or Full (100%) width per question
               </span>
             </div>
 
@@ -1014,10 +1147,10 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
                         value={cf.name}
                         onChange={(e) => handleUpdateCustomField(cf.key, { name: e.target.value })}
                         placeholder="Question / field label..."
-                        className="flex-1 min-w-[160px] px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-800 focus:border-brand-500 focus:outline-none"
+                        className="flex-1 min-w-[140px] px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-800 focus:border-brand-500 focus:outline-none"
                       />
 
-                      <div className="w-28 shrink-0">
+                      <div className="w-26 shrink-0">
                         <CustomSelect
                           value={cf.type}
                           onChange={(val) =>
@@ -1034,18 +1167,26 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
                         />
                       </div>
 
+                      <FieldWidthToggle
+                        value={cf.width || 'half'}
+                        ariaLabel={`${cf.name || 'Question'} width`}
+                        onChange={(nextWidth) =>
+                          handleUpdateCustomField(cf.key, { width: nextWidth })
+                        }
+                      />
+
                       <button
                         type="button"
                         onClick={() =>
                           handleUpdateCustomField(cf.key, { required: !cf.required })
                         }
-                        className={`px-2.5 py-1 rounded-md text-[10.5px] font-semibold border transition-colors cursor-pointer shrink-0 ${
+                        className={`px-2 py-1 rounded-md text-[10.5px] font-semibold border transition-colors cursor-pointer shrink-0 ${
                           cf.required
                             ? 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100'
                             : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                         }`}
                       >
-                        {cf.required ? 'Required *' : 'Optional'}
+                        {cf.required ? 'Req *' : 'Opt'}
                       </button>
 
                       <button
@@ -1103,10 +1244,10 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
                       handleAddInlineCustomField();
                     }
                   }}
-                  placeholder="Add custom question (e.g. GitHub URL, Earliest Start Date)..."
-                  className="flex-1 min-w-[170px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs focus:border-brand-500 focus:outline-none"
+                  placeholder="Add custom question (e.g. How soon you join ?, GitHub URL)..."
+                  className="flex-1 min-w-[150px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs focus:border-brand-500 focus:outline-none"
                 />
-                <div className="w-28 shrink-0">
+                <div className="w-26 shrink-0">
                   <CustomSelect
                     value={newCustomType}
                     onChange={(val) => {
@@ -1118,6 +1259,11 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
                     options={CUSTOM_TYPE_OPTIONS}
                   />
                 </div>
+                <FieldWidthToggle
+                  value={newCustomWidth}
+                  ariaLabel="New question width"
+                  onChange={setNewCustomWidth}
+                />
                 <button
                   type="button"
                   onClick={() => setNewCustomRequired((prev) => !prev)}
@@ -1163,9 +1309,27 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
               )}
             </div>
           </div>
+          </div>
+
+          {/* Right Live Preview Pane */}
+          <div
+            className={`lg:col-span-5 overflow-y-auto p-5 bg-slate-50/80 border-t lg:border-t-0 lg:border-l border-slate-200 space-y-3 ${
+              mobileModalTab === 'edit' ? 'hidden lg:block' : 'block'
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-slate-500">
+                <Eye className="w-3.5 h-3.5 text-brand-600" />
+                <span>Live Form Preview</span>
+              </div>
+              <span className="text-[10.5px] text-slate-400">Updates as you edit</span>
+            </div>
+            <ApplicationFormPreview template={draft} />
+          </div>
+        </div>
 
           {/* Footer Default Selection + Save/Cancel */}
-          <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="shrink-0 px-6 py-3.5 bg-white border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
             {editingOriginalIsDefault ? (
               <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg self-start sm:self-auto">
                 <Star className="w-3.5 h-3.5 fill-emerald-500 text-emerald-600" />
@@ -1205,6 +1369,74 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
             </div>
           </div>
         </form>
+      </AnimatedModal>
+
+      {/* Template Preview Modal */}
+      <AnimatedModal
+        isOpen={Boolean(previewForm)}
+        onBackdropClick={() => setPreviewForm(null)}
+        zIndexClass="z-50"
+        panelClassName="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        ariaLabel={previewForm ? `Preview ${previewForm.name}` : 'Preview Application Form'}
+      >
+        {previewForm && (
+          <>
+            <div className="px-5 py-3.5 bg-[#141615] text-white border-b border-white/10 flex items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center shrink-0">
+                  <Eye className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-sm font-bold text-white truncate">{previewForm.name}</h3>
+                    {previewForm.isDefault && (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-[10px] font-semibold text-emerald-300">
+                        Default
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Public applicant view preview (
+                    {summarizeFormTemplateFields(previewForm, customFields).length} fields)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewForm(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-md hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 bg-slate-50/80 overflow-y-auto flex-1">
+              <ApplicationFormPreview template={previewForm} />
+            </div>
+
+            <div className="px-5 py-3 bg-white border-t border-slate-100 flex items-center justify-end gap-2 shrink-0 text-xs">
+              <button
+                type="button"
+                onClick={() => setPreviewForm(null)}
+                className="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = previewForm;
+                  setPreviewForm(null);
+                  openEditModal(target);
+                }}
+                className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <Pencil className="w-3 h-3" />
+                <span>Edit Form</span>
+              </button>
+            </div>
+          </>
+        )}
       </AnimatedModal>
 
       <ConfirmDeleteModal

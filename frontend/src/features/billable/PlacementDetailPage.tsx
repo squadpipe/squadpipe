@@ -297,68 +297,6 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
 
   const readyCheckCount = agreementChecks.filter((item) => item.status === 'ok').length;
 
-  const quickLinkedEntities: Array<{
-    key: string;
-    role: string;
-    name: string;
-    meta: string;
-    icon: React.ComponentType<{ className?: string }>;
-    iconClass: string;
-    onOpen?: () => void;
-  }> = [
-    {
-      key: 'consultant',
-      role: 'Consultant',
-      name: placement.resourceName,
-      meta: linkedCandidate?.currentTitle || placement.skillRole,
-      icon: UserCheck,
-      iconClass: 'text-emerald-600 bg-emerald-50 border-emerald-200/70',
-      onOpen:
-        linkedCandidate && onOpenConsultant
-          ? () => onOpenConsultant(linkedCandidate)
-          : undefined,
-    },
-    {
-      key: 'client',
-      role: 'Client',
-      name: placement.customer,
-      meta: placement.customerContact || linkedClient?.location || 'Client account',
-      icon: Building2,
-      iconClass: 'text-brand-600 bg-brand-50 border-brand-200/70',
-      onOpen: linkedClient && onOpenClient ? () => onOpenClient(linkedClient) : undefined,
-    },
-    ...(linkedVendor || placement.vendorName
-      ? [
-          {
-            key: 'vendor',
-            role: 'Vendor',
-            name: linkedVendor?.name || placement.vendorName || 'Partner Vendor',
-            meta:
-              linkedVendor?.invoicingTerms ||
-              linkedVendor?.paymentTerms ||
-              'Subcontractor partner',
-            icon: Handshake,
-            iconClass: 'text-amber-600 bg-amber-50 border-amber-200/70',
-            onOpen:
-              linkedVendor && onOpenVendor ? () => onOpenVendor(linkedVendor) : undefined,
-          },
-        ]
-      : []),
-    ...(linkedRequirement
-      ? [
-          {
-            key: 'requirement',
-            role: 'Job Opening',
-            name: `${linkedRequirement.code} · ${linkedRequirement.opportunityTitle}`,
-            meta: linkedRequirement.status,
-            icon: Briefcase,
-            iconClass: 'text-slate-600 bg-slate-100 border-slate-200/80',
-            onOpen: onOpenRequirement ? () => onOpenRequirement(linkedRequirement) : undefined,
-          },
-        ]
-      : []),
-  ];
-
   const progressBarClass = ended
     ? 'bg-slate-400'
     : daysLeft !== null && daysLeft < 0
@@ -1074,68 +1012,6 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
                     )}
                   </div>
                 ))}
-              </div>
-            </div>
-
-            {/* Direct Quick-Jump Links for Connected Stakeholders & Opening */}
-            <div className="bg-white rounded-xl border border-slate-200/80 card-shadow overflow-hidden text-xs">
-              <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Layers className="w-3.5 h-3.5 text-brand-600" />
-                  <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                    Connected Records
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setWorkspaceTab('records')}
-                  className="text-[11px] font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
-                >
-                  Full Grid &rarr;
-                </button>
-              </div>
-
-              <div className="p-3 space-y-1.5">
-                {quickLinkedEntities.map((entity) => {
-                  const Icon = entity.icon;
-                  const rowInner = (
-                    <>
-                      <div
-                        className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${entity.iconClass}`}
-                      >
-                        <Icon className="w-3.5 h-3.5" />
-                      </div>
-                      <div className="min-w-0 flex-1 text-left">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                          {entity.role}
-                        </div>
-                        <div className="font-semibold text-slate-900 truncate">{entity.name}</div>
-                        <div className="text-[11px] text-slate-500 truncate">{entity.meta}</div>
-                      </div>
-                      {entity.onOpen && (
-                        <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-brand-600 shrink-0 transition-colors" />
-                      )}
-                    </>
-                  );
-
-                  return entity.onOpen ? (
-                    <button
-                      key={entity.key}
-                      type="button"
-                      onClick={entity.onOpen}
-                      className="w-full p-2.5 rounded-lg border border-transparent hover:border-slate-200 hover:bg-slate-50 flex items-center gap-2.5 transition-colors cursor-pointer group"
-                    >
-                      {rowInner}
-                    </button>
-                  ) : (
-                    <div
-                      key={entity.key}
-                      className="w-full p-2.5 rounded-lg bg-slate-50/70 flex items-center gap-2.5"
-                    >
-                      {rowInner}
-                    </div>
-                  );
-                })}
               </div>
             </div>
 

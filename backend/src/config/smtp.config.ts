@@ -1,11 +1,14 @@
 import nodemailer from 'nodemailer';
 import { prisma } from './prisma.config';
 
+export type FormFieldWidth = 'half' | 'full';
+
 export interface ApplicationFormCustomField {
   key: string;
   name: string;
   type: 'TEXT' | 'NUMBER' | 'DATE' | 'BOOLEAN' | 'DROPDOWN';
   required: boolean;
+  width?: FormFieldWidth;
   options?: string[];
 }
 
@@ -26,6 +29,7 @@ export interface ApplicationFormTemplate {
   requireNoticePeriod: boolean;
   includeLinkedinUrl: boolean;
   requireLinkedinUrl: boolean;
+  fieldWidths?: Record<string, FormFieldWidth>;
   customFieldKeys: string[];
   customFields?: ApplicationFormCustomField[];
   updatedAt: string;
@@ -314,6 +318,18 @@ export function normalizeApplicationForms(
     requireNoticePeriod: Boolean(item.includeNoticePeriod && item.requireNoticePeriod),
     includeLinkedinUrl: Boolean(item.includeLinkedinUrl),
     requireLinkedinUrl: Boolean(item.includeLinkedinUrl && item.requireLinkedinUrl),
+    fieldWidths: (() => {
+      const widths: Record<string, FormFieldWidth> = {};
+      if (item.fieldWidths && typeof item.fieldWidths === 'object') {
+        for (const [k, v] of Object.entries(item.fieldWidths)) {
+          const cleanKey = String(k || '').trim();
+          if (!cleanKey) continue;
+          widths[cleanKey] = String(v).toLowerCase() === 'full' ? 'full' : 'half';
+        }
+      }
+      if (!widths.vendorName) widths.vendorName = 'full';
+      return widths;
+    })(),
     customFieldKeys: Array.isArray(item.customFieldKeys)
       ? item.customFieldKeys.map((k) => String(k).trim()).filter(Boolean)
       : [],
@@ -335,15 +351,19 @@ export function normalizeApplicationForms(
               rawType === 'DROPDOWN'
                 ? rawType
                 : 'TEXT';
-            return {
+            const width: FormFieldWidth =
+              String(cf?.width || '').toLowerCase() === 'full' ? 'full' : 'half';
+            const normalizedField: ApplicationFormCustomField = {
               key: rawKey,
               name,
               type,
               required: Boolean(cf?.required),
+              width,
               ...(Array.isArray(cf?.options)
                 ? { options: cf.options.map((o: any) => String(o).trim()).filter(Boolean) }
                 : {}),
             };
+            return normalizedField;
           })
           .filter((cf): cf is ApplicationFormCustomField => Boolean(cf))
       : [],

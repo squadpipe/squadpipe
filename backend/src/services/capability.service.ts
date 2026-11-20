@@ -214,8 +214,9 @@ export class CapabilityService {
 
   /**
    * Computes capability checks on newly attached submissions. Single-candidate attaches use
-   * active AI when configured (with rate masking enforced); multi-candidate batches store fast
-   * deterministic scores immediately so batch attaches stay responsive.
+   * active AI when configured (with rate masking enforced); multi-candidate batches stay
+   * unscored when AI is active (so the UI prompts "Check Fit Score" instead of storing
+   * deterministic 0% keyword guesses) and never persist 0% non-AI baseline scores on attach.
    */
   async evaluateNewlyAttachedSubmissions(
     submissions: Array<{
@@ -242,7 +243,7 @@ export class CapabilityService {
       rawEmailText: string | null;
       publicDescription?: string | null;
     },
-    options: { tenantId: string }
+    options: { tenantId: string; aiSvc?: Pick<typeof aiService, 'evaluateSubmissionCapability' | 'getActiveRuntime'> }
   ) {
     if (!submissions || submissions.length === 0) return;
 
@@ -251,14 +252,43 @@ export class CapabilityService {
     );
     if (evaluable.length === 0) return;
 
+    const reqInput = toCapabilityRequirementInput(requirement);
+
     if (evaluable.length === 1) {
-      await this.evaluateSubmission(evaluable[0].id, options.tenantId, {
-        rateMasked: true,
+      const target = evaluable[0];
+      const { capabilityScore, capabilitySummary } = await evaluateCandidateCapabilityPure(
+        toCapabilityCandidateInput(target.candidate),
+        reqInput,
+        {
+          rateMasked: true,
+          tenantId: options.tenantId,
+          aiSvc: options.aiSvc,
+        }
+      );
+
+      // Avoid stamping a misleading 0% Low Fit when AI did not actually evaluate the submission
+      if (!capabilitySummary.evaluatedWithAi && capabilityScore === 0) {
+        return;
+      }
+
+      await prisma.submission.update({
+        where: { id: target.id },
+        data: {
+          capabilityScore,
+          capabilitySummary: capabilitySummary as unknown as Prisma.InputJsonValue,
+        },
       });
       return;
     }
 
-    const reqInput = toCapabilityRequirementInput(requirement);
+    const aiSvc = options.aiSvc || aiService;
+    const { config, adapter } = await aiSvc.getActiveRuntime({ tenantId: options.tenantId });
+    // When AI is enabled, leave batch-attached candidates unscored until explicitly checked
+    // rather than storing fast keyword-only guesses (which can show false 0% Low Fit without AI)
+    if (config.configured && adapter.isConfigured()) {
+      return;
+    }
+
     await Promise.all(
       evaluable.map((sub) => {
         const evalResult = computeOfflineCapabilityEvaluation(
@@ -266,6 +296,9 @@ export class CapabilityService {
           reqInput
         );
         const summary = buildStoredCapabilitySummary(evalResult, { rateMasked: true });
+        if (summary.fitScore === 0) {
+          return Promise.resolve();
+        }
         return prisma.submission.update({
           where: { id: sub.id },
           data: {

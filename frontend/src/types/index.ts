@@ -160,11 +160,14 @@ export interface RecruiterPerformanceRow {
   placements: number;
 }
 
+export type ApplicationFormFieldWidth = 'half' | 'full';
+
 export interface ApplicationFormCustomField {
   key: string;
   name: string;
   type: 'TEXT' | 'NUMBER' | 'DATE' | 'BOOLEAN' | 'DROPDOWN';
   required: boolean;
+  width?: ApplicationFormFieldWidth;
   options?: string[];
 }
 
@@ -185,6 +188,7 @@ export interface ApplicationFormTemplate {
   requireNoticePeriod: boolean;
   includeLinkedinUrl: boolean;
   requireLinkedinUrl: boolean;
+  fieldWidths?: Record<string, ApplicationFormFieldWidth>;
   customFieldKeys: string[];
   customFields?: ApplicationFormCustomField[];
   updatedAt?: string;

@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Copy,
   DollarSign,
+  Eye,
   ExternalLink,
   FileSpreadsheet,
   FileText,
@@ -66,9 +67,11 @@ import { ConfirmDeleteModal } from '../../components/shared/ConfirmDeleteModal';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { CustomSelect } from '../../components/shared/CustomSelect';
+import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 import { RichTextEditor } from '../../components/shared/RichTextEditor';
 import { RichTextDisplay } from '../../components/shared/RichTextDisplay';
 import { buildClientSafeSummaryHtml } from '../../utils/richText';
+import { ApplicationFormPreview } from '../custom-fields/ApplicationFormPreview';
 import { AttachBenchDrawer } from '../../components/modals/AttachBenchDrawer';
 import { PreparePitchModal } from '../../components/modals/PreparePitchModal';
 import {
@@ -76,6 +79,7 @@ import {
   EditRequirementModal,
   RequirementNotesModal,
   getCapabilityBadgeStyle,
+  hasEvaluatedFitScore,
 } from './RequirementDetailModals';
 
 interface RequirementDetailPageProps {
@@ -261,6 +265,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   const [publicFormError, setPublicFormError] = useState('');
   const [applicationForms, setApplicationForms] =
     useState<ApplicationFormTemplate[]>(DEFAULT_APPLICATION_FORMS);
+  const [isPreviewingForm, setIsPreviewingForm] = useState(false);
   const knownCandidatesRef = useRef<Map<string, Candidate>>(new Map());
   const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -634,7 +639,10 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
 
     return sortArrayByColumn(filtered, applicantsSort.sort, {
       applicant: (s) => formatDisplayName(s.fullName),
-      fitScore: (s) => (typeof s.capabilityScore === 'number' ? s.capabilityScore : null),
+      fitScore: (s) =>
+        hasEvaluatedFitScore(s.capabilityScore, s.capabilitySummary, aiCapabilities.enabled)
+          ? (s.capabilityScore ?? null)
+          : null,
       rate: (s) => (rateMasked ? null : extractRateSortValue(s.submittedRate || s.hourlyRate)),
       stage: (s) => s.stage || '',
     });
@@ -645,6 +653,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     applicantsSort.sort,
     linkedPlacements,
     rateMasked,
+    aiCapabilities.enabled,
   ]);
 
   const sortedPlacements = useMemo(() => {
@@ -929,7 +938,12 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
 
   const renderFitScoreButton = (sub: RequirementSubmission) => {
     const isChecking = evaluatingSubId === sub.id;
-    if (typeof sub.capabilityScore !== 'number') {
+    const isScoreEvaluated = hasEvaluatedFitScore(
+      sub.capabilityScore,
+      sub.capabilitySummary,
+      aiCapabilities.enabled
+    );
+    if (!isScoreEvaluated) {
       if (sub.id.startsWith('legacy_')) {
         return (
           <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[11px] font-medium whitespace-nowrap">
@@ -942,21 +956,33 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
           type="button"
           disabled={isChecking}
           onClick={() => handleEvaluateSubmission(sub)}
-          title={aiCapabilities.enabled ? 'Run AI Capability Check' : 'Run Skill Fit Check'}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-brand-50 hover:border-brand-200 text-slate-600 hover:text-brand-700 text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-60 whitespace-nowrap"
+          title={aiCapabilities.enabled ? 'Run AI Fit Score Check' : 'Run Skill Fit Score Check'}
+          className="group inline-flex flex-col items-start gap-1 text-left px-1.5 py-1 -mx-1.5 rounded-md hover:bg-indigo-50/80 transition-colors cursor-pointer disabled:opacity-60 whitespace-nowrap"
         >
-          {isChecking ? (
-            <Loader2 className="w-3 h-3 animate-spin text-brand-600" />
-          ) : (
-            <Sparkles className="w-3 h-3 text-brand-600 shrink-0" />
-          )}
-          <span>{isChecking ? 'Checking...' : 'Check Fit'}</span>
+          <span className="inline-flex items-center gap-1.5 text-[11.5px] leading-none">
+            <span className="font-semibold text-indigo-700 group-hover:text-indigo-800">
+              {isChecking ? 'Checking Fit...' : 'Check Fit Score'}
+            </span>
+            {isChecking ? (
+              <Loader2 className="w-3 h-3 animate-spin text-indigo-600 shrink-0" />
+            ) : (
+              <Sparkles className="w-3 h-3 text-indigo-600 shrink-0 group-hover:scale-110 transition-transform" />
+            )}
+          </span>
+          <span className="w-24 h-1 rounded-full bg-indigo-100/90 overflow-hidden block">
+            <span
+              className={`block h-full rounded-full bg-indigo-500 transition-all duration-200 ${
+                isChecking ? 'w-2/3 animate-pulse' : 'w-0 group-hover:w-1/2'
+              }`}
+            />
+          </span>
         </button>
       );
     }
-    const badgeMeta = getCapabilityBadgeStyle(sub.capabilityScore, sub.capabilitySummary);
+    const rawScore = sub.capabilityScore ?? 0;
+    const badgeMeta = getCapabilityBadgeStyle(rawScore, sub.capabilitySummary);
     const usedAi = Boolean(sub.capabilitySummary?.evaluatedWithAi && aiCapabilities.enabled);
-    const clampedScore = Math.max(0, Math.min(100, Math.round(sub.capabilityScore)));
+    const clampedScore = Math.max(0, Math.min(100, Math.round(rawScore)));
     return (
       <button
         type="button"
@@ -2115,40 +2141,48 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-slate-900">Attached Application Form</span>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                          explicitFormId
-                            ? 'bg-brand-50 text-brand-700 border-brand-200'
-                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        }`}
-                      >
-                        {explicitFormId ? 'Custom Template' : 'Default Form'}
-                      </span>
+                      <StatusBadge
+                        tone={explicitFormId ? 'brand' : 'emerald'}
+                        shape="rounded"
+                        size="xs"
+                        label={explicitFormId ? 'Custom Template' : 'Default Form'}
+                      />
                     </div>
                     <p className="text-[11px] text-slate-500 mt-0.5">
                       {activeApplicationForm.name} &middot; {activeFormFieldChips.length} fields ({activeFormFieldChips.filter((c) => c.required).length} required)
                     </p>
                   </div>
 
-                  <div className="w-full sm:w-64 shrink-0">
-                    <CustomSelect
-                      value={explicitFormId || ''}
-                      onChange={(val) =>
-                        updatePublicFormConfig({ publicFormTemplateId: val || null })
-                      }
-                      ariaLabel="Select attached application form template"
-                      size="sm"
-                      options={[
-                        {
-                          value: '',
-                          label: `Default: ${defaultApplicationForm.name}`,
-                        },
-                        ...applicationForms.map((f) => ({
-                          value: f.id,
-                          label: `${f.name}${f.isDefault ? ' (Default)' : ''}`,
-                        })),
-                      ]}
-                    />
+                  <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                    <div className="flex-1 sm:w-64">
+                      <CustomSelect
+                        value={explicitFormId || ''}
+                        onChange={(val) =>
+                          updatePublicFormConfig({ publicFormTemplateId: val || null })
+                        }
+                        ariaLabel="Select attached application form template"
+                        size="sm"
+                        options={[
+                          {
+                            value: '',
+                            label: `Default: ${defaultApplicationForm.name}`,
+                          },
+                          ...applicationForms.map((f) => ({
+                            value: f.id,
+                            label: `${f.name}${f.isDefault ? ' (Default)' : ''}`,
+                          })),
+                        ]}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsPreviewingForm(true)}
+                      title="Preview attached application form"
+                      className="px-2.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-brand-50 hover:border-brand-200 text-slate-700 hover:text-brand-700 text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Preview</span>
+                    </button>
                   </div>
                 </div>
 
@@ -2502,6 +2536,46 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
           }}
         />
       )}
+
+      <AnimatedModal
+        isOpen={isPreviewingForm}
+        onBackdropClick={() => setIsPreviewingForm(false)}
+        zIndexClass="z-50"
+        panelClassName="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        ariaLabel={`Preview ${activeApplicationForm.name}`}
+      >
+        <div className="px-5 py-3.5 bg-[#141615] text-white border-b border-white/10 flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center shrink-0">
+              <Eye className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-bold text-white truncate">
+                  {activeApplicationForm.name}
+                </h3>
+                <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/15 text-[10px] font-semibold text-slate-200">
+                  {explicitFormId ? 'Attached Template' : 'Default Template'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Public applicant preview ({activeFormFieldChips.length} fields)
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsPreviewingForm(false)}
+            className="text-slate-400 hover:text-white p-1 rounded-md hover:bg-white/10 transition-colors cursor-pointer text-xs font-semibold"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="p-5 bg-slate-50/80 overflow-y-auto flex-1">
+          <ApplicationFormPreview template={activeApplicationForm} />
+        </div>
+      </AnimatedModal>
     </section>
   );
 };

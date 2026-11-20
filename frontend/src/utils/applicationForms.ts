@@ -1,4 +1,16 @@
-import { ApplicationFormTemplate } from '../types';
+import { ApplicationFormFieldWidth, ApplicationFormTemplate } from '../types';
+
+export function resolveFormFieldWidth(
+  template: Pick<ApplicationFormTemplate, 'fieldWidths'>,
+  fieldKey: string,
+  fallback: ApplicationFormFieldWidth = 'half'
+): ApplicationFormFieldWidth {
+  return template.fieldWidths?.[fieldKey] || fallback;
+}
+
+export function getFieldWidthColSpanClass(width?: ApplicationFormFieldWidth): string {
+  return width === 'full' ? 'sm:col-span-2' : 'sm:col-span-1';
+}
 
 export const DEFAULT_APPLICATION_FORMS: ApplicationFormTemplate[] = [
   {

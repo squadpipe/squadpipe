@@ -17,6 +17,10 @@ import { RichTextDisplay } from '../../components/shared/RichTextDisplay';
 import { buildClientSafeSummaryHtml } from '../../utils/richText';
 import { ALLOWED_CV_ACCEPT, validateCvFileSelection } from '../../utils/cvFiles';
 import {
+  getFieldWidthColSpanClass,
+  resolveFormFieldWidth,
+} from '../../utils/applicationForms';
+import {
   formatMissingFieldsMessage,
   getMissingFieldLabels,
   INVALID_FIELD_CLASSES,
@@ -27,6 +31,7 @@ interface PublicFormCustomField {
   name: string;
   type: 'TEXT' | 'DROPDOWN' | 'DATE' | 'NUMBER' | 'BOOLEAN';
   required: boolean;
+  width?: 'half' | 'full';
   options: string[];
 }
 
@@ -45,6 +50,7 @@ interface PublicFormTemplateConfig {
   requireNoticePeriod: boolean;
   includeLinkedinUrl: boolean;
   requireLinkedinUrl: boolean;
+  fieldWidths?: Record<string, 'half' | 'full'>;
   customFields: PublicFormCustomField[];
 }
 
@@ -728,7 +734,11 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                         />
                       </div>
                       {formTemplate.includeCurrentTitle && (
-                        <div>
+                        <div
+                          className={getFieldWidthColSpanClass(
+                            resolveFormFieldWidth(formTemplate, 'currentTitle', 'half')
+                          )}
+                        >
                           <div className="flex items-center justify-between mb-1">
                             <label className="block text-[11px] font-semibold text-slate-700">
                               Current Title / Role {formTemplate.requireCurrentTitle ? '*' : ''}
@@ -751,7 +761,11 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                       )}
 
                       {formTemplate.includeExpectedRate && (
-                        <div>
+                        <div
+                          className={getFieldWidthColSpanClass(
+                            resolveFormFieldWidth(formTemplate, 'expectedRate', 'half')
+                          )}
+                        >
                           <div className="flex items-center justify-between mb-1">
                             <label className="block text-[11px] font-semibold text-slate-700">
                               Expected Hourly Rate{' '}
@@ -775,7 +789,11 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                       )}
 
                       {formTemplate.includeNoticePeriod && (
-                        <div>
+                        <div
+                          className={getFieldWidthColSpanClass(
+                            resolveFormFieldWidth(formTemplate, 'noticePeriod', 'half')
+                          )}
+                        >
                           <div className="flex items-center justify-between mb-1">
                             <label className="block text-[11px] font-semibold text-slate-700">
                               Availability / Notice Period{' '}
@@ -799,7 +817,11 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                       )}
 
                       {formTemplate.includeLinkedinUrl && (
-                        <div>
+                        <div
+                          className={getFieldWidthColSpanClass(
+                            resolveFormFieldWidth(formTemplate, 'linkedinUrl', 'half')
+                          )}
+                        >
                           <div className="flex items-center justify-between mb-1">
                             <label className="block text-[11px] font-semibold text-slate-700">
                               LinkedIn Profile URL{' '}
@@ -821,88 +843,88 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                           />
                         </div>
                       )}
-                    </div>
 
-                    {formTemplate.includeVendorName && (
-                      <div className="text-xs">
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="block text-[11px] font-semibold text-slate-700">
-                            Partner / Vendor Agency Name{' '}
-                            {formTemplate.requireVendorName ? '*' : '(Optional)'}
-                          </label>
-                          {isVendorNameInvalid && (
-                            <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                      {formTemplate.includeVendorName && (
+                        <div
+                          className={getFieldWidthColSpanClass(
+                            resolveFormFieldWidth(formTemplate, 'vendorName', 'full')
                           )}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-[11px] font-semibold text-slate-700">
+                              Partner / Vendor Agency Name{' '}
+                              {formTemplate.requireVendorName ? '*' : '(Optional)'}
+                            </label>
+                            {isVendorNameInvalid && (
+                              <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                            )}
+                          </div>
+                          <input
+                            type="text"
+                            value={submittedVendorName}
+                            onChange={(e) => setSubmittedVendorName(e.target.value)}
+                            placeholder="e.g. Direct Candidate or Partner Staffing Firm"
+                            className={`w-full px-3 py-2 rounded-lg border focus:bg-white focus:outline-none ${isVendorNameInvalid
+                              ? INVALID_FIELD_CLASSES
+                              : 'border-slate-200 bg-slate-50/50 focus:border-brand-500'
+                              }`}
+                          />
                         </div>
-                        <input
-                          type="text"
-                          value={submittedVendorName}
-                          onChange={(e) => setSubmittedVendorName(e.target.value)}
-                          placeholder="e.g. Direct Candidate or Partner Staffing Firm"
-                          className={`w-full px-3 py-2 rounded-lg border focus:bg-white focus:outline-none ${isVendorNameInvalid
-                            ? INVALID_FIELD_CLASSES
-                            : 'border-slate-200 bg-slate-50/50 focus:border-brand-500'
-                            }`}
-                        />
-                      </div>
-                    )}
+                      )}
 
-                    {(formTemplate.customFields || []).length > 0 && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-1">
-                        {(formTemplate.customFields || []).map((cf) => {
-                          const val = customFieldValues[cf.key] || '';
-                          const isCfInvalid = validationAttempted && cf.required && !val.trim();
-                          return (
-                            <div key={cf.key}>
-                              <div className="flex items-center justify-between mb-1">
-                                <label className="block text-[11px] font-semibold text-slate-700">
-                                  {cf.name} {cf.required ? '*' : ''}
-                                </label>
-                                {isCfInvalid && (
-                                  <span className="text-[10px] font-semibold text-rose-600">Required</span>
-                                )}
-                              </div>
-                              {cf.type === 'DROPDOWN' && cf.options.length > 0 ? (
-                                <CustomSelect
-                                  value={val}
-                                  onChange={(nextVal) =>
-                                    setCustomFieldValues((prev) => ({ ...prev, [cf.key]: nextVal }))
-                                  }
-                                  ariaLabel={cf.name}
-                                  placeholder={`Select ${cf.name.toLowerCase()}...`}
-                                  size="sm"
-                                  options={cf.options}
-                                />
-                              ) : cf.type === 'BOOLEAN' ? (
-                                <CustomSelect
-                                  value={val}
-                                  onChange={(nextVal) =>
-                                    setCustomFieldValues((prev) => ({ ...prev, [cf.key]: nextVal }))
-                                  }
-                                  ariaLabel={cf.name}
-                                  placeholder="Select Yes or No..."
-                                  size="sm"
-                                  options={['Yes', 'No']}
-                                />
-                              ) : (
-                                <input
-                                  type={cf.type === 'NUMBER' ? 'number' : cf.type === 'DATE' ? 'date' : 'text'}
-                                  value={val}
-                                  onChange={(e) =>
-                                    setCustomFieldValues((prev) => ({ ...prev, [cf.key]: e.target.value }))
-                                  }
-                                  placeholder={`Enter ${cf.name.toLowerCase()}...`}
-                                  className={`w-full px-3 py-2 rounded-lg border focus:bg-white focus:outline-none ${isCfInvalid
-                                    ? INVALID_FIELD_CLASSES
-                                    : 'border-slate-200 bg-slate-50/50 focus:border-brand-500'
-                                    }`}
-                                />
+                      {(formTemplate.customFields || []).map((cf) => {
+                        const val = customFieldValues[cf.key] || '';
+                        const isCfInvalid = validationAttempted && cf.required && !val.trim();
+                        return (
+                          <div key={cf.key} className={getFieldWidthColSpanClass(cf.width || 'half')}>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="block text-[11px] font-semibold text-slate-700">
+                                {cf.name} {cf.required ? '*' : ''}
+                              </label>
+                              {isCfInvalid && (
+                                <span className="text-[10px] font-semibold text-rose-600">Required</span>
                               )}
                             </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                            {cf.type === 'DROPDOWN' && cf.options.length > 0 ? (
+                              <CustomSelect
+                                value={val}
+                                onChange={(nextVal) =>
+                                  setCustomFieldValues((prev) => ({ ...prev, [cf.key]: nextVal }))
+                                }
+                                ariaLabel={cf.name}
+                                placeholder={`Select ${cf.name.toLowerCase()}...`}
+                                size="sm"
+                                options={cf.options}
+                              />
+                            ) : cf.type === 'BOOLEAN' ? (
+                              <CustomSelect
+                                value={val}
+                                onChange={(nextVal) =>
+                                  setCustomFieldValues((prev) => ({ ...prev, [cf.key]: nextVal }))
+                                }
+                                ariaLabel={cf.name}
+                                placeholder="Select Yes or No..."
+                                size="sm"
+                                options={['Yes', 'No']}
+                              />
+                            ) : (
+                              <input
+                                type={cf.type === 'NUMBER' ? 'number' : cf.type === 'DATE' ? 'date' : 'text'}
+                                value={val}
+                                onChange={(e) =>
+                                  setCustomFieldValues((prev) => ({ ...prev, [cf.key]: e.target.value }))
+                                }
+                                placeholder={`Enter ${cf.name.toLowerCase()}...`}
+                                className={`w-full px-3 py-2 rounded-lg border focus:bg-white focus:outline-none ${isCfInvalid
+                                  ? INVALID_FIELD_CLASSES
+                                  : 'border-slate-200 bg-slate-50/50 focus:border-brand-500'
+                                  }`}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
 
                     {formError && (
                       <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">

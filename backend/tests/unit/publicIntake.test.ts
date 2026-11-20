@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { maskFinancialRecord } from '../../src/middlewares/rateMask.middleware';
+import { normalizeApplicationForms } from '../../src/config/smtp.config';
 import {
   formatWorkModelLabel,
   generatePublicFormToken,
@@ -179,6 +180,45 @@ export const runPublicIntakeTests = () => {
   });
   assert.equal(maskedSub.submittedRate, '••••••');
   assert.equal(maskedSub.submittedVendorName, 'PartnerTek LLC');
+
+  // 6. Application form template width normalization preserves half/full width settings
+  const normalizedForms = normalizeApplicationForms([
+    {
+      id: 'form-width-test',
+      name: 'Width Test Form',
+      isDefault: true,
+      heading: 'Apply Now',
+      includeVendorName: true,
+      fieldWidths: {
+        currentTitle: 'full',
+        expectedRate: 'half',
+        vendorName: 'half',
+      },
+      customFields: [
+        {
+          key: 'joining_timeline',
+          name: 'How soon can you join?',
+          type: 'DROPDOWN',
+          options: ['Immediate', '2 Weeks', '30 Days'],
+          required: true,
+          width: 'full',
+        },
+        {
+          key: 'relocation_ok',
+          name: 'Open to relocation?',
+          type: 'BOOLEAN',
+          required: false,
+          width: 'half',
+        },
+      ],
+    },
+  ]);
+  assert.equal(normalizedForms.length, 1);
+  assert.equal(normalizedForms[0].fieldWidths?.currentTitle, 'full');
+  assert.equal(normalizedForms[0].fieldWidths?.expectedRate, 'half');
+  assert.equal(normalizedForms[0].fieldWidths?.vendorName, 'half');
+  assert.equal(normalizedForms[0].customFields[0].width, 'full');
+  assert.equal(normalizedForms[0].customFields[1].width, 'half');
 
   console.log('✅ Public Requirement CV Intake Form Tests: PASSED');
 };

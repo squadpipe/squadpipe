@@ -39,6 +39,7 @@ export interface PublicFormCustomFieldView {
   name: string;
   type: 'TEXT' | 'DROPDOWN' | 'DATE' | 'NUMBER' | 'BOOLEAN';
   required: boolean;
+  width: 'half' | 'full';
   options: string[];
 }
 
@@ -57,6 +58,7 @@ export interface PublicFormTemplateView {
   requireNoticePeriod: boolean;
   includeLinkedinUrl: boolean;
   requireLinkedinUrl: boolean;
+  fieldWidths: Record<string, 'half' | 'full'>;
   customFields: PublicFormCustomFieldView[];
 }
 
@@ -369,6 +371,7 @@ export class PublicIntakeService {
         name: cf.name,
         type: cf.type,
         required: Boolean(cf.required),
+        width: cf.width === 'full' ? 'full' : 'half',
         options: Array.isArray(cf.options) ? cf.options : [],
       }))
       : [];
@@ -400,6 +403,7 @@ export class PublicIntakeService {
             name: f.name,
             type: f.type,
             required: Boolean(f.required),
+            width: 'half',
             options,
           });
           seenKeys.add(f.key);
@@ -424,6 +428,7 @@ export class PublicIntakeService {
       requireNoticePeriod: matchedTemplate.requireNoticePeriod,
       includeLinkedinUrl: matchedTemplate.includeLinkedinUrl,
       requireLinkedinUrl: matchedTemplate.requireLinkedinUrl,
+      fieldWidths: matchedTemplate.fieldWidths || { vendorName: 'full' },
       customFields,
     };
   }
