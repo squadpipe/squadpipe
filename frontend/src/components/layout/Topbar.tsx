@@ -47,15 +47,15 @@ export const Topbar: React.FC<TopbarProps> = ({
           <button
             type="button"
             onClick={onOpenCommandPalette}
-            aria-label="Master Search (⌘K)"
-            title="Master Search — find requirements, consultants, clients, vendors, or jump to any page (⌘K)"
+            aria-label="Global Search (⌘K)"
+            title="Search requirements, consultants, placements, clients, and vendors (⌘K)"
             className="w-full max-w-md h-8 inline-flex items-center justify-between gap-3 px-3 rounded-lg border border-slate-200 bg-slate-50/90 hover:bg-white hover:border-slate-300 hover:shadow-sm text-xs text-slate-600 transition-all cursor-pointer"
           >
             <span className="inline-flex items-center gap-2 min-w-0">
               <MagnifyingGlass className="w-3.5 h-3.5 text-brand-600 shrink-0" />
-              <span className="font-medium text-slate-700 shrink-0">Master Search</span>
+              <span className="font-medium text-slate-700 shrink-0">Search</span>
               <span className="hidden md:inline text-slate-400 truncate">
-                &middot; Requirements, consultants, clients...
+                &middot; Requirements, consultants, clients, placements...
               </span>
             </span>
             <kbd className="inline-flex px-1.5 py-0.5 rounded-md bg-white border border-slate-200 text-[11px] font-medium text-slate-500 leading-none shrink-0">

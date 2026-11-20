@@ -2126,24 +2126,15 @@ export const App: React.FC = () => {
       currentView === 'requirement_new' ||
       currentView === 'requirement_edit' ||
       currentView === 'consultant_new' ||
-      currentView === 'consultant_edit' ||
-      showCommandPalette
+      currentView === 'consultant_edit'
     ) {
       if (!loadedEntities.current.has('clients')) fetchClients();
       if (!loadedEntities.current.has('users')) fetchUsers();
-      if (
-        currentView === 'consultant_new' ||
-        currentView === 'consultant_edit' ||
-        showCommandPalette
-      ) {
+      if (currentView === 'consultant_new' || currentView === 'consultant_edit') {
         if (!loadedEntities.current.has('vendors')) fetchVendors();
       }
-      if (showCommandPalette) {
-        if (!loadedEntities.current.has('requirements')) fetchRequirements();
-        if (!loadedEntities.current.has('candidates')) fetchCandidates();
-      }
     }
-  }, [currentView, isInlineResumeModalOpen, showCommandPalette, authToken]);
+  }, [currentView, isInlineResumeModalOpen, authToken]);
 
   // Hydrate target requirement/candidate on direct URL load or refresh of /placements/new
   useEffect(() => {
@@ -4792,20 +4783,42 @@ export const App: React.FC = () => {
       <CommandPaletteModal
         isOpen={showCommandPalette}
         onClose={() => setShowCommandPalette(false)}
-        isAdmin={isAdmin}
-        canManageDataOperations={canManageDataOperations}
-        canCreatePlacement={!rateMasked}
         requirements={requirements}
         candidates={candidates}
+        placements={placements}
         clients={clients}
         vendors={vendors}
-        onNavigate={(view) => handleNavigateView(view)}
-        onOpenWorkflowPage={(view) => handleOpenWorkflowPage(view, { fromView: currentView })}
-        onOpenCreateModal={(type) => setActiveCreateModal(type)}
-        onSelectRequirement={(req) => handleOpenRequirementDetail(req, currentView)}
-        onSelectConsultant={(cand) => handleOpenConsultantDetail(cand, false, currentView)}
-        onSelectClient={(cl) => handleOpenClientDetail(cl, false, currentView)}
-        onSelectVendor={(v) => handleOpenVendorDetail(v, false, currentView)}
+        mapPlacementFromApi={normalizePlacement}
+        onSelectRequirement={(req) => {
+          setRequirements((prev) =>
+            prev.some((r) => r.id === req.id) ? prev : [req, ...prev]
+          );
+          handleOpenRequirementDetail(req, currentView);
+        }}
+        onSelectConsultant={(cand) => {
+          setCandidates((prev) =>
+            prev.some((c) => c.id === cand.id) ? prev : [cand, ...prev]
+          );
+          handleOpenConsultantDetail(cand, false, currentView);
+        }}
+        onSelectPlacement={(placement) => {
+          setPlacements((prev) =>
+            prev.some((p) => p.id === placement.id) ? prev : [placement, ...prev]
+          );
+          handleOpenPlacementDetail(placement, currentView);
+        }}
+        onSelectClient={(cl) => {
+          setClients((prev) =>
+            prev.some((c) => c.id === cl.id) ? prev : [cl, ...prev]
+          );
+          handleOpenClientDetail(cl, false, currentView);
+        }}
+        onSelectVendor={(v) => {
+          setVendors((prev) =>
+            prev.some((item) => item.id === v.id) ? prev : [v, ...prev]
+          );
+          handleOpenVendorDetail(v, false, currentView);
+        }}
       />
 
       {/* Focused Short Entity Modals (Client & Vendor) */}

@@ -3,27 +3,41 @@ import {
   ArrowRight,
   Briefcase,
   Buildings,
-  ChartPieSlice,
-  Columns,
-  FileText,
   FileXls,
   Handshake,
-  Kanban,
-  Lightning,
   MagnifyingGlass,
-  Plus,
-  SlidersHorizontal,
-  UploadSimple,
   Users,
+  X,
 } from '@phosphor-icons/react';
-import { Candidate, Client, Requirement, Vendor } from '../../types';
+import { apiClient } from '../../config/api.config';
+import {
+  BillablePlacement,
+  Candidate,
+  Client,
+  Requirement,
+  Vendor,
+} from '../../types';
+import {
+  mapCandidateFromApi,
+  mapClientFromApi,
+  mapRequirementFromApi,
+  mapVendorFromApi,
+} from '../../utils/entityMappers';
+import { useDebounce } from '../../utils/useDebounce';
 import { AnimatedModal } from '../shared/MotionPrimitives';
 import { StatusBadge } from '../shared/StatusBadge';
-import { AiIcon } from '../shared/AiBrand';
 
-interface CommandItem {
+type SearchCategory =
+  | 'All'
+  | 'Requirements'
+  | 'Consultants'
+  | 'Placements'
+  | 'Clients'
+  | 'Vendors';
+
+interface SearchResultItem {
   id: string;
-  group: 'Quick Actions' | 'Pages' | 'Requirements' | 'Consultants' | 'Clients' | 'Vendors';
+  group: Exclude<SearchCategory, 'All'>;
   label: string;
   subtitle?: string;
   badge?: string;
@@ -32,283 +46,222 @@ interface CommandItem {
   onSelect: () => void;
 }
 
+interface ServerSearchData {
+  query: string;
+  requirements: Requirement[];
+  candidates: Candidate[];
+  placements: BillablePlacement[];
+  clients: Client[];
+  vendors: Vendor[];
+}
+
+const EMPTY_SERVER_DATA: ServerSearchData = {
+  query: '',
+  requirements: [],
+  candidates: [],
+  placements: [],
+  clients: [],
+  vendors: [],
+};
+
 interface CommandPaletteModalProps {
   isOpen: boolean;
   onClose: () => void;
-  isAdmin: boolean;
-  canManageDataOperations: boolean;
-  canCreatePlacement: boolean;
   requirements: Requirement[];
   candidates: Candidate[];
+  placements: BillablePlacement[];
   clients: Client[];
   vendors: Vendor[];
-  onNavigate: (view: string) => void;
-  onOpenWorkflowPage: (
-    view:
-      | 'requirement_new'
-      | 'consultant_new'
-      | 'requirement_from_email'
-      | 'import_resume'
-      | 'import_csv'
-      | 'placement_new'
-  ) => void;
-  onOpenCreateModal: (type: 'client' | 'vendor') => void;
+  mapPlacementFromApi?: (raw: any) => BillablePlacement;
   onSelectRequirement: (req: Requirement) => void;
   onSelectConsultant: (cand: Candidate) => void;
+  onSelectPlacement: (placement: BillablePlacement) => void;
   onSelectClient: (client: Client) => void;
   onSelectVendor: (vendor: Vendor) => void;
 }
 
 /**
- * Global Cmd+K / Ctrl+K Command Palette for rapid page switching, record creation,
- * and instant jump-to Consultant, Requirement, Client, or Vendor lookup.
+ * Unified Global Search modal (Cmd+K / Ctrl+K) searching across all database
+ * requirements, consultants/resumes, billable placements, clients/contacts, and vendors.
  */
 export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   isOpen,
   onClose,
-  isAdmin,
-  canManageDataOperations,
-  canCreatePlacement,
   requirements,
   candidates,
+  placements,
   clients,
   vendors,
-  onNavigate,
-  onOpenWorkflowPage,
-  onOpenCreateModal,
+  mapPlacementFromApi,
   onSelectRequirement,
   onSelectConsultant,
+  onSelectPlacement,
   onSelectClient,
   onSelectVendor,
 }) => {
   const [query, setQuery] = useState('');
+  const [category, setCategory] = useState<SearchCategory>('All');
   const [activeIdx, setActiveIdx] = useState(0);
+  const [serverData, setServerData] = useState<ServerSearchData>(EMPTY_SERVER_DATA);
+  const [isSearching, setIsSearching] = useState(false);
+  const debouncedQuery = useDebounce(query, 300);
+  const effectiveQuery = query.trim() === '' ? '' : debouncedQuery.trim();
+  const isWaitingDebounce = query.trim() !== '' && query.trim() !== debouncedQuery.trim();
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setQuery('');
+      setCategory('All');
       setActiveIdx(0);
+      setServerData(EMPTY_SERVER_DATA);
       setTimeout(() => inputRef.current?.focus(), 20);
     }
   }, [isOpen]);
 
-  const allItems = useMemo<CommandItem[]>(() => {
-    const items: CommandItem[] = [
-      {
-        id: 'act_req_new',
-        group: 'Quick Actions',
-        label: 'New Requirement',
-        subtitle: 'Create an open client requisition',
-        keywords: 'create add requirement job req order',
-        icon: <Plus className="w-4 h-4 text-brand-600" />,
-        onSelect: () => onOpenWorkflowPage('requirement_new'),
-      },
-      {
-        id: 'act_cand_new',
-        group: 'Quick Actions',
-        label: 'New Consultant',
-        subtitle: 'Register a consultant profile into roster',
-        keywords: 'create add consultant candidate bench talent',
-        icon: <Plus className="w-4 h-4 text-brand-600" />,
-        onSelect: () => onOpenWorkflowPage('consultant_new'),
-      },
-      {
-        id: 'act_req_email',
-        group: 'Quick Actions',
-        label: 'Create Job from Client Email',
-        subtitle: 'Parse hiring manager email into requirement with PipeAI',
-        badge: 'AI',
-        keywords: 'parse email import jd requirement ai',
-        icon: <AiIcon className="w-4 h-4 text-teal-600" />,
-        onSelect: () => onOpenWorkflowPage('requirement_from_email'),
-      },
-      ...(canCreatePlacement
-        ? [
-          {
-            id: 'act_placement_new',
-            group: 'Quick Actions' as const,
-            label: 'New Billable Placement',
-            subtitle: 'Activate SOW and bill/pay spread',
-            keywords: 'placement billable sow margin contract',
-            icon: <FileXls className="w-4 h-4 text-emerald-600" />,
-            onSelect: () => onOpenWorkflowPage('placement_new'),
-          },
-        ]
-        : []),
-      {
-        id: 'act_parse_resume',
-        group: 'Quick Actions',
-        label: 'Parse Resumes (Single or Bulk)',
-        subtitle: 'Upload PDF/DOCX CVs for PipeAI extraction',
-        badge: 'AI',
-        keywords: 'resume cv upload parse pdf docx ai',
-        icon: <AiIcon className="w-4 h-4 text-teal-600" />,
-        onSelect: () => onOpenWorkflowPage('import_resume'),
-      },
-      ...(canManageDataOperations
-        ? [
-          {
-            id: 'act_csv_import',
-            group: 'Quick Actions' as const,
-            label: 'Import Spreadsheet Candidates',
-            subtitle: 'CSV / Excel bulk candidate migration',
-            keywords: 'csv excel spreadsheet bulk import',
-            icon: <FileXls className="w-4 h-4 text-slate-500" />,
-            onSelect: () => onOpenWorkflowPage('import_csv'),
-          },
-        ]
-        : []),
-      {
-        id: 'act_client_new',
-        group: 'Quick Actions',
-        label: 'New Client Account',
-        subtitle: 'Quick modal to add an account',
-        keywords: 'add client company account',
-        icon: <Buildings className="w-4 h-4 text-slate-500" />,
-        onSelect: () => onOpenCreateModal('client'),
-      },
-      {
-        id: 'act_vendor_new',
-        group: 'Quick Actions',
-        label: 'New Staffing Vendor',
-        subtitle: 'Quick modal to add a C2C partner',
-        keywords: 'add vendor supplier partner',
-        icon: <Handshake className="w-4 h-4 text-slate-500" />,
-        onSelect: () => onOpenCreateModal('vendor'),
-      },
-      // Core Pages
-      {
-        id: 'nav_dashboard',
-        group: 'Pages',
-        label: 'Dashboard',
-        keywords: 'home overview kpi metrics dashboard',
-        icon: <ChartPieSlice className="w-4 h-4 text-slate-500" />,
-        onSelect: () => onNavigate('dashboard'),
-      },
-      {
-        id: 'nav_pipeline',
-        group: 'Pages',
-        label: 'Pipeline',
-        keywords: 'kanban board requirements orders pipeline',
-        icon: <Kanban className="w-4 h-4 text-slate-500" />,
-        onSelect: () => onNavigate('pipeline'),
-      },
-      {
-        id: 'nav_consultants',
-        group: 'Pages',
-        label: 'Consultants',
-        keywords: 'roster candidates talent bench consultants',
-        icon: <Users className="w-4 h-4 text-slate-500" />,
-        onSelect: () => onNavigate('consultants'),
-      },
-      {
-        id: 'nav_clients',
-        group: 'Pages',
-        label: 'Clients',
-        keywords: 'clients accounts companies',
-        icon: <Buildings className="w-4 h-4 text-slate-500" />,
-        onSelect: () => onNavigate('clients'),
-      },
-      {
-        id: 'nav_vendors',
-        group: 'Pages',
-        label: 'Vendors',
-        keywords: 'vendors partners c2c suppliers',
-        icon: <Handshake className="w-4 h-4 text-slate-500" />,
-        onSelect: () => onNavigate('vendors'),
-      },
-      {
-        id: 'nav_billable',
-        group: 'Pages',
-        label: 'Billable Consultants',
-        keywords: 'billable placements revenue active billing',
-        icon: <FileXls className="w-4 h-4 text-slate-500" />,
-        onSelect: () => onNavigate('billable'),
-      },
-      {
-        id: 'nav_automation',
-        group: 'Pages',
-        label: 'Smart Reminders',
-        keywords: 'automations sla alerts reminders',
-        icon: <Lightning className="w-4 h-4 text-slate-500" />,
-        onSelect: () => onNavigate('automation'),
-      },
-      ...(isAdmin
-        ? [
-          {
-            id: 'nav_forms',
-            group: 'Pages' as const,
-            label: 'Application Forms',
-            keywords: 'public application forms builder templates',
-            icon: <FileText className="w-4 h-4 text-slate-500" />,
-            onSelect: () => onNavigate('application_forms'),
-          },
-          {
-            id: 'nav_custom_fields',
-            group: 'Pages' as const,
-            label: 'Custom Form Fields',
-            keywords: 'custom fields attributes schema',
-            icon: <Columns className="w-4 h-4 text-slate-500" />,
-            onSelect: () => onNavigate('custom_fields'),
-          },
-          {
-            id: 'nav_settings',
-            group: 'Pages' as const,
-            label: 'General Settings',
-            keywords: 'settings branding policies workspace',
-            icon: <SlidersHorizontal className="w-4 h-4 text-slate-500" />,
-            onSelect: () => onNavigate('settings_general'),
-          },
-        ]
-        : []),
-    ];
+  useEffect(() => {
+    if (!isOpen) return;
+    const controller = new AbortController();
+    let active = true;
+    const q = effectiveQuery;
+    setIsSearching(true);
 
-    requirements.forEach((req) => {
+    apiClient
+      .get('/search', {
+        params: {
+          ...(q ? { q } : {}),
+          limit: q ? 8 : 4,
+        },
+        signal: controller.signal,
+      })
+      .then((res) => {
+        if (!active || !res.data?.data) return;
+        const d = res.data.data;
+        setServerData({
+          query: q,
+          requirements: Array.isArray(d.requirements)
+            ? d.requirements.map(mapRequirementFromApi)
+            : [],
+          candidates: Array.isArray(d.candidates)
+            ? d.candidates.map(mapCandidateFromApi)
+            : [],
+          placements:
+            Array.isArray(d.placements) && mapPlacementFromApi
+              ? d.placements.map(mapPlacementFromApi)
+              : [],
+          clients: Array.isArray(d.clients) ? d.clients.map(mapClientFromApi) : [],
+          vendors: Array.isArray(d.vendors) ? d.vendors.map(mapVendorFromApi) : [],
+        });
+      })
+      .catch(() => {
+        // Fallback smoothly to cached records
+      })
+      .finally(() => {
+        if (active) setIsSearching(false);
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [isOpen, effectiveQuery, mapPlacementFromApi]);
+
+  const mergedPools = useMemo(() => {
+    const dedupe = <T extends { id: string }>(primary: T[], fallback: T[]): T[] => {
+      const seen = new Set<string>();
+      const out: T[] = [];
+      for (const item of primary) {
+        if (item?.id && !seen.has(item.id)) {
+          seen.add(item.id);
+          out.push(item);
+        }
+      }
+      for (const item of fallback) {
+        if (item?.id && !seen.has(item.id)) {
+          seen.add(item.id);
+          out.push(item);
+        }
+      }
+      return out;
+    };
+
+    return {
+      requirements: dedupe(serverData.requirements, requirements),
+      candidates: dedupe(serverData.candidates, candidates),
+      placements: dedupe(serverData.placements, placements),
+      clients: dedupe(serverData.clients, clients),
+      vendors: dedupe(serverData.vendors, vendors),
+    };
+  }, [serverData, requirements, candidates, placements, clients, vendors]);
+
+  const allItems = useMemo<SearchResultItem[]>(() => {
+    const items: SearchResultItem[] = [];
+
+    mergedPools.requirements.forEach((req) => {
       items.push({
         id: `req_${req.id}`,
         group: 'Requirements',
         label: `${req.code} — ${req.opportunityTitle}`,
         subtitle: `${req.companyName} · ${req.location || 'Remote'}`,
         badge: req.status,
-        keywords: `${req.code} ${req.opportunityTitle} ${req.companyName} ${req.skillsRequired}`,
+        keywords: `${req.code} ${req.opportunityTitle} ${req.companyName} ${req.skillsRequired || ''} ${req.location || ''} ${req.clientContact || ''}`,
         icon: <Briefcase className="w-4 h-4 text-brand-600" />,
         onSelect: () => onSelectRequirement(req),
       });
     });
 
-    candidates.forEach((c) => {
+    mergedPools.candidates.forEach((c) => {
       items.push({
         id: `cand_${c.id}`,
         group: 'Consultants',
         label: c.fullName,
-        subtitle: `${c.currentTitle || 'Consultant'}${c.workAuth ? ` · ${c.workAuth}` : ''}`,
+        subtitle: `${c.currentTitle || 'Consultant'}${c.workAuth ? ` · ${c.workAuth}` : ''}${c.email ? ` · ${c.email}` : ''}`,
         badge: c.pipelineStage,
-        keywords: `${c.fullName} ${c.currentTitle} ${c.email} ${c.skillset} ${c.workAuth}`,
+        keywords: `${c.fullName} ${c.currentTitle || ''} ${c.email || ''} ${c.phone || ''} ${c.skillset || ''} ${c.workAuth || ''} ${c.vendorName || ''} ${c.rawSnippet || ''}`,
         icon: <Users className="w-4 h-4 text-slate-500" />,
         onSelect: () => onSelectConsultant(c),
       });
     });
 
-    clients.forEach((cl) => {
+    mergedPools.placements.forEach((p) => {
+      items.push({
+        id: `pl_${p.id}`,
+        group: 'Placements',
+        label: `${p.resourceName}${p.purchaseOrderNumber ? ` · ${p.purchaseOrderNumber}` : ''}`,
+        subtitle: `${p.customer} · ${p.skillRole || p.deployment}`,
+        badge: p.status,
+        keywords: `${p.resourceName} ${p.customer} ${p.customerContact || ''} ${p.skillRole || ''} ${p.purchaseOrderNumber || ''} ${p.vendorName || ''} ${p.email || ''} ${p.phone || ''}`,
+        icon: <FileXls className="w-4 h-4 text-emerald-600" />,
+        onSelect: () => onSelectPlacement(p),
+      });
+    });
+
+    mergedPools.clients.forEach((cl) => {
+      const contactText = (cl.contacts || [])
+        .map((cnt) => `${cnt.name || ''} ${cnt.email || ''} ${cnt.phone || ''} ${cnt.designation || ''}`)
+        .join(' ');
       items.push({
         id: `client_${cl.id}`,
         group: 'Clients',
         label: cl.name,
-        subtitle: cl.location || cl.website || 'Client account',
-        keywords: `${cl.name} ${cl.location} ${cl.website || ''}`,
+        subtitle: cl.location || cl.website || cl.boardNumber || 'Client account',
+        keywords: `${cl.name} ${cl.location || ''} ${cl.website || ''} ${cl.boardNumber || ''} ${contactText}`,
         icon: <Buildings className="w-4 h-4 text-slate-500" />,
         onSelect: () => onSelectClient(cl),
       });
     });
 
-    vendors.forEach((v) => {
+    mergedPools.vendors.forEach((v) => {
+      const contactText = (v.contacts || [])
+        .map((cnt) => `${cnt.fullName || ''} ${cnt.email || ''} ${cnt.phone || ''} ${cnt.designation || ''}`)
+        .join(' ');
       items.push({
         id: `vendor_${v.id}`,
         group: 'Vendors',
         label: v.name,
-        subtitle: v.skillSpecialization || v.location || 'Staffing partner',
-        keywords: `${v.name} ${v.skillSpecialization} ${v.location} ${v.paymentTerms}`,
+        subtitle: v.skillSpecialization || v.location || v.paymentTerms || 'Staffing partner',
+        badge: v.msa === 'Yes' || v.msa === 'Active' ? 'MSA Executed' : undefined,
+        keywords: `${v.name} ${v.skillSpecialization || ''} ${v.location || ''} ${v.paymentTerms || ''} ${v.contactName || ''} ${v.email || ''} ${v.phone || ''} ${contactText}`,
         icon: <Handshake className="w-4 h-4 text-slate-500" />,
         onSelect: () => onSelectVendor(v),
       });
@@ -316,42 +269,55 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
 
     return items;
   }, [
-    isAdmin,
-    canManageDataOperations,
-    canCreatePlacement,
-    requirements,
-    candidates,
-    clients,
-    vendors,
-    onNavigate,
-    onOpenWorkflowPage,
-    onOpenCreateModal,
+    mergedPools,
     onSelectRequirement,
     onSelectConsultant,
+    onSelectPlacement,
     onSelectClient,
     onSelectVendor,
   ]);
 
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) {
-      return [
-        ...allItems.filter((i) => i.group === 'Quick Actions').slice(0, 6),
-        ...allItems.filter((i) => i.group === 'Pages').slice(0, 6),
+    const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
+    const serverIds = new Set<string>([
+      ...serverData.requirements.map((r) => `req_${r.id}`),
+      ...serverData.candidates.map((c) => `cand_${c.id}`),
+      ...serverData.placements.map((p) => `pl_${p.id}`),
+      ...serverData.clients.map((cl) => `client_${cl.id}`),
+      ...serverData.vendors.map((v) => `vendor_${v.id}`),
+    ]);
+
+    const scoped = category === 'All' ? allItems : allItems.filter((item) => item.group === category);
+    if (tokens.length === 0) {
+      const groups: Array<Exclude<SearchCategory, 'All'>> = [
+        'Requirements',
+        'Consultants',
+        'Placements',
+        'Clients',
+        'Vendors',
       ];
+      const out: SearchResultItem[] = [];
+      for (const g of groups) {
+        out.push(...scoped.filter((i) => i.group === g).slice(0, category === 'All' ? 3 : 8));
+      }
+      return out.slice(0, 18);
     }
-    const tokens = q.split(/\s+/).filter(Boolean);
-    return allItems
+
+    return scoped
       .filter((item) => {
+        if (serverIds.has(item.id) && query.trim() === serverData.query) {
+          return true;
+        }
         const hay = `${item.label} ${item.subtitle || ''} ${item.keywords}`.toLowerCase();
         return tokens.every((tok) => hay.includes(tok));
       })
-      .slice(0, 14);
-  }, [allItems, query]);
+      .slice(0, 24);
+  }, [allItems, category, query, serverData]);
 
   useEffect(() => {
     setActiveIdx(0);
-  }, [query]);
+  }, [query, category]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
@@ -374,17 +340,25 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   };
 
   let lastGroup = '';
+  const categories: SearchCategory[] = [
+    'All',
+    'Requirements',
+    'Consultants',
+    'Placements',
+    'Clients',
+    'Vendors',
+  ];
 
   return (
     <AnimatedModal
       isOpen={isOpen}
       onBackdropClick={onClose}
       zIndexClass="z-[75]"
-      backdropClassName="bg-slate-900/50 backdrop-blur-[2px] flex items-start justify-center pt-[12vh] p-4"
-      panelClassName="bg-white rounded-xl shadow-2xl max-w-xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[70vh]"
-      ariaLabel="Master Search"
+      backdropClassName="bg-slate-900/50 backdrop-blur-[2px] flex items-start justify-center pt-[10vh] p-4"
+      panelClassName="bg-white rounded-xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[75vh]"
+      ariaLabel="Global Search"
     >
-      <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2.5 bg-white">
+      <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2.5 bg-white">
         <MagnifyingGlass className="w-4 h-4 text-brand-600 shrink-0" />
         <input
           ref={inputRef}
@@ -392,18 +366,59 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Master search: requirements, consultants, clients, vendors, or pages..."
+          placeholder="Search anything — requirements, consultants, resumes, placements, clients, vendors..."
           className="flex-1 text-xs text-slate-900 placeholder:text-slate-400 bg-transparent focus:outline-none"
         />
-        <kbd className="px-1.5 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[11px] font-medium text-slate-500">
+        {(isSearching || isWaitingDebounce) && (
+          <span className="text-[11px] text-slate-400 font-medium shrink-0">Searching...</span>
+        )}
+        {query && (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery('');
+              inputRef.current?.focus();
+            }}
+            aria-label="Clear search query"
+            className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer shrink-0"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+        <kbd className="px-1.5 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[11px] font-medium text-slate-500 shrink-0">
           ESC
         </kbd>
       </div>
 
+      {/* Category Filter Strip */}
+      <div className="px-4 py-2 border-b border-slate-100 bg-slate-50/50 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+        {categories.map((cat) => {
+          const active = category === cat;
+          return (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setCategory(cat)}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-colors cursor-pointer border ${
+                active
+                  ? 'bg-brand-600 text-white border-brand-600'
+                  : 'bg-white text-slate-600 border-slate-200/90 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              {cat}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="overflow-y-auto p-2 space-y-0.5 flex-1">
         {filteredItems.length === 0 ? (
-          <div className="py-10 text-center text-xs text-slate-400">
-            No matching actions or records found for &ldquo;{query}&rdquo;.
+          <div className="py-12 text-center text-xs text-slate-400">
+            {isSearching
+              ? 'Searching workspace records...'
+              : query.trim()
+                ? <>No matching records found for &ldquo;{query}&rdquo;.</>
+                : 'Type a name, skill, requirement code, PO number, email, phone, or keyword.'}
           </div>
         ) : (
           filteredItems.map((item, idx) => {
@@ -413,7 +428,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
             return (
               <React.Fragment key={item.id}>
                 {showGroupHeader && (
-                  <div className="px-2.5 pt-2 pb-1 text-[11px] font-medium text-slate-400">
+                  <div className="px-2.5 pt-2 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     {item.group}
                   </div>
                 )}
@@ -424,8 +439,9 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
                     onClose();
                     item.onSelect();
                   }}
-                  className={`w-full px-2.5 py-2 rounded-lg text-left flex items-center justify-between gap-3 transition-colors cursor-pointer ${isSelected ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-50'
-                    }`}
+                  className={`w-full px-2.5 py-2 rounded-lg text-left flex items-center justify-between gap-3 transition-colors cursor-pointer ${
+                    isSelected ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-50'
+                  }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span className="shrink-0">{item.icon}</span>
@@ -452,8 +468,12 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       </div>
 
       <div className="px-4 py-2 border-t border-slate-100 bg-slate-50/60 flex items-center justify-between text-[11px] text-slate-400">
-        <span>Navigate with ↑↓ · Enter to open</span>
-        <span>⌘K to toggle</span>
+        <span>
+          {query.trim()
+            ? `${filteredItems.length} result${filteredItems.length === 1 ? '' : 's'} across workspace data`
+            : 'Recent records · Type to search all records'}
+        </span>
+        <span>↑↓ to navigate · Enter to open · ⌘K</span>
       </div>
     </AnimatedModal>
   );

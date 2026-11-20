@@ -50,6 +50,7 @@ import { sanitizePublicSummaryHtml } from '../utils/publicSummary';
 import { capabilityService } from '../services/capability.service';
 import { pitchDraftService } from '../services/pitchDraft.service';
 import { publicIntakeService } from '../services/publicIntake.service';
+import { searchService } from '../services/search.service';
 import { slaEngineService } from '../services/slaEngine.service';
 import { automationEngineService } from '../services/automationEngine.service';
 import { AutomationCategory, PlacementStatus, Prisma, SlaCategory, UserRole } from '@prisma/client';
@@ -347,6 +348,24 @@ router.get('/sidebar/counts', async (req: Request, res: Response) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch sidebar counts' });
+  }
+});
+
+// Unified workspace-wide record search across all entities
+router.get('/search', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const q = typeof req.query.q === 'string' ? req.query.q : '';
+    const limitPerGroup =
+      typeof req.query.limit === 'string' ? Number.parseInt(req.query.limit, 10) : undefined;
+    const data = await searchService.searchWorkspace({
+      tenantId,
+      query: q,
+      limitPerGroup: Number.isFinite(limitPerGroup) ? limitPerGroup : undefined,
+    });
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'Workspace search failed' });
   }
 });
 

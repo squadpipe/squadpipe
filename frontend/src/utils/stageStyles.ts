@@ -41,6 +41,30 @@ const STAGE_STYLE_MAP: Record<string, StageStyle> = {
     badge: 'bg-white text-slate-700 border-slate-200/90',
     dot: 'bg-emerald-500',
   },
+  active: {
+    badge: 'bg-white text-slate-700 border-slate-200/90',
+    dot: 'bg-emerald-500',
+  },
+  extended: {
+    badge: 'bg-white text-slate-700 border-slate-200/90',
+    dot: 'bg-emerald-500',
+  },
+  'expiring soon': {
+    badge: 'bg-white text-slate-700 border-slate-200/90',
+    dot: 'bg-amber-500',
+  },
+  'msa executed': {
+    badge: 'bg-white text-slate-700 border-slate-200/90',
+    dot: 'bg-emerald-500',
+  },
+  completed: {
+    badge: 'bg-white text-slate-700 border-slate-200/90',
+    dot: 'bg-slate-400',
+  },
+  terminated: {
+    badge: 'bg-white text-slate-700 border-slate-200/90',
+    dot: 'bg-rose-500',
+  },
   closed: {
     badge: 'bg-white text-slate-700 border-slate-200/90',
     dot: 'bg-rose-500',
