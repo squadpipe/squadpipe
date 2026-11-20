@@ -19,6 +19,7 @@ import { PageHeader } from '../../components/shared/PageHeader';
 import { FormField } from '../../components/shared/FormField';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { AiIcon, AiTag } from '../../components/shared/AiBrand';
 import { UnsavedChangesModal, useFormShortcuts } from '../../hooks/useFormShortcuts';
 
 const PIPELINE_STAGE_OPTIONS = [
@@ -306,8 +307,9 @@ export const ConsultantCreatePage: React.FC<ConsultantCreatePageProps> = ({
               onClick={() => guardNavigation(onOpenResumeParser)}
               className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 hover:text-slate-900 px-2.5 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 transition-colors cursor-pointer"
             >
-              <FileText className="w-3.5 h-3.5 text-brand-600" />
-              <span>Upload &amp; Auto-Parse Resume</span>
+              <AiIcon className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+              <span>Upload &amp; Parse Resume</span>
+              <AiTag />
             </button>
           ) : undefined
         }

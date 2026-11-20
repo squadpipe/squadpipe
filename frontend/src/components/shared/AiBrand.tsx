@@ -97,3 +97,19 @@ export const AiBadge: React.FC<AiBadgeProps> = ({
     </span>
   );
 };
+
+interface AiTagProps {
+  label?: string;
+  className?: string;
+}
+
+/**
+ * Compact inline "AI" micro-pill placed inside action buttons and command items.
+ */
+export const AiTag: React.FC<AiTagProps> = ({ label = 'AI', className = '' }) => (
+  <span
+    className={`px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 border border-teal-200/80 text-[10px] font-bold uppercase tracking-wider leading-none ${className}`}
+  >
+    {label}
+  </span>
+);

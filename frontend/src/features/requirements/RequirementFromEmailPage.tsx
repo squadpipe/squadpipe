@@ -22,6 +22,7 @@ import { RoleSummaryField } from '../../components/shared/RichTextEditor';
 import { DetailBreadcrumb } from '../../components/shared/DetailPageShell';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { AiBadge } from '../../components/shared/AiBrand';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { UnsavedChangesModal, useFormShortcuts } from '../../hooks/useFormShortcuts';
 
@@ -602,7 +603,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
               <span>Extracted requirement details</span>
               {hasParsed && aiUsed && aiCapabilities.enabled && (
-                <StatusBadge tone="brand" label="Auto-Structured" size="xs" />
+                <AiBadge label="SquadPipe AI Extracted" size="xs" />
               )}
             </div>
             <div className="flex items-center gap-1.5 text-[11px] text-slate-500">

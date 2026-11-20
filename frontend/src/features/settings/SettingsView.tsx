@@ -11,6 +11,7 @@ import { apiClient } from '../../config/api.config';
 import { CURRENCY_OPTIONS, setWorkspaceCurrency } from '../../utils/currency';
 import { setAiCapabilities, setWorkspaceBrand, setWorkspacePolicies } from '../../utils/workspaceBrand';
 import { ActionButton } from '../../components/shared/ActionButton';
+import { AiMark } from '../../components/shared/AiBrand';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { PageHeader } from '../../components/shared/PageHeader';
 
@@ -429,11 +430,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden text-xs"
         >
           <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <KeyRound className="w-4 h-4 text-brand-600" />
+            <div className="flex items-center gap-3">
+              <AiMark size="sm" />
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  Bring Your Own AI Key (BYO Key)
+                  SquadPipe AI &middot; Bring Your Own Key (BYO Key)
                 </h3>
                 <p className="text-[11px] text-slate-500">
                   Credentials are encrypted at rest before storage and override the shared platform key. View token metrics on the Usage page once active.

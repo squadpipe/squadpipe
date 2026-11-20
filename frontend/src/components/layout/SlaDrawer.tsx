@@ -8,11 +8,11 @@ import {
   Copy,
   ExternalLink,
   RefreshCw,
-  Sparkles,
   UserCheck,
   X,
   Zap,
 } from 'lucide-react';
+import { AiBadge, AiIcon } from '../shared/AiBrand';
 import { SlaTask } from '../../types';
 import { StatusBadge } from '../shared/StatusBadge';
 import { getSlaDotClass } from '../../utils/stageStyles';
@@ -212,17 +212,17 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
                     item.agentPayload?.kind === 'candidate_shortlist' &&
                     Array.isArray(item.agentPayload.suggestions) &&
                     item.agentPayload.suggestions.length > 0 && (
-                      <div className="mt-3 p-3 rounded-xl bg-indigo-50/50 border border-indigo-200/70 space-y-2">
-                        <div className="flex items-center justify-between gap-2 text-[11px] font-bold text-indigo-800">
-                          <span className="inline-flex items-center gap-1">
+                      <div className="mt-3 p-3 rounded-xl bg-teal-50/40 border border-teal-200/70 space-y-2">
+                        <div className="flex items-center justify-between gap-2 text-[11px] font-bold text-teal-900">
+                          <span className="inline-flex items-center gap-1.5">
                             {aiCapabilities.enabled && item.agentPayload.evaluatedWithAi ? (
-                              <Sparkles className="w-3 h-3" />
+                              <AiIcon className="w-3 h-3 text-teal-600" />
                             ) : (
-                              <UserCheck className="w-3 h-3" />
+                              <UserCheck className="w-3 h-3 text-teal-600" />
                             )}
                             <span>Top Bench Matches ({item.agentPayload.suggestions.length})</span>
                           </span>
-                          <span className="text-[11px] font-semibold text-indigo-600">
+                          <span className="text-[11px] font-semibold text-teal-700">
                             Human Review
                           </span>
                         </div>
@@ -230,7 +230,7 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
                           {item.agentPayload.suggestions.map((sug) => (
                             <div
                               key={sug.candidateId}
-                              className="p-2 rounded-lg bg-white border border-indigo-100 text-[11px] space-y-1"
+                              className="p-2 rounded-lg bg-white border border-teal-100 text-[11px] space-y-1"
                             >
                               <div className="flex items-center justify-between gap-2">
                                 <span className="font-bold text-slate-800 truncate">
@@ -261,11 +261,13 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
                     item.agentPayload.draftBody && (
                       <div className="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2 text-[11px]">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="inline-flex items-center gap-1 font-bold text-slate-700 text-[11px]">
+                          <span className="inline-flex items-center gap-1.5 font-bold text-slate-700 text-[11px]">
                             {aiCapabilities.enabled && item.agentPayload.evaluatedWithAi && (
-                              <Sparkles className="w-3 h-3 text-indigo-600" />
+                              <AiBadge label="SquadPipe AI Draft" size="xs" />
                             )}
-                            <span>Pre-Drafted Follow-Up</span>
+                            {(!aiCapabilities.enabled || !item.agentPayload.evaluatedWithAi) && (
+                              <span>Pre-Drafted Follow-Up</span>
+                            )}
                           </span>
                           <button
                             type="button"

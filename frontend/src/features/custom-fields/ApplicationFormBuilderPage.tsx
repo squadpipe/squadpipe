@@ -1407,6 +1407,6 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
         onConfirmLeave={confirmLeave}
         onCancelLeave={cancelLeave}
       />
-    </div>
+    </section>
   );
 };

@@ -15,6 +15,7 @@ import {
 import { apiClient } from '../../config/api.config';
 import { BillablePlacement, Candidate, Vendor } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
+import { AiIcon, AiTag } from '../../components/shared/AiBrand';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
@@ -256,8 +257,9 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
             onClick={onOpenResumeParser}
             className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <FileText className="w-3.5 h-3.5 text-brand-600" />
-            <span>Upload Resume</span>
+            <AiIcon className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+            <span>Parse Resume</span>
+            {aiCapabilities.enabled && <AiTag />}
           </button>
           {onOpenAddConsultant && (
             <button
@@ -461,7 +463,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                           onClick={onOpenResumeParser}
                           className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
                         >
-                          Upload Resume
+                          Parse Resume{aiCapabilities.enabled ? ' with AI' : ''}
                         </button>{' '}
                         to add talent.
                       </>

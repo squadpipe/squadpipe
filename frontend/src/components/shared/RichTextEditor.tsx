@@ -9,9 +9,9 @@ import {
   List,
   ListOrdered,
   Redo2,
-  Sparkles,
   Undo2,
 } from 'lucide-react';
+import { AiIcon } from './AiBrand';
 import { plainTextSummaryToHtml, sanitizeRichHtml } from '../../utils/richText';
 
 interface RichTextEditorProps {
@@ -244,7 +244,7 @@ export const RoleSummaryField: React.FC<RoleSummaryFieldProps> = ({
           onClick={onAutoFill}
           className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-600 hover:text-brand-700 cursor-pointer disabled:opacity-50"
         >
-          <Sparkles className="w-3 h-3" />
+          <AiIcon className="w-3 h-3" />
           <span>Auto-Fill Summary</span>
         </button>
       )}

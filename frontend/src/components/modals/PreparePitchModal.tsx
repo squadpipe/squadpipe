@@ -11,9 +11,9 @@ import {
   Mail,
   RefreshCw,
   Save,
-  Sparkles,
   X,
 } from 'lucide-react';
+import { AiBadge, AiIcon, AiMark } from '../shared/AiBrand';
 import { apiClient } from '../../config/api.config';
 import { Candidate } from '../../types';
 import { useCurrency } from '../../utils/currency';
@@ -415,10 +415,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                   Prepare Email Draft &mdash; {candidateName}
                 </h3>
                 {hasActiveDraft && !controlsDisabled && aiUsed && aiCapabilities.enabled && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-0.5 rounded-full">
-                    <Sparkles className="w-2.5 h-2.5 shrink-0" />
-                    <span>AI Drafted</span>
-                  </span>
+                  <AiBadge label="SquadPipe AI Draft" size="xs" />
                 )}
                 {hasActiveDraft && !controlsDisabled && isCached && (
                   <span
@@ -562,11 +559,13 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                 )}
 
                 <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 px-6 py-10 text-center space-y-4">
-                  <div className="w-11 h-11 rounded-full bg-brand-50 border border-brand-200 text-brand-700 flex items-center justify-center mx-auto">
+                  <div className="flex justify-center">
                     {aiCapabilities.enabled ? (
-                      <Sparkles className="w-5 h-5" />
+                      <AiMark size="lg" />
                     ) : (
-                      <Mail className="w-5 h-5" />
+                      <div className="w-11 h-11 rounded-full bg-brand-50 border border-brand-200 text-brand-700 flex items-center justify-center">
+                        <Mail className="w-5 h-5" />
+                      </div>
                     )}
                   </div>
 
@@ -603,14 +602,14 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                       {isLoading ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       ) : (
-                        <Sparkles className="w-3.5 h-3.5" />
+                        <AiIcon className="w-3.5 h-3.5" />
                       )}
                       <span>
                         {isLoading ? 'Generating Draft...' : `Generate ${getPurposeLabel(purpose)}`}
                       </span>
                       {!isLoading && aiCapabilities.enabled && (
-                        <span className="px-1.5 py-0.5 rounded bg-white/15 text-[11px] font-bold uppercase tracking-wide leading-none">
-                          AI
+                        <span className="px-1.5 py-0.5 rounded bg-[#141615]/90 text-teal-300 text-[11px] font-bold uppercase tracking-wide leading-none">
+                          SquadPipe AI
                         </span>
                       )}
                     </button>

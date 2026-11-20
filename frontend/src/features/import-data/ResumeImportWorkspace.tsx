@@ -39,6 +39,7 @@ import { BulkResumeQueueController } from '../../hooks/useBulkResumeQueue';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { SearchableSelectInput } from '../../components/shared/SearchableSelectInput';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { AiBadge } from '../../components/shared/AiBrand';
 import { ActionButton } from '../../components/shared/ActionButton';
 
 export interface ResumeApproveOptions {
@@ -428,11 +429,7 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
                           {(item.file.size / 1024).toFixed(0)} KB
                         </span>
                         {item.aiUsed && aiCapabilities.enabled && (
-                          <StatusBadge
-                            tone="brand"
-                            size="xs"
-                            label="Auto-Structured"
-                          />
+                          <AiBadge label="SquadPipe AI" size="xs" />
                         )}
                       </div>
                       <div className="text-[11px] text-slate-500 mt-0.5 truncate">
@@ -712,11 +709,7 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
                 </div>
                 {hasParsedFile &&
                   (aiUsed && aiCapabilities.enabled ? (
-                    <StatusBadge
-                      tone="brand"
-                      size="xs"
-                      label="Auto-Structured"
-                    />
+                    <AiBadge label="SquadPipe AI Parsed" size="xs" />
                   ) : (
                     <StatusBadge tone="emerald" size="xs" label="Pattern Matched" />
                   ))}

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Check, FileSpreadsheet, FileUp, Loader2, Search, Sparkles, X } from 'lucide-react';
+import { AlertTriangle, Check, FileSpreadsheet, FileUp, Loader2, Search, X } from 'lucide-react';
+import { AiIcon } from '../shared/AiBrand';
 import { apiClient } from '../../config/api.config';
 import { Candidate, ClientDuplicateWarning, Requirement } from '../../types';
 import { useCurrency } from '../../utils/currency';
@@ -785,7 +786,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                       {totalBenchCount === 1 ? '' : 's'}
                     </span>
                     {aiRankScopeNote && (
-                      <span className="text-[11px] font-medium text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-full">
+                      <span className="text-[11px] font-medium text-teal-800 bg-teal-50 border border-teal-200/80 px-2 py-0.5 rounded-full">
                         {aiRankScopeNote}
                       </span>
                     )}
@@ -798,18 +799,18 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                   type="button"
                   disabled={isAiRanking || isLoadingBench}
                   onClick={handleAiRankTopMatches}
-                  className="px-2.5 py-1 rounded-lg border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
+                  className="px-2.5 py-1 rounded-lg border border-teal-200 bg-teal-50/80 hover:bg-teal-100 text-teal-800 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
                 >
                   {isAiRanking ? (
                     <Loader2 className="w-3 h-3 animate-spin" />
                   ) : (
-                    <Sparkles className="w-3 h-3" />
+                    <AiIcon className="w-3 h-3 text-teal-600" />
                   )}
                   <span>
                     {isAiRanking
                       ? 'Ranking Best Fits...'
                       : aiCapabilities.enabled
-                        ? 'AI Rank Top Matches'
+                        ? 'SquadPipe AI Rank'
                         : 'Rank Top Matches'}
                   </span>
                 </button>
@@ -901,7 +902,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                                   : `${match.matched.length} of ${reqSkillList.length} required skills matched`
                               }
                             >
-                              {isAiRanked && aiRankUsed && <Sparkles className="w-2.5 h-2.5" />}
+                              {isAiRanked && aiRankUsed && <AiIcon className="w-3 h-3 text-teal-600" />}
                               <span>
                                 {match.score === 0 && !isAiRanked
                                   ? 'No Skill Overlap'
@@ -1027,7 +1028,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                             );
                           })()}
                           {isAiRanked && oneLineSummary && (
-                            <div className="text-[11px] text-indigo-700 font-medium">
+                            <div className="text-[11px] text-teal-700 font-medium">
                               {oneLineSummary}
                             </div>
                           )}

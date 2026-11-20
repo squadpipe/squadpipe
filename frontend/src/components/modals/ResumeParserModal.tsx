@@ -5,6 +5,7 @@ import { useAiCapabilities } from '../../utils/workspaceBrand';
 import { MAX_BULK_CV_FILES } from '../../utils/resumeDraftMapper';
 import { BulkResumeQueueController } from '../../hooks/useBulkResumeQueue';
 import { AnimatedModal } from '../shared/MotionPrimitives';
+import { AiBadge } from '../shared/AiBrand';
 import {
   ResumeApproveOptions,
   ResumeImportWorkspace,
@@ -72,9 +73,13 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
                   ? `Parse & Attach Resumes to ${effectiveReq.code}`
                   : 'Add Consultant from Resume'}
               </span>
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded-md">
-                <span>{aiCapabilities.enabled ? 'Smart Auto-Fill' : 'Auto-Fill'}</span>
-              </span>
+              {aiCapabilities.enabled ? (
+                <AiBadge label="SquadPipe AI" size="xs" variant="dark" />
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded-md">
+                  <span>Auto-Fill</span>
+                </span>
+              )}
             </h2>
             <div className="text-[11px] text-slate-400 mt-0.5 truncate">
               {mode === 'bulk'

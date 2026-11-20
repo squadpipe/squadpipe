@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, FileSpreadsheet, Files } from 'lucide-react';
 import { Candidate, Requirement, User } from '../../types';
+import { useAiCapabilities } from '../../utils/workspaceBrand';
 import { MAX_BULK_CV_FILES } from '../../utils/resumeDraftMapper';
 import { BulkResumeQueueController } from '../../hooks/useBulkResumeQueue';
 import { DetailBreadcrumb } from '../../components/shared/DetailPageShell';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { SegmentedControl } from '../../components/shared/SegmentedControl';
+import { AiBadge } from '../../components/shared/AiBrand';
 import {
   ResumeApproveOptions,
   ResumeImportWorkspace,
@@ -37,6 +39,7 @@ export const ResumeImportPage: React.FC<ResumeImportPageProps> = ({
   onSwitchToCsvImport,
   showToast,
 }) => {
+  const aiCapabilities = useAiCapabilities();
   const [mode, setMode] = useState<'single' | 'bulk'>(() =>
     bulkQueue.isRunning || bulkQueue.items.length > 0 ? 'bulk' : 'single'
   );
@@ -76,14 +79,15 @@ export const ResumeImportPage: React.FC<ResumeImportPageProps> = ({
       <PageHeader
         title={
           lockedRequirement
-            ? `Upload Resumes to ${lockedRequirement.code}`
-            : 'Upload Resumes'
+            ? `Upload & Parse Resumes for ${lockedRequirement.code}`
+            : 'Upload & Parse Resumes'
         }
         subtitle={
           mode === 'bulk'
             ? `Drop or select up to ${MAX_BULK_CV_FILES} CVs to parse and import into your consultant roster.`
             : 'Upload a PDF or Word (.docx) resume to inspect source text and edit extracted details side-by-side.'
         }
+        badges={aiCapabilities.enabled ? <AiBadge label="SquadPipe AI Parser" size="xs" /> : undefined}
         actions={
           <SegmentedControl<'single' | 'bulk'>
             value={mode}

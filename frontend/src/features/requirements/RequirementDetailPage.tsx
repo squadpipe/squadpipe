@@ -23,11 +23,11 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
-  Sparkles,
   Trash2,
   UserPlus,
   UsersRound,
 } from 'lucide-react';
+import { AiIcon } from '../../components/shared/AiBrand';
 import { apiClient } from '../../config/api.config';
 import {
   ApplicationFormTemplate,
@@ -971,22 +971,22 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
           type="button"
           disabled={isChecking}
           onClick={() => handleEvaluateSubmission(sub)}
-          title={aiCapabilities.enabled ? 'Run AI Fit Score Check' : 'Run Skill Fit Score Check'}
-          className="group inline-flex flex-col items-start gap-1 text-left px-1.5 py-1 -mx-1.5 rounded-md hover:bg-indigo-50/80 transition-colors cursor-pointer disabled:opacity-60 whitespace-nowrap"
+          title={aiCapabilities.enabled ? 'Run SquadPipe AI Fit Score Check' : 'Run Skill Fit Score Check'}
+          className="group inline-flex flex-col items-start gap-1 text-left px-1.5 py-1 -mx-1.5 rounded-md hover:bg-teal-50/80 transition-colors cursor-pointer disabled:opacity-60 whitespace-nowrap"
         >
           <span className="inline-flex items-center gap-1.5 text-[12px] leading-none">
-            <span className="font-semibold text-indigo-700 group-hover:text-indigo-800">
+            <span className="font-semibold text-teal-700 group-hover:text-teal-800">
               {isChecking ? 'Checking Fit...' : 'Check Fit Score'}
             </span>
             {isChecking ? (
-              <Loader2 className="w-3 h-3 animate-spin text-indigo-600 shrink-0" />
+              <Loader2 className="w-3 h-3 animate-spin text-teal-600 shrink-0" />
             ) : (
-              <Sparkles className="w-3 h-3 text-indigo-600 shrink-0 group-hover:scale-110 transition-transform" />
+              <AiIcon className="w-3.5 h-3.5 text-teal-600 shrink-0 group-hover:scale-110 transition-transform" />
             )}
           </span>
-          <span className="w-24 h-1 rounded-full bg-indigo-100/90 overflow-hidden block">
+          <span className="w-24 h-1 rounded-full bg-teal-100/90 overflow-hidden block">
             <span
-              className={`block h-full rounded-full bg-indigo-500 transition-all duration-200 ${
+              className={`block h-full rounded-full bg-teal-600 transition-all duration-200 ${
                 isChecking ? 'w-2/3 animate-pulse' : 'w-0 group-hover:w-1/2'
               }`}
             />
@@ -1015,7 +1015,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
           {isChecking ? (
             <Loader2 className="w-2.5 h-2.5 animate-spin shrink-0 text-brand-600" />
           ) : (
-            usedAi && <Sparkles className={`w-2.5 h-2.5 shrink-0 ${badgeMeta.scoreTextClass}`} />
+            usedAi && <AiIcon className={`w-3 h-3 shrink-0 ${badgeMeta.scoreTextClass}`} />
           )}
         </span>
         <span className="w-24 h-1 rounded-full bg-slate-200/80 overflow-hidden block">
@@ -2183,7 +2183,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                       }}
                       className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-[11px] inline-flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50"
                     >
-                      <Sparkles className="w-3 h-3 text-brand-600" />
+                      <AiIcon className="w-3 h-3 text-brand-600" />
                       <span>Auto-Fill Summary</span>
                     </button>
                   )}
@@ -2222,7 +2222,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                         onClick={() => setDraftPublicDesc(generateDefaultPublicSummary())}
                         className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-[11px] inline-flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50"
                       >
-                        <Sparkles className="w-3 h-3 text-brand-600" />
+                        <AiIcon className="w-3 h-3 text-brand-600" />
                         <span>Auto-Fill Summary</span>
                       </button>
                       <div className="flex items-center gap-2">
