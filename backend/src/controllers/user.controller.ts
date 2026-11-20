@@ -48,3 +48,27 @@ export const inviteUser = async (req: Request, res: Response) => {
     res.status(status).json({ success: false, message: msg });
   }
 };
+
+export const resendUserInvite = async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const agencyName = req.user?.agencyName;
+    const result = await userService.resendInvite(req.params.id, tenantId, agencyName);
+    res.json({
+      success: true,
+      delivered: result.emailDelivered,
+      inviteUrl: result.inviteUrl,
+      emailError: result.emailError,
+      message: result.emailDelivered
+        ? `Fresh invitation link sent to ${result.user.email}.`
+        : `Fresh invite link generated for ${result.user.email} (SMTP unavailable).`,
+      data: result.user,
+    });
+  } catch (error: any) {
+    const status = error?.statusCode || 500;
+    res.status(status).json({
+      success: false,
+      message: error?.message || 'Failed to resend invitation link',
+    });
+  }
+};

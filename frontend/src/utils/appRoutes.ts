@@ -74,6 +74,7 @@ const VIEW_TITLE_LABELS: Record<string, string> = {
   pipeline: 'Pipeline',
   requirement_new: 'New Job Requirement',
   requirement_edit: 'Edit Requirement',
+  requirement_form_preview: 'Application Form Preview',
   requirement_from_email: 'Create Job from Email',
   requirement_detail: 'Requirement Details',
   consultants: 'Consultants',
@@ -141,6 +142,7 @@ export function parseAppRoute(pathname: string, search?: string): ParsedAppRoute
   }
 
   const detailPatterns: Array<[RegExp, string]> = [
+    [/^\/requirements\/([^/]+)\/form-preview$/i, 'requirement_form_preview'],
     [/^\/requirements\/([^/]+)\/edit$/i, 'requirement_edit'],
     [/^\/requirements\/([^/]+)$/i, 'requirement_detail'],
     [/^\/(?:consultants|candidates)\/([^/]+)\/edit$/i, 'consultant_edit'],
@@ -175,6 +177,9 @@ export function buildAppPath(
   switch (view) {
     case 'requirement_edit':
       basePath = id ? `/requirements/${id}/edit` : '/pipeline';
+      break;
+    case 'requirement_form_preview':
+      basePath = id ? `/requirements/${id}/form-preview` : '/pipeline';
       break;
     case 'requirement_detail':
       basePath = id ? `/requirements/${id}` : '/pipeline';

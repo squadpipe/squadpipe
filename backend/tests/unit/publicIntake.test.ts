@@ -194,6 +194,7 @@ export const runPublicIntakeTests = () => {
         expectedRate: 'half',
         vendorName: 'half',
       },
+      fieldOrder: ['joining_timeline', 'vendorName', 'project_notes', 'currentTitle', 'relocation_ok'],
       customFields: [
         {
           key: 'joining_timeline',
@@ -210,6 +211,13 @@ export const runPublicIntakeTests = () => {
           required: false,
           width: 'half',
         },
+        {
+          key: 'project_notes',
+          name: 'Project Summary',
+          type: 'RICH_TEXT',
+          required: true,
+          width: 'full',
+        },
       ],
     },
   ]);
@@ -217,8 +225,87 @@ export const runPublicIntakeTests = () => {
   assert.equal(normalizedForms[0].fieldWidths?.currentTitle, 'full');
   assert.equal(normalizedForms[0].fieldWidths?.expectedRate, 'half');
   assert.equal(normalizedForms[0].fieldWidths?.vendorName, 'half');
+  assert.deepEqual(normalizedForms[0].fieldOrder, [
+    'joining_timeline',
+    'vendorName',
+    'project_notes',
+    'currentTitle',
+    'relocation_ok',
+  ]);
   assert.equal(normalizedForms[0].customFields[0].width, 'full');
   assert.equal(normalizedForms[0].customFields[1].width, 'half');
+  assert.equal(normalizedForms[0].customFields[2].type, 'RICH_TEXT');
+
+  // 7. Rich text & multi-type custom question validation + HTML sanitization
+  assert.throws(
+    () =>
+      validatePublicApplicationInput(
+        {
+          fullName: 'Jordan Patel',
+          email: 'jordan@example.com',
+          phone: '+1 555 222 3333',
+          workAuth: 'US Citizen',
+          customFields: JSON.stringify({
+            project_notes: '<p><br></p>',
+          }),
+        },
+        dummyCv,
+        {
+          ...(normalizedForms[0] as any),
+          customFields: [
+            {
+              key: 'project_notes',
+              name: 'Project Summary',
+              type: 'RICH_TEXT',
+              required: true,
+              width: 'full',
+              options: [],
+            },
+          ],
+        }
+      ),
+    (err: any) => err.statusCode === 400
+  );
+
+  const richApp = validatePublicApplicationInput(
+    {
+      fullName: 'Jordan Patel',
+      email: 'jordan@example.com',
+      phone: '+1 555 222 3333',
+      workAuth: 'US Citizen',
+      customFields: JSON.stringify({
+        project_notes: '<p onclick="evil()"><strong>Led AWS migration</strong></p><ul><li>Terraform</li></ul><script>alert(1)</script>',
+        portfolio_link: 'github.com/jordan',
+      }),
+    },
+    dummyCv,
+    {
+      ...(normalizedForms[0] as any),
+      customFields: [
+        {
+          key: 'project_notes',
+          name: 'Project Summary',
+          type: 'RICH_TEXT',
+          required: true,
+          width: 'full',
+          options: [],
+        },
+        {
+          key: 'portfolio_link',
+          name: 'Portfolio URL',
+          type: 'URL',
+          required: false,
+          width: 'half',
+          options: [],
+        },
+      ],
+    }
+  );
+  assert.equal(
+    richApp.customFieldValues['Project Summary'],
+    '<p><strong>Led AWS migration</strong></p><ul><li>Terraform</li></ul>'
+  );
+  assert.equal(richApp.customFieldValues['Portfolio URL'], 'https://github.com/jordan');
 
   console.log('✅ Public Requirement CV Intake Form Tests: PASSED');
 };

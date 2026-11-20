@@ -3,10 +3,37 @@ import { prisma } from './prisma.config';
 
 export type FormFieldWidth = 'half' | 'full';
 
+export type CustomQuestionFieldType =
+  | 'TEXT'
+  | 'TEXTAREA'
+  | 'RICH_TEXT'
+  | 'NUMBER'
+  | 'DATE'
+  | 'BOOLEAN'
+  | 'DROPDOWN'
+  | 'MULTISELECT'
+  | 'EMAIL'
+  | 'PHONE'
+  | 'URL';
+
+const VALID_CUSTOM_QUESTION_TYPES = new Set<CustomQuestionFieldType>([
+  'TEXT',
+  'TEXTAREA',
+  'RICH_TEXT',
+  'NUMBER',
+  'DATE',
+  'BOOLEAN',
+  'DROPDOWN',
+  'MULTISELECT',
+  'EMAIL',
+  'PHONE',
+  'URL',
+]);
+
 export interface ApplicationFormCustomField {
   key: string;
   name: string;
-  type: 'TEXT' | 'NUMBER' | 'DATE' | 'BOOLEAN' | 'DROPDOWN';
+  type: CustomQuestionFieldType;
   required: boolean;
   width?: FormFieldWidth;
   options?: string[];
@@ -30,6 +57,7 @@ export interface ApplicationFormTemplate {
   includeLinkedinUrl: boolean;
   requireLinkedinUrl: boolean;
   fieldWidths?: Record<string, FormFieldWidth>;
+  fieldOrder?: string[];
   customFieldKeys: string[];
   customFields?: ApplicationFormCustomField[];
   updatedAt: string;
@@ -330,6 +358,15 @@ export function normalizeApplicationForms(
       if (!widths.vendorName) widths.vendorName = 'full';
       return widths;
     })(),
+    fieldOrder: Array.isArray(item.fieldOrder)
+      ? Array.from(
+          new Set(
+            item.fieldOrder
+              .map((k: any) => String(k || '').trim())
+              .filter(Boolean)
+          )
+        )
+      : undefined,
     customFieldKeys: Array.isArray(item.customFieldKeys)
       ? item.customFieldKeys.map((k) => String(k).trim()).filter(Boolean)
       : [],
@@ -343,23 +380,28 @@ export function normalizeApplicationForms(
                 .trim()
                 .replace(/[^a-zA-Z0-9_]/g, '_') ||
               `cf_${name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${cfIdx + 1}`;
-            const rawType = String(cf?.type || 'TEXT').toUpperCase();
-            const type: ApplicationFormCustomField['type'] =
-              rawType === 'NUMBER' ||
-              rawType === 'DATE' ||
-              rawType === 'BOOLEAN' ||
-              rawType === 'DROPDOWN'
-                ? rawType
-                : 'TEXT';
+            const rawType = String(cf?.type || 'TEXT').toUpperCase() as CustomQuestionFieldType;
+            const type: ApplicationFormCustomField['type'] = VALID_CUSTOM_QUESTION_TYPES.has(
+              rawType
+            )
+              ? rawType
+              : 'TEXT';
             const width: FormFieldWidth =
-              String(cf?.width || '').toLowerCase() === 'full' ? 'full' : 'half';
+              String(cf?.width || '').toLowerCase() === 'full'
+                ? 'full'
+                : String(cf?.width || '').toLowerCase() === 'half'
+                  ? 'half'
+                  : type === 'RICH_TEXT' || type === 'TEXTAREA'
+                    ? 'full'
+                    : 'half';
             const normalizedField: ApplicationFormCustomField = {
               key: rawKey,
               name,
               type,
               required: Boolean(cf?.required),
               width,
-              ...(Array.isArray(cf?.options)
+              ...(Array.isArray(cf?.options) &&
+              (type === 'DROPDOWN' || type === 'MULTISELECT')
                 ? { options: cf.options.map((o: any) => String(o).trim()).filter(Boolean) }
                 : {}),
             };

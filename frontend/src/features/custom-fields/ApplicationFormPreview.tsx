@@ -2,36 +2,37 @@ import React, { useState } from 'react';
 import { Briefcase, CloudUpload, ShieldCheck } from 'lucide-react';
 import { ApplicationFormTemplate } from '../../types';
 import { CustomSelect } from '../../components/shared/CustomSelect';
+import { CustomQuestionFieldInput } from '../../components/shared/CustomQuestionFieldInput';
 import {
   getFieldWidthColSpanClass,
-  resolveFormFieldWidth,
+  resolveOrderedFormEntries,
 } from '../../utils/applicationForms';
 
 interface ApplicationFormPreviewProps {
   template: Omit<ApplicationFormTemplate, 'id'> & { id?: string };
   agencyName?: string;
+  headerBadgeText?: string;
+  subtitleText?: string;
 }
 
 /**
  * Live faithful preview of how an Application Form Template renders to applicants
- * on the public job application link, respecting Half / Full width layout per field.
+ * on the public job application link, respecting Half / Full width layout and drag order.
  */
 export const ApplicationFormPreview: React.FC<ApplicationFormPreviewProps> = ({
   template,
   agencyName = 'Your Recruiting Team',
+  headerBadgeText = 'Open Position',
+  subtitleText = 'Job Application & Resume Upload',
 }) => {
   const [previewWorkAuth, setPreviewWorkAuth] = useState('US Citizen');
   const [previewCustomValues, setPreviewCustomValues] = useState<Record<string, string>>({});
 
-  const titleWidth = resolveFormFieldWidth(template, 'currentTitle', 'half');
-  const rateWidth = resolveFormFieldWidth(template, 'expectedRate', 'half');
-  const noticeWidth = resolveFormFieldWidth(template, 'noticePeriod', 'half');
-  const linkedinWidth = resolveFormFieldWidth(template, 'linkedinUrl', 'half');
-  const vendorWidth = resolveFormFieldWidth(template, 'vendorName', 'full');
+  const orderedFields = resolveOrderedFormEntries(template);
 
   return (
     <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs">
-      {/* Agency Header */}
+      {/* Sleek Rounded Agency Header */}
       <div className="px-5 py-3.5 bg-[#141615] text-white flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shrink-0">
@@ -39,12 +40,12 @@ export const ApplicationFormPreview: React.FC<ApplicationFormPreviewProps> = ({
           </div>
           <div className="min-w-0">
             <div className="text-xs font-bold text-white truncate">{agencyName}</div>
-            <div className="text-[11px] text-slate-400">Job Application &amp; Resume Upload</div>
+            <div className="text-[11px] text-slate-400">{subtitleText}</div>
           </div>
         </div>
-        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/25 text-[11px] font-semibold text-emerald-300 whitespace-nowrap">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/25 text-[11px] font-semibold text-emerald-300 whitespace-nowrap shrink-0">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-          <span>Open Position</span>
+          <span>{headerBadgeText}</span>
         </span>
       </div>
 
@@ -77,7 +78,7 @@ export const ApplicationFormPreview: React.FC<ApplicationFormPreviewProps> = ({
           </div>
         </div>
 
-        {/* Responsive 2-Column Field Grid with Exact Width Controls */}
+        {/* Responsive 2-Column Field Grid with Exact Placement Order & Width Controls */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
           <div>
             <label className="block text-[11px] font-semibold text-slate-700 mb-1">
@@ -128,107 +129,41 @@ export const ApplicationFormPreview: React.FC<ApplicationFormPreviewProps> = ({
             />
           </div>
 
-          {template.includeCurrentTitle && (
-            <div className={getFieldWidthColSpanClass(titleWidth)}>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Current Title / Role {template.requireCurrentTitle ? '*' : '(Optional)'}
-              </label>
-              <input
-                type="text"
-                readOnly
-                placeholder="e.g. Senior Cloud Engineer"
-                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50/70 text-slate-500 pointer-events-none"
-              />
-            </div>
-          )}
+          {orderedFields.map((entry) => {
+            if (entry.kind === 'standard') {
+              return (
+                <div key={entry.key} className={getFieldWidthColSpanClass(entry.width)}>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    {entry.meta.applicantLabel} {entry.required ? '*' : '(Optional)'}
+                  </label>
+                  <input
+                    type={entry.meta.inputType}
+                    readOnly
+                    placeholder={entry.meta.placeholder}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50/70 text-slate-500 pointer-events-none"
+                  />
+                </div>
+              );
+            }
 
-          {template.includeExpectedRate && (
-            <div className={getFieldWidthColSpanClass(rateWidth)}>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Expected Hourly Rate {template.requireExpectedRate ? '*' : '(Optional)'}
-              </label>
-              <input
-                type="text"
-                readOnly
-                placeholder="e.g. $90/hr (W2) or $105/hr (C2C)"
-                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50/70 text-slate-500 pointer-events-none"
-              />
-            </div>
-          )}
-
-          {template.includeNoticePeriod && (
-            <div className={getFieldWidthColSpanClass(noticeWidth)}>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Availability / Notice Period {template.requireNoticePeriod ? '*' : '(Optional)'}
-              </label>
-              <input
-                type="text"
-                readOnly
-                placeholder="e.g. Immediate or 2 Weeks Notice"
-                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50/70 text-slate-500 pointer-events-none"
-              />
-            </div>
-          )}
-
-          {template.includeLinkedinUrl && (
-            <div className={getFieldWidthColSpanClass(linkedinWidth)}>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                LinkedIn Profile URL {template.requireLinkedinUrl ? '*' : '(Optional)'}
-              </label>
-              <input
-                type="url"
-                readOnly
-                placeholder="https://linkedin.com/in/username"
-                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50/70 text-slate-500 pointer-events-none"
-              />
-            </div>
-          )}
-
-          {template.includeVendorName && (
-            <div className={getFieldWidthColSpanClass(vendorWidth)}>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Partner / Vendor Agency Name {template.requireVendorName ? '*' : '(Optional)'}
-              </label>
-              <input
-                type="text"
-                readOnly
-                placeholder="e.g. Direct Candidate or Partner Staffing Firm"
-                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50/70 text-slate-500 pointer-events-none"
-              />
-            </div>
-          )}
-
-          {(template.customFields || []).map((cf) => {
+            const cf = entry.field;
             const val = previewCustomValues[cf.key] || '';
             return (
-              <div key={cf.key} className={getFieldWidthColSpanClass(cf.width || 'half')}>
+              <div key={cf.key} className={getFieldWidthColSpanClass(entry.width)}>
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                   {cf.name || 'Untitled Question'} {cf.required ? '*' : ''}
                 </label>
-                {cf.type === 'DROPDOWN' ? (
-                  <CustomSelect
-                    value={val}
-                    onChange={(next) => setPreviewCustomValues((prev) => ({ ...prev, [cf.key]: next }))}
-                    placeholder={`Select ${(cf.name || 'option').toLowerCase()}...`}
-                    size="sm"
-                    options={cf.options && cf.options.length > 0 ? cf.options : ['Option 1', 'Option 2']}
-                  />
-                ) : cf.type === 'BOOLEAN' ? (
-                  <CustomSelect
-                    value={val}
-                    onChange={(next) => setPreviewCustomValues((prev) => ({ ...prev, [cf.key]: next }))}
-                    placeholder="Select Yes or No..."
-                    size="sm"
-                    options={['Yes', 'No']}
-                  />
-                ) : (
-                  <input
-                    type={cf.type === 'NUMBER' ? 'number' : cf.type === 'DATE' ? 'date' : 'text'}
-                    readOnly
-                    placeholder={`Enter ${(cf.name || 'answer').toLowerCase()}...`}
-                    className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50/70 text-slate-500 pointer-events-none"
-                  />
-                )}
+                <CustomQuestionFieldInput
+                  type={cf.type}
+                  label={cf.name || 'Question'}
+                  value={val}
+                  onChange={(next) =>
+                    setPreviewCustomValues((prev) => ({ ...prev, [cf.key]: next }))
+                  }
+                  options={cf.options}
+                  required={Boolean(cf.required)}
+                  previewMode={true}
+                />
               </div>
             );
           })}

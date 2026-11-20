@@ -33,6 +33,96 @@ export interface UserFilterParams {
 }
 
 export class UserService {
+  async resolveSuperAdminId(tenantId: string): Promise<string | null> {
+    if (!tenantId) return null;
+    const founderAdmin = await prisma.user.findFirst({
+      where: {
+        tenantId,
+        role: UserRole.ADMINISTRATOR,
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: { id: true },
+    });
+    return founderAdmin?.id || null;
+  }
+
+  async isSuperAdmin(tenantId: string, userId: string): Promise<boolean> {
+    if (!userId || !tenantId) return false;
+    const superAdminId = await this.resolveSuperAdminId(tenantId);
+    return superAdminId === userId;
+  }
+
+  private async issueAndSendInvite(
+    user: {
+      id: string;
+      email: string;
+      fullName: string;
+      role: UserRole;
+    },
+    tenantId: string,
+    resolvedAgencyName: string
+  ): Promise<{
+    inviteUrl: string;
+    emailDelivered: boolean;
+    emailError?: string;
+  }> {
+    const inviteToken = crypto.randomBytes(32).toString('base64url');
+    const expiresHours = 24;
+
+    await prisma.refreshToken.create({
+      data: {
+        token: `invite_${inviteToken}`,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + expiresHours * 60 * 60 * 1000),
+      },
+    });
+
+    const frontendBaseUrl = (
+      process.env.FRONTEND_URL ||
+      process.env.CORS_ORIGIN?.split(',')[0] ||
+      'http://localhost:3000'
+    )
+      .trim()
+      .replace(/\/+$/, '');
+    const inviteUrl = `${frontendBaseUrl}/?inviteToken=${encodeURIComponent(inviteToken)}`;
+    const roleLabel = user.role
+      .replace(/_/g, ' ')
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+
+    const { subject, html } = renderInviteEmail({
+      brandName: resolvedAgencyName,
+      recipientName: user.fullName,
+      roleLabel,
+      inviteUrl,
+      expiresHours,
+    });
+
+    const mailResult = await smtpService
+      .sendMail({
+        to: user.email,
+        recipientName: user.fullName,
+        subject,
+        html,
+        tenantId,
+        noReply: true,
+      })
+      .catch((err) => {
+        console.warn('Invite email dispatch warning:', err);
+        return { success: false, error: err?.message || 'Failed to send invite email' };
+      });
+
+    if (!mailResult.success) {
+      console.warn(`Invite email not dispatched for ${user.email}: ${mailResult.error}`);
+    }
+
+    return {
+      inviteUrl,
+      emailDelivered: Boolean(mailResult.success),
+      emailError: mailResult.success ? undefined : mailResult.error,
+    };
+  }
+
   async getUsers(tenantId?: string, params: UserFilterParams = {}) {
     const where: Prisma.UserWhereInput = {};
     if (tenantId) where.tenantId = tenantId;
@@ -78,14 +168,18 @@ export class UserService {
     const enrichUsers = async (rows: Array<{ id: string; tenantId: string; workload: string | null; [k: string]: any }>) => {
       if (rows.length === 0) return rows;
       const scopeTenant = tenantId || rows[0].tenantId;
-      const workloads = await analyticsService.getLiveWorkloadsMap(
-        scopeTenant,
-        rows.map((r) => r.id)
-      );
+      const [workloads, superAdminId] = await Promise.all([
+        analyticsService.getLiveWorkloadsMap(
+          scopeTenant,
+          rows.map((r) => r.id)
+        ),
+        this.resolveSuperAdminId(scopeTenant),
+      ]);
       return rows.map((r) => {
         const live = workloads.get(r.id);
         return {
           ...r,
+          isSuperAdmin: r.id === superAdminId,
           workload: live?.workloadText || formatLiveWorkloadText(0, 0, 0),
           metrics: live
             ? { openReqs: live.openReqs, submissions: live.submissions, placements: live.placements }
@@ -218,7 +312,6 @@ export class UserService {
     // Cryptographically random temporary credential (never static default password)
     const temporaryRandomSecret = crypto.randomBytes(24).toString('base64url');
     const tempPasswordHash = await bcrypt.hash(temporaryRandomSecret, 12);
-    const inviteToken = crypto.randomBytes(32).toString('base64url');
     const resolvedName = (data.fullName || data.name || 'Team Member').trim();
     const settings = await getTenantSettings(tenantId);
     const resolvedAgencyName =
@@ -256,55 +349,95 @@ export class UserService {
       }
     });
 
-    // Issue unique 24h onboarding invitation token and dispatch via workspace SMTP
-    await prisma.refreshToken.create({
-      data: {
-        token: `invite_${inviteToken}`,
-        userId: invitedUser.id,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    const dispatch = await this.issueAndSendInvite(
+      {
+        id: invitedUser.id,
+        email: normalizedEmail,
+        fullName: resolvedName,
+        role: validRole,
+      },
+      tenantId,
+      resolvedAgencyName
+    );
+
+    return {
+      ...invitedUser,
+      isSuperAdmin: false,
+      emailDelivered: dispatch.emailDelivered,
+      inviteUrl: dispatch.inviteUrl,
+    };
+  }
+
+  async resendInvite(
+    userId: string,
+    tenantId: string = 'squadpipe-agency',
+    agencyName?: string
+  ) {
+    const user = await prisma.user.findFirst({
+      where: { id: userId, tenantId },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        agencyName: true,
+        tenantId: true,
+        role: true,
+        desk: true,
+        rateMasked: true,
+        status: true,
+        workload: true,
+        createdAt: true,
       },
     });
-
-    const frontendBaseUrl = (
-      process.env.FRONTEND_URL ||
-      process.env.CORS_ORIGIN?.split(',')[0] ||
-      'http://localhost:3000'
-    )
-      .trim()
-      .replace(/\/+$/, '');
-    const inviteUrl = `${frontendBaseUrl}/?inviteToken=${encodeURIComponent(inviteToken)}`;
-    const roleLabel = validRole
-      .replace(/_/g, ' ')
-      .toLowerCase()
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-
-    const { subject, html } = renderInviteEmail({
-      brandName: resolvedAgencyName,
-      recipientName: resolvedName,
-      roleLabel,
-      inviteUrl,
-      expiresHours: 24,
-    });
-
-    const mailResult = await smtpService
-      .sendMail({
-        to: normalizedEmail,
-        recipientName: resolvedName,
-        subject,
-        html,
-        tenantId,
-        noReply: true,
-      })
-      .catch((err) => {
-        console.warn('Invite email dispatch warning:', err);
-        return { success: false, error: err?.message || 'Failed to send invite email' };
-      });
-
-    if (!mailResult.success) {
-      console.warn(`Invite email not dispatched for ${normalizedEmail}: ${mailResult.error}`);
+    if (!user) {
+      const err = new Error('User not found') as Error & { statusCode?: number };
+      err.statusCode = 404;
+      throw err;
+    }
+    if (user.status !== UserStatus.INVITED) {
+      const err = new Error(
+        user.status === UserStatus.ACTIVE
+          ? 'This team member has already activated their account.'
+          : 'Suspended users must be reactivated before sending an invitation.'
+      ) as Error & { statusCode?: number };
+      err.statusCode = 400;
+      throw err;
     }
 
-    return invitedUser;
+    // Revoke any previous unexpired invite links for this user before issuing a fresh link
+    await prisma.refreshToken.updateMany({
+      where: {
+        userId: user.id,
+        token: { startsWith: 'invite_' },
+        revokedAt: null,
+      },
+      data: { revokedAt: new Date() },
+    });
+
+    const settings = await getTenantSettings(tenantId);
+    const resolvedAgencyName =
+      settings.general.agencyName?.trim() || user.agencyName || agencyName || 'SquadPipe Staffing';
+
+    const dispatch = await this.issueAndSendInvite(
+      {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role,
+      },
+      tenantId,
+      resolvedAgencyName
+    );
+
+    return {
+      user: {
+        ...user,
+        isSuperAdmin: false,
+      },
+      emailDelivered: dispatch.emailDelivered,
+      emailError: dispatch.emailError,
+      inviteUrl: dispatch.inviteUrl,
+    };
   }
 }
 

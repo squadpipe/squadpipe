@@ -11,6 +11,7 @@ import { getTenantSettings, saveGeneralSettings } from '../config/smtp.config';
 import { smtpService } from '../services/smtp.service';
 import { renderOtpEmail } from '../services/emailTemplate.service';
 import { analyticsService } from '../services/analytics.service';
+import { userService } from '../services/user.service';
 
 async function resolveUserLiveWorkload(userId: string, tenantId: string, fallback: string | null) {
   try {
@@ -94,7 +95,10 @@ export const login = async (req: Request, res: Response) => {
     }
   });
 
-  const liveWorkload = await resolveUserLiveWorkload(user.id, authPayload.tenantId, user.workload);
+  const [liveWorkload, isSuperAdmin] = await Promise.all([
+    resolveUserLiveWorkload(user.id, authPayload.tenantId, user.workload),
+    userService.isSuperAdmin(authPayload.tenantId, user.id).catch(() => false),
+  ]);
 
   res.json({
     success: true,
@@ -111,6 +115,7 @@ export const login = async (req: Request, res: Response) => {
       rateMasked: user.rateMasked,
       workload: liveWorkload,
       status: user.status,
+      isSuperAdmin,
       isCurrentUser: true,
       lastActive: 'Active Now'
     }
@@ -125,6 +130,9 @@ export const me = async (req: Request, res: Response) => {
   // Lightweight permission sync skips workload & settings queries using fresh req.user from authenticateJwt
   const isLite = req.query.lite === '1' || req.query.lite === 'true';
   if (isLite) {
+    const isSuperAdmin = await userService
+      .isSuperAdmin(req.user.tenantId, req.user.id)
+      .catch(() => false);
     return res.json({
       success: true,
       user: {
@@ -135,6 +143,7 @@ export const me = async (req: Request, res: Response) => {
         tenantId: req.user.tenantId,
         role: req.user.role,
         rateMasked: req.user.rateMasked,
+        isSuperAdmin,
         isCurrentUser: true,
         lastActive: 'Active Now',
       },
@@ -150,9 +159,12 @@ export const me = async (req: Request, res: Response) => {
   }
 
   const tenantId = user.tenantId || req.user.tenantId;
-  const settings = await getTenantSettings(tenantId);
+  const [settings, liveWorkload, isSuperAdmin] = await Promise.all([
+    getTenantSettings(tenantId),
+    resolveUserLiveWorkload(user.id, tenantId, user.workload),
+    userService.isSuperAdmin(tenantId, user.id).catch(() => false),
+  ]);
   const resolvedAgencyName = settings.general.agencyName?.trim() || user.agencyName || 'SquadPipe Staffing';
-  const liveWorkload = await resolveUserLiveWorkload(user.id, tenantId, user.workload);
 
   res.json({
     success: true,
@@ -167,6 +179,7 @@ export const me = async (req: Request, res: Response) => {
       rateMasked: user.rateMasked,
       workload: liveWorkload,
       status: user.status,
+      isSuperAdmin,
       isCurrentUser: true,
       lastActive: 'Active Now'
     }
@@ -215,7 +228,10 @@ export const updateProfile = async (req: Request, res: Response) => {
         ...(agencyName !== undefined ? { agencyName: String(agencyName).trim() } : {})
       }
     });
-    const liveWorkload = await resolveUserLiveWorkload(updated.id, updated.tenantId, updated.workload);
+    const [liveWorkload, isSuperAdmin] = await Promise.all([
+      resolveUserLiveWorkload(updated.id, updated.tenantId, updated.workload),
+      userService.isSuperAdmin(updated.tenantId, updated.id).catch(() => false),
+    ]);
 
     res.json({
       success: true,
@@ -230,6 +246,7 @@ export const updateProfile = async (req: Request, res: Response) => {
         rateMasked: updated.rateMasked,
         workload: liveWorkload,
         status: updated.status,
+        isSuperAdmin,
         isCurrentUser: true,
         lastActive: 'Active Now'
       }
@@ -344,6 +361,7 @@ export const signup = async (req: Request, res: Response) => {
         rateMasked: user.rateMasked,
         workload: user.workload,
         status: user.status,
+        isSuperAdmin: !isDemoDomain,
         isCurrentUser: true,
         lastActive: 'Active Now'
       }

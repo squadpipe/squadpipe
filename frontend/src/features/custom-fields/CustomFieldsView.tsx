@@ -173,22 +173,61 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
       .catch((err) => console.warn('Fetch taxonomies error:', err));
   }, []);
 
-  const mapCustomFieldApi = (f: any) => ({
-    id: f.id,
-    name: f.name,
-    entity: (f.entity || 'consultant').toLowerCase(),
-    entityLabel: (f.entity || 'Consultant').charAt(0).toUpperCase() + (f.entity || 'Consultant').slice(1).toLowerCase(),
-    type: f.type === 'NUMBER' ? `Currency (${currencySymbol})` : f.type === 'DROPDOWN' ? 'Dropdown' : f.type === 'DATE' ? 'Date' : 'Text',
-    options: Array.isArray(f.options)
-      ? f.options.join(', ')
-      : typeof f.options === 'object' && f.options?.values
-      ? f.options.values
-      : typeof f.options === 'string'
-      ? f.options
-      : 'Standard Format',
-    required: !!f.required,
-    active: f.active ?? true,
-  });
+  const customFieldTypeOptions = [
+    { value: 'Dropdown', label: 'Dropdown (Single Select)' },
+    { value: 'Multi-Select', label: 'Multi-Select (Checkboxes)' },
+    { value: 'Text', label: 'Short Text (Single Line)' },
+    { value: 'Long Text', label: 'Long Text (Paragraph)' },
+    { value: 'Rich Text', label: 'Rich Text (Formatted)' },
+    { value: `Currency (${currencySymbol})`, label: `Number / Currency (${currencySymbol})` },
+    { value: 'Date', label: 'Date (Calendar Picker)' },
+    { value: 'Yes / No', label: 'Yes / No (Boolean)' },
+    { value: 'Email', label: 'Email Address' },
+    { value: 'Phone', label: 'Phone Number' },
+    { value: 'URL', label: 'Website / URL' },
+  ];
+
+  const mapCustomFieldApi = (f: any) => {
+    const raw = String(f.type || 'TEXT').toUpperCase().trim();
+    const mappedType =
+      raw === 'NUMBER'
+        ? `Currency (${currencySymbol})`
+        : raw === 'DROPDOWN'
+          ? 'Dropdown'
+          : raw === 'MULTISELECT' || raw === 'MULTI_SELECT'
+            ? 'Multi-Select'
+            : raw === 'TEXTAREA' || raw === 'LONG_TEXT'
+              ? 'Long Text'
+              : raw === 'RICH_TEXT'
+                ? 'Rich Text'
+                : raw === 'BOOLEAN'
+                  ? 'Yes / No'
+                  : raw === 'DATE'
+                    ? 'Date'
+                    : raw === 'EMAIL'
+                      ? 'Email'
+                      : raw === 'PHONE'
+                        ? 'Phone'
+                        : raw === 'URL'
+                          ? 'URL'
+                          : 'Text';
+    return {
+      id: f.id,
+      name: f.name,
+      entity: (f.entity || 'consultant').toLowerCase(),
+      entityLabel: (f.entity || 'Consultant').charAt(0).toUpperCase() + (f.entity || 'Consultant').slice(1).toLowerCase(),
+      type: mappedType,
+      options: Array.isArray(f.options)
+        ? f.options.join(', ')
+        : typeof f.options === 'object' && f.options?.values
+        ? f.options.values
+        : typeof f.options === 'string'
+        ? f.options
+        : 'Standard Format',
+      required: !!f.required,
+      active: f.active ?? true,
+    };
+  };
 
   useEffect(() => {
     if (propCustomFields && propCustomFields.length) {
@@ -414,7 +453,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
       {activeSection === 'fields' && (
         <PageHeader
           title="Custom Form Fields"
-          subtitle="Add custom attributes (Text, Dropdown, Date, Currency/Number, Yes/No) to Consultants, Requirements, Clients, Vendors, and Placements."
+          subtitle="Add custom attributes (Text, Long Text, Rich Text, Dropdown, Multi-Select, Date, Number, Yes/No, Email, Phone, URL) across CRM records."
           badges={
             <span className="text-xs font-medium text-slate-500 tabular-nums">
               {fieldsList.length} {fieldsList.length === 1 ? 'field' : 'fields'}
@@ -969,20 +1008,15 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                     value={newField.type}
                     onChange={(val) => setNewField({ ...newField, type: val })}
                     ariaLabel="Data Type"
-                    options={[
-                      { value: 'Dropdown', label: 'Dropdown (Select Option)' },
-                      { value: 'Text', label: 'Text (Single Line)' },
-                      { value: `Currency (${currencySymbol})`, label: `Currency (${currencySymbol} Amount)` },
-                      { value: 'Date', label: 'Date (Calendar Picker)' },
-                    ]}
+                    options={customFieldTypeOptions}
                   />
                 </div>
               </div>
 
-              {newField.type === 'Dropdown' && (
+              {(newField.type === 'Dropdown' || newField.type === 'Multi-Select') && (
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Dropdown Options (Comma-separated)
+                    {newField.type} Choices (Comma-separated)
                   </label>
                   <input
                     type="text"
@@ -1148,20 +1182,15 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                     value={editingField.type}
                     onChange={(val) => setEditingField({ ...editingField, type: val })}
                     ariaLabel="Data Type"
-                    options={[
-                      { value: 'Dropdown', label: 'Dropdown (Select Option)' },
-                      { value: 'Text', label: 'Text (Single Line)' },
-                      { value: `Currency (${currencySymbol})`, label: `Currency (${currencySymbol} Amount)` },
-                      { value: 'Date', label: 'Date (Calendar Picker)' },
-                    ]}
+                    options={customFieldTypeOptions}
                   />
                 </div>
               </div>
 
-              {editingField.type === 'Dropdown' && (
+              {(editingField.type === 'Dropdown' || editingField.type === 'Multi-Select') && (
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Dropdown Options (Comma-separated)
+                    {editingField.type} Choices (Comma-separated)
                   </label>
                   <input
                     type="text"

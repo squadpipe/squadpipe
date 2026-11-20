@@ -273,11 +273,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               icon: Columns,
               restricted: !isAdmin,
               tooltip: !isAdmin ? 'Restricted to Administrators' : 'Manage Custom Entity Form Attributes',
-              badge: isAdmin ? (
-                <span className="text-[11px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded-md tabular-nums">
-                  {counts.customFields}
-                </span>
-              ) : undefined,
             },
             {
               view: 'dropdown_lists',
@@ -285,11 +280,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               icon: Stack,
               restricted: !isAdmin,
               tooltip: !isAdmin ? 'Restricted to Administrators' : 'Manage Work Auth, Stages, Degrees & Terms',
-              badge: isAdmin ? (
-                <span className="text-[11px] text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded-md tabular-nums">
-                  4 Lists
-                </span>
-              ) : undefined,
             },
           ],
         },

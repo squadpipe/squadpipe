@@ -3,6 +3,7 @@ import { AutomationCategory, CandidatePipelineStage, SlaCategory } from '@prisma
 import { prisma } from '../config/prisma.config';
 import {
   ApplicationFormTemplate,
+  CustomQuestionFieldType,
   DEFAULT_APPLICATION_FORMS,
   getApplicationForms,
   getTenantSettings,
@@ -37,7 +38,7 @@ import {
 export interface PublicFormCustomFieldView {
   key: string;
   name: string;
-  type: 'TEXT' | 'DROPDOWN' | 'DATE' | 'NUMBER' | 'BOOLEAN';
+  type: CustomQuestionFieldType;
   required: boolean;
   width: 'half' | 'full';
   options: string[];
@@ -59,6 +60,7 @@ export interface PublicFormTemplateView {
   includeLinkedinUrl: boolean;
   requireLinkedinUrl: boolean;
   fieldWidths: Record<string, 'half' | 'full'>;
+  fieldOrder?: string[];
   customFields: PublicFormCustomFieldView[];
 }
 
@@ -272,13 +274,53 @@ export function validatePublicApplicationInput(
   const customFieldValues: Record<string, string> = {};
   if (formTemplate?.customFields) {
     for (const cf of formTemplate.customFields) {
-      const val = String(parsedCustomFields[cf.key] ?? parsedCustomFields[cf.name] ?? '').trim();
-      if (cf.required && !val) {
+      const rawInput = String(
+        parsedCustomFields[cf.key] ?? parsedCustomFields[cf.name] ?? ''
+      ).trim();
+
+      if (cf.type === 'RICH_TEXT') {
+        const sanitizedHtml = sanitizePublicSummaryHtml(rawInput);
+        const plainText = sanitizedHtml
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/&nbsp;/gi, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        if (cf.required && !plainText) {
+          throw createHttpError(`${cf.name} is required.`, 400);
+        }
+        if (plainText && sanitizedHtml) {
+          customFieldValues[cf.name] = sanitizedHtml.slice(0, 8000);
+        }
+        continue;
+      }
+
+      if (cf.required && !rawInput) {
         throw createHttpError(`${cf.name} is required.`, 400);
       }
-      if (val) {
-        customFieldValues[cf.name] = val.slice(0, 300);
+      if (!rawInput) continue;
+
+      if (cf.type === 'EMAIL' && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(rawInput)) {
+        throw createHttpError(`${cf.name} must be a valid email address.`, 400);
       }
+      if (cf.type === 'NUMBER' && Number.isNaN(Number(rawInput))) {
+        throw createHttpError(`${cf.name} must be a valid number.`, 400);
+      }
+      if (cf.type === 'URL') {
+        const normalizedUrl = /^https?:\/\//i.test(rawInput) ? rawInput : `https://${rawInput}`;
+        try {
+          const parsedUrl = new URL(normalizedUrl);
+          if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+            throw new Error('Invalid protocol');
+          }
+          customFieldValues[cf.name] = parsedUrl.toString().slice(0, 500);
+          continue;
+        } catch {
+          throw createHttpError(`${cf.name} must be a valid website URL.`, 400);
+        }
+      }
+
+      const maxLen = cf.type === 'TEXTAREA' ? 2000 : 500;
+      customFieldValues[cf.name] = rawInput.slice(0, maxLen);
     }
   }
 
@@ -429,6 +471,9 @@ export class PublicIntakeService {
       includeLinkedinUrl: matchedTemplate.includeLinkedinUrl,
       requireLinkedinUrl: matchedTemplate.requireLinkedinUrl,
       fieldWidths: matchedTemplate.fieldWidths || { vendorName: 'full' },
+      ...(Array.isArray(matchedTemplate.fieldOrder)
+        ? { fieldOrder: matchedTemplate.fieldOrder }
+        : {}),
       customFields,
     };
   }

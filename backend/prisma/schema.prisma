@@ -126,10 +126,16 @@ enum CustomFieldEntityType {
 
 enum CustomFieldType {
   TEXT
+  TEXTAREA
+  RICH_TEXT
   DROPDOWN
+  MULTISELECT
   DATE
   NUMBER
   BOOLEAN
+  EMAIL
+  PHONE
+  URL
 }
 
 enum MasterTaxonomyCategory {

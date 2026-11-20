@@ -577,9 +577,9 @@ export const RequirementFormPage: React.FC<RequirementFormPageProps> = ({
               <textarea
                 value={form.rawEmailText}
                 onChange={(e) => setForm({ ...form, rawEmailText: e.target.value })}
-                rows={3}
+                rows={7}
                 placeholder="Direct client requisition details, urgency, or MSA constraints..."
-                className="w-full p-2.5 border border-slate-200 rounded-lg bg-white text-xs focus:border-brand-600 focus:outline-none"
+                className="w-full min-h-[168px] p-3 border border-slate-200 rounded-lg bg-white text-xs leading-relaxed resize-y focus:border-brand-600 focus:outline-none"
               />
             </FormField>
           </div>

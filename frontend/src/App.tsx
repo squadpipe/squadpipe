@@ -20,7 +20,7 @@ import {
   setAiCapabilities,
   setWorkspaceBrand,
 } from './utils/workspaceBrand';
-import { mapCandidateFromApi, mapClientFromApi, mapRequirementFromApi, mapVendorFromApi } from './utils/entityMappers';
+import { mapCandidateFromApi, mapClientFromApi, mapRequirementFromApi, mapUserFromApi, mapVendorFromApi } from './utils/entityMappers';
 import {
   BrowserHistoryRouteState,
   buildAppPath,
@@ -111,6 +111,11 @@ const RequirementFromEmailPage = React.lazy(() =>
 const RequirementFormPage = React.lazy(() =>
   import('./features/requirements/RequirementFormPage').then((m) => ({
     default: m.RequirementFormPage,
+  }))
+);
+const RequirementFormPreviewPage = React.lazy(() =>
+  import('./features/requirements/RequirementFormPreviewPage').then((m) => ({
+    default: m.RequirementFormPreviewPage,
   }))
 );
 const ConsultantCreatePage = React.lazy(() =>
@@ -408,6 +413,11 @@ export const App: React.FC = () => {
   const [workflowReturnReqId, setWorkflowReturnReqId] = useState<string | null>(
     () => initialRoute.query?.requirementId || null
   );
+  const consultantNewReturnViewRef = React.useRef<string>(
+    initialRoute.view === 'consultant_new' && initialRoute.query?.from
+      ? initialRoute.query.from
+      : 'consultants'
+  );
 
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -512,6 +522,35 @@ export const App: React.FC = () => {
         entityId: req.id,
         returnView: originView || 'pipeline',
         returnReqId: req.id,
+      });
+    }
+  };
+
+  const handleOpenRequirementFormPreview = (
+    req: Requirement,
+    templateId?: string,
+    fromView?: string,
+    options?: { skipHistory?: boolean }
+  ) => {
+    const originView =
+      fromView ||
+      (reqDetailReturnView && reqDetailReturnView !== 'requirement_form_preview'
+        ? reqDetailReturnView
+        : 'pipeline');
+    if (originView && originView !== 'requirement_detail' && originView !== 'requirement_form_preview') {
+      setReqDetailReturnView(originView);
+    }
+    setSelectedReqForDetail(req);
+    setResolvingRouteId(null);
+    const query = templateId ? { templateId } : undefined;
+    setRouteTarget({ view: 'requirement_form_preview', entityId: req.id, query });
+    setCurrentView('requirement_form_preview');
+    if (!options?.skipHistory) {
+      pushRouteUrl('requirement_form_preview', {
+        entityId: req.id,
+        returnView: originView,
+        returnReqId: req.id,
+        query,
       });
     }
   };
@@ -717,6 +756,10 @@ export const App: React.FC = () => {
         : null) ||
       undefined;
 
+    if (targetView === 'consultant_new' && resolvedFrom && resolvedFrom !== 'import_resume') {
+      consultantNewReturnViewRef.current = resolvedFrom;
+    }
+
     setWorkflowReturnView(resolvedFrom);
     setWorkflowReturnReqId(resolvedReturnReqId || null);
     setResolvingRouteId(null);
@@ -741,7 +784,13 @@ export const App: React.FC = () => {
   };
 
   const handleReturnFromWorkflowPage = (fallbackView?: string) => {
-    const targetView = fallbackView || workflowReturnView;
+    const targetView = workflowReturnView || fallbackView;
+    if (targetView === 'consultant_new') {
+      handleOpenWorkflowPage('consultant_new', {
+        fromView: consultantNewReturnViewRef.current || 'consultants',
+      });
+      return;
+    }
     if (targetView === 'requirement_detail') {
       const reqId = workflowReturnReqId || selectedReqForDetail?.id;
       const matched = reqId ? requirements.find((r) => r.id === reqId) : selectedReqForDetail;
@@ -1000,6 +1049,7 @@ export const App: React.FC = () => {
           rateMasked: u.rateMasked ?? true,
           workload: u.workload || '',
           status: formatUserStatus(u.status),
+          isSuperAdmin: Boolean(u.isSuperAdmin),
           isCurrentUser: u.isCurrentUser ?? false,
           lastActive: u.lastActive || 'Active Now',
         }));
@@ -1189,6 +1239,7 @@ export const App: React.FC = () => {
 
       case 'pipeline':
       case 'requirement_detail':
+      case 'requirement_form_preview':
         if (!loadedEntities.current.has('requirements')) fetchRequirements();
         if (!loadedEntities.current.has('candidates')) fetchCandidates();
         break;
@@ -1454,6 +1505,7 @@ export const App: React.FC = () => {
     handleNavigateView,
     handleOpenRequirementDetail,
     handleOpenRequirementEdit,
+    handleOpenRequirementFormPreview,
     handleOpenConsultantDetail,
     handleOpenConsultantEdit,
     handleOpenClientDetail,
@@ -1465,6 +1517,7 @@ export const App: React.FC = () => {
     handleNavigateView,
     handleOpenRequirementDetail,
     handleOpenRequirementEdit,
+    handleOpenRequirementFormPreview,
     handleOpenConsultantDetail,
     handleOpenConsultantEdit,
     handleOpenClientDetail,
@@ -1502,14 +1555,20 @@ export const App: React.FC = () => {
     }
     let recordLabel: string | undefined;
     if (
-      (currentView === 'requirement_detail' || currentView === 'requirement_edit') &&
+      (currentView === 'requirement_detail' ||
+        currentView === 'requirement_edit' ||
+        currentView === 'requirement_form_preview') &&
       selectedReqForDetail
     ) {
       const baseLabel = selectedReqForDetail.code
         ? `${selectedReqForDetail.code} · ${selectedReqForDetail.opportunityTitle}`
         : selectedReqForDetail.opportunityTitle;
       recordLabel =
-        currentView === 'requirement_edit' ? `Edit ${baseLabel}` : baseLabel;
+        currentView === 'requirement_edit'
+          ? `Edit ${baseLabel}`
+          : currentView === 'requirement_form_preview'
+            ? `Form Preview · ${baseLabel}`
+            : baseLabel;
     } else if (
       (currentView === 'consultant_detail' || currentView === 'consultant_edit') &&
       selectedCandForDetail
@@ -1590,6 +1649,19 @@ export const App: React.FC = () => {
           routeHandlersRef.current.handleOpenRequirementEdit(matched, returnView, {
             skipHistory: true,
           });
+          return;
+        }
+        if (returnView) setReqDetailReturnView(returnView);
+        setSelectedReqForDetail(null);
+      } else if (parsed.view === 'requirement_form_preview') {
+        const matched = stateSnapshot.requirements.find((r) => r.id === entityId);
+        if (matched) {
+          routeHandlersRef.current.handleOpenRequirementFormPreview(
+            matched,
+            parsed.query?.templateId,
+            returnView,
+            { skipHistory: true }
+          );
           return;
         }
         if (returnView) setReqDetailReturnView(returnView);
@@ -1678,7 +1750,9 @@ export const App: React.FC = () => {
 
     const snapshot = routeStateRef.current;
     if (
-      ((routeTarget.view === 'requirement_detail' || routeTarget.view === 'requirement_edit') &&
+      ((routeTarget.view === 'requirement_detail' ||
+        routeTarget.view === 'requirement_edit' ||
+        routeTarget.view === 'requirement_form_preview') &&
         (snapshot.selectedReqForDetail?.id === targetId ||
           snapshot.requirements.some((r) => r.id === targetId))) ||
       ((routeTarget.view === 'consultant_detail' || routeTarget.view === 'consultant_edit') &&
@@ -1695,7 +1769,9 @@ export const App: React.FC = () => {
           snapshot.placements.some((p) => p.id === targetId)))
     ) {
       if (
-        (routeTarget.view === 'requirement_detail' || routeTarget.view === 'requirement_edit') &&
+        (routeTarget.view === 'requirement_detail' ||
+          routeTarget.view === 'requirement_edit' ||
+          routeTarget.view === 'requirement_form_preview') &&
         !snapshot.selectedReqForDetail
       ) {
         const cached = snapshot.requirements.find((r) => r.id === targetId);
@@ -1704,6 +1780,13 @@ export const App: React.FC = () => {
             routeHandlersRef.current.handleOpenRequirementEdit(cached, undefined, {
               skipHistory: true,
             });
+          } else if (routeTarget.view === 'requirement_form_preview') {
+            routeHandlersRef.current.handleOpenRequirementFormPreview(
+              cached,
+              routeTarget.query?.templateId,
+              undefined,
+              { skipHistory: true }
+            );
           } else {
             routeHandlersRef.current.handleOpenRequirementDetail(cached, undefined, {
               skipHistory: true,
@@ -1762,7 +1845,11 @@ export const App: React.FC = () => {
 
     const resolveDetailRoute = async () => {
       try {
-        if (routeTarget.view === 'requirement_detail' || routeTarget.view === 'requirement_edit') {
+        if (
+          routeTarget.view === 'requirement_detail' ||
+          routeTarget.view === 'requirement_edit' ||
+          routeTarget.view === 'requirement_form_preview'
+        ) {
           const res = await apiClient.get(`/requirements/${encodeURIComponent(targetId)}`);
           if (!cancelled && res.data?.data) {
             const mapped = mapRequirementFromApi(res.data.data);
@@ -1775,6 +1862,13 @@ export const App: React.FC = () => {
               routeHandlersRef.current.handleOpenRequirementEdit(mapped, undefined, {
                 skipHistory: true,
               });
+            } else if (routeTarget.view === 'requirement_form_preview') {
+              routeHandlersRef.current.handleOpenRequirementFormPreview(
+                mapped,
+                routeTarget.query?.templateId,
+                undefined,
+                { skipHistory: true }
+              );
             } else {
               routeHandlersRef.current.handleOpenRequirementDetail(mapped, undefined, {
                 skipHistory: true,
@@ -2477,7 +2571,9 @@ export const App: React.FC = () => {
   const handleUpdateUser = async (updated: User) => {
     try {
       const res = await apiClient.put(`/users/${updated.id}`, updated);
-      const saved: User = res.data?.data ?? updated;
+      const saved: User = res.data?.data
+        ? mapUserFromApi(res.data.data, currentUser?.email)
+        : updated;
       setUsers((prev) => prev.map((u) => (u.id === saved.id ? { ...u, ...saved } : u)));
       showToast('Member Updated', `${saved.name} profile saved.`, 'success');
     } catch (e: any) {
@@ -2835,7 +2931,9 @@ export const App: React.FC = () => {
   const isResolvingCurrentDetail =
     Boolean(resolvingRouteId) &&
     routeTarget.view === currentView &&
-    (((currentView === 'requirement_detail' || currentView === 'requirement_edit') &&
+    (((currentView === 'requirement_detail' ||
+      currentView === 'requirement_edit' ||
+      currentView === 'requirement_form_preview') &&
       !requirements.some((r) => r.id === resolvingRouteId) &&
       selectedReqForDetail?.id !== resolvingRouteId) ||
       ((currentView === 'consultant_detail' || currentView === 'consultant_edit') &&
@@ -2895,11 +2993,11 @@ export const App: React.FC = () => {
 
         return (
           <div
-            className={`fixed bottom-5 left-4 ${
-              sidebarCollapsed ? 'md:left-[84px]' : 'md:left-[260px]'
-            } z-[65] w-[340px] max-w-[calc(100vw-2rem)] bg-[#141615] text-white border border-white/15 rounded-xl shadow-2xl p-3.5 space-y-2.5 transition-all`}
+            className={`fixed bottom-5 left-1/2 -translate-x-1/2 ${
+              sidebarCollapsed ? 'md:left-[calc(50%+36px)]' : 'md:left-[calc(50%+128px)]'
+            } z-[65] w-[560px] max-w-[calc(100vw-2rem)] bg-[#141615] text-white border border-white/15 rounded-xl shadow-2xl px-4 py-3 space-y-2.5 transition-all`}
           >
-            <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2 min-w-0">
                 {bulkResumeQueue.isRunning ? (
                   <Loader2 className="w-4 h-4 text-brand-400 animate-spin shrink-0" />
@@ -2985,6 +3083,7 @@ export const App: React.FC = () => {
         currentView={
           currentView === 'requirement_new' ||
           currentView === 'requirement_edit' ||
+          currentView === 'requirement_form_preview' ||
           currentView === 'requirement_from_email'
             ? 'pipeline'
             : currentView === 'consultant_new' || currentView === 'consultant_edit'
@@ -3292,7 +3391,39 @@ export const App: React.FC = () => {
                   ? (req) => handleOpenInlineResumePopup(req)
                   : undefined
               }
+              onPreviewApplicationForm={(req, templateId) =>
+                handleOpenRequirementFormPreview(req, templateId, reqDetailReturnView)
+              }
               benchPickerCloseToken={benchPickerCloseToken}
+            />
+          )}
+
+          {currentView === 'requirement_form_preview' && (
+            <RequirementFormPreviewPage
+              requirement={
+                requirements.find((r) => r.id === (selectedReqForDetail?.id || routeTarget.entityId)) ||
+                selectedReqForDetail
+              }
+              initialTemplateId={routeTarget.query?.templateId}
+              isLoading={isResolvingCurrentDetail}
+              isAdmin={isAdmin}
+              agencyName={currentUser?.agencyName}
+              onBack={() => {
+                const targetReq =
+                  requirements.find((r) => r.id === (selectedReqForDetail?.id || routeTarget.entityId)) ||
+                  selectedReqForDetail;
+                if (targetReq) {
+                  handleOpenRequirementDetail(targetReq, reqDetailReturnView || 'pipeline');
+                  return;
+                }
+                handleNavigateView('pipeline');
+              }}
+              onEditTemplate={
+                isAdmin
+                  ? (formId) => handleOpenApplicationFormPage({ mode: 'edit', formId })
+                  : undefined
+              }
+              showToast={showToast}
             />
           )}
 
@@ -3338,8 +3469,7 @@ export const App: React.FC = () => {
               onBack={() => handleReturnFromWorkflowPage('consultants')}
               onOpenResumeParser={() =>
                 handleOpenWorkflowPage('import_resume', {
-                  fromView: workflowReturnView,
-                  replaceHistory: true,
+                  fromView: 'consultant_new',
                 })
               }
               onSave={async (c, cvFile) => {
@@ -3727,6 +3857,7 @@ export const App: React.FC = () => {
                         rateMasked: u.rateMasked ?? invitedUser.rateMasked,
                         workload: u.workload || invitedUser.workload,
                         status: formatUserStatus(u.status),
+                        isSuperAdmin: Boolean(u.isSuperAdmin),
                         lastActive: 'Invited',
                       };
                     }
@@ -3736,6 +3867,30 @@ export const App: React.FC = () => {
                     console.warn('API invite user failed:', e);
                     showApiErrorToast(e, 'Invitation Failed', `Could not invite ${email}.`);
                     throw e;
+                  }
+                }}
+                onResendInvite={async (user) => {
+                  try {
+                    const res = await apiClient.post(`/users/${user.id}/resend-invite`);
+                    const emailDelivered = res.data?.delivered !== false;
+                    const inviteUrl = res.data?.inviteUrl;
+                    if (!emailDelivered && inviteUrl && typeof navigator !== 'undefined' && navigator.clipboard) {
+                      await navigator.clipboard.writeText(inviteUrl).catch(() => {});
+                    }
+                    showToast(
+                      emailDelivered ? 'Invitation Resent' : 'Fresh Invite Link Copied',
+                      emailDelivered
+                        ? `Sent a fresh onboarding invite link to ${user.email}.`
+                        : `SMTP unavailable — copied fresh invite link for ${user.email} to clipboard.`,
+                      emailDelivered ? 'success' : 'warning'
+                    );
+                  } catch (e: any) {
+                    console.warn('API resend invite failed:', e);
+                    showApiErrorToast(
+                      e,
+                      'Resend Failed',
+                      `Could not resend invitation link for ${user.email}.`
+                    );
                   }
                 }}
                 onToggleUserStatus={async (user) => {
@@ -3882,13 +4037,15 @@ export const App: React.FC = () => {
                   ? lockedReq?.code
                     ? `Back to ${lockedReq.code}`
                     : 'Back to Requirement'
-                  : workflowReturnView === 'consultants'
-                    ? 'Back to Consultants'
-                    : workflowReturnView === 'pipeline'
-                      ? 'Back to Pipeline'
-                      : workflowReturnView === 'dashboard'
-                        ? 'Back to Dashboard'
-                        : 'Back to Import Data';
+                  : workflowReturnView === 'consultant_new'
+                    ? 'Back to Add Consultant'
+                    : workflowReturnView === 'consultants'
+                      ? 'Back to Consultants'
+                      : workflowReturnView === 'pipeline'
+                        ? 'Back to Pipeline'
+                        : workflowReturnView === 'dashboard'
+                          ? 'Back to Dashboard'
+                          : 'Back to Import Data';
 
               return (
                 <ResumeImportPage
@@ -3904,6 +4061,12 @@ export const App: React.FC = () => {
                         navigateToSpecificReqPage(
                           (updatedReq || opts?.targetRequirement)!,
                           workflowReturnView
+                        );
+                      } else if (workflowReturnView === 'consultant_new') {
+                        handleNavigateView(
+                          consultantNewReturnViewRef.current === 'dashboard'
+                            ? 'dashboard'
+                            : 'consultants'
                         );
                       } else {
                         handleReturnFromWorkflowPage('consultants');
@@ -3922,7 +4085,15 @@ export const App: React.FC = () => {
                             navigateToSpecificReqPage(batchReq, workflowReturnView);
                           } else {
                             bulkResumeQueue.dismissBanner();
-                            handleReturnFromWorkflowPage('consultants');
+                            if (workflowReturnView === 'consultant_new') {
+                              handleNavigateView(
+                                consultantNewReturnViewRef.current === 'dashboard'
+                                  ? 'dashboard'
+                                  : 'consultants'
+                              );
+                            } else {
+                              handleReturnFromWorkflowPage('consultants');
+                            }
                           }
                         }
                   }

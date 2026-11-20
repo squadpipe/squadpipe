@@ -49,12 +49,11 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
   const [isLoading, setIsLoading] = useState(false);
 
   // List view filter, sort & pagination state
-  const [filterScope, setFilterScope] = useState<'all' | 'with_custom'>('all');
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 200);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
-  const tableSort = useTableSort<'name' | 'fieldsCount' | 'customCount' | 'isDefault'>();
+  const tableSort = useTableSort<'name' | 'fieldsCount' | 'isDefault'>();
   const [expandedRowIds, setExpandedRowIds] = useState<Record<string, boolean>>({});
 
   // Row quick actions & preview modal state
@@ -98,25 +97,11 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, filterScope, tableSort.sort.sortBy, tableSort.sort.sortDir]);
-
-  const countCustomQuestions = (form: ApplicationFormTemplate) =>
-    (form.customFields?.length || 0) +
-    (form.customFieldKeys || []).filter(
-      (k) => !(form.customFields || []).some((cf) => cf.key === k)
-    ).length;
-
-  const formsWithCustomCount = useMemo(
-    () => forms.filter((f) => countCustomQuestions(f) > 0).length,
-    [forms]
-  );
+  }, [debouncedSearch, tableSort.sort.sortBy, tableSort.sort.sortDir]);
 
   const processedForms = useMemo(() => {
     const q = debouncedSearch.trim().toLowerCase();
     const filtered = forms.filter((form) => {
-      if (filterScope === 'with_custom' && countCustomQuestions(form) === 0) {
-        return false;
-      }
       if (!q) return true;
       const chipNames = summarizeFormTemplateFields(form, customFields)
         .map((c) => c.label.toLowerCase())
@@ -131,10 +116,9 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
     return sortArrayByColumn(filtered, tableSort.sort, {
       name: (f) => f.name,
       fieldsCount: (f) => summarizeFormTemplateFields(f, customFields).length,
-      customCount: (f) => countCustomQuestions(f),
       isDefault: (f) => Boolean(f.isDefault),
     });
-  }, [forms, customFields, debouncedSearch, filterScope, tableSort.sort]);
+  }, [forms, customFields, debouncedSearch, tableSort.sort]);
 
   const totalForms = processedForms.length;
   const totalPages = Math.max(1, Math.ceil(totalForms / Math.max(1, limit)));
@@ -199,7 +183,7 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader
         title="Application Forms"
         subtitle="Create application forms for your job links, add custom questions directly on any form, and set one as your default."
@@ -220,33 +204,12 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
         }
       />
 
-      {/* List View with Filter, Sort & Pagination */}
+      {/* List View with Search, Sort & Pagination */}
       <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
-          <div className="flex flex-wrap items-center gap-1.5 text-xs">
-            <button
-              type="button"
-              onClick={() => setFilterScope('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                filterScope === 'all'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-white hover:text-slate-900'
-              }`}
-            >
-              All Forms ({forms.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterScope('with_custom')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                filterScope === 'with_custom'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-white hover:text-slate-900'
-              }`}
-            >
-              With Custom Questions ({formsWithCustomCount})
-            </button>
-          </div>
+        <div className="px-5 py-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
+          <span className="font-semibold text-xs text-slate-900 tabular-nums">
+            {totalForms} {totalForms === 1 ? 'Form Template' : 'Form Templates'}
+          </span>
 
           <div className="relative w-full sm:w-64">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -281,14 +244,6 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
                   className="py-2.5 px-4 whitespace-nowrap"
                 />
                 <SortableTableHeader
-                  label="Custom Questions"
-                  column="customCount"
-                  sort={tableSort.sort}
-                  onSort={tableSort.handleSort}
-                  defaultDir="desc"
-                  className="py-2.5 px-4 whitespace-nowrap"
-                />
-                <SortableTableHeader
                   label="Default"
                   column="isDefault"
                   sort={tableSort.sort}
@@ -302,19 +257,16 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
             <tbody className="divide-y divide-slate-100">
               {paginatedForms.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-10 text-center text-xs text-slate-400">
-                    {search.trim() || filterScope !== 'all' ? (
+                  <td colSpan={4} className="py-10 text-center text-xs text-slate-400">
+                    {search.trim() ? (
                       <>
-                        No application forms match your filter.{' '}
+                        No application forms match your search.{' '}
                         <button
                           type="button"
-                          onClick={() => {
-                            setSearch('');
-                            setFilterScope('all');
-                          }}
+                          onClick={() => setSearch('')}
                           className="font-semibold text-brand-600 hover:underline cursor-pointer"
                         >
-                          Reset Filters
+                          Clear Search
                         </button>
                       </>
                     ) : (
@@ -335,7 +287,6 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
               ) : (
                 paginatedForms.map((form) => {
                   const fieldChips = summarizeFormTemplateFields(form, customFields);
-                  const customChips = fieldChips.filter((c) => c.isCustom);
                   const isExpanded = Boolean(expandedRowIds[form.id]);
                   const maxVisible = 6;
                   const visibleChips = isExpanded
@@ -398,21 +349,6 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
                             </button>
                           )}
                         </div>
-                      </td>
-
-                      <td className="py-3.5 px-4 align-top whitespace-nowrap">
-                        {customChips.length > 0 ? (
-                          <StatusBadge
-                            tone="brand"
-                            shape="rounded"
-                            label={`${customChips.length} ${
-                              customChips.length === 1 ? 'Question' : 'Questions'
-                            }`}
-                            className="py-1 tabular-nums"
-                          />
-                        ) : (
-                          <span className="text-[11px] text-slate-400">Standard only</span>
-                        )}
                       </td>
 
                       <td

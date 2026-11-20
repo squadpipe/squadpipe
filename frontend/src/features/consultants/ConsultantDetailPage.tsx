@@ -50,6 +50,8 @@ import { SortableTableHeader } from '../../components/shared/SortableTableHeader
 import { TablePagination } from '../../components/shared/TablePagination';
 import { PreparePitchModal } from '../../components/modals/PreparePitchModal';
 import { MaskedValue } from '../../components/shared/MaskedValue';
+import { RichTextDisplay } from '../../components/shared/RichTextDisplay';
+import { isHtmlContent } from '../../utils/richText';
 import { EditConsultantModal } from '../../components/modals/edit/EditConsultantModal';
 import {
   DetailBreadcrumb,
@@ -1261,17 +1263,46 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
                   <Layers className="w-3.5 h-3.5 text-brand-600" />
                   <h3 className="font-bold text-slate-900">Additional Attributes</h3>
                 </div>
-                <dl className="p-5 space-y-2.5">
-                  {customFieldEntries.map(([fieldName, value]) => (
-                    <div key={fieldName} className="flex items-start justify-between gap-2">
-                      <dt className="text-slate-400 font-medium capitalize shrink-0">
-                        {fieldName.replace(/_/g, ' ')}
-                      </dt>
-                      <dd className="text-slate-800 font-medium text-right min-w-0 [overflow-wrap:anywhere]">
-                        {String(value)}
-                      </dd>
-                    </div>
-                  ))}
+                <dl className="p-5 space-y-3">
+                  {customFieldEntries.map(([fieldName, value]) => {
+                    const strVal = String(value);
+                    if (isHtmlContent(strVal)) {
+                      return (
+                        <div key={fieldName} className="space-y-1.5">
+                          <dt className="text-slate-500 font-medium capitalize">
+                            {fieldName.replace(/_/g, ' ')}
+                          </dt>
+                          <dd>
+                            <RichTextDisplay
+                              content={strVal}
+                              className="text-xs text-slate-700 bg-slate-50/70 border border-slate-200/70 rounded-lg p-2.5"
+                            />
+                          </dd>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={fieldName} className="flex items-start justify-between gap-2">
+                        <dt className="text-slate-400 font-medium capitalize shrink-0">
+                          {fieldName.replace(/_/g, ' ')}
+                        </dt>
+                        <dd className="text-slate-800 font-medium text-right min-w-0 [overflow-wrap:anywhere]">
+                          {/^https?:\/\/\S+$/i.test(strVal.trim()) ? (
+                            <a
+                              href={strVal.trim()}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-brand-600 hover:underline"
+                            >
+                              {strVal.trim()}
+                            </a>
+                          ) : (
+                            strVal
+                          )}
+                        </dd>
+                      </div>
+                    );
+                  })}
                 </dl>
               </div>
             )}

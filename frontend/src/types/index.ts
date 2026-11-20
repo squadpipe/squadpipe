@@ -16,6 +16,7 @@ export interface User {
     placements: number;
   };
   status: 'Active' | 'Suspended' | 'Invited';
+  isSuperAdmin?: boolean;
   isCurrentUser?: boolean;
   lastActive: string;
 }
@@ -162,10 +163,23 @@ export interface RecruiterPerformanceRow {
 
 export type ApplicationFormFieldWidth = 'half' | 'full';
 
+export type CustomQuestionFieldType =
+  | 'TEXT'
+  | 'TEXTAREA'
+  | 'RICH_TEXT'
+  | 'NUMBER'
+  | 'DATE'
+  | 'BOOLEAN'
+  | 'DROPDOWN'
+  | 'MULTISELECT'
+  | 'EMAIL'
+  | 'PHONE'
+  | 'URL';
+
 export interface ApplicationFormCustomField {
   key: string;
   name: string;
-  type: 'TEXT' | 'NUMBER' | 'DATE' | 'BOOLEAN' | 'DROPDOWN';
+  type: CustomQuestionFieldType;
   required: boolean;
   width?: ApplicationFormFieldWidth;
   options?: string[];
@@ -189,6 +203,7 @@ export interface ApplicationFormTemplate {
   includeLinkedinUrl: boolean;
   requireLinkedinUrl: boolean;
   fieldWidths?: Record<string, ApplicationFormFieldWidth>;
+  fieldOrder?: string[];
   customFieldKeys: string[];
   customFields?: ApplicationFormCustomField[];
   updatedAt?: string;
@@ -329,7 +344,19 @@ export interface CustomField {
   name: string;
   entity: 'consultant' | 'requirement' | 'client' | 'vendor' | 'placement';
   entityLabel: string;
-  type: 'Text' | 'Dropdown' | 'Date' | 'Number';
+  type:
+    | 'Text'
+    | 'Long Text'
+    | 'Rich Text'
+    | 'Dropdown'
+    | 'Multi-Select'
+    | 'Date'
+    | 'Number'
+    | 'Yes / No'
+    | 'Email'
+    | 'Phone'
+    | 'URL'
+    | string;
   options: string;
   required: boolean;
   active: boolean;

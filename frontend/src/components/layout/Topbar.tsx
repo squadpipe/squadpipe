@@ -47,14 +47,18 @@ export const Topbar: React.FC<TopbarProps> = ({
           <button
             type="button"
             onClick={onOpenCommandPalette}
-            title="Jump to any record or page (⌘K)"
-            className="w-full max-w-sm inline-flex items-center justify-between gap-4 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50/80 hover:bg-white hover:border-slate-300 text-xs text-slate-500 transition-colors cursor-pointer"
+            aria-label="Master Search (⌘K)"
+            title="Master Search — find requirements, consultants, clients, vendors, or jump to any page (⌘K)"
+            className="w-full max-w-md inline-flex items-center justify-between gap-3 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50/90 hover:bg-white hover:border-slate-300 hover:shadow-sm text-xs text-slate-600 transition-all cursor-pointer"
           >
             <span className="inline-flex items-center gap-2 min-w-0">
-              <MagnifyingGlass className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <span className="truncate">Search or jump to...</span>
+              <MagnifyingGlass className="w-3.5 h-3.5 text-brand-600 shrink-0" />
+              <span className="font-medium text-slate-700 shrink-0">Master Search</span>
+              <span className="hidden md:inline text-slate-400 truncate">
+                &middot; Requirements, consultants, clients...
+              </span>
             </span>
-            <kbd className="hidden sm:inline-flex px-1.5 py-0.5 rounded-md bg-white border border-slate-200 text-[11px] font-medium text-slate-500 leading-none shrink-0">
+            <kbd className="inline-flex px-1.5 py-0.5 rounded-md bg-white border border-slate-200 text-[11px] font-medium text-slate-500 leading-none shrink-0">
               ⌘K
             </kbd>
           </button>

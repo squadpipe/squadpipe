@@ -380,17 +380,17 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       zIndexClass="z-[75]"
       backdropClassName="bg-slate-900/50 backdrop-blur-[2px] flex items-start justify-center pt-[12vh] p-4"
       panelClassName="bg-white rounded-xl shadow-2xl max-w-xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[70vh]"
-      ariaLabel="Global Command Palette"
+      ariaLabel="Master Search"
     >
       <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2.5 bg-white">
-        <MagnifyingGlass className="w-4 h-4 text-slate-400 shrink-0" />
+        <MagnifyingGlass className="w-4 h-4 text-brand-600 shrink-0" />
         <input
           ref={inputRef}
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Search pages, requirements, consultants, clients, or run action..."
+          placeholder="Master search: requirements, consultants, clients, vendors, or pages..."
           className="flex-1 text-xs text-slate-900 placeholder:text-slate-400 bg-transparent focus:outline-none"
         />
         <kbd className="px-1.5 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[11px] font-medium text-slate-500">

@@ -480,6 +480,7 @@ export const mapUserFromApi = (u: any, currentUserEmail?: string): User => ({
       }
     : undefined,
   status: formatUserStatus(u.status),
+  isSuperAdmin: Boolean(u.isSuperAdmin),
   isCurrentUser: u.isCurrentUser ?? (currentUserEmail ? u.email === currentUserEmail : false),
   lastActive: u.lastActive || 'Active Now',
 });

@@ -21,6 +21,7 @@ import {
   Pulse,
   ShieldCheck,
   SignOut,
+  Sparkle,
   Star,
   Trash,
   Warning,
@@ -51,6 +52,7 @@ export type AppIconKey =
   | 'settings'
   | 'logout'
   | 'bolt'
+  | 'ai'
   | 'bell'
   | 'briefcase'
   | 'calendar'
@@ -94,6 +96,7 @@ const SEMANTIC_ICON_MAP: Record<
   settings: { Component: Gear, colorClass: 'text-slate-600', weight: 'regular' },
   logout: { Component: SignOut, colorClass: 'text-slate-700', weight: 'regular' },
   bolt: { Component: Lightning, colorClass: 'text-amber-500', weight: 'duotone' },
+  ai: { Component: Sparkle, colorClass: 'text-brand-600', weight: 'duotone' },
   bell: { Component: Bell, colorClass: 'text-amber-500', weight: 'duotone' },
   briefcase: { Component: Briefcase, colorClass: 'text-brand-600', weight: 'duotone' },
   calendar: { Component: CalendarCheck, colorClass: 'text-brand-600', weight: 'duotone' },

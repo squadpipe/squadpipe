@@ -11,6 +11,9 @@ import {
   X,
   AlertTriangle,
   Pencil,
+  Send,
+  ShieldCheck,
+  Loader2,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { ActionButton } from '../../components/shared/ActionButton';
@@ -35,6 +38,7 @@ interface UserManagementViewProps {
   users: User[];
   onToggleRateMask: (user: User) => Promise<void> | void;
   onInviteUser: (user: Partial<User>) => Promise<void> | void;
+  onResendInvite?: (user: User) => Promise<void> | void;
   onUpdateUser?: (user: User) => Promise<void> | void;
   onToggleUserStatus?: (user: User) => Promise<void> | void;
   onDeleteUser?: (user: User) => Promise<void> | void;
@@ -45,6 +49,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   users,
   onToggleRateMask,
   onInviteUser,
+  onResendInvite,
   onUpdateUser,
   onToggleUserStatus,
   onDeleteUser,
@@ -67,6 +72,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   const [editValidationAttempted, setEditValidationAttempted] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [resendingUserId, setResendingUserId] = useState<string | null>(null);
 
   const debouncedSearch = useDebounce(search, 150);
   const currentUserEmail = users.find((u) => u.isCurrentUser)?.email;
@@ -415,8 +421,17 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                             {initials}
                           </div>
                           <div>
-                            <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+                            <div className="font-semibold text-slate-900 flex items-center gap-1.5 flex-wrap">
                               <span>{u.name}</span>
+                              {u.isSuperAdmin && (
+                                <span
+                                  title="Protected Workspace Super Admin"
+                                  className="inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800"
+                                >
+                                  <ShieldCheck className="w-3 h-3 text-amber-600" />
+                                  <span>Super Admin</span>
+                                </span>
+                              )}
                               {u.isCurrentUser && (
                                 <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
                                   You
@@ -491,7 +506,31 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                       {/* Actions */}
                       <td className="py-3 px-5 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          {onUpdateUser && (
+                          {u.status === 'Invited' && onResendInvite && (
+                            <button
+                              type="button"
+                              disabled={resendingUserId === u.id}
+                              onClick={async () => {
+                                if (resendingUserId) return;
+                                setResendingUserId(u.id);
+                                try {
+                                  await onResendInvite(u);
+                                } finally {
+                                  setResendingUserId(null);
+                                }
+                              }}
+                              title="Resend invitation link"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-200 bg-white hover:bg-brand-50 hover:border-brand-200 text-slate-600 hover:text-brand-700 text-[11px] font-medium transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                              {resendingUserId === u.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin text-brand-600" />
+                              ) : (
+                                <Send className="w-3 h-3" />
+                              )}
+                              <span>{resendingUserId === u.id ? 'Sending...' : 'Resend'}</span>
+                            </button>
+                          )}
+                          {onUpdateUser && (!u.isSuperAdmin || u.isCurrentUser) && (
                             <button
                               onClick={() => setEditingUser({ ...u })}
                               title="Edit member"
@@ -501,15 +540,35 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                             </button>
                           )}
                           <button
+                            type="button"
+                            disabled={Boolean(u.isSuperAdmin)}
                             onClick={() => {
+                              if (u.isSuperAdmin) {
+                                showToast(
+                                  'Protected Account',
+                                  'The Super Admin account cannot be suspended.',
+                                  'warning'
+                                );
+                                return;
+                              }
                               if (onToggleUserStatus) {
                                 onToggleUserStatus(u);
                               } else {
                                 showToast('Status Updated', `${u.name} status toggled.`);
                               }
                             }}
-                            title={u.status === 'Active' ? 'Suspend member' : 'Activate member'}
-                            className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                            title={
+                              u.isSuperAdmin
+                                ? 'Super Admin cannot be suspended'
+                                : u.status === 'Active'
+                                  ? 'Suspend member'
+                                  : 'Activate member'
+                            }
+                            className={`p-1.5 rounded-md transition-colors ${
+                              u.isSuperAdmin
+                                ? 'text-slate-300 cursor-not-allowed'
+                                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer'
+                            }`}
                           >
                             {u.status === 'Active' ? (
                               <Pause className="w-3.5 h-3.5" />
@@ -518,9 +577,29 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                             )}
                           </button>
                           <button
-                            onClick={() => setUserToDelete(u)}
-                            title="Remove member"
-                            className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                            type="button"
+                            disabled={Boolean(u.isSuperAdmin)}
+                            onClick={() => {
+                              if (u.isSuperAdmin) {
+                                showToast(
+                                  'Protected Account',
+                                  'The Super Admin account cannot be deleted.',
+                                  'warning'
+                                );
+                                return;
+                              }
+                              setUserToDelete(u);
+                            }}
+                            title={
+                              u.isSuperAdmin
+                                ? 'Super Admin cannot be deleted'
+                                : 'Remove member'
+                            }
+                            className={`p-1.5 rounded-md transition-colors ${
+                              u.isSuperAdmin
+                                ? 'text-slate-300 cursor-not-allowed'
+                                : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer'
+                            }`}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -815,9 +894,12 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Role</label>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Role {editingUser.isSuperAdmin ? '(Protected)' : ''}
+                  </label>
                   <CustomSelect
                     value={editingUser.role}
+                    disabled={Boolean(editingUser.isSuperAdmin)}
                     onChange={(val) => setEditingUser({ ...editingUser, role: val })}
                     ariaLabel="Role"
                     options={[
@@ -832,9 +914,12 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Status</label>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Status {editingUser.isSuperAdmin ? '(Protected)' : ''}
+                  </label>
                   <CustomSelect
                     value={editingUser.status}
+                    disabled={Boolean(editingUser.isSuperAdmin)}
                     onChange={(val) =>
                       setEditingUser({
                         ...editingUser,

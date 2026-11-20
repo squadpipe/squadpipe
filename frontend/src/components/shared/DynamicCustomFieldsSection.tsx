@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { apiClient } from '../../config/api.config';
-import { CustomField } from '../../types';
-import { CustomSelect } from './CustomSelect';
+import { CustomField, CustomQuestionFieldType } from '../../types';
+import { CustomQuestionFieldInput } from './CustomQuestionFieldInput';
 
 export type TaxonomyKey = 'workAuth' | 'paymentTerms' | 'education' | 'stages';
 
@@ -33,20 +33,61 @@ export function invalidateSchemaCaches() {
   cachedCustomFields = null;
 }
 
+function mapRawTypeToUiLabel(rawType: string): string {
+  const upper = String(rawType || 'TEXT').toUpperCase().trim();
+  switch (upper) {
+    case 'DROPDOWN':
+      return 'Dropdown';
+    case 'MULTISELECT':
+    case 'MULTI_SELECT':
+      return 'Multi-Select';
+    case 'TEXTAREA':
+    case 'LONG_TEXT':
+    case 'LONG TEXT':
+      return 'Long Text';
+    case 'RICH_TEXT':
+    case 'RICH TEXT':
+      return 'Rich Text';
+    case 'BOOLEAN':
+    case 'YES_NO':
+    case 'YES / NO':
+      return 'Yes / No';
+    case 'DATE':
+      return 'Date';
+    case 'NUMBER':
+      return 'Number';
+    case 'EMAIL':
+      return 'Email';
+    case 'PHONE':
+      return 'Phone';
+    case 'URL':
+      return 'URL';
+    case 'CURRENCY ($)':
+      return 'Currency ($)';
+    default:
+      return upper === 'TEXT' ? 'Text' : rawType;
+  }
+}
+
+function toQuestionInputType(uiType: string): CustomQuestionFieldType {
+  const upper = String(uiType || 'Text').toUpperCase().trim();
+  if (upper.startsWith('CURRENCY') || upper === 'NUMBER') return 'NUMBER';
+  if (upper === 'DROPDOWN') return 'DROPDOWN';
+  if (upper === 'MULTI-SELECT' || upper === 'MULTISELECT') return 'MULTISELECT';
+  if (upper === 'LONG TEXT' || upper === 'TEXTAREA') return 'TEXTAREA';
+  if (upper === 'RICH TEXT' || upper === 'RICH_TEXT') return 'RICH_TEXT';
+  if (upper === 'YES / NO' || upper === 'BOOLEAN') return 'BOOLEAN';
+  if (upper === 'DATE') return 'DATE';
+  if (upper === 'EMAIL') return 'EMAIL';
+  if (upper === 'PHONE') return 'PHONE';
+  if (upper === 'URL') return 'URL';
+  return 'TEXT';
+}
+
 function normalizeCustomField(f: any): CustomField {
   const entity = String(f.entity || 'consultant').toLowerCase() as CustomField['entity'];
   const rawType = String(f.type || 'Text');
-  const upperType = rawType.toUpperCase();
-  const type: CustomField['type'] =
-    upperType === 'DROPDOWN'
-      ? 'Dropdown'
-      : upperType === 'DATE'
-      ? 'Date'
-      : upperType === 'NUMBER'
-      ? 'Number'
-      : upperType === 'CURRENCY ($)' || rawType === 'Currency ($)'
-      ? ('Currency ($)' as any)
-      : 'Text';
+  const type = mapRawTypeToUiLabel(rawType) as CustomField['type'];
   const options = Array.isArray(f.options)
     ? f.options.join(', ')
     : typeof f.options === 'object' && f.options?.values
@@ -109,8 +150,11 @@ interface DynamicCustomFieldsSectionProps {
 }
 
 function isWideCustomField(field: CustomField): boolean {
-  const typeUpper = String(field.type || 'Text').toUpperCase();
-  if (typeUpper === 'NUMBER' || typeUpper === 'DATE' || typeUpper === 'CURRENCY ($)') {
+  const qType = toQuestionInputType(String(field.type || 'Text'));
+  if (qType === 'RICH_TEXT' || qType === 'TEXTAREA' || qType === 'MULTISELECT' || qType === 'URL') {
+    return true;
+  }
+  if (qType === 'NUMBER' || qType === 'DATE' || qType === 'BOOLEAN') {
     return false;
   }
   const nameLower = String(field.name || '').toLowerCase();
@@ -202,46 +246,25 @@ export const DynamicCustomFieldsSection: React.FC<DynamicCustomFieldsSectionProp
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         {fields.map((field, index) => {
           const val = values[field.name] ?? '';
-          const fieldType = String(field.type || 'Text');
+          const questionType = toQuestionInputType(String(field.type || 'Text'));
+          const optionList = (field.options || '')
+            .split(',')
+            .map((opt) => opt.trim())
+            .filter(Boolean);
 
           return (
             <div key={field.id || field.name} className={fieldSpans[index]}>
               <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                 {field.name} {field.required ? '*' : ''}
               </label>
-              {fieldType === 'Dropdown' ? (
-                <CustomSelect
-                  value={val}
-                  onChange={(nextVal) => handleFieldChange(field.name, nextVal)}
-                  placeholder={`Select ${field.name}...`}
-                  ariaLabel={field.name}
-                  options={[
-                    ...(field.required ? [] : [{ value: '', label: `Select ${field.name}...` }]),
-                    ...(field.options || '')
-                      .split(',')
-                      .map((opt) => opt.trim())
-                      .filter(Boolean)
-                      .map((opt) => ({ value: opt, label: opt })),
-                  ]}
-                />
-              ) : fieldType === 'Date' ? (
-                <input
-                  type="date"
-                  required={!!field.required}
-                  value={val}
-                  onChange={(e) => handleFieldChange(field.name, e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 text-slate-800"
-                />
-              ) : (
-                <input
-                  type={fieldType === 'Number' ? 'number' : 'text'}
-                  required={!!field.required}
-                  value={val}
-                  onChange={(e) => handleFieldChange(field.name, e.target.value)}
-                  placeholder={`Enter ${field.name.toLowerCase()}...`}
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 text-slate-800 placeholder:text-slate-400"
-                />
-              )}
+              <CustomQuestionFieldInput
+                type={questionType}
+                label={field.name}
+                value={val}
+                onChange={(nextVal) => handleFieldChange(field.name, nextVal)}
+                options={optionList}
+                required={!!field.required}
+              />
             </div>
           );
         })}

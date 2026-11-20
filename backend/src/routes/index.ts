@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { placementService } from '../services/placement.service';
 import { submissionService } from '../services/submission.service';
+import { userService } from '../services/user.service';
 import {
   PERFORMANCE_SORTABLE_FIELDS,
   analyticsService,
@@ -895,12 +896,20 @@ router.delete('/placements/:id', requireRole([UserRole.ADMINISTRATOR]), requireU
 // Users & Roles
 router.get('/users', userController.getUsers);
 router.post('/users/invite', requireRole([UserRole.ADMINISTRATOR]), userController.inviteUser);
+router.post('/users/:id/resend-invite', requireRole([UserRole.ADMINISTRATOR]), userController.resendUserInvite);
 router.put('/users/:id', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
     const user = await prisma.user.findUnique({ where: { id: req.params.id } });
     if (!user || user.tenantId !== tenantId) {
       return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    const targetIsSuperAdmin = await userService.isSuperAdmin(tenantId, user.id);
+    if (targetIsSuperAdmin && req.user?.id !== user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'The Super Admin account is protected and cannot be modified by another administrator.',
+      });
     }
     const { name, fullName, email, role, desk, rateMasked, status } = req.body;
     const roleMap: Record<string, any> = {
@@ -926,7 +935,24 @@ router.put('/users/:id', requireRole([UserRole.ADMINISTRATOR]), async (req: Requ
       INVITED: 'INVITED',
     };
 
+    const resolvedNextRole = role && roleMap[role] ? roleMap[role] : undefined;
     const resolvedNextStatus = status && statusMap[status] ? statusMap[status] : undefined;
+
+    if (targetIsSuperAdmin) {
+      if (resolvedNextRole && resolvedNextRole !== 'ADMINISTRATOR') {
+        return res.status(403).json({
+          success: false,
+          message: 'Super Admin administrator role cannot be downgraded or revoked.',
+        });
+      }
+      if (resolvedNextStatus && resolvedNextStatus !== 'ACTIVE') {
+        return res.status(403).json({
+          success: false,
+          message: 'Super Admin account cannot be suspended or deactivated.',
+        });
+      }
+    }
+
     const isSuspending = resolvedNextStatus === 'SUSPENDED' && user.status !== 'SUSPENDED';
 
     const updated = await prisma.user.update({
@@ -934,7 +960,7 @@ router.put('/users/:id', requireRole([UserRole.ADMINISTRATOR]), async (req: Requ
       data: {
         ...(fullName || name ? { fullName: String(fullName || name).trim() } : {}),
         ...(email ? { email: String(email).trim().toLowerCase() } : {}),
-        ...(role && roleMap[role] ? { role: roleMap[role] } : {}),
+        ...(resolvedNextRole ? { role: resolvedNextRole } : {}),
         ...(desk !== undefined ? { desk: String(desk).trim() } : {}),
         ...(rateMasked !== undefined ? { rateMasked: Boolean(rateMasked) } : {}),
         ...(resolvedNextStatus ? { status: resolvedNextStatus } : {}),
@@ -952,7 +978,7 @@ router.put('/users/:id', requireRole([UserRole.ADMINISTRATOR]), async (req: Requ
         status: true,
       },
     });
-    res.json({ success: true, data: updated });
+    res.json({ success: true, data: { ...updated, isSuperAdmin: targetIsSuperAdmin } });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'Failed to update user' });
   }
@@ -963,6 +989,9 @@ router.patch('/users/:id/status', requireRole([UserRole.ADMINISTRATOR]), async (
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
     const user = await prisma.user.findUnique({ where: { id: req.params.id } });
     if (!user || user.tenantId !== tenantId) return res.status(404).json({ success: false, message: 'User not found' });
+    if (await userService.isSuperAdmin(tenantId, user.id)) {
+      return res.status(403).json({ success: false, message: 'The Super Admin account is protected and cannot be suspended.' });
+    }
     if (req.user?.id === user.id) {
       return res.status(400).json({ success: false, message: 'Cannot suspend your own active administrator account.' });
     }
@@ -985,6 +1014,9 @@ router.delete('/users/:id', requireRole([UserRole.ADMINISTRATOR]), async (req: R
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
     const user = await prisma.user.findUnique({ where: { id: req.params.id } });
     if (!user || user.tenantId !== tenantId) return res.status(404).json({ success: false, message: 'User not found' });
+    if (await userService.isSuperAdmin(tenantId, user.id)) {
+      return res.status(403).json({ success: false, message: 'The Super Admin account is protected and cannot be deleted.' });
+    }
     if (req.user?.id === user.id) {
       return res.status(400).json({ success: false, message: 'Cannot delete your own administrator account.' });
     }
@@ -1042,6 +1074,9 @@ router.post(
         requireNoticePeriod: Boolean(body.includeNoticePeriod && body.requireNoticePeriod),
         includeLinkedinUrl: Boolean(body.includeLinkedinUrl),
         requireLinkedinUrl: Boolean(body.includeLinkedinUrl && body.requireLinkedinUrl),
+        fieldWidths:
+          body.fieldWidths && typeof body.fieldWidths === 'object' ? body.fieldWidths : undefined,
+        fieldOrder: Array.isArray(body.fieldOrder) ? body.fieldOrder : undefined,
         customFieldKeys: Array.isArray(body.customFieldKeys)
           ? body.customFieldKeys.map((k: any) => String(k).trim()).filter(Boolean)
           : [],
@@ -1148,6 +1183,11 @@ router.put(
               ? body.requireLinkedinUrl
               : current.requireLinkedinUrl)
         ),
+        fieldWidths:
+          body.fieldWidths && typeof body.fieldWidths === 'object'
+            ? body.fieldWidths
+            : current.fieldWidths,
+        fieldOrder: Array.isArray(body.fieldOrder) ? body.fieldOrder : current.fieldOrder,
         customFieldKeys: Array.isArray(body.customFieldKeys)
           ? body.customFieldKeys.map((k: any) => String(k).trim()).filter(Boolean)
           : current.customFieldKeys,
@@ -1309,13 +1349,42 @@ router.get('/custom-fields', async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: 'Failed to fetch custom fields' });
   }
 });
+const CUSTOM_FIELD_ENUM_MAP: Record<string, any> = {
+  TEXT: 'TEXT',
+  SHORT_TEXT: 'TEXT',
+  TEXTAREA: 'TEXTAREA',
+  LONG_TEXT: 'TEXTAREA',
+  RICH_TEXT: 'RICH_TEXT',
+  RICHTEXT: 'RICH_TEXT',
+  DROPDOWN: 'DROPDOWN',
+  MULTISELECT: 'MULTISELECT',
+  MULTI_SELECT: 'MULTISELECT',
+  DATE: 'DATE',
+  NUMBER: 'NUMBER',
+  CURRENCY: 'NUMBER',
+  BOOLEAN: 'BOOLEAN',
+  YES_NO: 'BOOLEAN',
+  EMAIL: 'EMAIL',
+  PHONE: 'PHONE',
+  URL: 'URL',
+};
+
+function resolveCustomFieldEnumType(rawType?: unknown): any {
+  const key = String(rawType || 'TEXT')
+    .trim()
+    .toUpperCase()
+    .replace(/[\(\)\$]/g, '')
+    .trim()
+    .replace(/[\s\/-]+/g, '_');
+  return CUSTOM_FIELD_ENUM_MAP[key] || 'TEXT';
+}
+
 router.post('/custom-fields', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
     const { name, entity, type, options, required } = req.body;
     const key = name.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Date.now();
     const entityUpper = (entity || 'CONSULTANT').toUpperCase();
-    const typeUpper = (type || 'TEXT').toUpperCase().replace(/[\s\(\$)]/g, '');
 
     const created = await prisma.customFieldDefinition.create({
       data: {
@@ -1323,7 +1392,7 @@ router.post('/custom-fields', requireRole([UserRole.ADMINISTRATOR]), async (req:
         name,
         key,
         entity: (entityUpper as any),
-        type: (['TEXT', 'DROPDOWN', 'DATE', 'NUMBER', 'BOOLEAN'].includes(typeUpper) ? typeUpper : 'TEXT') as any,
+        type: resolveCustomFieldEnumType(type),
         options: options ? { values: options } : undefined,
         required: !!required,
         active: true
@@ -1345,16 +1414,13 @@ router.put('/custom-fields/:id', requireRole([UserRole.ADMINISTRATOR]), async (r
     }
     const { name, entity, type, options, required, active } = req.body;
     const entityUpper = entity ? String(entity).toUpperCase() : undefined;
-    const typeUpper = type ? String(type).toUpperCase().replace(/[\s\(\$)]/g, '') : undefined;
 
     const updated = await prisma.customFieldDefinition.update({
       where: { id: existing.id },
       data: {
         ...(name !== undefined ? { name: String(name).trim() } : {}),
         ...(entityUpper ? { entity: entityUpper as any } : {}),
-        ...(typeUpper
-          ? { type: (['TEXT', 'DROPDOWN', 'DATE', 'NUMBER', 'BOOLEAN'].includes(typeUpper) ? typeUpper : 'TEXT') as any }
-          : {}),
+        ...(type !== undefined ? { type: resolveCustomFieldEnumType(type) } : {}),
         ...(options !== undefined ? { options: options ? { values: options } : undefined } : {}),
         ...(required !== undefined ? { required: Boolean(required) } : {}),
         ...(active !== undefined ? { active: Boolean(active) } : {}),

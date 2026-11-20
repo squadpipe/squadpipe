@@ -1,10 +1,31 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  closestCenter,
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  rectSortingStrategy,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
   Check,
   ChevronDown,
   ChevronUp,
   Eye,
+  GripVertical,
   Plus,
+  RotateCcw,
   Trash2,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
@@ -12,10 +33,18 @@ import {
   ApplicationFormCustomField,
   ApplicationFormFieldWidth,
   ApplicationFormTemplate,
+  CustomQuestionFieldType,
 } from '../../types';
 import {
+  CUSTOM_QUESTION_TYPE_OPTIONS,
   DEFAULT_APPLICATION_FORMS,
+  formatQuestionTypeLabel,
+  getFieldWidthColSpanClass,
+  OrderedFormFieldItem,
   resolveFormFieldWidth,
+  resolveOrderedFormEntries,
+  STANDARD_OPTIONAL_FORM_FIELDS,
+  StandardOptionalFieldKey,
   summarizeFormTemplateFields,
 } from '../../utils/applicationForms';
 import { INVALID_FIELD_CLASSES } from '../../utils/formValidation';
@@ -61,77 +90,14 @@ const EMPTY_FORM_DRAFT: Omit<ApplicationFormTemplate, 'id'> = {
   fieldWidths: {
     vendorName: 'full',
   },
+  fieldOrder: ['currentTitle', 'expectedRate', 'noticePeriod', 'vendorName'],
   customFieldKeys: [],
   customFields: [],
 };
 
-const STANDARD_TOGGLE_FIELDS: Array<{
-  includeKey:
-    | 'includeCurrentTitle'
-    | 'includeExpectedRate'
-    | 'includeVendorName'
-    | 'includeNoticePeriod'
-    | 'includeLinkedinUrl';
-  requireKey:
-    | 'requireCurrentTitle'
-    | 'requireExpectedRate'
-    | 'requireVendorName'
-    | 'requireNoticePeriod'
-    | 'requireLinkedinUrl';
-  widthKey: 'currentTitle' | 'expectedRate' | 'vendorName' | 'noticePeriod' | 'linkedinUrl';
-  defaultWidth: ApplicationFormFieldWidth;
-  label: string;
-}> = [
-  {
-    includeKey: 'includeCurrentTitle',
-    requireKey: 'requireCurrentTitle',
-    widthKey: 'currentTitle',
-    defaultWidth: 'half',
-    label: 'Current Job Title',
-  },
-  {
-    includeKey: 'includeExpectedRate',
-    requireKey: 'requireExpectedRate',
-    widthKey: 'expectedRate',
-    defaultWidth: 'half',
-    label: 'Expected Hourly Rate',
-  },
-  {
-    includeKey: 'includeVendorName',
-    requireKey: 'requireVendorName',
-    widthKey: 'vendorName',
-    defaultWidth: 'full',
-    label: 'Partner / Vendor Agency Name',
-  },
-  {
-    includeKey: 'includeNoticePeriod',
-    requireKey: 'requireNoticePeriod',
-    widthKey: 'noticePeriod',
-    defaultWidth: 'half',
-    label: 'Availability / Notice Period',
-  },
-  {
-    includeKey: 'includeLinkedinUrl',
-    requireKey: 'requireLinkedinUrl',
-    widthKey: 'linkedinUrl',
-    defaultWidth: 'half',
-    label: 'LinkedIn Profile URL',
-  },
-];
-
-type CustomQuestionType = 'TEXT' | 'NUMBER' | 'DATE' | 'BOOLEAN' | 'DROPDOWN';
-
-const CUSTOM_TYPE_OPTIONS: Array<{ value: CustomQuestionType; label: string }> = [
-  { value: 'TEXT', label: 'Text' },
-  { value: 'NUMBER', label: 'Number' },
-  { value: 'DATE', label: 'Date' },
-  { value: 'BOOLEAN', label: 'Yes / No' },
-  { value: 'DROPDOWN', label: 'Dropdown' },
-];
-
 const QUICK_QUESTION_PRESETS: Array<{
   name: string;
-  type: CustomQuestionType;
+  type: CustomQuestionFieldType;
   width: ApplicationFormFieldWidth;
   required: boolean;
   options?: string[];
@@ -150,18 +116,29 @@ const QUICK_QUESTION_PRESETS: Array<{
     required: false,
   },
   {
-    name: 'Current Location (City, State)',
-    type: 'TEXT',
-    width: 'half',
-    required: false,
-  },
-  {
-    name: 'Portfolio / GitHub URL',
-    type: 'TEXT',
+    name: 'Technical Highlight & Fit Summary',
+    type: 'RICH_TEXT',
     width: 'full',
     required: false,
   },
+  {
+    name: 'Technical Skills Stack',
+    type: 'MULTISELECT',
+    width: 'full',
+    required: false,
+    options: ['React', 'TypeScript', 'Node.js', 'AWS', 'Kubernetes', 'Python'],
+  },
+  {
+    name: 'Portfolio / GitHub URL',
+    type: 'URL',
+    width: 'half',
+    required: false,
+  },
 ];
+
+function supportsOptionsType(type: CustomQuestionFieldType): boolean {
+  return type === 'DROPDOWN' || type === 'MULTISELECT';
+}
 
 function buildDraftFromForm(form: ApplicationFormTemplate): {
   draft: Omit<ApplicationFormTemplate, 'id'>;
@@ -169,47 +146,269 @@ function buildDraftFromForm(form: ApplicationFormTemplate): {
 } {
   const initialCustomFields = [...(form.customFields || [])].map((cf) => ({
     ...cf,
-    width: cf.width || ('half' as ApplicationFormFieldWidth),
+    width: cf.width || (cf.type === 'RICH_TEXT' || cf.type === 'TEXTAREA' ? 'full' : 'half'),
   }));
   const optionsText: Record<string, string> = {};
   for (const cf of initialCustomFields) {
-    if (cf.type === 'DROPDOWN') {
+    if (supportsOptionsType(cf.type)) {
       optionsText[cf.key] = (cf.options || []).join(', ');
     }
   }
+  const baseDraft: Omit<ApplicationFormTemplate, 'id'> = {
+    name: form.name,
+    description: form.description || '',
+    heading: form.heading || 'Submit Candidate Profile & Resume',
+    subheading:
+      form.subheading ||
+      'Candidates applying directly or partner agencies submitting consultants can attach a resume below.',
+    isDefault: form.isDefault,
+    includeCurrentTitle: form.includeCurrentTitle,
+    requireCurrentTitle: form.requireCurrentTitle,
+    includeExpectedRate: form.includeExpectedRate,
+    requireExpectedRate: form.requireExpectedRate,
+    includeVendorName: form.includeVendorName,
+    requireVendorName: form.requireVendorName,
+    includeNoticePeriod: form.includeNoticePeriod,
+    requireNoticePeriod: form.requireNoticePeriod,
+    includeLinkedinUrl: form.includeLinkedinUrl,
+    requireLinkedinUrl: form.requireLinkedinUrl,
+    fieldWidths: {
+      vendorName: 'full',
+      ...(form.fieldWidths || {}),
+    },
+    fieldOrder: Array.isArray(form.fieldOrder) ? [...form.fieldOrder] : undefined,
+    customFieldKeys: [...(form.customFieldKeys || [])],
+    customFields: initialCustomFields,
+  };
+  const resolvedOrder = resolveOrderedFormEntries(baseDraft).map((item) => item.key);
   return {
     optionsText,
     draft: {
-      name: form.name,
-      description: form.description || '',
-      heading: form.heading || 'Submit Candidate Profile & Resume',
-      subheading:
-        form.subheading ||
-        'Candidates applying directly or partner agencies submitting consultants can attach a resume below.',
-      isDefault: form.isDefault,
-      includeCurrentTitle: form.includeCurrentTitle,
-      requireCurrentTitle: form.requireCurrentTitle,
-      includeExpectedRate: form.includeExpectedRate,
-      requireExpectedRate: form.requireExpectedRate,
-      includeVendorName: form.includeVendorName,
-      requireVendorName: form.requireVendorName,
-      includeNoticePeriod: form.includeNoticePeriod,
-      requireNoticePeriod: form.requireNoticePeriod,
-      includeLinkedinUrl: form.includeLinkedinUrl,
-      requireLinkedinUrl: form.requireLinkedinUrl,
-      fieldWidths: {
-        vendorName: 'full',
-        ...(form.fieldWidths || {}),
-      },
-      customFieldKeys: [...(form.customFieldKeys || [])],
-      customFields: initialCustomFields,
+      ...baseDraft,
+      fieldOrder: resolvedOrder,
     },
   };
 }
 
+interface SortableFieldTileProps {
+  entry: OrderedFormFieldItem;
+  index: number;
+  totalCount: number;
+  rawChoices?: string;
+  onMoveStep: (index: number, delta: -1 | 1) => void;
+  onSetWidth: (nextWidth: ApplicationFormFieldWidth) => void;
+  onSetRequired: (nextRequired: boolean) => void;
+  onRemove: () => void;
+  onUpdateCustomField?: (patch: Partial<ApplicationFormCustomField>, rawChoiceText?: string) => void;
+}
+
+const SortableFieldTile: React.FC<SortableFieldTileProps> = ({
+  entry,
+  index,
+  totalCount,
+  rawChoices = '',
+  onMoveStep,
+  onSetWidth,
+  onSetRequired,
+  onRemove,
+  onUpdateCustomField,
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: entry.key });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const parsedChoices = rawChoices
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`${getFieldWidthColSpanClass(entry.width)} rounded-xl border bg-white p-4 transition-shadow flex flex-col justify-between gap-3.5 ${
+        isDragging
+          ? 'opacity-40 border-brand-400 shadow-lg ring-2 ring-brand-500/20 z-10'
+          : 'border-slate-200/90 hover:border-slate-300 shadow-xs'
+      }`}
+    >
+      {/* Top Bar: Drag Handle + Placement Order + Remove */}
+      <div className="flex items-start gap-2.5">
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          title="Drag to change field placement"
+          aria-label={`Drag ${entry.kind === 'custom' ? entry.field.name : entry.meta.label}`}
+          className="mt-0.5 p-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-grab active:cursor-grabbing shrink-0 transition-colors touch-none"
+        >
+          <GripVertical className="w-3.5 h-3.5" />
+        </button>
+
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+              <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[11px] font-semibold tabular-nums">
+                #{index + 1}
+              </span>
+              <span
+                className={`px-2 py-0.5 rounded text-[11px] font-medium ${
+                  entry.kind === 'custom'
+                    ? 'bg-brand-50 text-brand-700 border border-brand-200/70'
+                    : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {entry.kind === 'custom'
+                  ? formatQuestionTypeLabel(entry.field.type)
+                  : 'Standard Field'}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-0.5 shrink-0">
+              <button
+                type="button"
+                disabled={index === 0}
+                onClick={() => onMoveStep(index, -1)}
+                title="Move earlier"
+                className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-25 cursor-pointer"
+              >
+                <ChevronUp className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                disabled={index === totalCount - 1}
+                onClick={() => onMoveStep(index, 1)}
+                title="Move later"
+                className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-25 cursor-pointer"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={onRemove}
+                title={entry.kind === 'custom' ? 'Remove question' : 'Hide field from form'}
+                className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {entry.kind === 'custom' ? (
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={entry.field.name}
+                onChange={(e) => onUpdateCustomField?.({ name: e.target.value })}
+                placeholder="Question label..."
+                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-800 focus:border-brand-500 focus:outline-none"
+              />
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="w-44 shrink-0">
+                  <CustomSelect
+                    value={entry.field.type}
+                    onChange={(val) => {
+                      const nextType = val as CustomQuestionFieldType;
+                      onUpdateCustomField?.({
+                        type: nextType,
+                        ...(nextType === 'RICH_TEXT' || nextType === 'TEXTAREA'
+                          ? { width: 'full' }
+                          : {}),
+                        ...(supportsOptionsType(nextType) &&
+                        (!entry.field.options || entry.field.options.length === 0)
+                          ? { options: ['Option 1', 'Option 2'] }
+                          : {}),
+                      });
+                    }}
+                    ariaLabel="Question type"
+                    size="xs"
+                    options={CUSTOM_QUESTION_TYPE_OPTIONS}
+                  />
+                </div>
+                {entry.field.type === 'RICH_TEXT' && (
+                  <span className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md font-medium">
+                    Rich formatting editor enabled
+                  </span>
+                )}
+              </div>
+
+              {supportsOptionsType(entry.field.type) && (
+                <div className="space-y-1.5 pt-1">
+                  <input
+                    type="text"
+                    value={rawChoices}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      onUpdateCustomField?.(
+                        {
+                          options: raw
+                            .split(',')
+                            .map((o) => o.trim())
+                            .filter(Boolean),
+                        },
+                        raw
+                      );
+                    }}
+                    placeholder="Choices (comma separated)..."
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50/70 text-[11px] text-slate-700 focus:bg-white focus:border-brand-500 focus:outline-none"
+                  />
+                  {parsedChoices.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {parsedChoices.map((choice, cIdx) => (
+                        <span
+                          key={`${entry.field.key}_opt_${cIdx}`}
+                          className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[11px] font-medium"
+                        >
+                          {choice}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <div className="text-xs font-semibold text-slate-800">{entry.meta.label}</div>
+              <div className="text-[11px] text-slate-400 mt-0.5">
+                {entry.meta.placeholder}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom Placement Controls: Width + Requirement */}
+      <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+        <FieldWidthToggle
+          value={entry.width}
+          ariaLabel={`${entry.kind === 'custom' ? entry.field.name : entry.meta.label} width`}
+          onChange={onSetWidth}
+        />
+        <RequiredToggle
+          required={entry.required}
+          ariaLabel={`${entry.kind === 'custom' ? entry.field.name : entry.meta.label} requirement`}
+          onChange={onSetRequired}
+        />
+      </div>
+    </div>
+  );
+};
+
 /**
- * Dedicated full-page Application Form builder supporting Half / Full field width
- * selection, custom question ordering, and live side-by-side preview.
+ * Dedicated Application Form Builder supporting 2-column drag-and-drop field placement,
+ * Half/Full width controls, 11 custom screening field data types (including Rich Text),
+ * and live side-by-side applicant preview.
  */
 export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProps> = ({
   formId,
@@ -238,7 +437,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
     initialMatched ? buildDraftFromForm(initialMatched).optionsText : {}
   );
   const [newCustomName, setNewCustomName] = useState('');
-  const [newCustomType, setNewCustomType] = useState<CustomQuestionType>('TEXT');
+  const [newCustomType, setNewCustomType] = useState<CustomQuestionFieldType>('TEXT');
   const [newCustomOptions, setNewCustomOptions] = useState('');
   const [newCustomRequired, setNewCustomRequired] = useState(false);
   const [newCustomWidth, setNewCustomWidth] = useState<ApplicationFormFieldWidth>('half');
@@ -246,12 +445,18 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
   const [validationAttempted, setValidationAttempted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [mobileTab, setMobileTab] = useState<'edit' | 'preview'>('edit');
+  const [activeDragKey, setActiveDragKey] = useState<string | null>(null);
   const [baselineSnapshot, setBaselineSnapshot] = useState(() =>
     JSON.stringify(initialMatched ? buildDraftFromForm(initialMatched).draft : EMPTY_FORM_DRAFT)
   );
 
   const formNameInputRef = useRef<HTMLInputElement>(null);
   const newCustomNameRef = useRef<HTMLInputElement>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   useEffect(() => {
     if (!formId) {
@@ -322,6 +527,69 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
     };
   }, [formId]);
 
+  const orderedEntries = resolveOrderedFormEntries(draft);
+
+  const applyFieldOrder = (nextOrderKeys: string[]) => {
+    setDraft((prev) => {
+      const cfMap = new Map((prev.customFields || []).map((cf) => [cf.key, cf]));
+      const orderedCustomFields: ApplicationFormCustomField[] = [];
+      for (const k of nextOrderKeys) {
+        const cf = cfMap.get(k);
+        if (cf) {
+          orderedCustomFields.push(cf);
+          cfMap.delete(k);
+        }
+      }
+      cfMap.forEach((remaining) => orderedCustomFields.push(remaining));
+      return {
+        ...prev,
+        fieldOrder: nextOrderKeys,
+        customFields: orderedCustomFields,
+      };
+    });
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragKey(String(event.active.id));
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDragKey(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const keys = orderedEntries.map((item) => item.key);
+    const oldIdx = keys.indexOf(String(active.id));
+    const newIdx = keys.indexOf(String(over.id));
+    if (oldIdx < 0 || newIdx < 0) return;
+    applyFieldOrder(arrayMove(keys, oldIdx, newIdx));
+  };
+
+  const handleMoveOrderedStep = (idx: number, direction: -1 | 1) => {
+    const keys = orderedEntries.map((item) => item.key);
+    const target = idx + direction;
+    if (target < 0 || target >= keys.length) return;
+    applyFieldOrder(arrayMove(keys, idx, target));
+  };
+
+  const toggleStandardField = (fieldKey: StandardOptionalFieldKey, enabled: boolean) => {
+    const meta = STANDARD_OPTIONAL_FORM_FIELDS.find((f) => f.key === fieldKey);
+    if (!meta) return;
+    setDraft((prev) => {
+      const currentOrder = resolveOrderedFormEntries(prev).map((e) => e.key);
+      const nextOrder = enabled
+        ? currentOrder.includes(fieldKey)
+          ? currentOrder
+          : [...currentOrder, fieldKey]
+        : currentOrder.filter((k) => k !== fieldKey);
+      return {
+        ...prev,
+        [meta.includeKey]: enabled,
+        ...(enabled ? {} : { [meta.requireKey]: false }),
+        fieldOrder: nextOrder,
+      };
+    });
+  };
+
   const resetCustomQuestionAdder = () => {
     setNewCustomName('');
     setNewCustomType('TEXT');
@@ -342,7 +610,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
       .split(',')
       .map((o) => o.trim())
       .filter(Boolean);
-    if (newCustomType === 'DROPDOWN' && parsedOptions.length === 0) {
+    if (supportsOptionsType(newCustomType) && parsedOptions.length === 0) {
       setCustomDraftError('Add at least one comma-separated option below.');
       return null;
     }
@@ -353,23 +621,31 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
       type: newCustomType,
       required: newCustomRequired,
       width: newCustomWidth,
-      ...(newCustomType === 'DROPDOWN' ? { options: parsedOptions } : {}),
+      ...(supportsOptionsType(newCustomType) ? { options: parsedOptions } : {}),
     };
   };
 
-  const handleAddInlineCustomField = () => {
-    const item = buildInlineCustomField();
-    if (!item) return;
-    setDraft((prev) => ({
-      ...prev,
-      customFields: [...(prev.customFields || []), item],
-    }));
-    if (item.type === 'DROPDOWN') {
+  const appendCustomField = (item: ApplicationFormCustomField) => {
+    setDraft((prev) => {
+      const currentOrder = resolveOrderedFormEntries(prev).map((e) => e.key);
+      return {
+        ...prev,
+        customFields: [...(prev.customFields || []), item],
+        fieldOrder: [...currentOrder, item.key],
+      };
+    });
+    if (supportsOptionsType(item.type)) {
       setCustomOptionsText((prev) => ({
         ...prev,
         [item.key]: (item.options || []).join(', '),
       }));
     }
+  };
+
+  const handleAddInlineCustomField = () => {
+    const item = buildInlineCustomField();
+    if (!item) return;
+    appendCustomField(item);
     resetCustomQuestionAdder();
   };
 
@@ -378,24 +654,14 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
       (draft.customFields || []).map((cf) => cf.name.trim().toLowerCase())
     );
     if (existingNames.has(preset.name.trim().toLowerCase())) return;
-    const item: ApplicationFormCustomField = {
+    appendCustomField({
       key: `cf_${preset.name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${Date.now().toString(36)}`,
       name: preset.name,
       type: preset.type,
       required: preset.required,
       width: preset.width,
-      ...(preset.type === 'DROPDOWN' && preset.options ? { options: preset.options } : {}),
-    };
-    setDraft((prev) => ({
-      ...prev,
-      customFields: [...(prev.customFields || []), item],
-    }));
-    if (item.type === 'DROPDOWN' && item.options) {
-      setCustomOptionsText((prev) => ({
-        ...prev,
-        [item.key]: item.options!.join(', '),
-      }));
-    }
+      ...(supportsOptionsType(preset.type) && preset.options ? { options: preset.options } : {}),
+    });
   };
 
   const handleUpdateCustomField = (
@@ -410,21 +676,11 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
     }));
   };
 
-  const handleMoveCustomField = (idx: number, direction: -1 | 1) => {
-    setDraft((prev) => {
-      const list = [...(prev.customFields || [])];
-      const target = idx + direction;
-      if (target < 0 || target >= list.length) return prev;
-      const [moved] = list.splice(idx, 1);
-      list.splice(target, 0, moved);
-      return { ...prev, customFields: list };
-    });
-  };
-
   const handleRemoveInlineCustomField = (key: string) => {
     setDraft((prev) => ({
       ...prev,
       customFields: (prev.customFields || []).filter((cf) => cf.key !== key),
+      fieldOrder: (prev.fieldOrder || []).filter((k) => k !== key),
     }));
   };
 
@@ -433,11 +689,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
     if (!draft.name.trim()) {
       setValidationAttempted(true);
       formNameInputRef.current?.focus();
-      showToast(
-        'Missing Required Fields',
-        'Please enter a Form Name.',
-        'warning'
-      );
+      showToast('Missing Required Fields', 'Please enter a Form Name.', 'warning');
       return;
     }
 
@@ -445,7 +697,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
       .map((cf) => ({
         ...cf,
         name: cf.name.trim(),
-        ...(cf.type === 'DROPDOWN'
+        ...(supportsOptionsType(cf.type)
           ? {
               options: (cf.options || []).map((o) => o.trim()).filter(Boolean),
             }
@@ -453,22 +705,24 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
       }))
       .filter((cf) => cf.name.length > 0);
 
-    const emptyDropdown = finalCustomFields.find(
-      (cf) => cf.type === 'DROPDOWN' && (!cf.options || cf.options.length === 0)
+    const emptyChoicesField = finalCustomFields.find(
+      (cf) => supportsOptionsType(cf.type) && (!cf.options || cf.options.length === 0)
     );
-    if (emptyDropdown) {
+    if (emptyChoicesField) {
       showToast(
-        'Missing Dropdown Options',
-        `Please add at least one option for "${emptyDropdown.name}".`,
+        'Missing Choices',
+        `Please add at least one option for "${emptyChoicesField.name}".`,
         'warning'
       );
       return;
     }
 
+    let nextOrder = resolveOrderedFormEntries(draft).map((item) => item.key);
     if (newCustomName.trim()) {
       const extra = buildInlineCustomField();
       if (!extra) return;
       finalCustomFields.push(extra);
+      nextOrder = [...nextOrder, extra.key];
     }
 
     setValidationAttempted(false);
@@ -479,6 +733,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
         name: draft.name.trim(),
         heading: draft.heading.trim() || 'Submit Candidate Profile & Resume',
         subheading: draft.subheading.trim(),
+        fieldOrder: nextOrder,
         customFields: finalCustomFields,
       };
       const res = formId
@@ -507,9 +762,6 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
   };
 
   const isNameInvalid = validationAttempted && !draft.name.trim();
-  const enabledStandardCount = STANDARD_TOGGLE_FIELDS.filter((f) =>
-    Boolean(draft[f.includeKey])
-  ).length;
   const parsedComposerOptions = newCustomOptions
     .split(',')
     .map((o) => o.trim())
@@ -523,7 +775,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
           type: newCustomType,
           required: newCustomRequired,
           width: newCustomWidth,
-          ...(newCustomType === 'DROPDOWN'
+          ...(supportsOptionsType(newCustomType)
             ? {
                 options:
                   parsedComposerOptions.length > 0
@@ -537,6 +789,14 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
   const previewDraft: Omit<ApplicationFormTemplate, 'id'> = {
     ...draft,
     customFields: draftCustomWithGhost,
+    ...(newCustomName.trim()
+      ? {
+          fieldOrder: [
+            ...orderedEntries.map((item) => item.key),
+            '__draft_preview__',
+          ],
+        }
+      : {}),
   };
   const totalDraftFieldCount = summarizeFormTemplateFields(
     { ...draft, id: formId || 'draft' },
@@ -549,12 +809,12 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
       )
   );
   const totalHalfFieldsCount =
-    STANDARD_TOGGLE_FIELDS.filter(
-      (f) =>
-        Boolean(draft[f.includeKey]) &&
-        resolveFormFieldWidth(draft, f.widthKey, f.defaultWidth) === 'half'
-    ).length +
-    draftCustomWithGhost.filter((cf) => (cf.width || 'half') === 'half').length;
+    orderedEntries.filter((e) => e.width === 'half').length +
+    (newCustomName.trim() && newCustomWidth === 'half' ? 1 : 0);
+
+  const activeDragEntry = activeDragKey
+    ? orderedEntries.find((item) => item.key === activeDragKey) || null
+    : null;
 
   const isDirty = Boolean(newCustomName.trim()) || JSON.stringify(draft) !== baselineSnapshot;
   const { showLeaveModal, guardNavigation, confirmLeave, cancelLeave } = useFormShortcuts({
@@ -608,7 +868,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
   }
 
   return (
-    <div className="space-y-5">
+    <section className="max-w-7xl mx-auto space-y-6 pb-8 animate-fade-in">
       <DetailBreadcrumb
         backLabel="Back to Application Forms"
         onBack={() => guardNavigation(onBack)}
@@ -622,7 +882,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
             ? draft.name.trim() || 'Edit Application Form'
             : 'Create Application Form'
         }
-        subtitle="Configure form identity, half/full field widths, and custom screening questions with a live applicant preview."
+        subtitle="Configure template copy, drag fields into 2-column Half or Full width placement, and customize screening questions."
         badges={
           <>
             <StatusBadge
@@ -681,7 +941,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
         />
       </div>
 
-      {/* Main Dedicated 12-Column Builder + Live Preview Workspace */}
+      {/* Main Dedicated 12-Column Builder + Right-Sided Rounded Preview */}
       <form
         noValidate
         onSubmit={handleSaveForm}
@@ -689,21 +949,34 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
       >
         {/* Left Builder Column */}
         <div
-          className={`xl:col-span-7 space-y-5 text-xs ${
+          className={`xl:col-span-7 space-y-6 text-xs ${
             mobileTab === 'preview' ? 'hidden xl:block' : 'block'
           }`}
         >
-          {/* Card 1: Form Identity */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 card-shadow space-y-4">
+          {/* Step 1: Form Identity & Copy */}
+          <div className="bg-white rounded-xl border border-slate-200 p-6 card-shadow space-y-5">
             <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">
-                  Form identity &amp; copy
+                  1. Form identity &amp; header copy
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Name shown to recruiters and heading shown to candidates on the application page.
+                  Internal template name and public candidate instructions.
                 </p>
               </div>
+              {!editingOriginalIsDefault && (
+                <label className="inline-flex items-center gap-2 cursor-pointer px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={draft.isDefault}
+                    onChange={(e) => setDraft({ ...draft, isDefault: e.target.checked })}
+                    className="w-3.5 h-3.5 rounded text-brand-600 cursor-pointer"
+                  />
+                  <span className="font-medium text-slate-700 text-[11px]">
+                    Set as default
+                  </span>
+                </label>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -752,47 +1025,49 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                 className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-brand-500 focus:outline-none"
               />
             </div>
-
-            {!editingOriginalIsDefault && (
-              <div className="pt-1">
-                <label className="inline-flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={draft.isDefault}
-                    onChange={(e) => setDraft({ ...draft, isDefault: e.target.checked })}
-                    className="w-4 h-4 rounded-md text-brand-600 cursor-pointer"
-                  />
-                  <span className="font-medium text-slate-700">
-                    Set as default form for job links
-                  </span>
-                </label>
-              </div>
-            )}
           </div>
 
-          {/* Card 2: Core & Standard Fields */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 card-shadow space-y-4">
-            <div className="flex items-start justify-between gap-2 flex-wrap pb-2.5 border-b border-slate-100">
+          {/* Step 2: Interactive Draggable Field Placement & Custom Screening Questions */}
+          <div className="bg-white rounded-xl border border-slate-200 p-6 card-shadow space-y-5">
+            <div className="flex items-start justify-between gap-3 flex-wrap pb-3 border-b border-slate-100">
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">
-                  Core &amp; standard fields
+                  2. Drag &amp; arrange form fields ({orderedEntries.length} placed)
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Toggle optional fields ({enabledStandardCount} of {STANDARD_TOGGLE_FIELDS.length}{' '}
-                  active) and choose Half (50%) or Full (100%) row width.
+                  Toggle standard fields on/off, drag tiles via the grip handle to reorder placement, and pick Half (50%) or Full (100%) width.
                 </p>
               </div>
-              {totalHalfFieldsCount % 2 === 1 && (
-                <span className="px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-[11px] font-medium text-slate-600">
-                  Tip: {totalHalfFieldsCount} Half-width fields active — pair in twos or use Full
-                </span>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                {totalHalfFieldsCount % 2 === 1 && (
+                  <span className="px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-[11px] font-medium text-slate-600">
+                    {totalHalfFieldsCount} Half fields active
+                  </span>
+                )}
+                {orderedEntries.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const defaultOrder = resolveOrderedFormEntries({
+                        ...draft,
+                        fieldOrder: undefined,
+                      }).map((i) => i.key);
+                      applyFieldOrder(defaultOrder);
+                    }}
+                    title="Reset field placement to default order"
+                    className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-[11px] font-medium inline-flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset Order</span>
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* Core Mandatory Strip */}
+            {/* Always-Required Core Fields */}
             <div className="px-3.5 py-2.5 rounded-lg bg-slate-50 border border-slate-200/80 flex flex-wrap items-center gap-1.5">
               <span className="text-[11px] font-medium text-slate-500 mr-1">
-                Always required:
+                Pinned top fields:
               </span>
               {['Resume / CV', 'Full Name', 'Email', 'Phone', 'Work Auth'].map((label) => (
                 <span
@@ -805,238 +1080,132 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
               ))}
             </div>
 
-            <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden">
-              {STANDARD_TOGGLE_FIELDS.map((field) => {
-                const included = Boolean(draft[field.includeKey]);
-                const required = Boolean(draft[field.requireKey]);
-                const fieldWidth = resolveFormFieldWidth(
-                  draft,
-                  field.widthKey,
-                  field.defaultWidth
-                );
-                return (
-                  <div
-                    key={field.includeKey}
-                    className={`px-3.5 py-3 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 transition-colors ${
-                      included ? 'bg-white' : 'bg-slate-50/50'
-                    }`}
-                  >
-                    <label className="flex items-center gap-2.5 cursor-pointer min-w-0 flex-1">
-                      <input
-                        type="checkbox"
-                        checked={included}
-                        onChange={(e) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            [field.includeKey]: e.target.checked,
-                            ...(e.target.checked ? {} : { [field.requireKey]: false }),
-                          }))
-                        }
-                        className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 cursor-pointer"
-                      />
-                      <span
-                        className={`font-semibold truncate ${
-                          included ? 'text-slate-800' : 'text-slate-400'
-                        }`}
-                      >
-                        {field.label}
-                      </span>
-                    </label>
+            {/* Standard Optional Field Toggles */}
+            <div className="space-y-1.5">
+              <div className="text-[11px] font-medium text-slate-500">
+                Include standard profile fields
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {STANDARD_OPTIONAL_FORM_FIELDS.map((field) => {
+                  const enabled = Boolean(draft[field.includeKey]);
+                  return (
+                    <button
+                      key={field.key}
+                      type="button"
+                      onClick={() => toggleStandardField(field.key, !enabled)}
+                      aria-pressed={enabled}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-medium transition-colors cursor-pointer ${
+                        enabled
+                          ? 'bg-slate-900 border-slate-900 text-white'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                    >
+                      {enabled ? (
+                        <Check className="w-3 h-3 text-emerald-400" />
+                      ) : (
+                        <Plus className="w-3 h-3 text-slate-400" />
+                      )}
+                      <span>{field.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-                    {included ? (
-                      <div className="flex items-center gap-2 shrink-0">
-                        <FieldWidthToggle
-                          value={fieldWidth}
-                          ariaLabel={`${field.label} width`}
-                          onChange={(nextWidth) =>
+            {/* Draggable 2-Column Placement Canvas */}
+            {orderedEntries.length > 0 ? (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={orderedEntries.map((item) => item.key)}
+                  strategy={rectSortingStrategy}
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-4 rounded-xl bg-slate-50/70 border border-slate-200/80">
+                    {orderedEntries.map((entry, idx) => (
+                      <SortableFieldTile
+                        key={entry.key}
+                        entry={entry}
+                        index={idx}
+                        totalCount={orderedEntries.length}
+                        rawChoices={
+                          entry.kind === 'custom'
+                            ? customOptionsText[entry.key] !== undefined
+                              ? customOptionsText[entry.key]
+                              : (entry.field.options || []).join(', ')
+                            : ''
+                        }
+                        onMoveStep={handleMoveOrderedStep}
+                        onSetWidth={(nextWidth) => {
+                          if (entry.kind === 'standard') {
                             setDraft((prev) => ({
                               ...prev,
                               fieldWidths: {
                                 ...(prev.fieldWidths || {}),
-                                [field.widthKey]: nextWidth,
+                                [entry.key]: nextWidth,
                               },
-                            }))
+                            }));
+                          } else {
+                            handleUpdateCustomField(entry.key, { width: nextWidth });
                           }
-                        />
-                        <RequiredToggle
-                          required={required}
-                          ariaLabel={`${field.label} requirement`}
-                          onChange={(nextReq) =>
+                        }}
+                        onSetRequired={(nextReq) => {
+                          if (entry.kind === 'standard') {
                             setDraft((prev) => ({
                               ...prev,
-                              [field.requireKey]: nextReq,
-                            }))
+                              [entry.meta.requireKey]: nextReq,
+                            }));
+                          } else {
+                            handleUpdateCustomField(entry.key, { required: nextReq });
                           }
-                        />
-                      </div>
-                    ) : (
-                      <span className="text-[11px] text-slate-400 shrink-0">Hidden</span>
-                    )}
+                        }}
+                        onRemove={() => {
+                          if (entry.kind === 'standard') {
+                            toggleStandardField(entry.key, false);
+                          } else {
+                            handleRemoveInlineCustomField(entry.key);
+                          }
+                        }}
+                        onUpdateCustomField={
+                          entry.kind === 'custom'
+                            ? (patch, rawChoiceText) => {
+                                if (rawChoiceText !== undefined) {
+                                  setCustomOptionsText((prev) => ({
+                                    ...prev,
+                                    [entry.key]: rawChoiceText,
+                                  }));
+                                }
+                                handleUpdateCustomField(entry.key, patch);
+                              }
+                            : undefined
+                        }
+                      />
+                    ))}
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                </SortableContext>
 
-          {/* Card 3: Custom Questions */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 card-shadow space-y-4">
-            <div className="flex items-center justify-between gap-2 flex-wrap pb-2.5 border-b border-slate-100">
-              <div>
-                <h2 className="text-sm font-semibold text-slate-900">
-                  Custom screening questions ({(draft.customFields || []).length})
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Add extra questions saved directly to candidates on this form. Reorder, resize (Half/Full), or pick from common presets.
-                </p>
-              </div>
-            </div>
-
-            {/* Added Questions List (Hairline-divided rows matching Standard Fields) */}
-            {(draft.customFields || []).length > 0 ? (
-              <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 overflow-hidden">
-                {(draft.customFields || []).map((cf, idx, arr) => {
-                  const rawChoices =
-                    customOptionsText[cf.key] !== undefined
-                      ? customOptionsText[cf.key]
-                      : (cf.options || []).join(', ');
-                  const parsedChoices = rawChoices
-                    .split(',')
-                    .map((o) => o.trim())
-                    .filter(Boolean);
-
-                  return (
-                    <div
-                      key={cf.key}
-                      className="p-3.5 bg-white hover:bg-slate-50/40 transition-colors flex items-start gap-3"
-                    >
-                      {/* Left Rail: Index Badge + Move Controls */}
-                      <div className="w-11 shrink-0 flex flex-col items-center gap-1 pt-0.5">
-                        <span className="w-full h-6 rounded-md bg-slate-100 text-slate-700 font-semibold text-[11px] inline-flex items-center justify-center tabular-nums">
-                          Q{idx + 1}
-                        </span>
-                        <div className="inline-flex items-center gap-0.5">
-                          <button
-                            type="button"
-                            disabled={idx === 0}
-                            onClick={() => handleMoveCustomField(idx, -1)}
-                            title="Move question up"
-                            className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-25 cursor-pointer"
-                          >
-                            <ChevronUp className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            disabled={idx === arr.length - 1}
-                            onClick={() => handleMoveCustomField(idx, 1)}
-                            title="Move question down"
-                            className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-25 cursor-pointer"
-                          >
-                            <ChevronDown className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Right Aligned Body */}
-                      <div className="flex-1 min-w-0 space-y-2.5">
-                        {/* Row 1: Label Input + Remove */}
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={cf.name}
-                            onChange={(e) => handleUpdateCustomField(cf.key, { name: e.target.value })}
-                            placeholder="Question label..."
-                            className="flex-1 min-w-0 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-800 focus:border-brand-500 focus:outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveInlineCustomField(cf.key)}
-                            className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 cursor-pointer shrink-0 transition-colors"
-                            title="Remove question"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-
-                        {/* Row 2: Type + Width & Requirement Toggles */}
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="w-36 shrink-0">
-                            <CustomSelect
-                              value={cf.type}
-                              onChange={(val) =>
-                                handleUpdateCustomField(cf.key, {
-                                  type: val as CustomQuestionType,
-                                  ...(val === 'DROPDOWN' && (!cf.options || cf.options.length === 0)
-                                    ? { options: ['Option 1', 'Option 2'] }
-                                    : {}),
-                                })
-                              }
-                              ariaLabel="Question type"
-                              size="xs"
-                              options={CUSTOM_TYPE_OPTIONS}
-                            />
-                          </div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <FieldWidthToggle
-                              value={cf.width || 'half'}
-                              ariaLabel={`${cf.name || 'Question'} width`}
-                              onChange={(nextWidth) =>
-                                handleUpdateCustomField(cf.key, { width: nextWidth })
-                              }
-                            />
-                            <RequiredToggle
-                              required={Boolean(cf.required)}
-                              ariaLabel={`${cf.name || 'Question'} requirement`}
-                              onChange={(nextReq) =>
-                                handleUpdateCustomField(cf.key, { required: nextReq })
-                              }
-                            />
-                          </div>
-                        </div>
-
-                        {/* Row 3: Dropdown Options */}
-                        {cf.type === 'DROPDOWN' && (
-                          <div className="pt-2 border-t border-slate-100 space-y-1.5">
-                            <label className="block text-[11px] font-medium text-slate-500">
-                              Dropdown choices (comma separated)
-                            </label>
-                            <input
-                              type="text"
-                              value={rawChoices}
-                              onChange={(e) => {
-                                const raw = e.target.value;
-                                setCustomOptionsText((prev) => ({ ...prev, [cf.key]: raw }));
-                                handleUpdateCustomField(cf.key, {
-                                  options: raw
-                                    .split(',')
-                                    .map((o) => o.trim())
-                                    .filter(Boolean),
-                                });
-                              }}
-                              placeholder="e.g. Immediate, 2 Weeks, 30 Days"
-                              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50/70 text-[11px] text-slate-700 focus:bg-white focus:border-brand-500 focus:outline-none"
-                            />
-                            {parsedChoices.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5">
-                                {parsedChoices.map((choice, cIdx) => (
-                                  <span
-                                    key={`${cf.key}_opt_${cIdx}`}
-                                    className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[11px] font-medium"
-                                  >
-                                    {choice}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                <DragOverlay>
+                  {activeDragEntry ? (
+                    <div className="rounded-xl border border-brand-500 bg-white p-3.5 shadow-2xl text-xs font-semibold text-slate-900 flex items-center gap-2 opacity-95">
+                      <GripVertical className="w-4 h-4 text-brand-600" />
+                      <span>
+                        {activeDragEntry.kind === 'custom'
+                          ? activeDragEntry.field.name || 'Custom Question'
+                          : activeDragEntry.meta.label}
+                      </span>
+                      <span className="ml-auto px-2 py-0.5 rounded bg-slate-100 text-[11px] font-medium text-slate-600">
+                        {activeDragEntry.width === 'full' ? 'Full' : 'Half'}
+                      </span>
                     </div>
-                  );
-                })}
-              </div>
+                  ) : null}
+                </DragOverlay>
+              </DndContext>
             ) : (
-              <div className="px-4 py-3 rounded-lg bg-slate-50/70 border border-dashed border-slate-200 text-[11px] text-slate-500">
-                No custom questions added yet. Pick a quick preset or compose a new question below.
+              <div className="px-4 py-6 rounded-xl bg-slate-50/70 border border-dashed border-slate-200 text-center text-xs text-slate-500">
+                No optional fields or custom questions active yet. Enable a standard field above or add a screening question below.
               </div>
             )}
 
@@ -1044,7 +1213,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
             {availablePresets.length > 0 && (
               <div className="space-y-2 pt-1">
                 <div className="text-[11px] font-medium text-slate-500">
-                  Quick add common questions
+                  Quick add screening questions
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {availablePresets.map((preset) => (
@@ -1057,7 +1226,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                       <Plus className="w-3 h-3 text-brand-600" />
                       <span>{preset.name}</span>
                       <span className="text-[11px] text-slate-400">
-                        · {preset.width === 'full' ? 'Full' : 'Half'}
+                        · {preset.type === 'RICH_TEXT' ? 'Rich Text' : preset.width === 'full' ? 'Full' : 'Half'}
                       </span>
                     </button>
                   ))}
@@ -1065,16 +1234,16 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
               </div>
             )}
 
-            {/* Flat Bottom Composer Section (Hairline divider instead of nested box) */}
+            {/* Add New Custom Question Composer */}
             <div className="pt-4 border-t border-slate-100 space-y-3">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <span className="text-xs font-semibold text-slate-800">
-                  Add a new custom question
+                  Add a new custom screening question
                 </span>
                 <span className="text-[11px] text-slate-400">
                   {newCustomName.trim()
-                    ? 'Showing live preview on the right'
-                    : 'Press Enter or click Add Question'}
+                    ? 'Previewing live on the right'
+                    : 'Supports Short Text, Rich Text, Multi-Select, Dropdown, Date & more'}
                 </span>
               </div>
 
@@ -1103,7 +1272,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                       handleAddInlineCustomField();
                     }
                   }}
-                  placeholder="e.g. Earliest Start Date, Security Clearance Level, GitHub URL"
+                  placeholder="e.g. Describe your relevant cloud architecture experience"
                   className={`w-full px-3 py-2 rounded-lg border bg-white text-xs focus:outline-none ${
                     customDraftError && !newCustomName.trim()
                       ? INVALID_FIELD_CLASSES
@@ -1114,19 +1283,23 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
 
               <div className="flex flex-wrap items-end justify-between gap-2.5 pt-0.5">
                 <div className="flex flex-wrap items-end gap-2.5">
-                  <div className="w-32">
+                  <div className="w-48">
                     <label className="block text-[11px] font-medium text-slate-600 mb-1">
                       Answer Type
                     </label>
                     <CustomSelect
                       value={newCustomType}
                       onChange={(val) => {
-                        setNewCustomType(val as CustomQuestionType);
+                        const nextType = val as CustomQuestionFieldType;
+                        setNewCustomType(nextType);
+                        if (nextType === 'RICH_TEXT' || nextType === 'TEXTAREA') {
+                          setNewCustomWidth('full');
+                        }
                         if (customDraftError) setCustomDraftError('');
                       }}
                       ariaLabel="New question type"
                       size="xs"
-                      options={CUSTOM_TYPE_OPTIONS}
+                      options={CUSTOM_QUESTION_TYPE_OPTIONS}
                     />
                   </div>
 
@@ -1159,15 +1332,15 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                   className="h-[30px] px-3.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Add Question</span>
+                  <span>Add to Form</span>
                 </button>
               </div>
 
-              {newCustomType === 'DROPDOWN' && (
+              {supportsOptionsType(newCustomType) && (
                 <div className="pt-2 border-t border-slate-100 space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
                     <label className="block text-xs font-medium text-slate-700">
-                      Dropdown Choices (comma separated) *
+                      Choices (comma separated) *
                     </label>
                     {customDraftError && parsedComposerOptions.length === 0 && (
                       <span className="text-[11px] font-semibold text-rose-600">
@@ -1190,7 +1363,9 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                     }}
                     placeholder="e.g. Immediate, 2 Weeks Notice, 30 Days Notice"
                     className={`w-full px-3 py-2 rounded-lg border bg-white text-xs focus:outline-none ${
-                      customDraftError && newCustomType === 'DROPDOWN' && parsedComposerOptions.length === 0
+                      customDraftError &&
+                      supportsOptionsType(newCustomType) &&
+                      parsedComposerOptions.length === 0
                         ? INVALID_FIELD_CLASSES
                         : 'border-slate-200 focus:border-brand-500'
                     }`}
@@ -1213,26 +1388,17 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
           </div>
         </div>
 
-        {/* Right Live Preview Column */}
+        {/* Right Live Preview Column (Clean Single Rounded Card with Rounded Dark Header) */}
         <div
-          className={`xl:col-span-5 xl:sticky xl:top-2 ${
+          className={`xl:col-span-5 xl:sticky xl:top-4 ${
             mobileTab === 'edit' ? 'hidden xl:block' : 'block'
           }`}
         >
-          <div className="bg-white rounded-xl border border-slate-200 card-shadow overflow-hidden xl:max-h-[calc(100vh-7rem)] xl:flex xl:flex-col">
-            <div className="px-4 py-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between gap-2 shrink-0">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
-                <Eye className="w-3.5 h-3.5 text-brand-600" />
-                <span>Live Form Preview</span>
-              </div>
-              <span className="text-[11px] text-slate-400">
-                Updates live as you edit
-              </span>
-            </div>
-            <div className="p-4 bg-slate-50/50 xl:overflow-y-auto">
-              <ApplicationFormPreview template={previewDraft} />
-            </div>
-          </div>
+          <ApplicationFormPreview
+            template={previewDraft}
+            headerBadgeText="Live Preview"
+            subtitleText="Updates live as you drag & edit"
+          />
         </div>
       </form>
 
