@@ -124,32 +124,126 @@ const CUSTOM_TYPE_OPTIONS: Array<{ value: CustomQuestionType; label: string }> =
   { value: 'DROPDOWN', label: 'Dropdown' },
 ];
 
+const QUICK_QUESTION_PRESETS: Array<{
+  name: string;
+  type: CustomQuestionType;
+  width: ApplicationFormFieldWidth;
+  required: boolean;
+  options?: string[];
+}> = [
+  {
+    name: 'How soon can you join?',
+    type: 'DROPDOWN',
+    width: 'half',
+    required: true,
+    options: ['Immediate', '2 Weeks Notice', '30 Days Notice', 'Negotiable'],
+  },
+  {
+    name: 'Open to relocation?',
+    type: 'BOOLEAN',
+    width: 'half',
+    required: false,
+  },
+  {
+    name: 'Current Location (City, State)',
+    type: 'TEXT',
+    width: 'half',
+    required: false,
+  },
+  {
+    name: 'Portfolio / GitHub URL',
+    type: 'TEXT',
+    width: 'full',
+    required: false,
+  },
+];
+
+function SegmentedToggle<T extends string>({
+  value,
+  options,
+  onChange,
+  ariaLabel,
+  fullWidth = false,
+}: {
+  value: T;
+  options: Array<{ value: T; label: string; title?: string; activeTone?: 'dark' | 'amber' }>;
+  onChange: (next: T) => void;
+  ariaLabel: string;
+  fullWidth?: boolean;
+}) {
+  return (
+    <div
+      className={`inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5 shrink-0 ${
+        fullWidth ? 'w-full' : ''
+      }`}
+      role="group"
+      aria-label={ariaLabel}
+    >
+      {options.map((opt) => {
+        const active = value === opt.value;
+        const activeClass =
+          opt.activeTone === 'amber'
+            ? 'bg-amber-600 text-white shadow-2xs'
+            : 'bg-slate-900 text-white shadow-2xs';
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            title={opt.title}
+            className={`${
+              fullWidth ? 'flex-1 justify-center' : ''
+            } inline-flex items-center px-2.5 py-1 rounded-md text-[10.5px] font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+              active ? activeClass : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 const FieldWidthToggle: React.FC<{
   value: ApplicationFormFieldWidth;
   onChange: (next: ApplicationFormFieldWidth) => void;
   ariaLabel?: string;
-}> = ({ value, onChange, ariaLabel = 'Field width' }) => (
-  <div
-    className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 p-0.5 shrink-0"
-    role="group"
-    aria-label={ariaLabel}
-  >
-    {(['half', 'full'] as const).map((opt) => (
-      <button
-        key={opt}
-        type="button"
-        onClick={() => onChange(opt)}
-        title={opt === 'half' ? 'Half width (50%)' : 'Full width (100%)'}
-        className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors cursor-pointer ${
-          value === opt
-            ? 'bg-slate-900 text-white shadow-2xs'
-            : 'text-slate-500 hover:text-slate-800'
-        }`}
-      >
-        {opt === 'half' ? 'Half' : 'Full'}
-      </button>
-    ))}
-  </div>
+  fullWidth?: boolean;
+}> = ({ value, onChange, ariaLabel = 'Field width', fullWidth = false }) => (
+  <SegmentedToggle
+    value={value}
+    onChange={onChange}
+    ariaLabel={ariaLabel}
+    fullWidth={fullWidth}
+    options={[
+      { value: 'half', label: 'Half', title: 'Half width (50%)' },
+      { value: 'full', label: 'Full', title: 'Full width (100%)' },
+    ]}
+  />
+);
+
+const RequiredToggle: React.FC<{
+  required: boolean;
+  onChange: (next: boolean) => void;
+  ariaLabel?: string;
+  fullWidth?: boolean;
+}> = ({ required, onChange, ariaLabel = 'Requirement setting', fullWidth = false }) => (
+  <SegmentedToggle<'optional' | 'required'>
+    value={required ? 'required' : 'optional'}
+    onChange={(next) => onChange(next === 'required')}
+    ariaLabel={ariaLabel}
+    fullWidth={fullWidth}
+    options={[
+      { value: 'optional', label: 'Optional', title: 'Applicant may skip this field' },
+      {
+        value: 'required',
+        label: 'Required *',
+        title: 'Applicant must complete this field',
+        activeTone: 'amber',
+      },
+    ]}
+  />
 );
 
 function buildDraftFromForm(form: ApplicationFormTemplate): {
@@ -237,6 +331,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
   const [mobileTab, setMobileTab] = useState<'edit' | 'preview'>('edit');
 
   const formNameInputRef = useRef<HTMLInputElement>(null);
+  const newCustomNameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!formId) {
@@ -315,7 +410,8 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
   const buildInlineCustomField = (): ApplicationFormCustomField | null => {
     const trimmed = newCustomName.trim();
     if (!trimmed) {
-      setCustomDraftError('Enter a field label before adding.');
+      setCustomDraftError('Please enter a question label first.');
+      newCustomNameRef.current?.focus();
       return null;
     }
     const parsedOptions = newCustomOptions
@@ -323,7 +419,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
       .map((o) => o.trim())
       .filter(Boolean);
     if (newCustomType === 'DROPDOWN' && parsedOptions.length === 0) {
-      setCustomDraftError('Enter comma-separated options for this dropdown.');
+      setCustomDraftError('Add at least one comma-separated option below.');
       return null;
     }
     setCustomDraftError('');
@@ -351,6 +447,31 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
       }));
     }
     resetCustomQuestionAdder();
+  };
+
+  const handleAddPresetQuestion = (preset: (typeof QUICK_QUESTION_PRESETS)[number]) => {
+    const existingNames = new Set(
+      (draft.customFields || []).map((cf) => cf.name.trim().toLowerCase())
+    );
+    if (existingNames.has(preset.name.trim().toLowerCase())) return;
+    const item: ApplicationFormCustomField = {
+      key: `cf_${preset.name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${Date.now().toString(36)}`,
+      name: preset.name,
+      type: preset.type,
+      required: preset.required,
+      width: preset.width,
+      ...(preset.type === 'DROPDOWN' && preset.options ? { options: preset.options } : {}),
+    };
+    setDraft((prev) => ({
+      ...prev,
+      customFields: [...(prev.customFields || []), item],
+    }));
+    if (item.type === 'DROPDOWN' && item.options) {
+      setCustomOptionsText((prev) => ({
+        ...prev,
+        [item.key]: item.options!.join(', '),
+      }));
+    }
   };
 
   const handleUpdateCustomField = (
@@ -464,10 +585,51 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
   const enabledStandardCount = STANDARD_TOGGLE_FIELDS.filter((f) =>
     Boolean(draft[f.includeKey])
   ).length;
+  const parsedComposerOptions = newCustomOptions
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  const draftCustomWithGhost: ApplicationFormCustomField[] = newCustomName.trim()
+    ? [
+        ...(draft.customFields || []),
+        {
+          key: '__draft_preview__',
+          name: newCustomName.trim(),
+          type: newCustomType,
+          required: newCustomRequired,
+          width: newCustomWidth,
+          ...(newCustomType === 'DROPDOWN'
+            ? {
+                options:
+                  parsedComposerOptions.length > 0
+                    ? parsedComposerOptions
+                    : ['Option 1', 'Option 2'],
+              }
+            : {}),
+        },
+      ]
+    : [...(draft.customFields || [])];
+  const previewDraft: Omit<ApplicationFormTemplate, 'id'> = {
+    ...draft,
+    customFields: draftCustomWithGhost,
+  };
   const totalDraftFieldCount = summarizeFormTemplateFields(
     { ...draft, id: formId || 'draft' },
     customFields
   ).length;
+  const availablePresets = QUICK_QUESTION_PRESETS.filter(
+    (p) =>
+      !(draft.customFields || []).some(
+        (cf) => cf.name.trim().toLowerCase() === p.name.toLowerCase()
+      )
+  );
+  const totalHalfFieldsCount =
+    STANDARD_TOGGLE_FIELDS.filter(
+      (f) =>
+        Boolean(draft[f.includeKey]) &&
+        resolveFormFieldWidth(draft, f.widthKey, f.defaultWidth) === 'half'
+    ).length +
+    draftCustomWithGhost.filter((cf) => (cf.width || 'half') === 'half').length;
 
   if (isLoadingForm) {
     return (
@@ -694,7 +856,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
 
           {/* Card 2: Core & Standard Fields */}
           <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between gap-2 flex-wrap pb-2.5 border-b border-slate-100">
+            <div className="flex items-start justify-between gap-2 flex-wrap pb-2.5 border-b border-slate-100">
               <div>
                 <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                   2. Core &amp; Standard Fields
@@ -704,6 +866,11 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                   active) and choose Half (50%) or Full (100%) row width.
                 </p>
               </div>
+              {totalHalfFieldsCount % 2 === 1 && (
+                <span className="px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-[10.5px] font-medium text-slate-600">
+                  Tip: {totalHalfFieldsCount} Half-width fields active — pair in twos or use Full to avoid row gaps
+                </span>
+              )}
             </div>
 
             {/* Core Mandatory Strip */}
@@ -734,7 +901,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                 return (
                   <div
                     key={field.includeKey}
-                    className={`px-3.5 py-3 flex items-center justify-between gap-3 transition-colors ${
+                    className={`px-3.5 py-3 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 transition-colors ${
                       included ? 'bg-white' : 'bg-slate-50/50'
                     }`}
                   >
@@ -775,22 +942,16 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                             }))
                           }
                         />
-                        <button
-                          type="button"
-                          onClick={() =>
+                        <RequiredToggle
+                          required={required}
+                          ariaLabel={`${field.label} requirement`}
+                          onChange={(nextReq) =>
                             setDraft((prev) => ({
                               ...prev,
-                              [field.requireKey]: !required,
+                              [field.requireKey]: nextReq,
                             }))
                           }
-                          className={`px-2.5 py-1 rounded-md text-[10.5px] font-semibold border transition-colors cursor-pointer shrink-0 ${
-                            required
-                              ? 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100'
-                              : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                          }`}
-                        >
-                          {required ? 'Required *' : 'Optional'}
-                        </button>
+                        />
                       </div>
                     ) : (
                       <span className="text-[10.5px] text-slate-400 shrink-0">Hidden</span>
@@ -809,127 +970,201 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                   3. Custom Screening Questions ({(draft.customFields || []).length})
                 </h2>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Reorder questions, pick Text / Number / Date / Yes-No / Dropdown, and set Half or Full width.
+                  Add extra questions saved directly to candidates on this form. Reorder, resize (Half/Full), or pick from common presets.
                 </p>
               </div>
             </div>
 
-            {(draft.customFields || []).length > 0 && (
-              <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden">
-                {(draft.customFields || []).map((cf, idx, arr) => (
-                  <div key={cf.key} className="p-3 bg-white space-y-2">
-                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
-                      <div className="flex flex-col shrink-0">
-                        <button
-                          type="button"
-                          disabled={idx === 0}
-                          onClick={() => handleMoveCustomField(idx, -1)}
-                          title="Move up"
-                          className="text-slate-400 hover:text-slate-700 disabled:opacity-25 cursor-pointer"
-                        >
-                          <ChevronUp className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={idx === arr.length - 1}
-                          onClick={() => handleMoveCustomField(idx, 1)}
-                          title="Move down"
-                          className="text-slate-400 hover:text-slate-700 disabled:opacity-25 cursor-pointer"
-                        >
-                          <ChevronDown className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+            {/* Added Questions List */}
+            {(draft.customFields || []).length > 0 ? (
+              <div className="space-y-2.5">
+                {(draft.customFields || []).map((cf, idx, arr) => {
+                  const rawChoices =
+                    customOptionsText[cf.key] !== undefined
+                      ? customOptionsText[cf.key]
+                      : (cf.options || []).join(', ');
+                  const parsedChoices = rawChoices
+                    .split(',')
+                    .map((o) => o.trim())
+                    .filter(Boolean);
 
-                      <input
-                        type="text"
-                        value={cf.name}
-                        onChange={(e) => handleUpdateCustomField(cf.key, { name: e.target.value })}
-                        placeholder="Question / field label..."
-                        className="flex-1 min-w-[160px] px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-800 focus:border-brand-500 focus:outline-none"
-                      />
+                  return (
+                    <div
+                      key={cf.key}
+                      className="p-3.5 rounded-xl border border-slate-200 bg-white hover:border-slate-300/90 transition-colors space-y-3"
+                    >
+                      {/* Row 1: Order + Label + Delete */}
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-6 h-6 rounded-md bg-slate-100 border border-slate-200 text-slate-600 font-bold text-[10px] inline-flex items-center justify-center shrink-0 tabular-nums">
+                          Q{idx + 1}
+                        </span>
 
-                      <div className="w-28 shrink-0">
-                        <CustomSelect
-                          value={cf.type}
-                          onChange={(val) =>
-                            handleUpdateCustomField(cf.key, {
-                              type: val as CustomQuestionType,
-                              ...(val === 'DROPDOWN' && (!cf.options || cf.options.length === 0)
-                                ? { options: ['Option 1', 'Option 2'] }
-                                : {}),
-                            })
-                          }
-                          ariaLabel="Question type"
-                          size="xs"
-                          options={CUSTOM_TYPE_OPTIONS}
-                        />
-                      </div>
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            onClick={() => handleMoveCustomField(idx, -1)}
+                            title="Move question up"
+                            className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-25 cursor-pointer"
+                          >
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={idx === arr.length - 1}
+                            onClick={() => handleMoveCustomField(idx, 1)}
+                            title="Move question down"
+                            className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-25 cursor-pointer"
+                          >
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
 
-                      <FieldWidthToggle
-                        value={cf.width || 'half'}
-                        ariaLabel={`${cf.name || 'Question'} width`}
-                        onChange={(nextWidth) =>
-                          handleUpdateCustomField(cf.key, { width: nextWidth })
-                        }
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleUpdateCustomField(cf.key, { required: !cf.required })
-                        }
-                        className={`px-2 py-1 rounded-md text-[10.5px] font-semibold border transition-colors cursor-pointer shrink-0 ${
-                          cf.required
-                            ? 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100'
-                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                        }`}
-                      >
-                        {cf.required ? 'Req *' : 'Opt'}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveInlineCustomField(cf.key)}
-                        className="text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50 cursor-pointer shrink-0"
-                        title="Remove question"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    {cf.type === 'DROPDOWN' && (
-                      <div className="pl-5">
                         <input
                           type="text"
-                          value={
-                            customOptionsText[cf.key] !== undefined
-                              ? customOptionsText[cf.key]
-                              : (cf.options || []).join(', ')
+                          value={cf.name}
+                          onChange={(e) => handleUpdateCustomField(cf.key, { name: e.target.value })}
+                          placeholder="Question label..."
+                          className="flex-1 min-w-0 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-800 focus:border-brand-500 focus:outline-none"
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveInlineCustomField(cf.key)}
+                          className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 cursor-pointer shrink-0 transition-colors"
+                          title="Remove question"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Row 2: Type + Width + Requirement */}
+                      <div className="pl-8 flex flex-wrap items-center justify-between gap-2.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className="w-32 shrink-0">
+                            <CustomSelect
+                              value={cf.type}
+                              onChange={(val) =>
+                                handleUpdateCustomField(cf.key, {
+                                  type: val as CustomQuestionType,
+                                  ...(val === 'DROPDOWN' && (!cf.options || cf.options.length === 0)
+                                    ? { options: ['Option 1', 'Option 2'] }
+                                    : {}),
+                                })
+                              }
+                              ariaLabel="Question type"
+                              size="xs"
+                              options={CUSTOM_TYPE_OPTIONS}
+                            />
+                          </div>
+                          <FieldWidthToggle
+                            value={cf.width || 'half'}
+                            ariaLabel={`${cf.name || 'Question'} width`}
+                            onChange={(nextWidth) =>
+                              handleUpdateCustomField(cf.key, { width: nextWidth })
+                            }
+                          />
+                        </div>
+
+                        <RequiredToggle
+                          required={Boolean(cf.required)}
+                          ariaLabel={`${cf.name || 'Question'} requirement`}
+                          onChange={(nextReq) =>
+                            handleUpdateCustomField(cf.key, { required: nextReq })
                           }
-                          onChange={(e) => {
-                            const raw = e.target.value;
-                            setCustomOptionsText((prev) => ({ ...prev, [cf.key]: raw }));
-                            handleUpdateCustomField(cf.key, {
-                              options: raw
-                                .split(',')
-                                .map((o) => o.trim())
-                                .filter(Boolean),
-                            });
-                          }}
-                          placeholder="Dropdown choices (comma separated, e.g. Immediate, 2 Weeks, 30 Days)"
-                          className="w-full px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50/70 text-[11px] text-slate-700 focus:bg-white focus:border-brand-500 focus:outline-none"
                         />
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {/* Row 3: Dropdown Options */}
+                      {cf.type === 'DROPDOWN' && (
+                        <div className="pl-8 space-y-1.5">
+                          <label className="block text-[10.5px] font-semibold text-slate-500">
+                            Dropdown Options (comma separated)
+                          </label>
+                          <input
+                            type="text"
+                            value={rawChoices}
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              setCustomOptionsText((prev) => ({ ...prev, [cf.key]: raw }));
+                              handleUpdateCustomField(cf.key, {
+                                options: raw
+                                  .split(',')
+                                  .map((o) => o.trim())
+                                  .filter(Boolean),
+                              });
+                            }}
+                            placeholder="e.g. Immediate, 2 Weeks, 30 Days"
+                            className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50/70 text-[11px] text-slate-700 focus:bg-white focus:border-brand-500 focus:outline-none"
+                          />
+                          {parsedChoices.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {parsedChoices.map((choice, cIdx) => (
+                                <span
+                                  key={`${cf.key}_opt_${cIdx}`}
+                                  className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-medium"
+                                >
+                                  {choice}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="px-4 py-3 rounded-xl bg-slate-50/70 border border-dashed border-slate-200 text-[11px] text-slate-500">
+                No custom questions added yet. Pick a quick preset or compose a new question below.
               </div>
             )}
 
-            {/* Inline Question Adder */}
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
-              <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+            {/* Quick Add Common Presets */}
+            {availablePresets.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="text-[10.5px] font-semibold text-slate-500 uppercase tracking-wider">
+                  Quick Add Common Questions
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {availablePresets.map((preset) => (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      onClick={() => handleAddPresetQuestion(preset)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-700 text-[11px] font-medium transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3 text-brand-600" />
+                      <span>{preset.name}</span>
+                      <span className="text-[9.5px] text-slate-400">
+                        {preset.width === 'full' ? 'Full' : 'Half'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Spacious 2-Row Question Composer */}
+            <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200 space-y-3.5">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <span className="text-[11px] font-bold text-slate-800">
+                  Add a New Custom Question
+                </span>
+                <span className="text-[10.5px] text-slate-400">
+                  {newCustomName.trim()
+                    ? 'Showing live preview on the right'
+                    : 'Type a label to preview its placement'}
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                  Question Label *
+                </label>
                 <input
+                  ref={newCustomNameRef}
                   type="text"
                   value={newCustomName}
                   onChange={(e) => {
@@ -942,10 +1177,20 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                       handleAddInlineCustomField();
                     }
                   }}
-                  placeholder="Add custom question (e.g. How soon you join ?, GitHub URL)..."
-                  className="flex-1 min-w-[170px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs focus:border-brand-500 focus:outline-none"
+                  placeholder="e.g. How soon can you join?, Security Clearance Level, GitHub URL"
+                  className={`w-full px-3 py-2 rounded-lg border bg-white text-xs focus:outline-none ${
+                    customDraftError && !newCustomName.trim()
+                      ? INVALID_FIELD_CLASSES
+                      : 'border-slate-200 focus:border-brand-500'
+                  }`}
                 />
-                <div className="w-28 shrink-0">
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                <div className="sm:col-span-4">
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Answer Type
+                  </label>
                   <CustomSelect
                     value={newCustomType}
                     onChange={(val) => {
@@ -953,58 +1198,96 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                       if (customDraftError) setCustomDraftError('');
                     }}
                     ariaLabel="New question type"
-                    size="xs"
+                    size="sm"
                     options={CUSTOM_TYPE_OPTIONS}
                   />
                 </div>
-                <FieldWidthToggle
-                  value={newCustomWidth}
-                  ariaLabel="New question width"
-                  onChange={setNewCustomWidth}
-                />
-                <button
-                  type="button"
-                  onClick={() => setNewCustomRequired((prev) => !prev)}
-                  className={`px-2 py-1.5 rounded-md text-[10.5px] font-semibold border transition-colors cursor-pointer shrink-0 ${
-                    newCustomRequired
-                      ? 'bg-amber-50 border-amber-200 text-amber-800'
-                      : 'bg-white border-slate-200 text-slate-600'
-                  }`}
-                >
-                  {newCustomRequired ? 'Req *' : 'Opt'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAddInlineCustomField}
-                  className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer shrink-0"
-                >
-                  <Plus className="w-3 h-3" />
-                  <span>Add</span>
-                </button>
+
+                <div className="sm:col-span-4">
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Width
+                  </label>
+                  <FieldWidthToggle
+                    value={newCustomWidth}
+                    ariaLabel="New question width"
+                    fullWidth={true}
+                    onChange={setNewCustomWidth}
+                  />
+                </div>
+
+                <div className="sm:col-span-4">
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Requirement
+                  </label>
+                  <RequiredToggle
+                    required={newCustomRequired}
+                    ariaLabel="New question requirement"
+                    fullWidth={true}
+                    onChange={setNewCustomRequired}
+                  />
+                </div>
               </div>
 
               {newCustomType === 'DROPDOWN' && (
-                <input
-                  type="text"
-                  value={newCustomOptions}
-                  onChange={(e) => {
-                    setNewCustomOptions(e.target.value);
-                    if (customDraftError) setCustomDraftError('');
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddInlineCustomField();
-                    }
-                  }}
-                  placeholder="Dropdown options separated by commas (e.g. Immediate, 2 Weeks, 30 Days)"
-                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-[11px] focus:border-brand-500 focus:outline-none"
-                />
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-semibold text-slate-700">
+                    Dropdown Choices (comma separated) *
+                  </label>
+                  <input
+                    type="text"
+                    value={newCustomOptions}
+                    onChange={(e) => {
+                      setNewCustomOptions(e.target.value);
+                      if (customDraftError) setCustomDraftError('');
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddInlineCustomField();
+                      }
+                    }}
+                    placeholder="e.g. Immediate, 2 Weeks Notice, 30 Days Notice"
+                    className={`w-full px-3 py-2 rounded-lg border bg-white text-xs focus:outline-none ${
+                      customDraftError && newCustomType === 'DROPDOWN' && parsedComposerOptions.length === 0
+                        ? INVALID_FIELD_CLASSES
+                        : 'border-slate-200 focus:border-brand-500'
+                    }`}
+                  />
+                  {parsedComposerOptions.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-0.5">
+                      {parsedComposerOptions.map((opt, idx) => (
+                        <span
+                          key={`new_opt_${idx}`}
+                          className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600 text-[10px] font-medium"
+                        >
+                          {opt}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
 
-              {customDraftError && (
-                <div className="text-[11px] font-medium text-rose-600">{customDraftError}</div>
-              )}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1 border-t border-slate-200/70">
+                <div className="text-[11px]">
+                  {customDraftError ? (
+                    <span className="font-medium text-rose-600">{customDraftError}</span>
+                  ) : (
+                    <span className="text-slate-400">
+                      Press Enter or click Add Question to save it to the list above.
+                    </span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddInlineCustomField}
+                  className="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer shrink-0 self-end sm:self-auto"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Question</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1043,12 +1326,12 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
 
         {/* Right Live Preview Column */}
         <div
-          className={`xl:col-span-5 xl:sticky xl:top-4 ${
+          className={`xl:col-span-5 xl:sticky xl:top-2 ${
             mobileTab === 'edit' ? 'hidden xl:block' : 'block'
           }`}
         >
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between gap-2">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden xl:max-h-[calc(100vh-7rem)] xl:flex xl:flex-col">
+            <div className="px-4 py-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between gap-2 shrink-0">
               <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-600">
                 <Eye className="w-3.5 h-3.5 text-brand-600" />
                 <span>Live Form Preview</span>
@@ -1057,8 +1340,8 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                 Updates live as you edit
               </span>
             </div>
-            <div className="p-4 bg-slate-50/50">
-              <ApplicationFormPreview template={draft} />
+            <div className="p-4 bg-slate-50/50 xl:overflow-y-auto">
+              <ApplicationFormPreview template={previewDraft} />
             </div>
           </div>
         </div>
