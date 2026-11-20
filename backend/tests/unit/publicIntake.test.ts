@@ -197,7 +197,7 @@ export const runPublicIntakeTests = () => {
       customFields: [
         {
           key: 'joining_timeline',
-          name: 'How soon can you join?',
+          name: 'Earliest Start Date',
           type: 'DROPDOWN',
           options: ['Immediate', '2 Weeks', '30 Days'],
           required: true,

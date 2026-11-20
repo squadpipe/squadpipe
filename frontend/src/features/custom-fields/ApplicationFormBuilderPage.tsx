@@ -132,7 +132,7 @@ const QUICK_QUESTION_PRESETS: Array<{
   options?: string[];
 }> = [
   {
-    name: 'How soon can you join?',
+    name: 'Earliest Start Date',
     type: 'DROPDOWN',
     width: 'half',
     required: true,
@@ -1177,7 +1177,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
                       handleAddInlineCustomField();
                     }
                   }}
-                  placeholder="e.g. How soon can you join?, Security Clearance Level, GitHub URL"
+                  placeholder="e.g. Earliest Start Date, Security Clearance Level, GitHub URL"
                   className={`w-full px-3 py-2 rounded-lg border bg-white text-xs focus:outline-none ${
                     customDraftError && !newCustomName.trim()
                       ? INVALID_FIELD_CLASSES

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
+import { CheckCircle2, Loader2, X } from 'lucide-react';
 import { AppIcon } from './components/shared/AppIcon';
 import { AnimatedToast } from './components/shared/MotionPrimitives';
+import { useBulkResumeQueue } from './hooks/useBulkResumeQueue';
 import { apiClient, AUTH_EXPIRED_EVENT, USER_SESSION_SYNC_EVENT } from './config/api.config';
 import {
   clearAuthSession,
@@ -373,6 +374,7 @@ export const App: React.FC = () => {
   const [isInlineResumeModalOpen, setIsInlineResumeModalOpen] = useState(false);
   const [isInlineCsvModalOpen, setIsInlineCsvModalOpen] = useState(false);
   const [inlineImportTargetReq, setInlineImportTargetReq] = useState<Requirement | null>(null);
+  const [benchPickerCloseToken, setBenchPickerCloseToken] = useState(0);
   const [activeCreateModal, setActiveCreateModal] = useState<
     'consultant' | 'requirement' | 'client' | 'vendor' | null
   >(null);
@@ -756,8 +758,10 @@ export const App: React.FC = () => {
 
   // Track loaded entities to support view-scoped lazy loading without duplicate requests
   const loadedEntities = React.useRef<Set<string>>(new Set());
+  const resetBulkResumeRef = React.useRef<() => void>(() => {});
 
   const resetWorkspaceState = () => {
+    resetBulkResumeRef.current();
     loadedEntities.current.clear();
     setAiCapabilities(DEFAULT_AI_CAPABILITIES);
     setCandidates([]);
@@ -1834,9 +1838,10 @@ export const App: React.FC = () => {
       stayOnPage?: boolean;
       skipAttach?: boolean;
     }
-  ) => {
+  ): Promise<Requirement | null> => {
     setCandidates((prev) => [savedCand, ...prev.filter((c) => c.id !== savedCand.id)]);
     fetchSidebarCounts();
+    let updatedTargetReq: Requirement | null = opts?.targetRequirement || null;
     if (opts?.targetRequirement && !opts?.skipAttach) {
       try {
         const res = await apiClient.post('/submissions', {
@@ -1844,7 +1849,8 @@ export const App: React.FC = () => {
           candidateIds: [savedCand.id],
         });
         if (res.data?.requirement) {
-          syncUpdatedRequirement(mapRequirementFromApi(res.data.requirement));
+          updatedTargetReq = mapRequirementFromApi(res.data.requirement);
+          syncUpdatedRequirement(updatedTargetReq);
         } else {
           fetchRequirements();
         }
@@ -1861,6 +1867,53 @@ export const App: React.FC = () => {
       } catch {
         // Non-fatal if candidate was already attached
       }
+    }
+    return updatedTargetReq;
+  };
+
+  const navigateToSpecificReqPage = (
+    reqOrId: Requirement | string,
+    fromViewOverride?: string
+  ) => {
+    const reqObj =
+      typeof reqOrId === 'string'
+        ? requirements.find((r) => r.id === reqOrId) ||
+          (selectedReqForDetail?.id === reqOrId ? selectedReqForDetail : null) ||
+          (inlineImportTargetReq?.id === reqOrId ? inlineImportTargetReq : null)
+        : reqOrId;
+    const reqId = typeof reqOrId === 'string' ? reqOrId : reqOrId.id;
+
+    setIsInlineResumeModalOpen(false);
+    setIsInlineCsvModalOpen(false);
+    setInlineImportTargetReq(null);
+    setIsMatcherModalOpen(false);
+    setBenchPickerCloseToken((k) => k + 1);
+
+    if (currentView === 'requirement_detail' && selectedReqForDetail?.id === reqId) {
+      return;
+    }
+
+    const backOrigin =
+      fromViewOverride &&
+      ![
+        'requirement_detail',
+        'requirement_from_email',
+        'import_resume',
+        'import_csv',
+        'placement_new',
+      ].includes(fromViewOverride)
+        ? fromViewOverride
+        : reqDetailReturnView || 'pipeline';
+
+    if (reqObj) {
+      handleOpenRequirementDetail(reqObj, backOrigin);
+    } else if (reqId) {
+      setReqDetailReturnView(backOrigin);
+      setSelectedReqForDetail(null);
+      setResolvingRouteId(reqId);
+      setRouteTarget({ view: 'requirement_detail', entityId: reqId });
+      setCurrentView('requirement_detail');
+      pushRouteUrl('requirement_detail', { entityId: reqId, returnView: backOrigin });
     }
   };
 
@@ -1924,6 +1977,23 @@ export const App: React.FC = () => {
 
   const handleAssignCandidate = async (req: Requirement, candidate: Candidate) => {
     await handleAttachCandidates(req, [candidate.id]);
+  };
+
+  const bulkResumeQueue = useBulkResumeQueue({
+    onCandidateSaved: async (savedCand, targetReq) => {
+      await handleResumeCandidateApproved(savedCand, {
+        targetRequirement: targetReq,
+        stayOnPage: true,
+        skipAttach: true,
+      });
+    },
+    onBulkAttachToRequirement: handleAttachCandidates,
+    showToast,
+  });
+
+  resetBulkResumeRef.current = () => {
+    bulkResumeQueue.stopBatch();
+    bulkResumeQueue.clearQueue();
   };
 
   const handleUpdateSubmissionStage = async (
@@ -2627,6 +2697,109 @@ export const App: React.FC = () => {
         )}
       </AnimatePresence>
 
+      {/* Sticky Background Bulk Resume Tracker */}
+      {(() => {
+        const bulkTotal = bulkResumeQueue.items.length;
+        const showStickyBulk =
+          (bulkResumeQueue.isRunning || (bulkTotal > 0 && !bulkResumeQueue.dismissedBanner)) &&
+          !isInlineResumeModalOpen &&
+          currentView !== 'import_resume';
+        if (!showStickyBulk) return null;
+
+        const bulkAdded = bulkResumeQueue.items.filter((i) => i.status === 'added').length;
+        const bulkDups = bulkResumeQueue.items.filter((i) => i.status === 'duplicate').length;
+        const bulkFailed = bulkResumeQueue.items.filter((i) => i.status === 'failed').length;
+        const bulkProcessed = bulkAdded + bulkDups + bulkFailed;
+        const pct = bulkTotal > 0 ? Math.round((bulkProcessed / bulkTotal) * 100) : 0;
+        const batchReq = bulkResumeQueue.targetRequirement;
+
+        return (
+          <div
+            className={`fixed bottom-5 left-4 ${
+              sidebarCollapsed ? 'md:left-[84px]' : 'md:left-[260px]'
+            } z-[65] w-[340px] max-w-[calc(100vw-2rem)] bg-[#141615] text-white border border-white/15 rounded-xl shadow-2xl p-3.5 space-y-2.5 transition-all`}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                {bulkResumeQueue.isRunning ? (
+                  <Loader2 className="w-4 h-4 text-brand-400 animate-spin shrink-0" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                )}
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5 flex-wrap">
+                    <span>
+                      {bulkResumeQueue.isRunning ? 'Parsing Resumes' : 'Bulk Upload Complete'}
+                    </span>
+                    {batchReq && (
+                      <span className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono text-emerald-300">
+                        {batchReq.code}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-slate-300 mt-0.5 tabular-nums">
+                    {bulkProcessed}/{bulkTotal} processed · {bulkAdded} added
+                    {bulkDups > 0 ? ` · ${bulkDups} dup` : ''}
+                    {bulkFailed > 0 ? ` · ${bulkFailed} failed` : ''}
+                  </div>
+                </div>
+              </div>
+              {!bulkResumeQueue.isRunning && (
+                <button
+                  type="button"
+                  onClick={bulkResumeQueue.dismissBanner}
+                  aria-label="Dismiss bulk upload tracker"
+                  className="text-slate-400 hover:text-white p-1 rounded cursor-pointer shrink-0"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+              <div
+                className={`h-full transition-all duration-300 ${
+                  bulkResumeQueue.isRunning ? 'bg-brand-500' : 'bg-emerald-500'
+                }`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-2 pt-0.5 text-[11px]">
+              <button
+                type="button"
+                onClick={() => handleOpenInlineResumePopup(batchReq)}
+                className="text-slate-200 hover:text-white font-semibold underline cursor-pointer"
+              >
+                View Queue
+              </button>
+              <div className="flex items-center gap-1.5">
+                {bulkResumeQueue.isRunning ? (
+                  <button
+                    type="button"
+                    onClick={bulkResumeQueue.stopBatch}
+                    className="px-2.5 py-1 rounded-md bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-400/30 font-semibold cursor-pointer"
+                  >
+                    Stop
+                  </button>
+                ) : batchReq && bulkAdded > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      bulkResumeQueue.dismissBanner();
+                      navigateToSpecificReqPage(batchReq, currentView);
+                    }}
+                    className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-semibold cursor-pointer"
+                  >
+                    Open {batchReq.code}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Obsidian Dark Sidebar with live counts & profile popover */}
       <Sidebar
         currentView={
@@ -2843,6 +3016,7 @@ export const App: React.FC = () => {
                   ? (req) => handleOpenInlineResumePopup(req)
                   : undefined
               }
+              benchPickerCloseToken={benchPickerCloseToken}
             />
           )}
 
@@ -3074,11 +3248,8 @@ export const App: React.FC = () => {
                   onBack={() => handleReturnFromWorkflowPage('billable')}
                   onCreatePlacement={async (newPlacement, targetReqId) => {
                     await handleConfirmPlacement(newPlacement, targetReqId);
-                    if (
-                      workflowReturnView === 'requirement_detail' ||
-                      workflowReturnView === 'pipeline'
-                    ) {
-                      handleReturnFromWorkflowPage('billable');
+                    if (targetReqId) {
+                      navigateToSpecificReqPage(targetReqId, workflowReturnView);
                     } else {
                       handleNavigateView('billable');
                     }
@@ -3347,15 +3518,38 @@ export const App: React.FC = () => {
                 <ResumeImportPage
                   lockedRequirement={lockedReq}
                   users={users}
+                  bulkQueue={bulkResumeQueue}
                   backLabel={resumeBackLabel}
                   onBack={() => handleReturnFromWorkflowPage('import_data')}
                   onApprove={async (savedCand, opts) => {
-                    await handleResumeCandidateApproved(savedCand, opts);
+                    const updatedReq = await handleResumeCandidateApproved(savedCand, opts);
                     if (!opts?.stayOnPage) {
-                      handleReturnFromWorkflowPage('consultants');
+                      if (updatedReq || opts?.targetRequirement) {
+                        navigateToSpecificReqPage(
+                          (updatedReq || opts?.targetRequirement)!,
+                          workflowReturnView
+                        );
+                      } else {
+                        handleReturnFromWorkflowPage('consultants');
+                      }
                     }
                   }}
-                  onBulkAttachToRequirement={handleAttachCandidates}
+                  onBulkDone={
+                    lockedReq
+                      ? () => {
+                          bulkResumeQueue.dismissBanner();
+                          navigateToSpecificReqPage(lockedReq, workflowReturnView);
+                        }
+                      : (_, batchReq) => {
+                          if (batchReq) {
+                            bulkResumeQueue.dismissBanner();
+                            navigateToSpecificReqPage(batchReq, workflowReturnView);
+                          } else {
+                            bulkResumeQueue.dismissBanner();
+                            handleReturnFromWorkflowPage('consultants');
+                          }
+                        }
+                  }
                   onSwitchToCsvImport={
                     canManageDataOperations
                       ? () =>
@@ -3398,7 +3592,13 @@ export const App: React.FC = () => {
                     lockedRequirement={lockedReq}
                     backLabel={csvBackLabel}
                     onBack={() => handleReturnFromWorkflowPage('import_data')}
-                    onImportComplete={handleCsvImportCompleted}
+                    onImportComplete={async (result) => {
+                      await handleCsvImportCompleted(result);
+                      const targetReq = result.updatedRequirement || lockedReq;
+                      if (targetReq) {
+                        navigateToSpecificReqPage(targetReq, workflowReturnView);
+                      }
+                    }}
                     onSwitchToResumeParser={() =>
                       handleOpenWorkflowPage('import_resume', {
                         requirementId: reqId,
@@ -3518,10 +3718,14 @@ export const App: React.FC = () => {
           requirements.find((r) => r.id === activeReq?.id) || activeReq
         }
         rateMasked={rateMasked}
-        onSubmitCandidate={(candidate, requirement) =>
-          handleAssignCandidate(requirement, candidate)
-        }
-        onAttachCandidates={handleAttachCandidates}
+        onSubmitCandidate={async (candidate, requirement) => {
+          await handleAssignCandidate(requirement, candidate);
+          navigateToSpecificReqPage(requirement, currentView);
+        }}
+        onAttachCandidates={async (requirement, candidateIds) => {
+          await handleAttachCandidates(requirement, candidateIds);
+          navigateToSpecificReqPage(requirement, currentView);
+        }}
         onOpenCsvImport={
           canManageDataOperations
             ? (req) => handleOpenInlineCsvPopup(req)
@@ -3548,14 +3752,28 @@ export const App: React.FC = () => {
             : null
         }
         users={users}
+        bulkQueue={bulkResumeQueue}
         onApprove={async (savedCand, opts) => {
-          await handleResumeCandidateApproved(savedCand, opts);
+          const updatedReq = await handleResumeCandidateApproved(savedCand, opts);
           if (!opts?.stayOnPage) {
+            if (updatedReq || opts?.targetRequirement) {
+              navigateToSpecificReqPage((updatedReq || opts?.targetRequirement)!, currentView);
+            } else {
+              setIsInlineResumeModalOpen(false);
+              setInlineImportTargetReq(null);
+            }
+          }
+        }}
+        onBulkDone={(_, batchReq) => {
+          const targetReq = batchReq || inlineImportTargetReq;
+          bulkResumeQueue.dismissBanner();
+          if (targetReq) {
+            navigateToSpecificReqPage(targetReq, currentView);
+          } else {
             setIsInlineResumeModalOpen(false);
             setInlineImportTargetReq(null);
           }
         }}
-        onBulkAttachToRequirement={handleAttachCandidates}
         onSwitchToCsvImport={
           canManageDataOperations
             ? () => {
@@ -3588,7 +3806,13 @@ export const App: React.FC = () => {
             ? requirements.find((r) => r.id === inlineImportTargetReq.id) || inlineImportTargetReq
             : null
         }
-        onImportComplete={handleCsvImportCompleted}
+        onImportComplete={async (result) => {
+          await handleCsvImportCompleted(result);
+          const targetReq = result.updatedRequirement || inlineImportTargetReq;
+          if (targetReq) {
+            navigateToSpecificReqPage(targetReq, currentView);
+          }
+        }}
         onSwitchToResumeParser={() => {
           setIsInlineCsvModalOpen(false);
           setIsInlineResumeModalOpen(true);

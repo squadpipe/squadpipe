@@ -116,6 +116,7 @@ interface RequirementDetailPageProps {
   onRequirementUpdated?: (req: Requirement) => void;
   onOpenCsvImport?: (req: Requirement) => void;
   onOpenResumeParser?: (req: Requirement) => void;
+  benchPickerCloseToken?: number;
 }
 
 type ApplicantFilterTab = 'All' | 'Active' | 'Interview' | 'Selected' | 'Placed' | 'Closed';
@@ -225,6 +226,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   onRequirementUpdated,
   onOpenCsvImport,
   onOpenResumeParser,
+  benchPickerCloseToken,
 }) => {
   const { formatRate, symbol: currencySymbol } = useCurrency();
   const aiCapabilities = useAiCapabilities();
@@ -239,6 +241,12 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   const [evaluatingSubId, setEvaluatingSubId] = useState<string | null>(null);
   const [pitchTargetSub, setPitchTargetSub] = useState<RequirementSubmission | null>(null);
   const [showBenchPicker, setShowBenchPicker] = useState(false);
+
+  useEffect(() => {
+    if (benchPickerCloseToken) {
+      setShowBenchPicker(false);
+    }
+  }, [benchPickerCloseToken]);
   const [busySubId, setBusySubId] = useState<string | null>(null);
   const [subToDetach, setSubToDetach] = useState<{
     sub: RequirementSubmission;
