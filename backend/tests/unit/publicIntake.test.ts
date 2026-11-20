@@ -402,5 +402,18 @@ export const runPublicIntakeTests = () => {
     '<p><strong>Please upload your latest CV.</strong></p><ul><li>Include visa status</li></ul>'
   );
 
+  // 10. Newly created forms with empty title/instructions stay blank without forcing default copy
+  const [emptyCopyForm] = normalizeApplicationForms([
+    {
+      ...normalizedForms[0],
+      id: 'form-blank-copy',
+      name: 'Custom Quick Form',
+      heading: '',
+      subheading: '',
+    },
+  ]);
+  assert.equal(emptyCopyForm.heading, '');
+  assert.equal(emptyCopyForm.subheading, '');
+
   console.log('✅ Public Requirement CV Intake Form Tests: PASSED');
 };

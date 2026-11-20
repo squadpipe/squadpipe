@@ -207,10 +207,30 @@ function extractDocxXmlTextFromZipBuffer(fileBuffer: Buffer): string {
   return chunks.join('\n').trim();
 }
 
-export function extractReadableTextFromResumeBuffer(
+/**
+ * Extracts readable text from an uploaded DOCX or plain-text/EML/RTF buffer.
+ * Preserves newlines when `preserveLineBreaks` is true for structured requirement parsing.
+ */
+export function extractReadableTextFromDocumentBuffer(
   fileBuffer: Buffer,
-  originalName: string
+  originalName: string,
+  options: { preserveLineBreaks?: boolean } = {}
 ): string {
+  const preserveLineBreaks = Boolean(options.preserveLineBreaks);
+  const normalizeText = (raw: string): string => {
+    if (!preserveLineBreaks) {
+      return raw.replace(/\s+/g, ' ').trim();
+    }
+    return raw
+      .replace(/\r\n?/g, '\n')
+      .replace(/[ \t]{2,}/g, ' ')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .join('\n')
+      .trim();
+  };
+
   const isZipDocx =
     fileBuffer.length >= 4 &&
     fileBuffer[0] === 0x50 &&
@@ -220,7 +240,7 @@ export function extractReadableTextFromResumeBuffer(
   if (isZipDocx || originalName.toLowerCase().endsWith('.docx')) {
     const extracted = extractDocxXmlTextFromZipBuffer(fileBuffer);
     if (extracted) {
-      return extracted.replace(/\s+/g, ' ').trim();
+      return normalizeText(extracted);
     }
     return '';
   }
@@ -232,11 +252,17 @@ export function extractReadableTextFromResumeBuffer(
     return '';
   }
 
-  return fileBuffer
-    .toString('utf8')
-    .replace(/[^\x20-\x7E\r\n]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  const decoded = fileBuffer.toString('utf8').replace(/[^\x20-\x7E\r\n]/g, ' ');
+  return normalizeText(decoded);
+}
+
+export function extractReadableTextFromResumeBuffer(
+  fileBuffer: Buffer,
+  originalName: string
+): string {
+  return extractReadableTextFromDocumentBuffer(fileBuffer, originalName, {
+    preserveLineBreaks: false,
+  });
 }
 
 /**

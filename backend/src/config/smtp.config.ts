@@ -331,13 +331,12 @@ export function normalizeApplicationForms(
     id: String(item.id || `form-${idx + 1}`).trim(),
     name: String(item.name || 'Application Form').trim(),
     description: String(item.description || '').trim(),
-    heading: String(item.heading || 'Submit Candidate Profile & Resume').trim(),
+    heading:
+      typeof item.heading === 'string'
+        ? item.heading.trim()
+        : 'Submit Candidate Profile & Resume',
     subheading: sanitizePublicSummaryHtml(
-      String(
-        item.subheading !== undefined
-          ? item.subheading
-          : 'Candidates applying directly or partner agencies submitting consultants can attach a resume below.'
-      )
+      typeof item.subheading === 'string' ? item.subheading : ''
     ),
     isDefault: Boolean(item.isDefault),
     includeCurrentTitle: item.includeCurrentTitle !== false,

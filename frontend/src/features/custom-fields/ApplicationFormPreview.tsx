@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 import { ApplicationFormTemplate } from '../../types';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { CustomQuestionFieldInput } from '../../components/shared/CustomQuestionFieldInput';
@@ -169,19 +169,12 @@ export const ApplicationFormPreview: React.FC<ApplicationFormPreviewProps> = ({
       </div>
 
       <div className="pt-1 space-y-3">
-        <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-          {isPreviewNotice ? (
-            <>
-              <Eye className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <span>Preview mode — test entries are not saved.</span>
-            </>
-          ) : (
-            <>
-              <ShieldCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <span>Your details will be shared directly with {agencyName}.</span>
-            </>
-          )}
-        </div>
+        {!isPreviewNotice && (
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+            <ShieldCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <span>Your details will be shared directly with {agencyName}.</span>
+          </div>
+        )}
 
         <button
           type="button"

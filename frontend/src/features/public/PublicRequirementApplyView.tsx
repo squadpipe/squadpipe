@@ -448,9 +448,8 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
             <div className="flex items-center justify-between gap-2">
               <span className="text-slate-400">Status</span>
               <span
-                className={`font-semibold ${
-                  isPreviewSubmission ? 'text-slate-600' : 'text-emerald-700'
-                }`}
+                className={`font-semibold ${isPreviewSubmission ? 'text-slate-600' : 'text-emerald-700'
+                  }`}
               >
                 {isPreviewSubmission ? 'Preview Only' : 'Received & Under Review'}
               </span>
@@ -533,9 +532,8 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
             <div className="flex items-center gap-3 shrink-0">
               <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-slate-500">
                 <span
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    roleDetails.publicLinkEnabled ? 'bg-emerald-500' : 'bg-amber-500'
-                  }`}
+                  className={`w-1.5 h-1.5 rounded-full ${roleDetails.publicLinkEnabled ? 'bg-emerald-500' : 'bg-amber-500'
+                    }`}
                 />
                 <span>
                   {roleDetails.publicLinkEnabled ? 'Live link active' : 'Draft mode'} &middot; Submissions aren&rsquo;t saved
@@ -706,11 +704,10 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                       e.preventDefault();
                       handleCvPick(e.dataTransfer.files?.[0]);
                     }}
-                    className={`px-2.5 py-1.5 rounded-md border flex items-center gap-3 cursor-pointer bg-white transition-colors ${
-                      isCvInvalid
-                        ? 'border-rose-400 bg-rose-50/30'
-                        : 'border-slate-300 hover:border-slate-400'
-                    }`}
+                    className={`px-2.5 py-1.5 rounded-md border flex items-center gap-3 cursor-pointer bg-white transition-colors ${isCvInvalid
+                      ? 'border-rose-400 bg-rose-50/30'
+                      : 'border-slate-300 hover:border-slate-400'
+                      }`}
                   >
                     <span className="px-2.5 py-1 rounded border border-slate-300 bg-slate-100 text-xs font-medium text-slate-800 shrink-0">
                       Browse...
@@ -746,9 +743,8 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="e.g. Jordan Patel"
-                    className={`${inputBaseClass} ${
-                      isFullNameInvalid ? INVALID_FIELD_CLASSES : 'border-slate-300'
-                    }`}
+                    className={`${inputBaseClass} ${isFullNameInvalid ? INVALID_FIELD_CLASSES : 'border-slate-300'
+                      }`}
                   />
                 </div>
 
@@ -764,9 +760,8 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="candidate@email.com"
-                    className={`${inputBaseClass} ${
-                      isEmailInvalid ? INVALID_FIELD_CLASSES : 'border-slate-300'
-                    }`}
+                    className={`${inputBaseClass} ${isEmailInvalid ? INVALID_FIELD_CLASSES : 'border-slate-300'
+                      }`}
                   />
                 </div>
 
@@ -782,9 +777,8 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="+1 (555) 234-5678"
-                    className={`${inputBaseClass} ${
-                      isPhoneInvalid ? INVALID_FIELD_CLASSES : 'border-slate-300'
-                    }`}
+                    className={`${inputBaseClass} ${isPhoneInvalid ? INVALID_FIELD_CLASSES : 'border-slate-300'
+                      }`}
                   />
                 </div>
 
@@ -859,9 +853,8 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
                             value={binding.value}
                             onChange={(e) => binding.onChange(e.target.value)}
                             placeholder={entry.meta.placeholder}
-                            className={`${inputBaseClass} ${
-                              binding.invalid ? INVALID_FIELD_CLASSES : 'border-slate-300'
-                            }`}
+                            className={`${inputBaseClass} ${binding.invalid ? INVALID_FIELD_CLASSES : 'border-slate-300'
+                              }`}
                           />
                         </div>
                       );
@@ -918,21 +911,14 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
               )}
 
               <div className="pt-1 space-y-3">
-                <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                  {isPreviewMode ? (
-                    <>
-                      <Eye className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span>Preview mode — test entries are not saved.</span>
-                    </>
-                  ) : (
-                    <>
-                      <ShieldCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span>
-                        Your details will be shared directly with {roleDetails.agencyName}.
-                      </span>
-                    </>
-                  )}
-                </div>
+                {!isPreviewMode && (
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                    <ShieldCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span>
+                      Your details will be shared directly with {roleDetails.agencyName}.
+                    </span>
+                  </div>
+                )}
                 <button
                   type="submit"
                   disabled={isSubmitting}

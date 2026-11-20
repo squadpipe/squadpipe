@@ -39,6 +39,7 @@ export const SkillMatcherModal: React.FC<SkillMatcherModalProps> = ({
       requirement={initialRequirement}
       requirements={requirements}
       allowRequirementSwitch={false}
+      autoRankOnOpen={true}
       candidates={candidates}
       rateMasked={rateMasked}
       onAttachCandidates={onAttachCandidates}

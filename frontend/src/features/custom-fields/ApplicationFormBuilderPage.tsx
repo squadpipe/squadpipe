@@ -70,9 +70,8 @@ interface ApplicationFormBuilderPageProps {
 const EMPTY_FORM_DRAFT: Omit<ApplicationFormTemplate, 'id'> = {
   name: '',
   description: '',
-  heading: 'Submit Candidate Profile & Resume',
-  subheading:
-    'Candidates applying directly or partner agencies submitting consultants can attach a resume below.',
+  heading: '',
+  subheading: '',
   isDefault: false,
   includeCurrentTitle: true,
   requireCurrentTitle: false,
@@ -144,10 +143,8 @@ function buildDraftFromForm(form: ApplicationFormTemplate): Omit<ApplicationForm
   const baseDraft: Omit<ApplicationFormTemplate, 'id'> = {
     name: form.name,
     description: form.description || '',
-    heading: form.heading || 'Submit Candidate Profile & Resume',
-    subheading:
-      form.subheading ||
-      'Candidates applying directly or partner agencies submitting consultants can attach a resume below.',
+    heading: form.heading ?? '',
+    subheading: form.subheading ?? '',
     isDefault: form.isDefault,
     includeCurrentTitle: form.includeCurrentTitle,
     requireCurrentTitle: form.requireCurrentTitle,
@@ -271,17 +268,17 @@ const SortableFieldRow: React.FC<SortableFieldRowProps> = ({
     <div
       ref={setCombinedRef}
       style={style}
-      className={`rounded-xl border bg-white transition-shadow ${
+      className={`transition-colors ${
         isDragging
-          ? 'relative z-20 border-brand-500 shadow-lg ring-2 ring-brand-500/15'
+          ? 'relative z-20 bg-white shadow-lg ring-1 ring-brand-500/40'
           : isExpanded
-            ? 'border-slate-300 shadow-sm'
-            : 'border-slate-200/90 hover:border-slate-300'
+            ? 'bg-slate-50/40'
+            : 'bg-white hover:bg-slate-50/40'
       }`}
     >
-      {/* Compact Horizontal Row */}
-      <div className="px-3.5 py-2.5 flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
-        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+      {/* Compact Table Row */}
+      <div className="px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2.5 sm:grid sm:grid-cols-[minmax(0,1fr)_96px_92px_96px] sm:items-center sm:gap-3">
+        <div className="flex items-center gap-2.5 min-w-0 w-full sm:w-auto">
           <button
             type="button"
             {...attributes}
@@ -324,20 +321,23 @@ const SortableFieldRow: React.FC<SortableFieldRowProps> = ({
           )}
         </div>
 
-        {/* Right Action Strip: Half|Full + Optional/Required + Up/Down + Delete */}
-        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+        {/* Column 2: Width */}
+        <div className="flex sm:justify-center shrink-0">
           <FieldWidthToggle
             value={entry.width}
             ariaLabel={`${title} width`}
             onChange={onSetWidth}
           />
+        </div>
 
+        {/* Column 3: Required */}
+        <div className="flex sm:justify-center shrink-0">
           <button
             type="button"
             onClick={() => onSetRequired(!entry.required)}
             aria-pressed={entry.required}
             title={entry.required ? 'Click to make optional' : 'Click to make required'}
-            className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors cursor-pointer shrink-0 ${
+            className={`w-[80px] px-2.5 py-1 rounded-lg border text-[11px] font-semibold text-center transition-colors cursor-pointer shrink-0 ${
               entry.required
                 ? 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50/40'
                 : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -345,7 +345,10 @@ const SortableFieldRow: React.FC<SortableFieldRowProps> = ({
           >
             {entry.required ? 'Required' : 'Optional'}
           </button>
+        </div>
 
+        {/* Column 4: Actions */}
+        <div className="flex items-center justify-end gap-1 ml-auto sm:ml-0 shrink-0">
           <button
             type="button"
             disabled={index === 0}
@@ -802,7 +805,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
       const payload = {
         ...draft,
         name: draft.name.trim(),
-        heading: draft.heading.trim() || 'Submit Candidate Profile & Resume',
+        heading: draft.heading.trim(),
         subheading: isRichTextEmpty(draft.subheading) ? '' : draft.subheading.trim(),
         fieldOrder: nextOrder,
         customFields: finalCustomFields,
@@ -1098,81 +1101,93 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
             </div>
 
             {orderedEntries.length > 0 ? (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                modifiers={[restrictToVerticalContainer]}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={orderedEntries.map((item) => item.key)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div
-                    ref={fieldsListRef}
-                    className="space-y-2.5 relative overflow-hidden p-0.5 -m-0.5"
-                  >
-                    {orderedEntries.map((entry, idx) => (
-                      <SortableFieldRow
-                        key={entry.key}
-                        entry={entry}
-                        index={idx}
-                        totalCount={orderedEntries.length}
-                        isExpanded={entry.kind === 'custom' && expandedCustomKey === entry.key}
-                        autoFocusLabel={
-                          entry.kind === 'custom' && autoFocusCustomKey === entry.key
-                        }
-                        onAutoFocusHandled={() => {
-                          if (autoFocusCustomKey === entry.key) {
-                            setAutoFocusCustomKey(null);
-                          }
-                        }}
-                        onToggleExpand={() =>
-                          setExpandedCustomKey((prev) =>
-                            prev === entry.key ? null : entry.key
-                          )
-                        }
-                        onMoveStep={handleMoveOrderedStep}
-                        onSetWidth={(nextWidth) => {
-                          if (entry.kind === 'standard') {
-                            setDraft((prev) => ({
-                              ...prev,
-                              fieldWidths: {
-                                ...(prev.fieldWidths || {}),
-                                [entry.key]: nextWidth,
-                              },
-                            }));
-                          } else {
-                            handleUpdateCustomField(entry.key, { width: nextWidth });
-                          }
-                        }}
-                        onSetRequired={(nextReq) => {
-                          if (entry.kind === 'standard') {
-                            setDraft((prev) => ({
-                              ...prev,
-                              [entry.meta.requireKey]: nextReq,
-                            }));
-                          } else {
-                            handleUpdateCustomField(entry.key, { required: nextReq });
-                          }
-                        }}
-                        onRemove={() => {
-                          if (entry.kind === 'standard') {
-                            toggleStandardField(entry.key, false);
-                          } else {
-                            handleRemoveInlineCustomField(entry.key);
-                          }
-                        }}
-                        onUpdateCustomField={
-                          entry.kind === 'custom'
-                            ? (patch) => handleUpdateCustomField(entry.key, patch)
-                            : undefined
-                        }
-                      />
-                    ))}
+              <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                <div className="hidden sm:grid sm:grid-cols-[minmax(0,1fr)_96px_92px_96px] sm:items-center sm:gap-3 px-3.5 py-2.5 bg-slate-50/90 border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-[22px] shrink-0" aria-hidden="true" />
+                    <span className="w-5 shrink-0">#</span>
+                    <span>Field name</span>
                   </div>
-                </SortableContext>
-              </DndContext>
+                  <div className="text-center">Width</div>
+                  <div className="text-center">Required</div>
+                  <div className="text-right">Actions</div>
+                </div>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  modifiers={[restrictToVerticalContainer]}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={orderedEntries.map((item) => item.key)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div
+                      ref={fieldsListRef}
+                      className="divide-y divide-slate-200/80 relative overflow-hidden"
+                    >
+                      {orderedEntries.map((entry, idx) => (
+                        <SortableFieldRow
+                          key={entry.key}
+                          entry={entry}
+                          index={idx}
+                          totalCount={orderedEntries.length}
+                          isExpanded={entry.kind === 'custom' && expandedCustomKey === entry.key}
+                          autoFocusLabel={
+                            entry.kind === 'custom' && autoFocusCustomKey === entry.key
+                          }
+                          onAutoFocusHandled={() => {
+                            if (autoFocusCustomKey === entry.key) {
+                              setAutoFocusCustomKey(null);
+                            }
+                          }}
+                          onToggleExpand={() =>
+                            setExpandedCustomKey((prev) =>
+                              prev === entry.key ? null : entry.key
+                            )
+                          }
+                          onMoveStep={handleMoveOrderedStep}
+                          onSetWidth={(nextWidth) => {
+                            if (entry.kind === 'standard') {
+                              setDraft((prev) => ({
+                                ...prev,
+                                fieldWidths: {
+                                  ...(prev.fieldWidths || {}),
+                                  [entry.key]: nextWidth,
+                                },
+                              }));
+                            } else {
+                              handleUpdateCustomField(entry.key, { width: nextWidth });
+                            }
+                          }}
+                          onSetRequired={(nextReq) => {
+                            if (entry.kind === 'standard') {
+                              setDraft((prev) => ({
+                                ...prev,
+                                [entry.meta.requireKey]: nextReq,
+                              }));
+                            } else {
+                              handleUpdateCustomField(entry.key, { required: nextReq });
+                            }
+                          }}
+                          onRemove={() => {
+                            if (entry.kind === 'standard') {
+                              toggleStandardField(entry.key, false);
+                            } else {
+                              handleRemoveInlineCustomField(entry.key);
+                            }
+                          }}
+                          onUpdateCustomField={
+                            entry.kind === 'custom'
+                              ? (patch) => handleUpdateCustomField(entry.key, patch)
+                              : undefined
+                          }
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              </div>
             ) : (
               <div className="px-4 py-6 rounded-xl bg-slate-50/70 border border-dashed border-slate-200 text-center text-xs text-slate-500">
                 No optional fields or custom questions active yet. Use quick add below to add fields.

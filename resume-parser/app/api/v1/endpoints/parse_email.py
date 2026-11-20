@@ -1,7 +1,10 @@
 import re
-from fastapi import APIRouter
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from app.schemas.email import EmailIntakeRequest, EmailIntakeResponse, ExtractedRequirement
 from app.extractors.skills_extractor import extract_skills
+from app.parsers.docx_parser import extract_text_from_docx
+from app.parsers.pdf_parser import extract_text_from_pdf
+from app.parsers.text_parser import extract_text_from_raw
 
 router = APIRouter()
 
@@ -84,3 +87,25 @@ async def parse_email_intake(request: EmailIntakeRequest):
     )
 
     return EmailIntakeResponse(success=True, data=req)
+
+
+@router.post("/extract-text")
+async def extract_document_text(file: UploadFile = File(...)):
+    """Extracts plain readable text from an uploaded PDF, DOCX, DOC, TXT, RTF, or EML file."""
+    file_bytes = await file.read()
+    filename = file.filename or "document.pdf"
+    lower = filename.lower()
+    if lower.endswith(".pdf"):
+        text = extract_text_from_pdf(file_bytes)
+    elif lower.endswith(".docx"):
+        text = extract_text_from_docx(file_bytes)
+    else:
+        text = extract_text_from_raw(file_bytes)
+
+    if not text.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="Unable to extract selectable text from the uploaded document.",
+        )
+
+    return {"success": True, "fileName": filename, "text": text}

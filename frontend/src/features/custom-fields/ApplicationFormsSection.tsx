@@ -305,7 +305,7 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
                           {form.name}
                         </div>
                         <div className="text-[11px] text-slate-500 mt-0.5 leading-snug break-words">
-                          {form.heading || 'Submit Candidate Profile & Resume'}
+                          {form.heading || 'Apply for this job'}
                         </div>
                       </td>
 

@@ -32,6 +32,7 @@ import {
   buildEnhancedEmailParseResponse,
   buildEnhancedResumeParseResponse,
   buildNodeResumeFallback,
+  extractReadableTextFromDocumentBuffer,
 } from '../services/ai/parseBridge.service';
 import { DEFAULT_TAXONOMIES } from '../config/taxonomies.config';
 import { prisma } from '../config/prisma.config';
@@ -65,18 +66,26 @@ import * as slaController from '../controllers/sla.controller';
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
 
-const optionalSingleCvUpload = (req: Request, res: Response, next: (err?: any) => void) => {
-  upload.single('file')(req, res, (err: any) => {
-    if (err instanceof multer.MulterError) {
-      const msg = err.code === 'LIMIT_FILE_SIZE' ? 'CV file exceeds the 15 MB upload limit' : err.message;
-      return res.status(400).json({ success: false, message: msg });
-    }
-    if (err) {
-      return res.status(400).json({ success: false, message: err.message || 'Invalid file upload' });
-    }
-    return next();
-  });
-};
+const createSingleFileUpload =
+  (limitLabel = 'File') =>
+  (req: Request, res: Response, next: (err?: any) => void) => {
+    upload.single('file')(req, res, (err: any) => {
+      if (err instanceof multer.MulterError) {
+        const msg =
+          err.code === 'LIMIT_FILE_SIZE'
+            ? `${limitLabel} exceeds the 15 MB upload limit`
+            : err.message;
+        return res.status(400).json({ success: false, message: msg });
+      }
+      if (err) {
+        return res.status(400).json({ success: false, message: err.message || 'Invalid file upload' });
+      }
+      return next();
+    });
+  };
+
+const optionalSingleCvUpload = createSingleFileUpload('CV file');
+const singleRequirementFileUpload = createSingleFileUpload('Requirement file');
 
 // Public routes (Readiness health check & Authentication)
 router.get('/health', async (_req: Request, res: Response) => {
@@ -477,31 +486,105 @@ router.post('/parse-resume', uploadRateLimiter, upload.single('file'), async (re
   }
 });
 
+const runEmailIntakeParsePipeline = async (
+  rawEmailText: string,
+  user?: Express.Request['user']
+) => {
+  let parsed: Record<string, any> = {};
+  try {
+    const result = await resumeParserClientService.parseEmail(rawEmailText.replace(/\*\*/g, ''));
+    parsed = result?.data || result || {};
+  } catch {
+    parsed = {};
+  }
+
+  return buildEnhancedEmailParseResponse({
+    rawEmailText,
+    upstreamParsed: parsed,
+    tenantId: user?.tenantId,
+    userId: user?.id,
+    rateMasked: Boolean(user?.rateMasked),
+  });
+};
+
 router.post('/parse-email', async (req: Request, res: Response) => {
   const rawEmailText = String(req.body.rawEmailText || req.body.text || '');
 
   try {
-    let parsed: Record<string, any> = {};
-    try {
-      const result = await resumeParserClientService.parseEmail(rawEmailText.replace(/\*\*/g, ''));
-      parsed = result?.data || result || {};
-    } catch {
-      parsed = {};
-    }
-
-    const enhanced = await buildEnhancedEmailParseResponse({
-      rawEmailText,
-      upstreamParsed: parsed,
-      tenantId: req.user?.tenantId,
-      userId: req.user?.id,
-      rateMasked: Boolean(req.user?.rateMasked),
-    });
-
+    const enhanced = await runEmailIntakeParsePipeline(rawEmailText, req.user);
     res.json({ success: true, aiUsed: enhanced.aiUsed, data: enhanced });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'Email parse failed' });
   }
 });
+
+router.post(
+  '/parse-email-file',
+  uploadRateLimiter,
+  singleRequirementFileUpload,
+  async (req: Request, res: Response) => {
+    try {
+      const file = req.file;
+      if (!file) {
+        return res.status(400).json({ success: false, message: 'No requirement file uploaded.' });
+      }
+
+      const originalName = file.originalname || 'requirement.pdf';
+      const allowedExt = /\.(pdf|docx?|txt|rtf|eml)$/i;
+      const mime = String(file.mimetype || '').toLowerCase();
+      const isAllowedMime =
+        mime === 'application/pdf' ||
+        mime === 'text/plain' ||
+        mime === 'message/rfc822' ||
+        mime === 'application/rtf' ||
+        mime === 'text/rtf' ||
+        mime.includes('wordprocessingml') ||
+        mime === 'application/msword';
+      if (!allowedExt.test(originalName) && !isAllowedMime) {
+        return res.status(400).json({
+          success: false,
+          message: 'Unsupported file type. Please upload a PDF, DOCX, DOC, TXT, RTF, or EML file.',
+        });
+      }
+
+      let extractedText = '';
+      try {
+        const formData = new FormData();
+        const blob = new Blob([new Uint8Array(file.buffer)], {
+          type: file.mimetype || 'application/octet-stream',
+        });
+        formData.append('file', blob, originalName);
+        const upstreamExtract = await resumeParserClientService.extractText(formData);
+        extractedText = String(upstreamExtract?.text || '').trim();
+      } catch {
+        extractedText = extractReadableTextFromDocumentBuffer(file.buffer, originalName, {
+          preserveLineBreaks: true,
+        });
+      }
+
+      if (!extractedText) {
+        return res.status(422).json({
+          success: false,
+          message:
+            'Could not extract selectable text from this document. If it is a scanned PDF, please upload a text-based PDF/DOCX or paste the text directly.',
+        });
+      }
+
+      const enhanced = await runEmailIntakeParsePipeline(extractedText, req.user);
+      return res.json({
+        success: true,
+        aiUsed: enhanced.aiUsed,
+        fileName: originalName,
+        extractedText,
+        data: enhanced,
+      });
+    } catch (error: any) {
+      return res
+        .status(error?.statusCode || 500)
+        .json({ success: false, message: error.message || 'Requirement file parse failed' });
+    }
+  }
+);
 
 router.post('/match-skills', async (req: Request, res: Response) => {
   try {
@@ -1100,14 +1183,8 @@ router.post(
         id: `form-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         name,
         description: String(body.description || '').trim(),
-        heading: String(body.heading || 'Submit Candidate Profile & Resume').trim(),
-        subheading: sanitizePublicSummaryHtml(
-          String(
-            body.subheading !== undefined
-              ? body.subheading
-              : 'Candidates applying directly or partner agencies submitting consultants can attach a resume below.'
-          )
-        ),
+        heading: String(body.heading || '').trim(),
+        subheading: sanitizePublicSummaryHtml(String(body.subheading || '')),
         isDefault: makeDefault,
         includeCurrentTitle: body.includeCurrentTitle !== false,
         requireCurrentTitle: Boolean(body.includeCurrentTitle !== false && body.requireCurrentTitle),
@@ -1188,7 +1265,7 @@ router.put(
           body.description !== undefined ? String(body.description || '').trim() : current.description,
         heading:
           body.heading !== undefined
-            ? String(body.heading || 'Submit Candidate Profile & Resume').trim()
+            ? String(body.heading || '').trim()
             : current.heading,
         subheading:
           body.subheading !== undefined

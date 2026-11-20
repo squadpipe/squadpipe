@@ -30,6 +30,18 @@ export class ResumeParserClientService {
     return response.json();
   }
 
+  async extractText(formData: FormData): Promise<{ success?: boolean; fileName?: string; text?: string }> {
+    const response = await fetch(`${this.parserBaseUrl}/api/v1/extract-text`, {
+      method: 'POST',
+      headers: this.buildHeaders(false),
+      body: formData,
+    });
+    if (!response.ok) {
+      throw new Error(`Document extractor failed with status ${response.status}`);
+    }
+    return response.json();
+  }
+
   async parseEmail(rawEmailText: string) {
     const response = await fetch(`${this.parserBaseUrl}/api/v1/parse-email`, {
       method: 'POST',

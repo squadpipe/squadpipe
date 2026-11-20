@@ -105,12 +105,103 @@ function getMatchScoreBadgeClass(score: number): string {
   return 'bg-white text-slate-600 border-slate-300';
 }
 
+interface RankingProgressBodyProps {
+  progress: number;
+  aiEnabled: boolean;
+  isNextBatch?: boolean;
+  skeletonCount?: number;
+}
+
+const RankingProgressBody: React.FC<RankingProgressBodyProps> = ({
+  progress,
+  aiEnabled,
+  isNextBatch = false,
+  skeletonCount = 6,
+}) => {
+  const pct = Math.max(8, Math.min(100, Math.round(progress)));
+  const stageText =
+    pct < 35
+      ? 'Scanning bench resumes and skill profiles...'
+      : pct < 70
+        ? 'Evaluating experience and role fit criteria...'
+        : 'Scoring and ordering top matching candidates...';
+
+  return (
+    <div className="space-y-2.5">
+      <div className="p-3.5 rounded-xl border border-teal-200/90 bg-white shadow-sm space-y-2.5">
+        <div className="flex items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-7 h-7 rounded-lg bg-white border border-teal-300 flex items-center justify-center shrink-0">
+              <AiIcon className="w-3.5 h-3.5 text-teal-600 animate-pulse" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-slate-900 truncate">
+                {aiEnabled
+                  ? isNextBatch
+                    ? 'PipeAI is ranking the next batch...'
+                    : 'PipeAI is ranking best-fit candidates...'
+                  : isNextBatch
+                    ? 'Ranking the next batch of candidates...'
+                    : 'Ranking matching bench candidates...'}
+              </div>
+              <div className="text-[11px] text-slate-500 truncate">{stageText}</div>
+            </div>
+          </div>
+          <span className="px-2 py-0.5 rounded-md bg-white border border-teal-300 text-teal-700 text-[11px] font-bold tabular-nums shrink-0">
+            {pct}%
+          </span>
+        </div>
+
+        <div
+          role="progressbar"
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          className="w-full h-2 rounded-full bg-slate-100 overflow-hidden"
+        >
+          <div
+            className="h-full rounded-full bg-teal-600 transition-all duration-300 ease-out"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+
+      {Array.from({ length: skeletonCount }).map((_, idx) => (
+        <div
+          key={`rank-skeleton-${idx}`}
+          className="p-3 rounded-xl border border-slate-200/90 bg-white space-y-2.5 animate-pulse"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <div className="w-4 h-4 rounded bg-slate-200 shrink-0" />
+              <div className="space-y-1.5 flex-1 max-w-[260px]">
+                <div className="h-3.5 w-3/4 rounded bg-slate-200" />
+                <div className="h-2.5 w-1/2 rounded bg-slate-100" />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="h-6 w-24 rounded-md bg-slate-100" />
+              <div className="h-7 w-20 rounded-lg bg-slate-100" />
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 pl-6">
+            <div className="h-4 w-16 rounded bg-slate-100" />
+            <div className="h-4 w-20 rounded bg-slate-100" />
+            <div className="h-4 w-14 rounded bg-slate-100" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 export interface AttachBenchDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   requirement?: Requirement | null;
   requirements?: Requirement[];
   allowRequirementSwitch?: boolean;
+  autoRankOnOpen?: boolean;
   candidates: Candidate[];
   rateMasked?: boolean;
   onAttachCandidates?: (
@@ -130,6 +221,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   requirement,
   requirements = [],
   allowRequirementSwitch = false,
+  autoRankOnOpen = false,
   candidates,
   rateMasked = false,
   onAttachCandidates,
@@ -157,6 +249,9 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   const [isBatchAttaching, setIsBatchAttaching] = useState(false);
   const isAttaching = Boolean(attachingCandId) || isBatchAttaching;
   const [isAiRanking, setIsAiRanking] = useState(false);
+  const [aiRankBatchMode, setAiRankBatchMode] = useState<'initial' | 'next'>('initial');
+  const [aiRankProgress, setAiRankProgress] = useState(0);
+  const [benchReadyForAutoRank, setBenchReadyForAutoRank] = useState(false);
   const [aiRankError, setAiRankError] = useState('');
   const [aiRankScopeNote, setAiRankScopeNote] = useState('');
   const [remainingUnrankedCount, setRemainingUnrankedCount] = useState<number | null>(null);
@@ -185,6 +280,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   const [isLoadingMoreBench, setIsLoadingMoreBench] = useState<boolean>(false);
   const knownCandidatesRef = useRef<Map<string, Candidate>>(new Map());
   const activeSearchRef = useRef<string>('');
+  const autoRankTriggeredRef = useRef<boolean>(false);
   const benchListRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -195,7 +291,15 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
 
   // Reset picker filters & selection on open or external target change
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      autoRankTriggeredRef.current = false;
+      setBenchReadyForAutoRank(false);
+      setIsAiRanking(false);
+      setAiRankProgress(0);
+      return;
+    }
+    autoRankTriggeredRef.current = false;
+    setBenchReadyForAutoRank(false);
     setSelectedReqId(requirement?.id || requirements[0]?.id || '');
     setDrawerTab('available');
     setShowAllReqSkills(false);
@@ -211,11 +315,29 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
     setAiRankScopeNote('');
     setRemainingUnrankedCount(null);
     setIsAiRanking(false);
+    setAiRankBatchMode('initial');
+    setAiRankProgress(0);
     setBenchPage(1);
     setPagedCandidates(candidates.slice(0, BENCH_PAGE_SIZE));
     setTotalBenchCount(candidates.length);
     setHasMoreBench(candidates.length > BENCH_PAGE_SIZE);
   }, [isOpen, requirement?.id, selectedReqId]);
+
+  useEffect(() => {
+    if (!isAiRanking) {
+      setAiRankProgress(0);
+      return;
+    }
+    setAiRankProgress((prev) => (prev > 12 ? prev : 14));
+    const timer = setInterval(() => {
+      setAiRankProgress((prev) => {
+        if (prev >= 92) return 92;
+        const step = Math.max(2, (92 - prev) * 0.16);
+        return Math.min(92, prev + step);
+      });
+    }, 260);
+    return () => clearInterval(timer);
+  }, [isAiRanking]);
 
   // Clear cached AI batch rankings when search or work-auth filters change
   useEffect(() => {
@@ -334,7 +456,12 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
         setHasMoreBench(filteredLocalCandidates.length > slice.length);
       })
       .finally(() => {
-        if (active) setIsLoadingBench(false);
+        if (active) {
+          setIsLoadingBench(false);
+          if (!searchTerm && benchWorkAuth === 'All') {
+            setBenchReadyForAutoRank(true);
+          }
+        }
       });
 
     return () => {
@@ -642,6 +769,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
 
   const handleAiRankTopMatches = async (appendNextBatch = false) => {
     if (!currentReq?.id || isAiRanking || availableTabCount === 0) return;
+    setAiRankBatchMode(appendNextBatch ? 'next' : 'initial');
     setIsAiRanking(true);
     setAiRankError('');
     try {
@@ -732,6 +860,48 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
       setIsAiRanking(false);
     }
   };
+
+  const isAutoRankWaiting =
+    isOpen &&
+    autoRankOnOpen &&
+    drawerTab === 'available' &&
+    !hasAiRankResults &&
+    !aiRankError &&
+    !benchSearch.trim() &&
+    benchWorkAuth === 'All' &&
+    (!benchReadyForAutoRank || availableTabCount > 0) &&
+    !autoRankTriggeredRef.current;
+
+  useEffect(() => {
+    if (
+      !isOpen ||
+      !autoRankOnOpen ||
+      autoRankTriggeredRef.current ||
+      !benchReadyForAutoRank ||
+      drawerTab !== 'available' ||
+      !currentReq?.id ||
+      isAiRanking ||
+      hasAiRankResults ||
+      benchSearch.trim() ||
+      benchWorkAuth !== 'All' ||
+      availableTabCount === 0
+    ) {
+      return;
+    }
+    autoRankTriggeredRef.current = true;
+    void handleAiRankTopMatches(false);
+  }, [
+    isOpen,
+    autoRankOnOpen,
+    benchReadyForAutoRank,
+    drawerTab,
+    currentReq?.id,
+    isAiRanking,
+    hasAiRankResults,
+    benchSearch,
+    benchWorkAuth,
+    availableTabCount,
+  ]);
 
   const buildPrecomputedCapabilities = (
     candIds: string[]
@@ -969,10 +1139,10 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                 hasAiRankResults && (remainingUnrankedCount ?? 0) > 0 ? (
                   <button
                     type="button"
-                    disabled={isAiRanking || isLoadingBench || isAttaching}
+                    disabled={isAiRanking || isAutoRankWaiting || isLoadingBench || isAttaching}
                     onClick={() => void handleAiRankTopMatches(true)}
                     title={`Rank the next ${Math.min(30, remainingUnrankedCount!)} unattached consultants (${remainingUnrankedCount} remaining)`}
-                    className="px-2.5 py-1 rounded-lg border border-teal-200 bg-teal-50/80 hover:bg-teal-100 text-teal-800 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
+                    className="px-2.5 py-1 rounded-lg border border-teal-300 bg-white hover:bg-teal-50/50 text-teal-700 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
                   >
                     {isAiRanking ? (
                       <Loader2 className="w-3 h-3 animate-spin" />
@@ -993,17 +1163,17 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                 ) : (
                   <button
                     type="button"
-                    disabled={isAiRanking || isLoadingBench || isAttaching}
+                    disabled={isAiRanking || isAutoRankWaiting || isLoadingBench || isAttaching}
                     onClick={() => void handleAiRankTopMatches(false)}
-                    className="px-2.5 py-1 rounded-lg border border-teal-200 bg-teal-50/80 hover:bg-teal-100 text-teal-800 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
+                    className="px-2.5 py-1 rounded-lg border border-teal-300 bg-white hover:bg-teal-50/50 text-teal-700 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
                   >
-                    {isAiRanking ? (
+                    {isAiRanking || isAutoRankWaiting ? (
                       <Loader2 className="w-3 h-3 animate-spin" />
                     ) : (
                       <AiIcon className="w-3 h-3 text-teal-600" />
                     )}
                     <span>
-                      {isAiRanking
+                      {isAiRanking || isAutoRankWaiting
                         ? 'Ranking Best Fits...'
                         : aiCapabilities.enabled
                           ? 'PipeAI Rank'
@@ -1110,6 +1280,12 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                   );
                 })
               )
+            ) : isAutoRankWaiting || (isAiRanking && aiRankBatchMode === 'initial') ? (
+              <RankingProgressBody
+                progress={isAiRanking ? aiRankProgress : 10}
+                aiEnabled={aiModeEnabled}
+                skeletonCount={6}
+              />
             ) : (isLoadingBench && pagedCandidates.length === 0) ||
               (isLoadingMoreBench && availableRankedCandidates.length === 0) ? (
               <div className="py-10 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
@@ -1125,6 +1301,14 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
               </div>
             ) : (
               <>
+                {isAiRanking && aiRankBatchMode === 'next' && (
+                  <RankingProgressBody
+                    progress={aiRankProgress}
+                    aiEnabled={aiModeEnabled}
+                    isNextBatch={true}
+                    skeletonCount={3}
+                  />
+                )}
                 {availableRankedCandidates.map(({ con, match, isAiRanked, isRowAiEvaluated, showMatch, oneLineSummary }, rowIndex) => {
                   const isChecked = selectedCandidateIds.includes(con.id);
                   const dupWarnings = clientDuplicateMap[con.id] || [];

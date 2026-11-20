@@ -3,6 +3,8 @@ import {
   Check,
   CheckCircle2,
   Eraser,
+  FileText,
+  FileUp,
   Info,
   Loader2,
   Plus,
@@ -154,13 +156,92 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
   const [isSaving, setIsSaving] = useState(false);
   const [validationAttempted, setValidationAttempted] = useState(false);
   const [rawEmailText, setRawEmailText] = useState<string>('');
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [isDragOverFile, setIsDragOverFile] = useState(false);
   const [skillInput, setSkillInput] = useState<string>('');
   const [showSkillSuggestions, setShowSkillSuggestions] = useState(false);
   const [highlightedSkillIdx, setHighlightedSkillIdx] = useState<number>(-1);
   const [extractedReq, setExtractedReq] = useState(EMPTY_FORM);
   const lastParsedTextRef = useRef<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const clientsRef = useRef<Client[]>(clients);
   clientsRef.current = clients;
+
+  const applyParsedRequirement = (
+    d: Record<string, any>,
+    usedAi: boolean,
+    cleanInput: string
+  ) => {
+    const parsedSkills = cleanField(
+      d.skillsRequired || (Array.isArray(d.skills) ? d.skills.join(', ') : d.skills)
+    );
+    const parsedBillRate = Number(d.billRate || d.targetBillRate || 0);
+    const parsedPayRate = Number(
+      d.payRate ||
+        d.targetPayRate ||
+        (parsedBillRate > 0 ? Math.round(parsedBillRate * 0.75) : 0)
+    );
+    const rawWorkModel = String(d.workModel || d.location || '').toLowerCase();
+    const detectedWorkModel: 'Remote' | 'Hybrid' | 'Onsite' = rawWorkModel.includes('hybrid')
+      ? 'Hybrid'
+      : rawWorkModel.includes('onsite')
+        ? 'Onsite'
+        : 'Remote';
+    const parsedCompany = stripClientLocation(cleanField(d.companyName || d.clientName));
+    const matchedClient = findMatchingClient(parsedCompany, clientsRef.current, cleanInput);
+    const resolvedCompany = matchedClient
+      ? stripClientLocation(matchedClient.name)
+      : parsedCompany;
+
+    setExtractedReq((prev) => {
+      const nextLocation = cleanField(d.location) || matchedClient?.location || '';
+      return {
+        ...prev,
+        companyName: resolvedCompany || '',
+        opportunityTitle: cleanField(d.opportunityTitle || d.jobTitle) || '',
+        openPositions: d.openPositions ? String(d.openPositions) : '1',
+        location:
+          nextLocation === 'Remote' && matchedClient?.location
+            ? matchedClient.location
+            : nextLocation,
+        workModel: detectedWorkModel,
+        clientContact:
+          cleanField(d.clientContact || d.contactName) ||
+          matchedClient?.contacts?.[0]?.name ||
+          '',
+        clientContactTitle:
+          cleanField(d.clientContactTitle || d.contactTitle) ||
+          matchedClient?.contacts?.[0]?.designation ||
+          '',
+        clientContactEmail: cleanField(d.clientContactEmail) || '',
+        skillsRequired: parsedSkills || '',
+        assignedRecruiter:
+          cleanField(d.assignedRecruiter) || prev.assignedRecruiter || users[0]?.name || '',
+        targetBillRate: parsedBillRate,
+        targetPayRate: parsedPayRate,
+        missingNotes: Array.isArray(d.missingFields)
+          ? d.missingFields.map((item: unknown) => cleanField(item)).filter(Boolean).join(', ')
+          : cleanNotes(d.missingNotes),
+        publicDescription:
+          String(d.publicDescription || '').trim() ||
+          buildClientSafeSummaryHtml({
+            opportunityTitle:
+              cleanField(d.opportunityTitle || d.jobTitle) || 'Technical Specialist',
+            openPositions: d.openPositions ? Number(d.openPositions) : 1,
+            workModel: detectedWorkModel,
+            location:
+              nextLocation === 'Remote' && matchedClient?.location
+                ? matchedClient.location
+                : nextLocation,
+            skillsRequired: parsedSkills || '',
+            companyName: resolvedCompany || '',
+            rawEmailText: cleanInput,
+          }),
+      };
+    });
+    setAiUsed(usedAi);
+    setHasParsed(true);
+  };
 
   const parseEmailText = async (textToParse: string, force = false) => {
     const cleanInput = textToParse.trim();
@@ -174,76 +255,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
       const res = await apiClient.post('/parse-email', { rawEmailText: cleanInput });
       const d = res.data?.data?.data || res.data?.data;
       if (d) {
-        const usedAi = Boolean(res.data?.aiUsed ?? d?.aiUsed);
-        const parsedSkills = cleanField(
-          d.skillsRequired || (Array.isArray(d.skills) ? d.skills.join(', ') : d.skills)
-        );
-        const parsedBillRate = Number(d.billRate || d.targetBillRate || 0);
-        const parsedPayRate = Number(
-          d.payRate ||
-          d.targetPayRate ||
-          (parsedBillRate > 0 ? Math.round(parsedBillRate * 0.75) : 0)
-        );
-        const rawWorkModel = String(d.workModel || d.location || '').toLowerCase();
-        const detectedWorkModel: 'Remote' | 'Hybrid' | 'Onsite' = rawWorkModel.includes('hybrid')
-          ? 'Hybrid'
-          : rawWorkModel.includes('onsite')
-            ? 'Onsite'
-            : 'Remote';
-        const parsedCompany = stripClientLocation(cleanField(d.companyName || d.clientName));
-        const matchedClient = findMatchingClient(parsedCompany, clientsRef.current, cleanInput);
-        const resolvedCompany = matchedClient
-          ? stripClientLocation(matchedClient.name)
-          : parsedCompany;
-
-        setExtractedReq((prev) => {
-          const nextLocation = cleanField(d.location) || matchedClient?.location || '';
-          return {
-            ...prev,
-            companyName: resolvedCompany || '',
-            opportunityTitle: cleanField(d.opportunityTitle || d.jobTitle) || '',
-            openPositions: d.openPositions ? String(d.openPositions) : '1',
-            location:
-              nextLocation === 'Remote' && matchedClient?.location
-                ? matchedClient.location
-                : nextLocation,
-            workModel: detectedWorkModel,
-            clientContact:
-              cleanField(d.clientContact || d.contactName) ||
-              matchedClient?.contacts?.[0]?.name ||
-              '',
-            clientContactTitle:
-              cleanField(d.clientContactTitle || d.contactTitle) ||
-              matchedClient?.contacts?.[0]?.designation ||
-              '',
-            clientContactEmail: cleanField(d.clientContactEmail) || '',
-            skillsRequired: parsedSkills || '',
-            assignedRecruiter:
-              cleanField(d.assignedRecruiter) || prev.assignedRecruiter || users[0]?.name || '',
-            targetBillRate: parsedBillRate,
-            targetPayRate: parsedPayRate,
-            missingNotes: Array.isArray(d.missingFields)
-              ? d.missingFields.map((item: unknown) => cleanField(item)).filter(Boolean).join(', ')
-              : cleanNotes(d.missingNotes),
-            publicDescription:
-              String(d.publicDescription || '').trim() ||
-              buildClientSafeSummaryHtml({
-                opportunityTitle:
-                  cleanField(d.opportunityTitle || d.jobTitle) || 'Technical Specialist',
-                openPositions: d.openPositions ? Number(d.openPositions) : 1,
-                workModel: detectedWorkModel,
-                location:
-                  nextLocation === 'Remote' && matchedClient?.location
-                    ? matchedClient.location
-                    : nextLocation,
-                skillsRequired: parsedSkills || '',
-                companyName: resolvedCompany || '',
-                rawEmailText: cleanInput,
-              }),
-          };
-        });
-        setAiUsed(usedAi);
-        setHasParsed(true);
+        applyParsedRequirement(d, Boolean(res.data?.aiUsed ?? d?.aiUsed), cleanInput);
       }
     } catch (err: any) {
       setAiUsed(false);
@@ -254,6 +266,74 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
       );
     } finally {
       setIsParsing(false);
+    }
+  };
+
+  const handleRequirementFileSelected = async (file?: File | null) => {
+    if (!file) return;
+    const validExt = /\.(pdf|docx?|txt|rtf|eml)$/i;
+    const isAllowedMime =
+      file.type === 'application/pdf' ||
+      file.type === 'text/plain' ||
+      file.type === 'message/rfc822' ||
+      file.type === 'application/rtf' ||
+      file.type === 'text/rtf' ||
+      file.type.includes('wordprocessingml') ||
+      file.type === 'application/msword';
+    if (!validExt.test(file.name) && !isAllowedMime) {
+      showToast(
+        'Unsupported File',
+        'Please upload a PDF, DOCX, DOC, TXT, RTF, or EML file.',
+        'warning'
+      );
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      showToast('File Too Large', 'Requirement document exceeds the 15 MB limit.', 'warning');
+      return;
+    }
+
+    setIsParsing(true);
+    setAiUsed(false);
+    setValidationAttempted(false);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await apiClient.post('/parse-email-file', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const extractedText = String(res.data?.extractedText || '').trim();
+      const d = res.data?.data?.data || res.data?.data;
+      if (extractedText) {
+        // Record parsed text before updating rawEmailText so the debounce effect avoids a duplicate call
+        lastParsedTextRef.current = extractedText;
+        setRawEmailText(extractedText);
+      }
+      setUploadedFileName(res.data?.fileName || file.name);
+      if (d) {
+        applyParsedRequirement(
+          d,
+          Boolean(res.data?.aiUsed ?? d?.aiUsed),
+          extractedText || rawEmailText.trim()
+        );
+      }
+      showToast(
+        'Document Extracted',
+        `Loaded and parsed fields from "${res.data?.fileName || file.name}".`,
+        'success'
+      );
+    } catch (err: any) {
+      setAiUsed(false);
+      showToast(
+        'Document Extract Failed',
+        err.response?.data?.message || err.message || 'Could not extract text from uploaded file.',
+        'error'
+      );
+    } finally {
+      setIsParsing(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -307,6 +387,10 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
 
   const handleClearAll = () => {
     setRawEmailText('');
+    setUploadedFileName(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
     setSkillInput('');
     setHasParsed(false);
     setAiUsed(false);
@@ -497,8 +581,8 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
       />
 
       <PageHeader
-        title="Create Job from Client Email"
-        subtitle="Paste any hiring manager email on the left to populate client, role, skills, rates, and a client-safe public job description."
+        title="Create Job from Client Email or PDF"
+        subtitle="Paste any hiring manager email or upload a requirement PDF on the left to populate client, role, skills, rates, and a client-safe public job description."
         badges={
           <>
             {aiCapabilities.enabled && (
@@ -516,7 +600,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
         }
         actions={
           <>
-            {(rawEmailText || extractedReq.companyName) && (
+            {(rawEmailText || uploadedFileName || extractedReq.companyName) && (
               <button
                 type="button"
                 onClick={handleClearAll}
@@ -551,12 +635,45 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
 
       {/* Main 12-Column Split Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        {/* Left Column: Raw Email Input */}
-        <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 p-5 card-shadow space-y-3 lg:sticky lg:top-4">
-          <div className="flex items-center justify-between gap-2">
+        {/* Left Column: Raw Email Input & PDF Upload */}
+        <div
+          onDragOver={(e) => {
+            if (e.dataTransfer?.types?.includes('Files')) {
+              e.preventDefault();
+              setIsDragOverFile(true);
+            }
+          }}
+          onDragLeave={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+              setIsDragOverFile(false);
+            }
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragOverFile(false);
+            const dropped = e.dataTransfer?.files?.[0];
+            if (dropped) {
+              handleRequirementFileSelected(dropped);
+            }
+          }}
+          className={`lg:col-span-5 bg-white rounded-xl border p-5 card-shadow space-y-3 lg:sticky lg:top-4 transition-colors ${
+            isDragOverFile
+              ? 'border-brand-600 ring-2 ring-brand-500/15 bg-brand-50/15'
+              : 'border-slate-200'
+          }`}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.txt,.rtf,.eml,application/pdf,text/plain"
+            onChange={(e) => handleRequirementFileSelected(e.target.files?.[0])}
+            className="hidden"
+          />
+
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <label className="text-sm font-semibold text-slate-900 inline-flex items-center gap-1.5">
               <AiIcon className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-              <span>Client email source</span>
+              <span>Client email / PDF source</span>
             </label>
             <div className="flex items-center gap-2">
               {isParsing ? (
@@ -567,11 +684,57 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
               ) : hasParsed ? (
                 <StatusBadge tone="emerald" size="xs" label="Parsed" />
               ) : null}
+              <button
+                type="button"
+                disabled={isParsing || isSaving}
+                onClick={() => fileInputRef.current?.click()}
+                className="px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-colors"
+              >
+                <FileUp className="w-3.5 h-3.5 text-slate-500" />
+                <span>{uploadedFileName ? 'Replace PDF' : 'Upload PDF'}</span>
+              </button>
             </div>
           </div>
 
+          {uploadedFileName ? (
+            <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50/60">
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white border border-emerald-300 text-emerald-700 text-[11px] font-medium min-w-0">
+                <FileText className="w-3 h-3 shrink-0" />
+                <span className="truncate">{uploadedFileName}</span>
+              </span>
+              <button
+                type="button"
+                disabled={isParsing}
+                onClick={() => {
+                  setUploadedFileName(null);
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+                title="Detach file tag"
+                aria-label="Detach uploaded filename"
+                className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              disabled={isParsing || isSaving}
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full px-3 py-2 rounded-lg border border-dashed border-slate-300 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-400 text-left flex items-center justify-between gap-2 text-[11px] text-slate-500 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <span className="truncate">
+                Drop a JD or email PDF here, or{' '}
+                <span className="font-semibold text-brand-700 underline underline-offset-2">
+                  browse file
+                </span>
+              </span>
+              <span className="text-[10px] text-slate-400 shrink-0">PDF, DOCX, TXT</span>
+            </button>
+          )}
+
           <textarea
-            rows={19}
+            rows={17}
             value={rawEmailText}
             onChange={(e) => setRawEmailText(e.target.value)}
             onPaste={(e) => {
@@ -580,14 +743,14 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
                 setTimeout(() => parseEmailText(pasted), 50);
               }
             }}
-            placeholder="Paste any hiring manager or vendor email here — parsing runs automatically on paste..."
-            className="w-full p-3.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-700 leading-relaxed focus:bg-white focus:border-brand-600 focus:outline-none min-h-[380px]"
+            placeholder="Paste any hiring manager or vendor email here, or upload/drop a PDF above — parsing runs automatically..."
+            className="w-full p-3.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-700 leading-relaxed focus:bg-white focus:border-brand-600 focus:outline-none min-h-[340px]"
           />
 
           <div className="flex items-center justify-between gap-2 pt-0.5">
             <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
               <Info className="w-3.5 h-3.5 shrink-0" />
-              <span>Pasting automatically triggers extraction.</span>
+              <span>Pasting text or uploading a PDF automatically triggers extraction.</span>
             </div>
             {rawEmailText.trim().length > 20 && (
               <button

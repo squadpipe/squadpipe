@@ -22,6 +22,7 @@ import {
   buildEnhancedResumeParseResponse,
   buildNodeResumeFallback,
   extractEmailHeuristics,
+  extractReadableTextFromDocumentBuffer,
 } from '../../src/services/ai/parseBridge.service';
 import type { AiProviderAdapter } from '../../src/services/ai/ai.types';
 
@@ -639,6 +640,23 @@ export const runAiServiceTests = async () => {
   assert.equal(sparseEmailRes.targetBillRate, 0);
   assert.equal(sparseEmailRes.openPositions, 2);
   assert.equal(sparseEmailRes.opportunityTitle, 'Python Data Engineer');
+
+  // Requirement document fallback extraction preserves line breaks for TXT/EML while blocking raw PDF binary noise
+  const extractedTxt = extractReadableTextFromDocumentBuffer(
+    Buffer.from('Target Company: Acme Cloud\nJob Title: Staff DevOps Engineer\nLocation: Austin, TX'),
+    'jd.txt',
+    { preserveLineBreaks: true }
+  );
+  assert.equal(
+    extractedTxt,
+    'Target Company: Acme Cloud\nJob Title: Staff DevOps Engineer\nLocation: Austin, TX'
+  );
+  const pdfBinaryFallback = extractReadableTextFromDocumentBuffer(
+    Buffer.from('%PDF-1.7\n1 0 obj << /Filter /FlateDecode >> stream\nbinary\nendstream'),
+    'req.pdf',
+    { preserveLineBreaks: true }
+  );
+  assert.equal(pdfBinaryFallback, '');
 
   console.log('✅ Provider-Agnostic AI Adapter & Guardrail Tests: PASSED');
 };
