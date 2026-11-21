@@ -9,7 +9,10 @@ import { UserRole, UserStatus } from '@prisma/client';
 import { getJwtAccessExpiry, getJwtAccessSecret } from '../config/jwt.config';
 import { getTenantSettings, saveGeneralSettings } from '../config/smtp.config';
 import { smtpService } from '../services/smtp.service';
-import { renderOtpEmail } from '../services/emailTemplate.service';
+import {
+  renderOtpEmail,
+  renderSignupVerificationEmail,
+} from '../services/emailTemplate.service';
 import { analyticsService } from '../services/analytics.service';
 import { userService } from '../services/user.service';
 import {
@@ -92,12 +95,157 @@ async function buildSignedSessionPayload(
       status: user.status,
       isSuperAdmin,
       isCurrentUser: true,
+      onboardingCompleted: settings.general.onboardingCompleted !== false,
       lastActive: 'Active Now',
     },
   };
 }
 
 const OTP_RESEND_COOLDOWN_SECONDS = 120;
+const SIGNUP_OTP_RESEND_COOLDOWN_SECONDS = 60;
+const SIGNUP_OTP_PREFIX = 'signup_otp_';
+const SIGNUP_UNVERIFIED_PREFIX = 'signup_unverified_';
+
+export function isOtpDevFallbackEnabled(): boolean {
+  const flag = String(process.env.OTP_DEV_FALLBACK || '').trim().toLowerCase();
+  if (flag === 'true' || flag === '1' || flag === 'yes') return true;
+  if (flag === 'false' || flag === '0' || flag === 'no') return false;
+  return process.env.NODE_ENV !== 'production';
+}
+
+async function isEmailPendingVerification(userId: string, email: string): Promise<boolean> {
+  const marker = await prisma.refreshToken.findFirst({
+    where: {
+      userId,
+      token: `${SIGNUP_UNVERIFIED_PREFIX}${email}`,
+      revokedAt: null,
+    },
+    select: { id: true },
+  });
+  return Boolean(marker);
+}
+
+type DispatchSignupOtpResult =
+  | {
+      ok: true;
+      emailDelivered: boolean;
+      devOtp?: string;
+      cooldownSeconds: number;
+    }
+  | {
+      ok: false;
+      status: number;
+      code?: string;
+      retryAfterSeconds?: number;
+      message: string;
+    };
+
+async function dispatchSignupOtp(params: {
+  userId: string;
+  email: string;
+  fullName: string;
+  tenantId: string;
+  brandName: string;
+  bypassCooldown?: boolean;
+}): Promise<DispatchSignupOtpResult> {
+  const prefix = `${SIGNUP_OTP_PREFIX}${params.email}_`;
+
+  if (!params.bypassCooldown) {
+    const latestOtp = await prisma.refreshToken.findFirst({
+      where: {
+        userId: params.userId,
+        token: { startsWith: prefix },
+        revokedAt: null,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (latestOtp) {
+      const elapsedMs = Date.now() - latestOtp.createdAt.getTime();
+      const cooldownMs = SIGNUP_OTP_RESEND_COOLDOWN_SECONDS * 1000;
+      if (elapsedMs < cooldownMs) {
+        const retryAfterSeconds = Math.ceil((cooldownMs - elapsedMs) / 1000);
+        return {
+          ok: false,
+          status: 429,
+          code: 'OTP_COOLDOWN',
+          retryAfterSeconds,
+          message: `Please wait ${retryAfterSeconds}s before requesting a new verification code.`,
+        };
+      }
+    }
+  }
+
+  const otpCode = crypto.randomInt(100000, 1000000).toString();
+  const tokenKey = `${prefix}${otpCode}`;
+
+  await prisma.refreshToken.updateMany({
+    where: {
+      userId: params.userId,
+      token: { startsWith: prefix },
+      revokedAt: null,
+    },
+    data: { revokedAt: new Date() },
+  });
+
+  const otpRecord = await prisma.refreshToken.create({
+    data: {
+      token: tokenKey,
+      userId: params.userId,
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+    },
+  });
+
+  const { subject, html } = renderSignupVerificationEmail({
+    brandName: params.brandName,
+    recipientName: params.fullName,
+    otpCode,
+    expiresMinutes: 15,
+  });
+
+  const mailResult = await smtpService.sendMail({
+    to: params.email,
+    recipientName: params.fullName,
+    subject,
+    html,
+    tenantId: params.tenantId,
+    noReply: true,
+  });
+
+  if (mailResult.success) {
+    return {
+      ok: true,
+      emailDelivered: true,
+      cooldownSeconds: SIGNUP_OTP_RESEND_COOLDOWN_SECONDS,
+    };
+  }
+
+  if (isOtpDevFallbackEnabled()) {
+    console.warn(`[OTP Dev Fallback] Signup verification code for ${params.email}: ${otpCode}`);
+    return {
+      ok: true,
+      emailDelivered: false,
+      devOtp: otpCode,
+      cooldownSeconds: SIGNUP_OTP_RESEND_COOLDOWN_SECONDS,
+    };
+  }
+
+  // Strict production mode: revoke un-dispatched code and fail cleanly without exposing OTP
+  await prisma.refreshToken
+    .update({
+      where: { id: otpRecord.id },
+      data: { revokedAt: new Date() },
+    })
+    .catch(() => {});
+
+  return {
+    ok: false,
+    status: 503,
+    message:
+      mailResult.code === 'SMTP_NOT_CONFIGURED'
+        ? 'Email verification is unavailable because email delivery is not configured.'
+        : 'Unable to send your verification code right now. Please try again in a moment.',
+  };
+}
 
 export const login = async (req: Request, res: Response) => {
   const parseResult = LoginSchema.safeParse(req.body);
@@ -110,9 +258,11 @@ export const login = async (req: Request, res: Response) => {
 
   const { email, password, rememberMe } = parseResult.data;
 
+  const normalizedEmail = email.toLowerCase();
+
   // Find user in database
   const user = await prisma.user.findUnique({
-    where: { email: email.toLowerCase() }
+    where: { email: normalizedEmail }
   });
 
   if (!user) {
@@ -137,6 +287,38 @@ export const login = async (req: Request, res: Response) => {
     return res.status(401).json({
       success: false,
       message: 'Invalid credentials. Please verify your password.'
+    });
+  }
+
+  // Block login until signup email OTP verification is completed (checked after valid password)
+  const pendingVerification = await isEmailPendingVerification(user.id, normalizedEmail);
+  if (pendingVerification) {
+    const tenantId = user.tenantId || `tenant_${user.id}`;
+    const otpDispatch = await dispatchSignupOtp({
+      userId: user.id,
+      email: normalizedEmail,
+      fullName: user.fullName,
+      tenantId,
+      brandName: user.agencyName || 'SquadPipe Staffing',
+    });
+
+    if (!otpDispatch.ok && otpDispatch.status !== 429) {
+      return res.status(otpDispatch.status).json({
+        success: false,
+        message: otpDispatch.message,
+      });
+    }
+
+    return res.status(403).json({
+      success: false,
+      code: 'EMAIL_VERIFICATION_REQUIRED',
+      email: normalizedEmail,
+      agencyName: user.agencyName,
+      cooldownSeconds: otpDispatch.ok
+        ? otpDispatch.cooldownSeconds
+        : otpDispatch.retryAfterSeconds || SIGNUP_OTP_RESEND_COOLDOWN_SECONDS,
+      ...(otpDispatch.ok && otpDispatch.devOtp ? { devOtp: otpDispatch.devOtp } : {}),
+      message: 'Please verify your work email with the 6-digit code before signing in.',
     });
   }
 
@@ -174,21 +356,24 @@ export const me = async (req: Request, res: Response) => {
   // Lightweight permission sync skips workload & settings queries using fresh req.user from authenticateJwt
   const isLite = req.query.lite === '1' || req.query.lite === 'true';
   if (isLite) {
-    const isSuperAdmin = await userService
-      .isSuperAdmin(req.user.tenantId, req.user.id)
-      .catch(() => false);
+    const liteTenantId = req.user.tenantId || 'squadpipe-agency';
+    const [isSuperAdmin, settings] = await Promise.all([
+      userService.isSuperAdmin(liteTenantId, req.user.id).catch(() => false),
+      getTenantSettings(liteTenantId),
+    ]);
     return res.json({
       success: true,
       user: {
         id: req.user.id,
         name: req.user.fullName,
         email: req.user.email,
-        agencyName: req.user.agencyName || 'SquadPipe Staffing',
+        agencyName: settings.general.agencyName?.trim() || req.user.agencyName || 'SquadPipe Staffing',
         tenantId: req.user.tenantId,
         role: req.user.role,
         rateMasked: req.user.rateMasked,
         isSuperAdmin,
         isCurrentUser: true,
+        onboardingCompleted: settings.general.onboardingCompleted !== false,
         lastActive: 'Active Now',
       },
     });
@@ -225,6 +410,7 @@ export const me = async (req: Request, res: Response) => {
       status: user.status,
       isSuperAdmin,
       isCurrentUser: true,
+      onboardingCompleted: settings.general.onboardingCompleted !== false,
       lastActive: 'Active Now'
     }
   });
@@ -349,7 +535,7 @@ export const updateProfile = async (req: Request, res: Response) => {
 
 export const signup = async (req: Request, res: Response) => {
   try {
-    const { fullName, email, password, role, desk, agencyName, companyName } = req.body;
+    const { fullName, email, password, desk, agencyName, companyName } = req.body;
     const resolvedCompanyInput = String(agencyName || companyName || '').trim();
 
     if (!fullName?.trim() || !resolvedCompanyInput || !email?.trim() || !password) {
@@ -367,6 +553,8 @@ export const signup = async (req: Request, res: Response) => {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
+    const passwordHash = await bcrypt.hash(password, 10);
+    const assignedDesk = desk?.trim() || 'US IT Contract (C2C & W2)';
 
     // Check if user already exists
     const existing = await prisma.user.findUnique({
@@ -374,18 +562,62 @@ export const signup = async (req: Request, res: Response) => {
     });
 
     if (existing) {
-      return res.status(400).json({
-        success: false,
-        message: 'An account with this email address already exists. Please sign in.'
+      const pendingExisting = await isEmailPendingVerification(existing.id, normalizedEmail);
+      if (!pendingExisting) {
+        return res.status(400).json({
+          success: false,
+          message: 'An account with this email address already exists. Please sign in.'
+        });
+      }
+
+      // Allow restarting/resuming an unverified signup for the same email
+      const updatedPendingUser = await prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          fullName: fullName.trim(),
+          agencyName: resolvedCompanyInput,
+          passwordHash,
+          desk: assignedDesk,
+        },
+      });
+      const existingTenantId = updatedPendingUser.tenantId || `tenant_${updatedPendingUser.id}`;
+      await saveGeneralSettings(existingTenantId, {
+        agencyName: resolvedCompanyInput,
+        onboardingCompleted: false,
+      }).catch(() => {});
+
+      const otpResult = await dispatchSignupOtp({
+        userId: updatedPendingUser.id,
+        email: normalizedEmail,
+        fullName: updatedPendingUser.fullName,
+        tenantId: existingTenantId,
+        brandName: resolvedCompanyInput,
+        bypassCooldown: true,
+      });
+
+      if (!otpResult.ok) {
+        return res.status(otpResult.status).json({
+          success: false,
+          message: otpResult.message,
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        requiresEmailVerification: true,
+        email: normalizedEmail,
+        agencyName: resolvedCompanyInput,
+        emailDelivered: otpResult.emailDelivered,
+        cooldownSeconds: otpResult.cooldownSeconds,
+        ...(otpResult.devOtp ? { devOtp: otpResult.devOtp } : {}),
+        message: otpResult.emailDelivered
+          ? `Verification code sent to ${normalizedEmail}. Enter it below to activate your workspace.`
+          : 'Email delivery unavailable in local mode — enter the preview verification code below to continue.',
       });
     }
 
-    // Hash password
-    const passwordHash = await bcrypt.hash(password, 10);
-
     // Public self-signup creates an isolated tenant workspace owned by the registrant
     const assignedRole: UserRole = UserRole.ADMINISTRATOR;
-    const assignedDesk = desk?.trim() || 'US IT Contract (C2C & W2)';
     const rateMasked = false; // Owner/Admin of new tenant has unmasked rate view
 
     // Determine Tenant ID & Agency Name (domain auto-join disabled unless ALLOW_DEMO_DOMAIN_JOIN=true)
@@ -397,7 +629,7 @@ export const signup = async (req: Request, res: Response) => {
       : `tenant_${Date.now().toString(36)}_${crypto.randomBytes(4).toString('hex')}`;
     const resolvedAgencyName = resolvedCompanyInput;
 
-    // Create user in database
+    // Create pending user in database alongside unverified email sentinel
     const user = await prisma.user.create({
       data: {
         fullName: fullName.trim(),
@@ -414,26 +646,209 @@ export const signup = async (req: Request, res: Response) => {
       }
     });
 
-    await saveGeneralSettings(tenantId, { agencyName: resolvedAgencyName }).catch(() => { });
+    await prisma.refreshToken.create({
+      data: {
+        token: `${SIGNUP_UNVERIFIED_PREFIX}${normalizedEmail}`,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
+    });
 
-    const [session, refreshSessionData] = await Promise.all([
-      buildSignedSessionPayload(user, { isSuperAdminOverride: !isDemoDomain }),
-      issueSessionRefreshToken(user.id, true),
-    ]);
+    await saveGeneralSettings(tenantId, {
+      agencyName: resolvedAgencyName,
+      onboardingCompleted: false,
+    }).catch(() => { });
 
-    setSessionRefreshCookie(req, res, refreshSessionData.rawToken, true);
+    const otpResult = await dispatchSignupOtp({
+      userId: user.id,
+      email: normalizedEmail,
+      fullName: user.fullName,
+      tenantId,
+      brandName: resolvedAgencyName,
+      bypassCooldown: true,
+    });
+
+    if (!otpResult.ok) {
+      // Clean up uncommitted signup in strict production mode when SMTP fails
+      await prisma.user.delete({ where: { id: user.id } }).catch(() => {});
+      await prisma
+        .$executeRawUnsafe(`DELETE FROM tenant_settings WHERE tenant_id = $1`, tenantId)
+        .catch(() => {});
+      return res.status(otpResult.status).json({
+        success: false,
+        message: otpResult.message,
+      });
+    }
 
     res.status(201).json({
       success: true,
-      message: `Account created successfully! Welcome to ${user.agencyName}, ${user.fullName}.`,
-      token: session.token,
-      user: session.user,
+      requiresEmailVerification: true,
+      email: normalizedEmail,
+      agencyName: resolvedAgencyName,
+      emailDelivered: otpResult.emailDelivered,
+      cooldownSeconds: otpResult.cooldownSeconds,
+      ...(otpResult.devOtp ? { devOtp: otpResult.devOtp } : {}),
+      message: otpResult.emailDelivered
+        ? `Verification code sent to ${normalizedEmail}. Enter it below to activate your workspace.`
+        : 'Email delivery unavailable in local mode — enter the preview verification code below to continue.',
     });
   } catch (error: any) {
     console.error('Signup error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to create account. Please try again.'
+    });
+  }
+};
+
+export const resendSignupOtp = async (req: Request, res: Response) => {
+  try {
+    const normalizedEmail = String(req.body?.email || '').trim().toLowerCase();
+    if (!normalizedEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email address is required.',
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (!user || user.status === UserStatus.SUSPENDED) {
+      return res.json({
+        success: true,
+        cooldownSeconds: SIGNUP_OTP_RESEND_COOLDOWN_SECONDS,
+        message: 'If your signup is pending verification, a fresh code has been sent.',
+      });
+    }
+
+    const pending = await isEmailPendingVerification(user.id, normalizedEmail);
+    if (!pending) {
+      return res.status(400).json({
+        success: false,
+        message: 'This email is already verified. Please sign in.',
+      });
+    }
+
+    const tenantId = user.tenantId || `tenant_${user.id}`;
+    const otpResult = await dispatchSignupOtp({
+      userId: user.id,
+      email: normalizedEmail,
+      fullName: user.fullName,
+      tenantId,
+      brandName: user.agencyName || 'SquadPipe Staffing',
+    });
+
+    if (!otpResult.ok) {
+      return res.status(otpResult.status).json({
+        success: false,
+        code: otpResult.code,
+        retryAfterSeconds: otpResult.retryAfterSeconds,
+        message: otpResult.message,
+      });
+    }
+
+    return res.json({
+      success: true,
+      emailDelivered: otpResult.emailDelivered,
+      cooldownSeconds: otpResult.cooldownSeconds,
+      ...(otpResult.devOtp ? { devOtp: otpResult.devOtp } : {}),
+      message: otpResult.emailDelivered
+        ? `A new 6-digit verification code has been sent to ${normalizedEmail}.`
+        : 'Email delivery unavailable in local mode — use the updated verification code below.',
+    });
+  } catch (error: any) {
+    console.error('Resend signup OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to resend verification code.',
+    });
+  }
+};
+
+export const verifySignupOtp = async (req: Request, res: Response) => {
+  try {
+    const normalizedEmail = String(req.body?.email || '').trim().toLowerCase();
+    const suppliedCode = String(req.body?.code || req.body?.otpCode || req.body?.resetCode || '').trim();
+
+    if (!normalizedEmail || !suppliedCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and 6-digit verification code are required.',
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (!user || user.status === UserStatus.SUSPENDED) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired verification code.',
+      });
+    }
+
+    const tokenRecord = await prisma.refreshToken.findFirst({
+      where: {
+        userId: user.id,
+        token: `${SIGNUP_OTP_PREFIX}${normalizedEmail}_${suppliedCode}`,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!tokenRecord) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired verification code.',
+      });
+    }
+
+    const [verifiedUser] = await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: {
+          status: UserStatus.ACTIVE,
+          lastActiveAt: new Date(),
+        },
+      }),
+      prisma.refreshToken.updateMany({
+        where: {
+          userId: user.id,
+          OR: [
+            { token: { startsWith: `${SIGNUP_OTP_PREFIX}${normalizedEmail}_` } },
+            { token: `${SIGNUP_UNVERIFIED_PREFIX}${normalizedEmail}` },
+          ],
+          revokedAt: null,
+        },
+        data: { revokedAt: new Date() },
+      }),
+    ]);
+
+    const allowDemoDomainJoin = process.env.ALLOW_DEMO_DOMAIN_JOIN === 'true';
+    const isDemoDomain =
+      allowDemoDomainJoin && normalizedEmail.endsWith('@squadpipe-agency.com');
+
+    const [session, refreshSessionData] = await Promise.all([
+      buildSignedSessionPayload(verifiedUser, { isSuperAdminOverride: !isDemoDomain }),
+      issueSessionRefreshToken(verifiedUser.id, true),
+    ]);
+
+    setSessionRefreshCookie(req, res, refreshSessionData.rawToken, true);
+
+    res.json({
+      success: true,
+      message: `Email verified! Let’s finish setting up ${session.resolvedAgencyName}.`,
+      token: session.token,
+      user: session.user,
+    });
+  } catch (error: any) {
+    console.error('Verify signup OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to verify code. Please try again.',
     });
   }
 };
@@ -454,8 +869,8 @@ export const forgotPassword = async (req: Request, res: Response) => {
       where: { email: normalizedEmail }
     });
 
-    // Generic response prevents account email enumeration while still dispatching valid requests
-    if (!user || user.status === UserStatus.SUSPENDED) {
+    // Generic response prevents account email enumeration while blocking reset bypass before email verification
+    if (!user || user.status === UserStatus.SUSPENDED || (await isEmailPendingVerification(user.id, normalizedEmail))) {
       return res.json({
         success: true,
         message: 'If an account is registered for that email address, a verification code has been dispatched.'

@@ -187,6 +187,11 @@ const PublicRequirementApplyView = React.lazy(() =>
     default: m.PublicRequirementApplyView,
   }))
 );
+const TenantOnboardingPage = React.lazy(() =>
+  import('./features/onboarding/TenantOnboardingPage').then((m) => ({
+    default: m.TenantOnboardingPage,
+  }))
+);
 
 // Auth View
 import { LoginView } from './features/auth/LoginView';
@@ -1478,6 +1483,9 @@ export const App: React.FC = () => {
 
   const normalizedUserRole = formatUserRole(currentUser?.role);
   const isAdmin = normalizedUserRole === 'Administrator';
+  const needsTenantOnboarding = Boolean(
+    currentUser && isAdmin && currentUser.onboardingCompleted === false
+  );
   const canManageDataOperations = [
     'Administrator',
     'Senior Recruiter',
@@ -1624,7 +1632,8 @@ export const App: React.FC = () => {
         mergedUser.name !== prevUser.name ||
         mergedUser.email !== prevUser.email ||
         mergedUser.agencyName !== prevUser.agencyName ||
-        mergedUser.desk !== prevUser.desk;
+        mergedUser.desk !== prevUser.desk ||
+        mergedUser.onboardingCompleted !== prevUser.onboardingCompleted;
 
       if (hasDetailsChange) {
         currentUserRef.current = mergedUser;
@@ -1738,9 +1747,9 @@ export const App: React.FC = () => {
 
   // 2. ON-DEMAND / VIEW-SCOPED FETCHING: Only call APIs for the active view when opened!
   useEffect(() => {
-    if (!authToken && !currentUser) return;
+    if ((!authToken && !currentUser) || needsTenantOnboarding) return;
     loadEntitiesForView(currentView, isAdmin);
-  }, [currentView, authToken]);
+  }, [currentView, authToken, needsTenantOnboarding]);
 
   const routeStateRef = React.useRef({
     requirements,
@@ -3538,6 +3547,61 @@ export const App: React.FC = () => {
           showToast={showToast}
         />
       </div>
+    );
+  }
+
+  if (needsTenantOnboarding && currentUser) {
+    return (
+      <>
+        <AnimatePresence>
+          {toast && (
+            <AnimatedToast
+              key="onboarding-toast"
+              style={{ zIndex: 9999 }}
+              className="fixed bottom-5 right-5 z-[9999] max-w-md bg-white border border-slate-200 card-shadow rounded-xl p-4 flex items-center gap-3"
+            >
+              <AppIcon icon={toast.icon} className="w-4 h-4 flex-shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold text-slate-900">{toast.title}</div>
+                <div className="text-[11px] text-slate-500 break-words">{toast.message}</div>
+              </div>
+              <button
+                onClick={() => setToast(null)}
+                aria-label="Dismiss notification"
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer flex-shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </AnimatedToast>
+          )}
+        </AnimatePresence>
+        <React.Suspense
+          fallback={
+            <div className="min-h-screen w-full flex items-center justify-center bg-[#FAFAFA] text-xs text-slate-500">
+              Loading workspace setup...
+            </div>
+          }
+        >
+          <TenantOnboardingPage
+            currentUser={currentUser}
+            onCompleteOnboarding={(updates) => {
+              const nextUser: User = {
+                ...currentUser,
+                ...(updates?.agencyName ? { agencyName: updates.agencyName } : {}),
+                onboardingCompleted: true,
+              };
+              currentUserRef.current = nextUser;
+              setCurrentUser(nextUser);
+              updateStoredCurrentUser(nextUser);
+              lastSessionSyncAtRef.current = Date.now();
+              loadedEntities.current.clear();
+              fetchSidebarCounts();
+            }}
+            onSignOut={handleSignOut}
+            showToast={showToast}
+          />
+        </React.Suspense>
+      </>
     );
   }
 

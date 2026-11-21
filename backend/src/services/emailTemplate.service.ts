@@ -83,6 +83,31 @@ export function renderOtpEmail(params: {
   return { subject, html };
 }
 
+export function renderSignupVerificationEmail(params: {
+  brandName: string;
+  recipientName: string;
+  otpCode: string;
+  expiresMinutes?: number;
+}): { subject: string; html: string } {
+  const workspaceContext = joinBrandAndApp(params.brandName, APP_NAME, 'on');
+  const senderContext = joinBrandAndApp(params.brandName, APP_NAME, 'via');
+  const subject = `Verify your email for ${workspaceContext}`;
+  const html = renderWithLayout({
+    templateName: 'signup-otp',
+    subject,
+    brandName: params.brandName,
+    badgeText: 'Email Verification',
+    footerNote:
+      `Automated no-reply verification email from ${senderContext}. Never share this code; please do not reply directly to this email.`,
+    data: {
+      recipientName: params.recipientName || 'Workspace Owner',
+      otpCode: params.otpCode,
+      expiresMinutes: params.expiresMinutes ?? 15,
+    },
+  });
+  return { subject, html };
+}
+
 export function renderInviteEmail(params: {
   brandName: string;
   recipientName: string;

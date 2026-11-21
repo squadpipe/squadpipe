@@ -144,6 +144,7 @@ export interface GeneralSettings {
   standardMonthlyHours: number;
   maskRatesByDefault: boolean;
   requirePoForPlacement: boolean;
+  onboardingCompleted?: boolean;
   applicationForms?: ApplicationFormTemplate[];
 }
 
@@ -234,6 +235,9 @@ async function resolveTenantBrandDefaults(
     general: {
       ...general,
       agencyName: resolvedAgencyName,
+      // Existing/legacy tenant settings without this flag treat onboarding as completed
+      onboardingCompleted:
+        general.onboardingCompleted !== undefined ? Boolean(general.onboardingCompleted) : true,
     },
   };
 }
@@ -295,6 +299,12 @@ export async function saveGeneralSettings(
       partial.requirePoForPlacement !== undefined
         ? Boolean(partial.requirePoForPlacement)
         : current.general.requirePoForPlacement,
+    onboardingCompleted:
+      partial.onboardingCompleted !== undefined
+        ? Boolean(partial.onboardingCompleted)
+        : current.general.onboardingCompleted !== undefined
+        ? Boolean(current.general.onboardingCompleted)
+        : true,
   };
   const key = tenantId || 'squadpipe-agency';
   await ensureTenantSettingsTable();

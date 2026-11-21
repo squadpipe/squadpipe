@@ -94,6 +94,7 @@ services:
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - ALLOW_DEMO_DOMAIN_JOIN=${ALLOW_DEMO_DOMAIN_JOIN:-false}
+      - OTP_DEV_FALLBACK=${OTP_DEV_FALLBACK:-false}
       - RESUME_PARSER_SERVICE_URL=http://resume-parser:8000
       - RESUME_PARSER_API_KEY=${RESUME_PARSER_API_KEY:-}
       - UPLOAD_RATE_LIMIT_MAX=${UPLOAD_RATE_LIMIT_MAX:-250}

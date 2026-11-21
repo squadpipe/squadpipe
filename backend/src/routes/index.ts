@@ -106,6 +106,8 @@ router.get('/health', async (_req: Request, res: Response) => {
 });
 
 router.post('/auth/signup', authRateLimiter, authController.signup);
+router.post('/auth/resend-signup-otp', sensitiveAuthRateLimiter, authController.resendSignupOtp);
+router.post('/auth/verify-signup-otp', sensitiveAuthRateLimiter, authController.verifySignupOtp);
 router.post('/auth/login', authRateLimiter, authController.login);
 router.post('/auth/refresh', refreshRateLimiter, authController.refreshSession);
 router.post('/auth/logout', authController.logout);

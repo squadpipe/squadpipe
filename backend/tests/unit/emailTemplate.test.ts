@@ -3,6 +3,7 @@ import {
   APP_NAME,
   renderInviteEmail,
   renderOtpEmail,
+  renderSignupVerificationEmail,
   renderSubmissionEmail,
 } from '../../src/services/emailTemplate.service';
 import {
@@ -63,6 +64,24 @@ export function runEmailTemplateTests() {
     'OTP footer must include automated no-reply notice'
   );
   console.log('  ✅ OTP email streamlines subject and body cleanly');
+
+  // 2b. Signup verification email: dedicated email verification subject & copy
+  const signupOtp = renderSignupVerificationEmail({
+    brandName: companyName,
+    recipientName: 'Nakul Das',
+    otpCode: '654321',
+    expiresMinutes: 15,
+  });
+  assert(
+    signupOtp.subject.includes(`Verify your email for ${companyName} on ${APP_NAME}`),
+    'Signup verification subject must align email verification with company and app name'
+  );
+  assert(
+    signupOtp.html.includes('Verify your work email'),
+    'Signup verification heading must clearly state email verification'
+  );
+  assert(signupOtp.html.includes('654321'), 'Signup verification HTML must include the OTP code');
+  console.log('  ✅ Signup verification email renders subject and body cleanly');
 
   // 3. Submission email fallback: candidate + requirement + company without no-reply notice
   const submission = renderSubmissionEmail({

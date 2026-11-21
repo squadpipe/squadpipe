@@ -25,7 +25,7 @@ interface LoginViewProps {
 
 export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast }) => {
   const [authMode, setAuthMode] = useState<
-    'login' | 'signup' | 'forgot' | 'verify-otp' | 'reset' | 'accept-invite'
+    'login' | 'signup' | 'verify-signup' | 'forgot' | 'verify-otp' | 'reset' | 'accept-invite'
   >('login');
 
   // Login state
@@ -46,6 +46,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [showSignupConfirmPassword, setShowSignupConfirmPassword] = useState(false);
+  const [pendingSignupEmail, setPendingSignupEmail] = useState('');
+  const [pendingSignupAgency, setPendingSignupAgency] = useState('');
+  const [signupOtpCode, setSignupOtpCode] = useState('');
+  const [signupDevOtp, setSignupDevOtp] = useState('');
 
   // Forgot / Verify OTP / Reset state
   const [forgotEmail, setForgotEmail] = useState('');
@@ -158,6 +162,26 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
         );
       }
     } catch (err: any) {
+      if (err?.response?.data?.code === 'EMAIL_VERIFICATION_REQUIRED') {
+        const verifyEmail = err.response.data.email || loginEmail.trim().toLowerCase();
+        setPendingSignupEmail(verifyEmail);
+        setPendingSignupAgency(err.response.data.agencyName || '');
+        setSignupOtpCode('');
+        setSignupDevOtp(err.response.data.devOtp || '');
+        setResendCooldown(Number(err.response.data.cooldownSeconds) || 60);
+        setErrorMessage('');
+        setSuccessMessage(
+          err.response.data.message ||
+          'Please verify your work email with the 6-digit code before signing in.'
+        );
+        setAuthMode('verify-signup');
+        showToast(
+          'Verification Required',
+          `Enter the 6-digit code sent to ${verifyEmail} to continue.`,
+          'key'
+        );
+        return;
+      }
       const msg =
         err?.response?.data?.message ||
         err?.message ||
@@ -215,7 +239,26 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
         role: 'ADMINISTRATOR',
       });
 
-      if (res.data?.success && res.data.token) {
+      if (res.data?.success && res.data?.requiresEmailVerification) {
+        const verifyEmail = res.data.email || signupEmail.trim().toLowerCase();
+        setPendingSignupEmail(verifyEmail);
+        setPendingSignupAgency(res.data.agencyName || signupCompanyName.trim());
+        setSignupOtpCode('');
+        setSignupDevOtp(res.data.devOtp || '');
+        setResendCooldown(Number(res.data.cooldownSeconds) || 60);
+        setSuccessMessage(
+          res.data.message ||
+          `Enter the 6-digit verification code sent to ${verifyEmail}.`
+        );
+        setAuthMode('verify-signup');
+        showToast(
+          res.data.devOtp ? 'Local Verification Code Ready' : 'Verification Code Sent',
+          res.data.devOtp
+            ? 'SMTP is unavailable locally — use the preview code shown on screen.'
+            : `Check ${verifyEmail} for your 6-digit verification code.`,
+          'key'
+        );
+      } else if (res.data?.success && res.data.token) {
         const { user, token } = res.data;
         setAuthSession(token, user, true);
         showToast('Account Created', `Welcome to SquadPipe, ${user.name}!`, 'success');
@@ -232,6 +275,84 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
       showToast('Signup Issue', msg, 'error');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleVerifySignupOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanCode = signupOtpCode.trim();
+    if (cleanCode.length < 6) {
+      setValidationAttempted(true);
+      setErrorMessage(
+        cleanCode
+          ? 'Please enter the complete 6-digit verification code.'
+          : '6-digit verification code is required.'
+      );
+      return;
+    }
+
+    setValidationAttempted(false);
+    setIsLoading(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      const res = await apiClient.post('/auth/verify-signup-otp', {
+        email: pendingSignupEmail,
+        code: cleanCode,
+      });
+
+      if (res.data?.success && res.data.token && res.data.user) {
+        const { user, token } = res.data;
+        setAuthSession(token, user, true);
+        showToast('Email Verified', `Let's finish setting up ${user.agencyName || 'your workspace'}!`, 'success');
+        onLoginSuccess(user, token);
+      } else {
+        setErrorMessage(res.data?.message || 'Invalid or expired verification code.');
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.response?.data?.message || 'Invalid or expired verification code.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendSignupOtp = async () => {
+    if (resendCooldown > 0 || isResendingOtp || !pendingSignupEmail) return;
+    setIsResendingOtp(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      const res = await apiClient.post('/auth/resend-signup-otp', {
+        email: pendingSignupEmail,
+      });
+      if (res.data?.success) {
+        setResendCooldown(Number(res.data?.cooldownSeconds) || 60);
+        setSignupDevOtp(res.data?.devOtp || '');
+        setSuccessMessage(
+          res.data?.message ||
+          `A new 6-digit verification code has been issued for ${pendingSignupEmail}.`
+        );
+        showToast(
+          res.data?.devOtp ? 'Local Code Refreshed' : 'Code Resent',
+          res.data?.devOtp
+            ? 'Updated preview verification code is shown below.'
+            : 'Check your inbox for your new 6-digit verification code.',
+          'send'
+        );
+      } else {
+        setErrorMessage(res.data?.message || 'Unable to resend verification code.');
+      }
+    } catch (err: any) {
+      const retryAfter = Number(err?.response?.data?.retryAfterSeconds || 0);
+      if (err?.response?.status === 429 && retryAfter > 0) {
+        setResendCooldown(retryAfter);
+        return;
+      }
+      setErrorMessage(err?.response?.data?.message || 'Unable to resend verification code.');
+    } finally {
+      setIsResendingOtp(false);
     }
   };
 
@@ -264,7 +385,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
       if (res.data?.success) {
         setSuccessMessage(
           res.data.message ||
-            `If an account exists for ${forgotEmail}, a 6-digit verification code has been dispatched.`
+          `If an account exists for ${forgotEmail}, a 6-digit verification code has been dispatched.`
         );
         setResetCode('');
         setResetSessionToken('');
@@ -488,8 +609,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
     } catch (err: any) {
       setErrorMessage(
         err?.response?.data?.message ||
-          err?.message ||
-          'We could not complete your setup right now. Please try again.'
+        err?.message ||
+        'We could not complete your setup right now. Please try again.'
       );
     } finally {
       setIsLoading(false);
@@ -510,6 +631,15 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
       subtext: 'Create an administrator account to manage requisitions, bench rosters, and billable placements.',
       cardTitle: 'Create your account',
       cardSub: 'Register as workspace administrator',
+    },
+    'verify-signup': {
+      line1: 'Verify your work email',
+      line2: 'to continue.',
+      subtext: 'Confirm your email address with the 6-digit code, then configure your agency workspace.',
+      cardTitle: 'Verify your email',
+      cardSub: pendingSignupEmail
+        ? `Sent to ${pendingSignupEmail}${pendingSignupAgency ? ` · ${pendingSignupAgency}` : ''}`
+        : 'Enter the 6-digit verification code',
     },
     forgot: {
       line1: 'Recover access to',
@@ -544,7 +674,14 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
   }[authMode];
 
   const switchMode = (
-    mode: 'login' | 'signup' | 'forgot' | 'verify-otp' | 'reset' | 'accept-invite'
+    mode:
+      | 'login'
+      | 'signup'
+      | 'verify-signup'
+      | 'forgot'
+      | 'verify-otp'
+      | 'reset'
+      | 'accept-invite'
   ) => {
     setErrorMessage('');
     setSuccessMessage('');
@@ -556,10 +693,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
     'w-full h-10 px-3.5 bg-white border rounded-lg text-slate-900 placeholder-slate-400 text-xs focus:ring-2 focus:outline-none transition-all';
 
   const authInputClass = (hasError: boolean, extraClass = '') =>
-    `${inputBaseClass} ${
-      hasError
-        ? INVALID_FIELD_CLASSES
-        : 'border-slate-200 focus:border-brand-600 focus:ring-brand-600/15'
+    `${inputBaseClass} ${hasError
+      ? INVALID_FIELD_CLASSES
+      : 'border-slate-200 focus:border-brand-600 focus:ring-brand-600/15'
     }${extraClass ? ` ${extraClass}` : ''}`;
 
   const loginEmailInvalid =
@@ -578,6 +714,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
   const forgotEmailInvalid =
     validationAttempted && (!forgotEmail.trim() || !isValidEmailFormat(forgotEmail));
   const otpInvalid = validationAttempted && resetCode.trim().length < 6;
+  const signupOtpInvalid = validationAttempted && signupOtpCode.trim().length < 6;
   const newPasswordInvalid =
     validationAttempted && (!newPassword || newPassword.length < 6);
   const confirmNewPasswordInvalid =
@@ -883,6 +1020,95 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                   className="text-slate-900 font-semibold hover:underline cursor-pointer"
                 >
                   Sign in
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* 2B. VERIFY SIGNUP EMAIL OTP */}
+          {authMode === 'verify-signup' && (
+            <form noValidate key="verify-signup-otp-form" onSubmit={handleVerifySignupOtp} className="space-y-4 text-xs">
+              {signupDevOtp && (
+                <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-lg flex items-center justify-between gap-2.5 text-amber-900">
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-amber-700">
+                      Local Dev Verification Code
+                    </div>
+                    <div className="font-mono text-sm font-bold tracking-[0.2em] text-amber-950 mt-0.5">
+                      {signupDevOtp}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSignupOtpCode(signupDevOtp)}
+                    className="h-7 px-2.5 rounded-md bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 text-[11px] font-semibold whitespace-nowrap shrink-0 cursor-pointer"
+                  >
+                    Fill Code
+                  </button>
+                </div>
+              )}
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-slate-700 font-medium">
+                    6-digit verification code *
+                  </label>
+                  {signupOtpInvalid && (
+                    <span className="text-[11px] font-semibold text-rose-600">Required</span>
+                  )}
+                </div>
+                <input
+                  key="signup-verification-code"
+                  type="text"
+                  name="signupVerificationCode"
+                  autoComplete="one-time-code"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={signupOtpCode}
+                  onChange={(e) => setSignupOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="Enter 6-digit code"
+                  className={authInputClass(signupOtpInvalid, 'text-center text-base font-semibold tracking-[0.35em]')}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full h-10 mt-1 px-4 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:opacity-50 text-white rounded-lg font-medium text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Verifying email...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Verify &amp; continue setup</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </>
+                )}
+              </button>
+
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                <button
+                  type="button"
+                  onClick={handleResendSignupOtp}
+                  disabled={resendCooldown > 0 || isResendingOtp}
+                  className="font-medium text-slate-900 hover:underline disabled:text-slate-400 disabled:no-underline disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {isResendingOtp
+                    ? 'Resending code...'
+                    : resendCooldown > 0
+                      ? `Resend in ${formatCountdown(resendCooldown)}`
+                      : 'Resend verification code'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => switchMode('signup')}
+                  className="text-slate-500 hover:text-slate-800 hover:underline cursor-pointer"
+                >
+                  Change email
                 </button>
               </div>
             </form>

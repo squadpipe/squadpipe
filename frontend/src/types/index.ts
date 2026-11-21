@@ -18,6 +18,7 @@ export interface User {
   status: 'Active' | 'Suspended' | 'Invited';
   isSuperAdmin?: boolean;
   isCurrentUser?: boolean;
+  onboardingCompleted?: boolean;
   lastActive: string;
   lastActiveAt?: string;
   createdAt?: string;
