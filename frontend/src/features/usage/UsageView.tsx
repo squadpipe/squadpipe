@@ -476,7 +476,7 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
             <div className="flex items-center gap-3">
               <AiMark size="sm" />
               <div>
-                <h2 className="text-sm font-semibold text-slate-900">PipeAI Usage &amp; Metering</h2>
+                <h2 className="text-sm font-semibold text-slate-900">SquadAI Usage &amp; Metering</h2>
                 <p className="text-[11px] text-slate-500">
                   Monthly metered AI requests, token breakdown, active models, and workspace budget caps.
                 </p>
@@ -568,8 +568,8 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
                     <span
                       key={feature}
                       className={`px-2 py-0.5 rounded text-[11px] font-medium border ${stats.actions > 0
-                          ? 'bg-white border-slate-200 text-slate-800 font-semibold'
-                          : 'bg-slate-100/70 border-slate-200/60 text-slate-400'
+                        ? 'bg-white border-slate-200 text-slate-800 font-semibold'
+                        : 'bg-slate-100/70 border-slate-200/60 text-slate-400'
                         }`}
                     >
                       {AI_FEATURE_LABELS[feature] || feature}: {stats.actions}

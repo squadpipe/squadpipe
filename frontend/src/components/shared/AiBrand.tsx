@@ -5,7 +5,7 @@ interface AiIconProps {
 }
 
 /**
- * Official PipeAI precision geometric emblem: symmetrical 4-point neural star
+ * Official SquadAI precision geometric emblem: symmetrical 4-point neural star
  * with orbital spark facet and micro node, built to stay razor-sharp from 10px to 24px.
  */
 export const AiIcon: React.FC<AiIconProps> = ({ className = 'w-4 h-4' }) => (
@@ -41,7 +41,7 @@ const MARK_SIZE_CLASSES = {
 } as const;
 
 /**
- * Branded obsidian + teal container badge featuring the PipeAI emblem,
+ * Branded obsidian + teal container badge featuring the SquadAI emblem,
  * harmonizing directly with the official SquadPipe BrandMark.
  */
 export const AiMark: React.FC<AiMarkProps> = ({ size = 'sm', className = '' }) => {
@@ -64,11 +64,11 @@ interface AiBadgeProps {
 }
 
 /**
- * Consistent PipeAI pill indicator used across parsed records,
+ * Consistent SquadAI pill indicator used across parsed records,
  * AI evaluations, drafts, and workspace capabilities.
  */
 export const AiBadge: React.FC<AiBadgeProps> = ({
-  label = 'PipeAI',
+  label = 'SquadAI',
   size = 'xs',
   variant = 'subtle',
   title,

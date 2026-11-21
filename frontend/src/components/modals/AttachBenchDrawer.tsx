@@ -143,8 +143,8 @@ const RankingProgressBody: React.FC<RankingProgressBodyProps> = ({
               <div className="text-xs font-bold text-slate-900 truncate">
                 {aiEnabled
                   ? isNextBatch
-                    ? 'PipeAI is ranking the next batch...'
-                    : 'PipeAI is ranking best-fit candidates...'
+                    ? 'SquadAI is ranking the next batch...'
+                    : 'SquadAI is ranking best-fit candidates...'
                   : isNextBatch
                     ? 'Ranking the next batch of candidates...'
                     : 'Ranking matching bench candidates...'}
@@ -901,13 +901,12 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
         setRemainingUnrankedCount(remainingFromApi);
         if (quotaNotice && !used) {
           setAiRankError(quotaNotice);
-          notifyToast('PipeAI Notice', quotaNotice, 'warning');
+          notifyToast('SquadAI Notice', quotaNotice, 'warning');
         }
         setAiRankScopeNote(
-          `${evaluatedCount} ${evaluatedCount === 1 ? 'candidate' : 'candidates'} evaluated${
-            remainingFromApi && remainingFromApi > 0
-              ? ` · ${remainingFromApi} more available`
-              : ''
+          `${evaluatedCount} ${evaluatedCount === 1 ? 'candidate' : 'candidates'} evaluated${remainingFromApi && remainingFromApi > 0
+            ? ` · ${remainingFromApi} more available`
+            : ''
           }`
         );
         if (!appendNextBatch) {
@@ -935,13 +934,13 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
       }
       const errMsg =
         err?.code === 'ECONNABORTED'
-          ? 'PipeAI search timed out before finishing. Please try again.'
+          ? 'SquadAI search timed out before finishing. Please try again.'
           : err?.response?.data?.message ||
-            err?.response?.data?.error ||
-            err?.message ||
-            'Could not rank candidates right now.';
+          err?.response?.data?.error ||
+          err?.message ||
+          'Could not rank candidates right now.';
       setAiRankError(errMsg);
-      notifyToast('PipeAI Search Failed', errMsg, 'error');
+      notifyToast('SquadAI Search Failed', errMsg, 'error');
     } finally {
       if (rankAbortRef.current === controller) {
         rankAbortRef.current = null;
@@ -1270,7 +1269,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                       {isAiRanking || isAutoRankWaiting
                         ? 'Ranking Best Fits...'
                         : aiCapabilities.enabled
-                          ? 'PipeAI Rank'
+                          ? 'SquadAI Rank'
                           : 'Rank Top Matches'}
                     </span>
                   </button>
@@ -1422,241 +1421,240 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
 
                   return (
                     <React.Fragment key={con.id}>
-                    <div
-                      onClick={() => !isAttaching && toggleCandidateSelection(con.id)}
-                      className={`p-3 rounded-xl border flex flex-col gap-1.5 transition-all cursor-pointer ${isChecked
-                        ? 'bg-brand-50/60 border-brand-500'
-                        : latestDup
-                          ? 'bg-amber-50/30 border-amber-200 hover:border-amber-400'
-                          : 'bg-white border-slate-200 hover:border-brand-400'
-                        }`}
-                    >
-                      <div className="flex items-center justify-between gap-2.5">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span
-                            className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${isChecked
-                              ? 'bg-brand-600 border-brand-600 text-white'
-                              : 'bg-white border-slate-300'
-                              }`}
-                          >
-                            {isChecked && <Check className="w-3 h-3" strokeWidth={3} />}
-                          </span>
-                          <div className="min-w-0">
-                            <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5 flex-wrap">
-                              <span className="truncate">{con.fullName}</span>
-                              <span className="text-[11px] font-normal text-slate-400">
-                                ({con.workAuth})
+                      <div
+                        onClick={() => !isAttaching && toggleCandidateSelection(con.id)}
+                        className={`p-3 rounded-xl border flex flex-col gap-1.5 transition-all cursor-pointer ${isChecked
+                          ? 'bg-brand-50/60 border-brand-500'
+                          : latestDup
+                            ? 'bg-amber-50/30 border-amber-200 hover:border-amber-400'
+                            : 'bg-white border-slate-200 hover:border-brand-400'
+                          }`}
+                      >
+                        <div className="flex items-center justify-between gap-2.5">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span
+                              className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${isChecked
+                                ? 'bg-brand-600 border-brand-600 text-white'
+                                : 'bg-white border-slate-300'
+                                }`}
+                            >
+                              {isChecked && <Check className="w-3 h-3" strokeWidth={3} />}
+                            </span>
+                            <div className="min-w-0">
+                              <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5 flex-wrap">
+                                <span className="truncate">{con.fullName}</span>
+                                <span className="text-[11px] font-normal text-slate-400">
+                                  ({con.workAuth})
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-slate-500 mt-0.5 truncate">
+                                {con.currentTitle} &bull;{' '}
+                                <MaskedValue value={formatRate(con.hourlyRate)} isMasked={rateMasked} />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {showMatch && (
+                              <span
+                                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white border border-slate-200/90 text-slate-700 text-[11px] font-medium tabular-nums whitespace-nowrap leading-none"
+                                title={
+                                  isRowAiEvaluated
+                                    ? 'Evaluated by SquadAI'
+                                    : `${match.matched.length} of ${reqSkillList.length} required skills matched`
+                                }
+                              >
+                                {isRowAiEvaluated ? (
+                                  <AiIcon className="w-3 h-3 text-teal-600 shrink-0" />
+                                ) : (
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${getMatchScoreDotClass(
+                                      match.score
+                                    )}`}
+                                  />
+                                )}
+                                <span>
+                                  {match.score === 0 && !isAiRanked
+                                    ? 'No Skill Overlap'
+                                    : `${match.score}% Match`}
+                                </span>
                               </span>
-                            </div>
-                            <div className="text-[11px] text-slate-500 mt-0.5 truncate">
-                              {con.currentTitle} &bull;{' '}
-                              <MaskedValue value={formatRate(con.hourlyRate)} isMasked={rateMasked} />
-                            </div>
+                            )}
+                            <ActionButton
+                              type="button"
+                              loading={attachingCandId === con.id}
+                              loadingText="Attaching..."
+                              disabled={isAttaching}
+                              spinnerClassName="w-3 h-3 animate-spin shrink-0"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleQuickSingleAttach(con);
+                              }}
+                              className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors cursor-pointer ${attachingCandId === con.id
+                                  ? 'bg-brand-50 border-brand-200 text-brand-700'
+                                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                                }`}
+                            >
+                              {latestDup ? 'Attach Anyway' : 'Quick Attach'}
+                            </ActionButton>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {showMatch && (
-                            <span
-                              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white border border-slate-200/90 text-slate-700 text-[11px] font-medium tabular-nums whitespace-nowrap leading-none"
-                              title={
-                                isRowAiEvaluated
-                                  ? 'Evaluated by PipeAI'
-                                  : `${match.matched.length} of ${reqSkillList.length} required skills matched`
-                              }
-                            >
-                              {isRowAiEvaluated ? (
-                                <AiIcon className="w-3 h-3 text-teal-600 shrink-0" />
-                              ) : (
-                                <span
-                                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${getMatchScoreDotClass(
-                                    match.score
-                                  )}`}
-                                />
-                              )}
-                              <span>
-                                {match.score === 0 && !isAiRanked
-                                  ? 'No Skill Overlap'
-                                  : `${match.score}% Match`}
-                              </span>
-                            </span>
-                          )}
-                          <ActionButton
-                            type="button"
-                            loading={attachingCandId === con.id}
-                            loadingText="Attaching..."
-                            disabled={isAttaching}
-                            spinnerClassName="w-3 h-3 animate-spin shrink-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void handleQuickSingleAttach(con);
-                            }}
-                            className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors cursor-pointer ${
-                              attachingCandId === con.id
-                                ? 'bg-brand-50 border-brand-200 text-brand-700'
-                                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
-                            }`}
-                          >
-                            {latestDup ? 'Attach Anyway' : 'Quick Attach'}
-                          </ActionButton>
-                        </div>
-                      </div>
+                        {showMatch && (
+                          <div className="pl-6 space-y-1">
+                            {(() => {
+                              const isSkillsExpanded = Boolean(expandedCandSkillIds[con.id]);
+                              const visibleMatched = isSkillsExpanded
+                                ? match.matched
+                                : match.matched.slice(0, 4);
+                              const visibleMissing = isSkillsExpanded
+                                ? match.missing
+                                : match.missing.slice(0, 3);
+                              const hasHiddenCandSkills =
+                                match.matched.length > 4 || match.missing.length > 3;
 
-                      {showMatch && (
-                        <div className="pl-6 space-y-1">
-                          {(() => {
-                            const isSkillsExpanded = Boolean(expandedCandSkillIds[con.id]);
-                            const visibleMatched = isSkillsExpanded
-                              ? match.matched
-                              : match.matched.slice(0, 4);
-                            const visibleMissing = isSkillsExpanded
-                              ? match.missing
-                              : match.missing.slice(0, 3);
-                            const hasHiddenCandSkills =
-                              match.matched.length > 4 || match.missing.length > 3;
-
-                            return (
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                {match.matched.length > 0 && (
-                                  <>
-                                    <span className="text-[11px] font-semibold text-emerald-700">
-                                      Matched:
-                                    </span>
-                                    {visibleMatched.map((skill, idx) => (
-                                      <span
-                                        key={idx}
-                                        className="px-1.5 py-0.5 rounded text-[11px] bg-white border border-emerald-300 text-emerald-700 font-medium"
-                                      >
-                                        {skill}
+                              return (
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {match.matched.length > 0 && (
+                                    <>
+                                      <span className="text-[11px] font-semibold text-emerald-700">
+                                        Matched:
                                       </span>
-                                    ))}
-                                    {!isSkillsExpanded && match.matched.length > 4 && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setExpandedCandSkillIds((prev) => ({
-                                            ...prev,
-                                            [con.id]: true,
-                                          }));
-                                        }}
-                                        className="text-[11px] font-semibold text-emerald-700 hover:underline cursor-pointer"
+                                      {visibleMatched.map((skill, idx) => (
+                                        <span
+                                          key={idx}
+                                          className="px-1.5 py-0.5 rounded text-[11px] bg-white border border-emerald-300 text-emerald-700 font-medium"
+                                        >
+                                          {skill}
+                                        </span>
+                                      ))}
+                                      {!isSkillsExpanded && match.matched.length > 4 && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setExpandedCandSkillIds((prev) => ({
+                                              ...prev,
+                                              [con.id]: true,
+                                            }));
+                                          }}
+                                          className="text-[11px] font-semibold text-emerald-700 hover:underline cursor-pointer"
+                                        >
+                                          +{match.matched.length - 4} more
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+                                  {match.missing.length > 0 && (
+                                    <>
+                                      <span
+                                        className={`text-[11px] font-medium text-slate-400 ${match.matched.length > 0 ? 'ml-1.5' : ''
+                                          }`}
                                       >
-                                        +{match.matched.length - 4} more
-                                      </button>
-                                    )}
-                                  </>
-                                )}
-                                {match.missing.length > 0 && (
-                                  <>
-                                    <span
-                                      className={`text-[11px] font-medium text-slate-400 ${match.matched.length > 0 ? 'ml-1.5' : ''
-                                        }`}
+                                        Missing:
+                                      </span>
+                                      {visibleMissing.map((skill, idx) => (
+                                        <span
+                                          key={idx}
+                                          className="px-1.5 py-0.5 rounded text-[11px] bg-white border border-slate-300 text-slate-500"
+                                        >
+                                          {skill}
+                                        </span>
+                                      ))}
+                                      {!isSkillsExpanded && match.missing.length > 3 && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setExpandedCandSkillIds((prev) => ({
+                                              ...prev,
+                                              [con.id]: true,
+                                            }));
+                                          }}
+                                          className="text-[11px] font-semibold text-brand-600 hover:underline cursor-pointer"
+                                        >
+                                          +{match.missing.length - 3} more
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+                                  {isSkillsExpanded && hasHiddenCandSkills && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExpandedCandSkillIds((prev) => ({
+                                          ...prev,
+                                          [con.id]: false,
+                                        }));
+                                      }}
+                                      className="text-[11px] font-semibold text-brand-600 hover:underline cursor-pointer ml-1"
                                     >
-                                      Missing:
-                                    </span>
-                                    {visibleMissing.map((skill, idx) => (
-                                      <span
-                                        key={idx}
-                                        className="px-1.5 py-0.5 rounded text-[11px] bg-white border border-slate-300 text-slate-500"
-                                      >
-                                        {skill}
-                                      </span>
-                                    ))}
-                                    {!isSkillsExpanded && match.missing.length > 3 && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setExpandedCandSkillIds((prev) => ({
-                                            ...prev,
-                                            [con.id]: true,
-                                          }));
-                                        }}
-                                        className="text-[11px] font-semibold text-brand-600 hover:underline cursor-pointer"
-                                      >
-                                        +{match.missing.length - 3} more
-                                      </button>
-                                    )}
-                                  </>
-                                )}
-                                {isSkillsExpanded && hasHiddenCandSkills && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setExpandedCandSkillIds((prev) => ({
-                                        ...prev,
-                                        [con.id]: false,
-                                      }));
-                                    }}
-                                    className="text-[11px] font-semibold text-brand-600 hover:underline cursor-pointer ml-1"
-                                  >
-                                    Show less
-                                  </button>
-                                )}
+                                      Show less
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                            {isAiRanked && oneLineSummary && (
+                              <div className="text-[11px] text-teal-700 font-medium">
+                                {oneLineSummary}
                               </div>
-                            );
-                          })()}
-                          {isAiRanked && oneLineSummary && (
-                            <div className="text-[11px] text-teal-700 font-medium">
-                              {oneLineSummary}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                            )}
+                          </div>
+                        )}
 
-                      {cvExcerpt && (
-                        <div className="pl-6 text-[11px] text-brand-700 truncate">
-                          CV match: {cvExcerpt}
-                        </div>
-                      )}
+                        {cvExcerpt && (
+                          <div className="pl-6 text-[11px] text-brand-700 truncate">
+                            CV match: {cvExcerpt}
+                          </div>
+                        )}
 
-                      {latestDup && (
-                        <div className="ml-6 inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium">
-                          <AlertTriangle className="w-3 h-3 text-amber-600 flex-shrink-0" />
-                          <span>
-                            Already submitted to <strong>{latestDup.clientName}</strong>{' '}
-                            {latestDup.daysAgo === 0
-                              ? 'today'
-                              : latestDup.daysAgo === 1
-                                ? '1 day ago'
-                                : `${latestDup.daysAgo} days ago`}{' '}
-                            on{' '}
-                            <span className="font-mono font-semibold">
-                              {latestDup.requirementCode}
-                            </span>{' '}
-                            ({latestDup.stage}
-                            {latestDup.recruiterName ? ` • by ${latestDup.recruiterName}` : ''})
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    {isLastAiRankedRow && (remainingUnrankedCount ?? 0) > 0 && (
-                      <div className="p-3 rounded-xl border border-teal-200/80 bg-teal-50/50 flex items-center justify-between gap-3 flex-wrap">
-                        <div className="text-[11px] text-slate-700 font-medium">
-                          Ranked top <strong className="font-semibold text-slate-900">{aiRankedCount}</strong> available &bull;{' '}
-                          <strong className="font-semibold text-teal-800">{remainingUnrankedCount}</strong> more remaining
-                        </div>
-                        <button
-                          type="button"
-                          disabled={isAiRanking || isLoadingBench || isAttaching}
-                          onClick={() => void handleAiRankTopMatches(true)}
-                          className="px-3 py-1.5 rounded-lg border border-teal-200 bg-white hover:bg-teal-50 text-teal-800 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
-                        >
-                          {isAiRanking ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                          ) : (
-                            <AiIcon className="w-3 h-3 text-teal-600" />
-                          )}
-                          <span>
-                            {isAiRanking
-                              ? 'Ranking Next Batch...'
-                              : `Rank Next ${Math.min(20, remainingUnrankedCount!)}`}
-                          </span>
-                        </button>
+                        {latestDup && (
+                          <div className="ml-6 inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium">
+                            <AlertTriangle className="w-3 h-3 text-amber-600 flex-shrink-0" />
+                            <span>
+                              Already submitted to <strong>{latestDup.clientName}</strong>{' '}
+                              {latestDup.daysAgo === 0
+                                ? 'today'
+                                : latestDup.daysAgo === 1
+                                  ? '1 day ago'
+                                  : `${latestDup.daysAgo} days ago`}{' '}
+                              on{' '}
+                              <span className="font-mono font-semibold">
+                                {latestDup.requirementCode}
+                              </span>{' '}
+                              ({latestDup.stage}
+                              {latestDup.recruiterName ? ` • by ${latestDup.recruiterName}` : ''})
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    )}
+                      {isLastAiRankedRow && (remainingUnrankedCount ?? 0) > 0 && (
+                        <div className="p-3 rounded-xl border border-teal-200/80 bg-teal-50/50 flex items-center justify-between gap-3 flex-wrap">
+                          <div className="text-[11px] text-slate-700 font-medium">
+                            Ranked top <strong className="font-semibold text-slate-900">{aiRankedCount}</strong> available &bull;{' '}
+                            <strong className="font-semibold text-teal-800">{remainingUnrankedCount}</strong> more remaining
+                          </div>
+                          <button
+                            type="button"
+                            disabled={isAiRanking || isLoadingBench || isAttaching}
+                            onClick={() => void handleAiRankTopMatches(true)}
+                            className="px-3 py-1.5 rounded-lg border border-teal-200 bg-white hover:bg-teal-50 text-teal-800 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
+                          >
+                            {isAiRanking ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <AiIcon className="w-3 h-3 text-teal-600" />
+                            )}
+                            <span>
+                              {isAiRanking
+                                ? 'Ranking Next Batch...'
+                                : `Rank Next ${Math.min(20, remainingUnrankedCount!)}`}
+                            </span>
+                          </button>
+                        </div>
+                      )}
                     </React.Fragment>
                   );
                 })}

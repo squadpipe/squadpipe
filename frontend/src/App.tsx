@@ -3271,7 +3271,7 @@ export const App: React.FC = () => {
                     <span>
                       {bulkResumeQueue.isRunning ? 'Parsing Resumes' : 'Bulk Upload Complete'}
                     </span>
-                    <AiBadge label="PipeAI" size="xs" variant="dark" />
+                    <AiBadge label="SquadAI" size="xs" variant="dark" />
                     {batchReq && (
                       <span className="px-1.5 py-0.5 rounded bg-white/10 text-[11px] font-mono text-emerald-300">
                         {batchReq.code}
@@ -3973,7 +3973,7 @@ export const App: React.FC = () => {
                 onEditVendor={
                   canManageDataOperations
                     ? (vendor, section) =>
-                        handleOpenVendorEdit(vendor, 'vendor_detail', section || 'profile')
+                      handleOpenVendorEdit(vendor, 'vendor_detail', section || 'profile')
                     : undefined
                 }
                 onUpdateVendor={canManageDataOperations ? handleUpdateVendor : undefined}

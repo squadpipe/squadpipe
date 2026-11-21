@@ -143,8 +143,8 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`px-2.5 py-1 rounded-md text-[11px] font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer border ${activeTab === tab.id
-                  ? 'bg-white text-slate-900 border-slate-300'
-                  : 'bg-slate-50/90 text-slate-600 border-transparent hover:text-slate-900 hover:bg-slate-100/80'
+                ? 'bg-white text-slate-900 border-slate-300'
+                : 'bg-slate-50/90 text-slate-600 border-transparent hover:text-slate-900 hover:bg-slate-100/80'
                 }`}
             >
               <span>{tab.label}</span>
@@ -174,8 +174,8 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
             <div
               key={item.id}
               className={`p-4 rounded-xl border transition-all ${item.done
-                  ? 'bg-slate-50/60 border-slate-200 opacity-60'
-                  : 'bg-white border-slate-200 card-shadow hover:border-slate-300'
+                ? 'bg-slate-50/60 border-slate-200 opacity-60'
+                : 'bg-white border-slate-200 card-shadow hover:border-slate-300'
                 }`}
             >
               <div className="flex items-start justify-between gap-3">
@@ -259,7 +259,7 @@ export const SlaDrawer: React.FC<SlaDrawerProps> = ({
                     <div className="flex items-center justify-between gap-2">
                       <span className="inline-flex items-center gap-1.5 font-bold text-slate-700 text-[11px]">
                         {aiCapabilities.enabled && item.agentPayload.evaluatedWithAi && (
-                          <AiBadge label="PipeAI Draft" size="xs" />
+                          <AiBadge label="SquadAI Draft" size="xs" />
                         )}
                         {(!aiCapabilities.enabled || !item.agentPayload.evaluatedWithAi) && (
                           <span>Pre-Drafted Follow-Up</span>

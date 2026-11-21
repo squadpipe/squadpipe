@@ -265,7 +265,7 @@ export const runCapabilityTests = async () => {
   );
   assert.equal(attachAiCalls, 0);
 
-  // 7. Carrying over PipeAI Rank reports preserves score, strengths, gaps, verdict & rate masking
+  // 7. Carrying over SquadAI Rank reports preserves score, strengths, gaps, verdict & rate masking
   assert.equal(
     normalizePrecomputedCapabilitySummary({ fitScore: 88, evaluatedWithAi: false }),
     null

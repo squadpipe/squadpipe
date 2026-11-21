@@ -784,7 +784,7 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
                     {!hasScore
                       ? 'Awaiting Evaluation'
                       : usedAi
-                        ? 'PipeAI Evaluated'
+                        ? 'SquadAI Evaluated'
                         : 'Skill Match Check'}
                   </span>
                   {evaluatedAtLabel && (
@@ -896,8 +896,8 @@ export const CapabilityFitModal: React.FC<CapabilityFitModalProps> = ({
                     ? 'Evaluating...'
                     : aiEnabled
                       ? usedAi
-                        ? 'Re-run PipeAI Check'
-                        : 'Run PipeAI Check'
+                        ? 'Re-run SquadAI Check'
+                        : 'Run SquadAI Check'
                       : hasScore
                         ? 'Re-run Fit Check'
                         : 'Run Fit Check'}

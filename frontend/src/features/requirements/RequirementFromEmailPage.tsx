@@ -415,7 +415,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
       showToast(
         'Extraction Issue',
         err.response?.data?.message ||
-          'We could not extract all fields automatically right now. Please try again or review the fields manually.',
+        'We could not extract all fields automatically right now. Please try again or review the fields manually.',
         'error'
       );
     } finally {
@@ -485,7 +485,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
       showToast(
         'Could Not Read File',
         err.response?.data?.message ||
-          'We could not extract text from that document. Try another PDF/DOCX or paste the text directly.',
+        'We could not extract text from that document. Try another PDF/DOCX or paste the text directly.',
         'error'
       );
     } finally {
@@ -821,7 +821,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
         badges={
           <>
             {aiCapabilities.enabled && (
-              <AiBadge label="PipeAI Extractor" size="xs" />
+              <AiBadge label="SquadAI Extractor" size="xs" />
             )}
             {marginSpread > 0 && (
               <StatusBadge
@@ -838,11 +838,10 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
 
       {(isParsing || (hasParsed && parseProgress > 0)) && (
         <div
-          className={`rounded-xl border px-4 py-2.5 space-y-1.5 transition-colors ${
-            isParsing
+          className={`rounded-xl border px-4 py-2.5 space-y-1.5 transition-colors ${isParsing
               ? 'bg-brand-50/90 border-brand-200 text-brand-900'
               : 'bg-white border-slate-200/90 text-slate-700 card-shadow'
-          }`}
+            }`}
         >
           <div className="flex items-center justify-between gap-2 text-xs font-semibold">
             <span className="flex items-center gap-2 min-w-0">
@@ -884,14 +883,12 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
             aria-valuemin={0}
             aria-valuemax={100}
             aria-label="Email and PDF extraction progress"
-            className={`w-full h-1.5 rounded-full overflow-hidden ${
-              isParsing ? 'bg-brand-200/80' : 'bg-slate-100'
-            }`}
+            className={`w-full h-1.5 rounded-full overflow-hidden ${isParsing ? 'bg-brand-200/80' : 'bg-slate-100'
+              }`}
           >
             <div
-              className={`h-full transition-all duration-300 ${
-                isParsing ? 'bg-brand-600' : 'bg-emerald-500'
-              }`}
+              className={`h-full transition-all duration-300 ${isParsing ? 'bg-brand-600' : 'bg-emerald-500'
+                }`}
               style={{ width: `${parseProgress}%` }}
             />
           </div>
@@ -1035,7 +1032,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
               <span>Extracted requirement details</span>
               {hasParsed && aiUsed && aiCapabilities.enabled && (
-                <AiBadge label="PipeAI Extracted" size="xs" />
+                <AiBadge label="SquadAI Extracted" size="xs" />
               )}
             </div>
             <div className="flex items-center gap-1.5 text-[11px] text-slate-500">

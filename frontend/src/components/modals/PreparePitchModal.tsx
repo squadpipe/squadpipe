@@ -415,7 +415,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                 Prepare Email Draft &mdash; {candidateName}
               </h3>
               {hasActiveDraft && !controlsDisabled && aiUsed && aiCapabilities.enabled && (
-                <AiBadge label="PipeAI Draft" size="xs" />
+                <AiBadge label="SquadAI Draft" size="xs" />
               )}
               {hasActiveDraft && !controlsDisabled && isCached && (
                 <span
@@ -462,8 +462,8 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                     disabled={controlsDisabled}
                     onClick={() => handleTypeSelect(item.id)}
                     className={`px-3 py-1 rounded-md text-[11px] font-semibold inline-flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-60 border ${isSelected
-                        ? 'bg-white text-slate-900 border-slate-200/90'
-                        : 'text-slate-500 hover:text-slate-800 border-transparent'
+                      ? 'bg-white text-slate-900 border-slate-200/90'
+                      : 'text-slate-500 hover:text-slate-800 border-transparent'
                       }`}
                   >
                     <span>{item.label}</span>
@@ -492,8 +492,8 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                     disabled={controlsDisabled}
                     onClick={() => handleToneSelect(t.id)}
                     className={`px-2.5 py-1 rounded-md text-[11px] font-semibold inline-flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-60 border ${isSelected
-                        ? 'bg-white text-brand-700 border-brand-300'
-                        : 'text-slate-500 hover:text-slate-800 border-transparent'
+                      ? 'bg-white text-brand-700 border-brand-300'
+                      : 'text-slate-500 hover:text-slate-800 border-transparent'
                       }`}
                   >
                     <span>{t.label}</span>
@@ -607,7 +607,7 @@ export const PreparePitchModal: React.FC<PreparePitchModalProps> = ({
                     </span>
                     {!isLoading && aiCapabilities.enabled && (
                       <span className="px-1.5 py-0.5 rounded bg-white/15 border border-white/25 text-white text-[10px] font-bold uppercase tracking-wider leading-none">
-                        PipeAI
+                        SquadAI
                       </span>
                     )}
                   </button>

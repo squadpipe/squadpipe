@@ -336,8 +336,8 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
             <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
               <label
                 className={`px-4 py-2 rounded-lg text-white text-xs font-semibold inline-flex items-center gap-2 transition-all ${isBulkRunning
-                    ? 'bg-slate-400 cursor-not-allowed'
-                    : 'bg-brand-600 hover:bg-brand-700 cursor-pointer'
+                  ? 'bg-slate-400 cursor-not-allowed'
+                  : 'bg-brand-600 hover:bg-brand-700 cursor-pointer'
                   }`}
               >
                 <Upload className="w-3.5 h-3.5" />
@@ -426,7 +426,7 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
                           {(item.file.size / 1024).toFixed(0)} KB
                         </span>
                         {item.aiUsed && aiCapabilities.enabled && (
-                          <AiBadge label="PipeAI" size="xs" />
+                          <AiBadge label="SquadAI" size="xs" />
                         )}
                       </div>
                       <div className="text-[11px] text-slate-500 mt-0.5 truncate">
@@ -522,11 +522,10 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
                       onCancel();
                     }
                   }}
-                  className={`h-8 px-4 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
-                    bulkTotal > 0
+                  className={`h-8 px-4 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${bulkTotal > 0
                       ? 'bg-brand-600 hover:bg-brand-700 text-white'
                       : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
-                  }`}
+                    }`}
                 >
                   {bulkTotal > 0
                     ? activeBatchReq && bulkAddedCount > 0
@@ -616,8 +615,8 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
                 </div>
                 <span
                   className={`text-[11px] px-2 py-0.5 rounded font-medium flex items-center gap-1 ${hasParsedFile && profile.fileName
-                      ? 'text-brand-800 bg-brand-500/[0.08]'
-                      : 'text-slate-500 bg-slate-100'
+                    ? 'text-brand-800 bg-brand-500/[0.08]'
+                    : 'text-slate-500 bg-slate-100'
                     }`}
                 >
                   {hasParsedFile && profile.fileName ? (
@@ -712,7 +711,7 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
                 </div>
                 {hasParsedFile &&
                   (aiUsed && aiCapabilities.enabled ? (
-                    <AiBadge label="PipeAI Parsed" size="xs" />
+                    <AiBadge label="SquadAI Parsed" size="xs" />
                   ) : (
                     <StatusBadge tone="emerald" size="xs" label="Pattern Matched" />
                   ))}
@@ -746,8 +745,8 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
                     value={profile.fullName}
                     onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
                     className={`w-full px-3 py-1.5 text-xs border rounded-lg font-medium focus:bg-white focus:outline-none ${showFullNameError
-                        ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/25 focus:border-rose-500'
-                        : 'border-slate-200 bg-white focus:border-brand-500'
+                      ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/25 focus:border-rose-500'
+                      : 'border-slate-200 bg-white focus:border-brand-500'
                       }`}
                   />
                 </div>
@@ -812,8 +811,8 @@ export const ResumeImportWorkspace: React.FC<ResumeImportWorkspaceProps> = ({
                     value={profile.email}
                     onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                     className={`w-full px-3 py-1.5 text-xs border rounded-lg focus:bg-white focus:outline-none ${showEmailError
-                        ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/25 focus:border-rose-500'
-                        : 'border-slate-200 bg-white focus:border-brand-500'
+                      ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/25 focus:border-rose-500'
+                      : 'border-slate-200 bg-white focus:border-brand-500'
                       }`}
                   />
                 </div>

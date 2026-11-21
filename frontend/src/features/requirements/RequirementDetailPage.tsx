@@ -953,8 +953,8 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     <div className="flex items-start gap-3.5 min-w-0">
       <div
         className={`w-9 h-9 rounded-full border flex items-center justify-center font-bold text-[11px] flex-shrink-0 ${placed
-            ? 'bg-white border-emerald-300 text-emerald-700'
-            : 'bg-white border-slate-200 text-slate-700'
+          ? 'bg-white border-emerald-300 text-emerald-700'
+          : 'bg-white border-slate-200 text-slate-700'
           }`}
       >
         {initials}
@@ -1075,7 +1075,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
           type="button"
           disabled={isChecking}
           onClick={() => handleEvaluateSubmission(sub)}
-          title={aiCapabilities.enabled ? 'Run PipeAI Fit Score Check' : 'Run Skill Fit Score Check'}
+          title={aiCapabilities.enabled ? 'Run SquadAI Fit Score Check' : 'Run Skill Fit Score Check'}
           className="group inline-flex flex-col items-start gap-1 text-left px-1.5 py-1 -mx-1.5 rounded-md hover:bg-teal-50/80 transition-colors cursor-pointer disabled:opacity-60 whitespace-nowrap"
         >
           <span className="inline-flex items-center gap-1.5 text-[12px] leading-none">
@@ -1276,11 +1276,10 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                 : `Add note for ${displayName}`
             }
             aria-label={`Notes for ${displayName}`}
-            className={`h-7 px-2 rounded-lg border inline-flex items-center justify-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-              editingNotesSub?.id === sub.id || subNotes.length > 0
+            className={`h-7 px-2 rounded-lg border inline-flex items-center justify-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap ${editingNotesSub?.id === sub.id || subNotes.length > 0
                 ? 'bg-white border-brand-300 text-brand-700 hover:bg-brand-50/40'
                 : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-            }`}
+              }`}
           >
             <MessageSquare className="w-3 h-3" />
             {subNotes.length > 0 && <span className="tabular-nums">{subNotes.length}</span>}
@@ -1327,9 +1326,8 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
 
     return (
       <div
-        className={`relative group/full inline-flex ${
-          variant === 'card' ? 'self-start sm:self-auto' : ''
-        }`}
+        className={`relative group/full inline-flex ${variant === 'card' ? 'self-start sm:self-auto' : ''
+          }`}
         title={isPositionsFull ? fullMessage : 'Start placement onboarding'}
       >
         <button
@@ -1337,14 +1335,12 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
           disabled={isPositionsFull}
           aria-disabled={isPositionsFull}
           onClick={handleActivateClick}
-          className={`h-8 px-3 rounded-lg border text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors ${
-            isPositionsFull ? disabledClasses : enabledClasses
-          }`}
+          className={`h-8 px-3 rounded-lg border text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors ${isPositionsFull ? disabledClasses : enabledClasses
+            }`}
         >
           <FileSpreadsheet
-            className={`${
-              variant === 'card' ? 'w-3.5 h-3.5' : 'w-3 h-3'
-            } ${isPositionsFull ? 'text-slate-400' : 'text-emerald-600'}`}
+            className={`${variant === 'card' ? 'w-3.5 h-3.5' : 'w-3 h-3'
+              } ${isPositionsFull ? 'text-slate-400' : 'text-emerald-600'}`}
           />
           <span>Activate placement</span>
         </button>
@@ -1425,13 +1421,13 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
             )}
             {workModelLabel &&
               !locationLabel.toLowerCase().includes(workModelLabel.toLowerCase()) && (
-              <span className="inline-flex items-center gap-1.5 text-slate-500">
-                <span className="text-slate-300" aria-hidden="true">
-                  &middot;
+                <span className="inline-flex items-center gap-1.5 text-slate-500">
+                  <span className="text-slate-300" aria-hidden="true">
+                    &middot;
+                  </span>
+                  <span>{workModelLabel}</span>
                 </span>
-                <span>{workModelLabel}</span>
-              </span>
-            )}
+              )}
           </div>
         </div>
 
@@ -1610,9 +1606,8 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
             </div>
             <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all ${
-                  isPositionsFull ? 'bg-emerald-600' : 'bg-brand-600'
-                }`}
+                className={`h-full rounded-full transition-all ${isPositionsFull ? 'bg-emerald-600' : 'bg-brand-600'
+                  }`}
                 style={{ width: `${fillPercent}%` }}
               />
             </div>
@@ -1681,8 +1676,8 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                       type="button"
                       onClick={() => setApplicantTab(t.id)}
                       className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${applicantTab === t.id
-                          ? 'bg-white text-slate-900 border border-slate-200/90 font-semibold'
-                          : 'text-slate-500 hover:text-slate-800 border border-transparent'
+                        ? 'bg-white text-slate-900 border border-slate-200/90 font-semibold'
+                        : 'text-slate-500 hover:text-slate-800 border border-transparent'
                         }`}
                     >
                       {t.id} {t.count}
@@ -2101,8 +2096,8 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                                 : undefined
                             }
                             className={`transition-colors ${!p.isSummaryOnly && onSelectPlacement
-                                ? 'hover:bg-slate-50/80 cursor-pointer group'
-                                : 'hover:bg-slate-50/50'
+                              ? 'hover:bg-slate-50/80 cursor-pointer group'
+                              : 'hover:bg-slate-50/50'
                               }`}
                           >
                             <td className="pl-6 pr-4 py-4 align-middle min-w-[270px] max-w-[360px]">

@@ -52,7 +52,7 @@ function truncateInput(text: string | null | undefined, maxChars: number): strin
  */
 function formatAiProviderError(
   err: any,
-  fallback = 'PipeAI service is temporarily unavailable. Please try again later.'
+  fallback = 'SquadAI service is temporarily unavailable. Please try again later.'
 ): { message: string; statusCode: number } {
   const raw = String(err?.message || '').trim();
   const lower = raw.toLowerCase();
@@ -64,13 +64,13 @@ function formatAiProviderError(
     lower.includes('quota')
   ) {
     return {
-      message: 'PipeAI service has reached its limit. Please try again later.',
+      message: 'SquadAI service has reached its limit. Please try again later.',
       statusCode: 429,
     };
   }
   if (lower.includes('status 429') || lower.includes('rate limit') || lower.includes('resource_exhausted')) {
     return {
-      message: 'PipeAI service has reached its limit for now. Wait a moment and try again.',
+      message: 'SquadAI service has reached its limit for now. Wait a moment and try again.',
       statusCode: 429,
     };
   }
@@ -84,7 +84,7 @@ function formatAiProviderError(
     lower.includes('not configured')
   ) {
     return {
-      message: 'PipeAI service is temporarily unavailable. Please try again later.',
+      message: 'SquadAI service is temporarily unavailable. Please try again later.',
       statusCode: 503,
     };
   }
@@ -95,7 +95,7 @@ function formatAiProviderError(
     err?.name === 'TimeoutError'
   ) {
     return {
-      message: 'PipeAI request timed out before finishing. Please try again.',
+      message: 'SquadAI request timed out before finishing. Please try again.',
       statusCode: 504,
     };
   }
@@ -265,11 +265,11 @@ export function computeOfflineCapabilityEvaluation(
     const fallbackStrengths = candidateSkills.slice(0, 4);
     const titleMatched = Boolean(
       requirement.opportunityTitle &&
-        candidate.currentTitle &&
-        candidate.currentTitle
-          .toLowerCase()
-          .split(/\s+/)
-          .some((w) => w.length > 3 && requirement.opportunityTitle!.toLowerCase().includes(w))
+      candidate.currentTitle &&
+      candidate.currentTitle
+        .toLowerCase()
+        .split(/\s+/)
+        .some((w) => w.length > 3 && requirement.opportunityTitle!.toLowerCase().includes(w))
     );
     const fitScore = titleMatched ? 72 : fallbackStrengths.length > 0 ? 58 : 40;
     return {
@@ -551,15 +551,15 @@ export class AiService {
       this.recordUsageFn ||
       (!this.hasExplicitConfigProvider
         ? (entry: {
-            tenantId?: string;
-            userId?: string;
-            provider: string;
-            model: string;
-            feature: AiUsageFeature;
-            inputTokens?: number;
-            outputTokens?: number;
-            latencyMs?: number;
-          }) => aiUsageService.recordUsage(entry)
+          tenantId?: string;
+          userId?: string;
+          provider: string;
+          model: string;
+          feature: AiUsageFeature;
+          inputTokens?: number;
+          outputTokens?: number;
+          latencyMs?: number;
+        }) => aiUsageService.recordUsage(entry)
         : undefined);
 
     if (!recorder) return;
@@ -798,11 +798,11 @@ export class AiService {
       const rawAiSummary = result.data.publicDescription || '';
       const scrubbedAiSummary = rawAiSummary
         ? sanitizePublicSummaryHtml(
-            scrubConfidentialText(rawAiSummary, {
-              companyName: resolvedCompanyName,
-              contactName: resolvedContactName,
-            })
-          )
+          scrubConfidentialText(rawAiSummary, {
+            companyName: resolvedCompanyName,
+            contactName: resolvedContactName,
+          })
+        )
         : '';
 
       return {
@@ -1238,39 +1238,39 @@ export class AiService {
     const offlineBody =
       purpose === 'interview_followup'
         ? [
-            greeting,
-            '',
-            `Following up from ${agencyName} on our submitted consultant, ${candidateName}, for the ${roleTitle} opening${clientClause}.`,
-            '',
-            'Quick Recap:',
-            `- Candidate: ${candidateName} (${candidateTitle})`,
-            skillsList ? `- Key Alignment: ${skillsList}` : '',
-            '',
-            'Could you share any interview feedback or next steps on scheduling? Happy to coordinate availability on our end.',
-            '',
-            'Best regards,',
-            signOffName,
-          ]
-            .filter((line, idx, arr) => line !== '' || (idx > 0 && arr[idx - 1] !== ''))
-            .join('\n')
+          greeting,
+          '',
+          `Following up from ${agencyName} on our submitted consultant, ${candidateName}, for the ${roleTitle} opening${clientClause}.`,
+          '',
+          'Quick Recap:',
+          `- Candidate: ${candidateName} (${candidateTitle})`,
+          skillsList ? `- Key Alignment: ${skillsList}` : '',
+          '',
+          'Could you share any interview feedback or next steps on scheduling? Happy to coordinate availability on our end.',
+          '',
+          'Best regards,',
+          signOffName,
+        ]
+          .filter((line, idx, arr) => line !== '' || (idx > 0 && arr[idx - 1] !== ''))
+          .join('\n')
         : [
-            greeting,
-            '',
-            `Please find ${candidateName}'s profile attached for your ${roleTitle} opening${clientClause}${reqContextTag ? ` (${reqContextTag})` : ''}.`,
-            '',
-            'Candidate Snapshot:',
-            `- Current Role: ${candidateTitle}`,
-            skillsList ? `- Core Skills: ${skillsList}` : '',
-            authRelocParts.length > 0 ? `- ${authRelocParts.join(' | ')}` : '',
-            rateBullet,
-            '',
-            'Please let me know if you would like to schedule an introductory call or interview slot.',
-            '',
-            'Best regards,',
-            signOffName,
-          ]
-            .filter((line, idx, arr) => line !== '' || (idx > 0 && arr[idx - 1] !== ''))
-            .join('\n');
+          greeting,
+          '',
+          `Please find ${candidateName}'s profile attached for your ${roleTitle} opening${clientClause}${reqContextTag ? ` (${reqContextTag})` : ''}.`,
+          '',
+          'Candidate Snapshot:',
+          `- Current Role: ${candidateTitle}`,
+          skillsList ? `- Core Skills: ${skillsList}` : '',
+          authRelocParts.length > 0 ? `- ${authRelocParts.join(' | ')}` : '',
+          rateBullet,
+          '',
+          'Please let me know if you would like to schedule an introductory call or interview slot.',
+          '',
+          'Best regards,',
+          signOffName,
+        ]
+          .filter((line, idx, arr) => line !== '' || (idx > 0 && arr[idx - 1] !== ''))
+          .join('\n');
 
     const { config, adapter, quotaNotice } = await this.getActiveRuntime({
       tenantId: options.tenantId,

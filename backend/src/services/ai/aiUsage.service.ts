@@ -161,7 +161,7 @@ export function evaluateQuotaStatusPure(params: {
   if (actionLimit > 0 && actionsUsed >= actionLimit) {
     return {
       exceeded: true,
-      reason: `PipeAI service limit reached (${actionsUsed}/${actionLimit}). Using standard matching mode.`,
+      reason: `SquadAI service limit reached (${actionsUsed}/${actionLimit}). Using standard matching mode.`,
       actionsUsed,
       tokensUsed,
       actionLimit,
@@ -172,7 +172,7 @@ export function evaluateQuotaStatusPure(params: {
   if (tokenLimit > 0 && tokensUsed >= tokenLimit) {
     return {
       exceeded: true,
-      reason: `PipeAI service limit reached (${tokensUsed}/${tokenLimit}). Using standard matching mode.`,
+      reason: `SquadAI service limit reached (${tokensUsed}/${tokenLimit}). Using standard matching mode.`,
       actionsUsed,
       tokensUsed,
       actionLimit,
@@ -267,15 +267,15 @@ export function applyTenantByoOverridePure(
 
   const planActionLimit =
     typeof ent?.monthlyActionLimit === 'number' &&
-    Number.isFinite(ent.monthlyActionLimit) &&
-    ent.monthlyActionLimit >= 0
+      Number.isFinite(ent.monthlyActionLimit) &&
+      ent.monthlyActionLimit >= 0
       ? Math.floor(ent.monthlyActionLimit)
       : baseConfig.monthlyActionLimit;
 
   const planTokenLimit =
     typeof ent?.monthlyTokenLimit === 'number' &&
-    Number.isFinite(ent.monthlyTokenLimit) &&
-    ent.monthlyTokenLimit >= 0
+      Number.isFinite(ent.monthlyTokenLimit) &&
+      ent.monthlyTokenLimit >= 0
       ? Math.floor(ent.monthlyTokenLimit)
       : baseConfig.monthlyTokenLimit;
 

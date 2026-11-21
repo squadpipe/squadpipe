@@ -69,7 +69,7 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
         }
         badges={
           aiCapabilities.enabled ? (
-            <AiBadge label="PipeAI" size="xs" />
+            <AiBadge label="SquadAI" size="xs" />
           ) : (
             <span className="inline-flex items-center gap-1.5 text-[11px] font-medium bg-white text-slate-700 border border-slate-200/90 px-2.5 py-0.5 rounded-full leading-none">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
@@ -90,8 +90,8 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
                 type="button"
                 onClick={() => setMode('single')}
                 className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer border ${mode === 'single'
-                    ? 'bg-white text-slate-900 border-slate-200/90'
-                    : 'text-slate-500 hover:text-slate-800 border-transparent'
+                  ? 'bg-white text-slate-900 border-slate-200/90'
+                  : 'text-slate-500 hover:text-slate-800 border-transparent'
                   }`}
               >
                 Single Resume
@@ -100,8 +100,8 @@ export const ResumeParserModal: React.FC<ResumeParserModalProps> = ({
                 type="button"
                 onClick={() => setMode('bulk')}
                 className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 border ${mode === 'bulk'
-                    ? 'bg-white text-slate-900 border-slate-200/90'
-                    : 'text-slate-500 hover:text-slate-800 border-transparent'
+                  ? 'bg-white text-slate-900 border-slate-200/90'
+                  : 'text-slate-500 hover:text-slate-800 border-transparent'
                   }`}
               >
                 <Files className="w-3 h-3" />
