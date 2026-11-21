@@ -1,10 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import {
+  Calendar,
+  Clock,
+  Cpu,
   Database,
   FileText,
+  FileType,
+  HardDrive,
+  Hash,
+  Layers,
   Loader2,
   RefreshCw,
   Save,
+  User,
 } from 'lucide-react';
 import { AiIcon, AiMark } from '../../components/shared/AiBrand';
 import { apiClient } from '../../config/api.config';
@@ -13,6 +21,17 @@ import { PageHeader } from '../../components/shared/PageHeader';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { setAiCapabilities } from '../../utils/workspaceBrand';
 import { TablePagination } from '../../components/shared/TablePagination';
+import {
+  GridColumnHeader,
+  STAFFING_GRID_CELL_CLASS,
+  STAFFING_GRID_FRAME_CLASS,
+  STAFFING_GRID_ROW_STATIC_CLASS,
+  STAFFING_GRID_STICKY_TD_CLASS,
+  STAFFING_GRID_STICKY_TH_CLASS,
+  STAFFING_GRID_TABLE_CLASS,
+  STAFFING_GRID_THEAD_CLASS,
+  STAFFING_GRID_TH_CLASS,
+} from '../../components/shared/StaffingGrid';
 import { useClientPagination } from '../../utils/usePagination';
 
 interface AiModelUsageRow {
@@ -413,40 +432,57 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
 
       {/* Stored CV Files List */}
       {storage && storage.recentFiles.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs">
-          <div className="px-6 py-3.5 border-b border-slate-100 bg-white flex items-center justify-between">
+        <div className={`${STAFFING_GRID_FRAME_CLASS} text-xs`}>
+          <div className="px-5 py-3 border-b border-slate-200/80 bg-white flex items-center justify-between">
             <h2 className="font-semibold text-slate-900">
               Stored CV Files ({storage.totalFiles})
             </h2>
             <span className="text-[11px] text-slate-400">Most recently updated candidate CVs</span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-white border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            <table className={STAFFING_GRID_TABLE_CLASS}>
+              <thead className={STAFFING_GRID_THEAD_CLASS}>
                 <tr>
-                  <th className="pl-6 pr-4 py-3">Consultant</th>
-                  <th className="px-4 py-3">Document File</th>
-                  <th className="px-4 py-3">Format</th>
-                  <th className="px-4 py-3">Updated</th>
-                  <th className="pl-4 pr-6 py-3 text-right">Size</th>
+                  <GridColumnHeader
+                    icon={<User className="w-3 h-3" />}
+                    label="Consultant"
+                    className={`${STAFFING_GRID_TH_CLASS} ${STAFFING_GRID_STICKY_TH_CLASS}`}
+                  />
+                  <GridColumnHeader
+                    icon={<FileText className="w-3 h-3" />}
+                    label="Document File"
+                  />
+                  <GridColumnHeader
+                    icon={<FileType className="w-3 h-3" />}
+                    label="Format"
+                  />
+                  <GridColumnHeader
+                    icon={<Calendar className="w-3 h-3" />}
+                    label="Updated"
+                  />
+                  <GridColumnHeader
+                    icon={<HardDrive className="w-3 h-3" />}
+                    label="Size"
+                    align="right"
+                  />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="text-slate-700">
                 {filesPg.pagedItems.map((file) => (
-                  <tr key={file.candidateId} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="pl-6 pr-4 py-3 font-semibold text-slate-900 whitespace-nowrap">
+                  <tr key={file.candidateId} className={STAFFING_GRID_ROW_STATIC_CLASS}>
+                    <td className={`${STAFFING_GRID_CELL_CLASS} ${STAFFING_GRID_STICKY_TD_CLASS} font-semibold text-slate-900 whitespace-nowrap`}>
                       {file.fullName}
                     </td>
-                    <td className="px-4 py-3 text-slate-600 max-w-xs truncate">{file.fileName}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className={`${STAFFING_GRID_CELL_CLASS} text-slate-600 max-w-xs truncate`}>{file.fileName}</td>
+                    <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap`}>
                       <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-white border border-slate-300 text-slate-700">
                         {file.format}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                    <td className={`${STAFFING_GRID_CELL_CLASS} text-slate-500 whitespace-nowrap`}>
                       {file.updatedAt ? new Date(file.updatedAt).toLocaleDateString() : '—'}
                     </td>
-                    <td className="pl-4 pr-6 py-3 text-right font-mono font-semibold text-slate-800 whitespace-nowrap tabular-nums">
+                    <td className={`${STAFFING_GRID_CELL_CLASS} text-right font-mono font-semibold text-slate-800 whitespace-nowrap tabular-nums`}>
                       {formatBytes(file.bytes)}
                     </td>
                   </tr>
@@ -581,39 +617,69 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
 
             {aiUsage.byModel && aiUsage.byModel.length > 0 && (
               <div className="rounded-xl border border-slate-200/90 overflow-hidden">
-                <div className="px-4 py-2.5 bg-white border-b border-slate-100 flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                <div className="px-4 py-2.5 bg-white border-b border-slate-200/80 flex items-center gap-2 text-[11px] font-semibold text-slate-600">
                   <AiIcon className="w-3.5 h-3.5 text-brand-600" />
                   <span>Model Usage Breakdown</span>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-white border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  <table className={STAFFING_GRID_TABLE_CLASS}>
+                    <thead className={STAFFING_GRID_THEAD_CLASS}>
                       <tr>
-                        {aiUsage.usingByoKey && <th className="px-4 py-2.5">Provider</th>}
-                        <th className="px-4 py-2.5">Model</th>
-                        <th className="px-4 py-2.5 text-right">Requests</th>
-                        <th className="px-4 py-2.5 text-right">Tokens (In / Out)</th>
-                        <th className="px-4 py-2.5 text-right">Avg Latency</th>
+                        {aiUsage.usingByoKey && (
+                          <GridColumnHeader
+                            icon={<Layers className="w-3 h-3" />}
+                            label="Provider"
+                            className={`${STAFFING_GRID_TH_CLASS} ${STAFFING_GRID_STICKY_TH_CLASS}`}
+                          />
+                        )}
+                        <GridColumnHeader
+                          icon={<Cpu className="w-3 h-3" />}
+                          label="Model"
+                          className={
+                            aiUsage.usingByoKey
+                              ? STAFFING_GRID_TH_CLASS
+                              : `${STAFFING_GRID_TH_CLASS} ${STAFFING_GRID_STICKY_TH_CLASS}`
+                          }
+                        />
+                        <GridColumnHeader
+                          icon={<Hash className="w-3 h-3" />}
+                          label="Requests"
+                          align="right"
+                        />
+                        <GridColumnHeader
+                          icon={<Database className="w-3 h-3" />}
+                          label="Tokens (In / Out)"
+                          align="right"
+                        />
+                        <GridColumnHeader
+                          icon={<Clock className="w-3 h-3" />}
+                          label="Avg Latency"
+                          align="right"
+                        />
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="text-slate-700">
                       {aiUsage.byModel.map((m) => (
-                        <tr key={`${m.provider}_${m.model}`} className="hover:bg-slate-50/60">
+                        <tr key={`${m.provider}_${m.model}`} className={STAFFING_GRID_ROW_STATIC_CLASS}>
                           {aiUsage.usingByoKey && (
-                            <td className="px-4 py-2.5 font-semibold text-slate-700 uppercase">
+                            <td className={`${STAFFING_GRID_CELL_CLASS} ${STAFFING_GRID_STICKY_TD_CLASS} font-semibold text-slate-700 uppercase whitespace-nowrap`}>
                               {m.provider}
                             </td>
                           )}
-                          <td className="px-4 py-2.5 font-mono text-[11px] text-slate-900">
+                          <td
+                            className={`${STAFFING_GRID_CELL_CLASS} ${
+                              aiUsage.usingByoKey ? '' : STAFFING_GRID_STICKY_TD_CLASS
+                            } font-mono text-[11px] text-slate-900 whitespace-nowrap`}
+                          >
                             {formatModelLabel(m.model, aiUsage.usingByoKey)}
                           </td>
-                          <td className="px-4 py-2.5 text-right font-semibold text-slate-800 tabular-nums">
+                          <td className={`${STAFFING_GRID_CELL_CLASS} text-right font-semibold text-slate-800 tabular-nums whitespace-nowrap`}>
                             {m.actions.toLocaleString()}
                           </td>
-                          <td className="px-4 py-2.5 text-right text-slate-600 tabular-nums font-mono text-[11px]">
+                          <td className={`${STAFFING_GRID_CELL_CLASS} text-right text-slate-600 tabular-nums font-mono text-[11px] whitespace-nowrap`}>
                             {m.inputTokens.toLocaleString()} / {m.outputTokens.toLocaleString()}
                           </td>
-                          <td className="px-4 py-2.5 text-right text-slate-500 tabular-nums">
+                          <td className={`${STAFFING_GRID_CELL_CLASS} text-right text-slate-500 tabular-nums whitespace-nowrap`}>
                             {m.avgLatencyMs > 0 ? `${m.avgLatencyMs} ms` : '—'}
                           </td>
                         </tr>

@@ -45,6 +45,57 @@ export function validatePlacementCanDelete(status: PlacementStatus): void {
   }
 }
 
+export function mapPlacementStatusValue(status?: string): PlacementStatus {
+  const s = String(status || '').toUpperCase().replace(/\s+/g, '_');
+  if (s === 'EXTENDED') return PlacementStatus.EXTENDED;
+  if (s === 'EXPIRING_SOON') return PlacementStatus.EXPIRING_SOON;
+  if (s === 'COMPLETED') return PlacementStatus.COMPLETED;
+  if (s === 'TERMINATED') return PlacementStatus.TERMINATED;
+  return PlacementStatus.ACTIVE;
+}
+
+/**
+ * Builds the Prisma status filter aligned with the UI ledger tabs and active KPI counts:
+ * `'Active'` matches all ongoing placements (not Completed or Terminated), while
+ * `'Expiring Soon'` and `'Extended'` drill into subsets of active contracts.
+ */
+export function buildPlacementStatusWhere(
+  status?: string,
+  now: Date = new Date()
+): Prisma.PlacementWhereInput | null {
+  const statusParam = status ? String(status).trim() : '';
+  if (!statusParam || statusParam === 'All' || statusParam === 'ALL') {
+    return null;
+  }
+
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const in30Days = new Date(startOfToday);
+  in30Days.setDate(in30Days.getDate() + 30);
+
+  if (statusParam === 'Ended') {
+    return { status: { in: [PlacementStatus.COMPLETED, PlacementStatus.TERMINATED] } };
+  }
+  if (statusParam === 'Expiring Soon') {
+    return {
+      status: { notIn: [PlacementStatus.COMPLETED, PlacementStatus.TERMINATED] },
+      endDate: { gte: startOfToday, lte: in30Days },
+    };
+  }
+  if (statusParam === 'Extended') {
+    return {
+      status: PlacementStatus.EXTENDED,
+      OR: [{ endDate: { lt: startOfToday } }, { endDate: { gt: in30Days } }],
+    };
+  }
+  if (statusParam === 'Active' || statusParam.toUpperCase() === 'ACTIVE') {
+    return {
+      status: { notIn: [PlacementStatus.COMPLETED, PlacementStatus.TERMINATED] },
+    };
+  }
+  return { status: mapPlacementStatusValue(statusParam) };
+}
+
 export interface PlacementFilterParams {
   search?: string;
   status?: string;
@@ -61,12 +112,7 @@ export class PlacementService {
   }
 
   private mapPlacementStatus(status?: string): PlacementStatus {
-    const s = String(status || '').toUpperCase().replace(/\s+/g, '_');
-    if (s === 'EXTENDED') return PlacementStatus.EXTENDED;
-    if (s === 'EXPIRING_SOON') return PlacementStatus.EXPIRING_SOON;
-    if (s === 'COMPLETED') return PlacementStatus.COMPLETED;
-    if (s === 'TERMINATED') return PlacementStatus.TERMINATED;
-    return PlacementStatus.ACTIVE;
+    return mapPlacementStatusValue(status);
   }
 
   private mapPlacementType(model?: string): PlacementType | undefined {
@@ -103,33 +149,9 @@ export class PlacementService {
       andConditions.push({ placementType: mappedModel });
     }
 
-    const statusParam = params.status ? String(params.status).trim() : '';
-    if (statusParam && statusParam !== 'All' && statusParam !== 'ALL') {
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
-      const in30Days = new Date(startOfToday);
-      in30Days.setDate(in30Days.getDate() + 30);
-
-      if (statusParam === 'Ended') {
-        andConditions.push({ status: { in: [PlacementStatus.COMPLETED, PlacementStatus.TERMINATED] } });
-      } else if (statusParam === 'Expiring Soon') {
-        andConditions.push({
-          status: { notIn: [PlacementStatus.COMPLETED, PlacementStatus.TERMINATED] },
-          endDate: { gte: startOfToday, lte: in30Days },
-        });
-      } else if (statusParam === 'Extended') {
-        andConditions.push({
-          status: PlacementStatus.EXTENDED,
-          OR: [{ endDate: { lt: startOfToday } }, { endDate: { gt: in30Days } }],
-        });
-      } else if (statusParam === 'Active') {
-        andConditions.push({
-          status: PlacementStatus.ACTIVE,
-          OR: [{ endDate: { lt: startOfToday } }, { endDate: { gt: in30Days } }],
-        });
-      } else {
-        andConditions.push({ status: this.mapPlacementStatus(statusParam) });
-      }
+    const statusWhere = buildPlacementStatusWhere(params.status);
+    if (statusWhere) {
+      andConditions.push(statusWhere);
     }
 
     if (andConditions.length > 0) {
@@ -149,6 +171,7 @@ export class PlacementService {
       {
         customer: (d) => [{ customer: d }, { purchaseOrderNumber: d }, { id: d }],
         resourceName: (d) => [{ resourceName: d }, { id: d }],
+        skillRole: (d) => [{ skillRole: d }, { id: d }],
         status: (d) => [{ status: d }, { placementType: d }, { id: d }],
         placementType: (d) => [{ placementType: d }, { status: d }, { id: d }],
         payRate: (d) => [{ payRate: d }, { id: d }],

@@ -4,9 +4,16 @@ import {
   ArrowRight,
   Briefcase,
   Check,
+  CheckCircle2,
   CloudUpload,
+  Cpu,
+  Database,
+  Eye,
   FileDown,
+  FileSpreadsheet,
   FileText,
+  Mail,
+  User,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Candidate, Requirement } from '../../types';
@@ -16,6 +23,12 @@ import { downloadSampleCandidatesCsv, parseCandidateCsvText } from '../../utils/
 import { mapCandidateFromApi, mapRequirementFromApi } from '../../utils/entityMappers';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
+import {
+  GridColumnHeader,
+  STAFFING_GRID_ROW_STATIC_CLASS,
+  STAFFING_GRID_TABLE_CLASS,
+  STAFFING_GRID_THEAD_CLASS,
+} from '../../components/shared/StaffingGrid';
 
 export interface CsvImportResult {
   candidates: Candidate[];
@@ -365,29 +378,45 @@ export const CsvImportWorkspace: React.FC<CsvImportWorkspaceProps> = ({
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-              <div className="lg:col-span-6 overflow-x-auto border border-slate-200/90 rounded-xl">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-white border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="lg:col-span-6 overflow-x-auto border border-slate-200/90 rounded-xl bg-white">
+                <table className={STAFFING_GRID_TABLE_CLASS}>
+                  <thead className={STAFFING_GRID_THEAD_CLASS}>
                     <tr>
-                      <th className="p-2.5">Source CSV Column</th>
-                      <th className="p-2.5">First Row Preview</th>
-                      <th className="p-2.5">CRM Field</th>
-                      <th className="p-2.5">Match</th>
+                      <GridColumnHeader
+                        icon={<FileSpreadsheet className="w-3 h-3" />}
+                        label="Source CSV Column"
+                        className="px-3 py-2 whitespace-nowrap"
+                      />
+                      <GridColumnHeader
+                        icon={<Eye className="w-3 h-3" />}
+                        label="First Row Preview"
+                        className="px-3 py-2 whitespace-nowrap"
+                      />
+                      <GridColumnHeader
+                        icon={<Database className="w-3 h-3" />}
+                        label="CRM Field"
+                        className="px-3 py-2 whitespace-nowrap"
+                      />
+                      <GridColumnHeader
+                        icon={<CheckCircle2 className="w-3 h-3" />}
+                        label="Match"
+                        className="px-3 py-2 whitespace-nowrap"
+                      />
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="text-slate-700">
                     {columnMappings.map((m) => (
-                      <tr key={m.source}>
-                        <td className="p-2.5 font-medium text-slate-900">{m.source}</td>
-                        <td className="p-2.5 text-slate-500 italic truncate max-w-[120px]">
+                      <tr key={m.source} className={STAFFING_GRID_ROW_STATIC_CLASS}>
+                        <td className="px-3 py-2 font-medium text-slate-900">{m.source}</td>
+                        <td className="px-3 py-2 text-slate-500 italic truncate max-w-[120px]">
                           {m.sample}
                         </td>
-                        <td className="p-2.5">
+                        <td className="px-3 py-2">
                           <span className="px-2 py-0.5 rounded-md text-[11px] bg-white border border-slate-200/90 font-medium text-slate-800">
                             {m.target}
                           </span>
                         </td>
-                        <td className="p-2.5">
+                        <td className="px-3 py-2">
                           <StatusBadge tone="emerald" size="xs" label="Matched" />
                         </td>
                       </tr>
@@ -401,30 +430,46 @@ export const CsvImportWorkspace: React.FC<CsvImportWorkspaceProps> = ({
                   Candidate Data Preview (First {Math.min(5, parsedRows.length)} of{' '}
                   {parsedRows.length})
                 </div>
-                <div className="overflow-x-auto border border-slate-200/90 rounded-xl">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-white border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <div className="overflow-x-auto border border-slate-200/90 rounded-xl bg-white">
+                  <table className={STAFFING_GRID_TABLE_CLASS}>
+                    <thead className={STAFFING_GRID_THEAD_CLASS}>
                       <tr>
-                        <th className="p-2.5">Name</th>
-                        <th className="p-2.5">Title / Work Auth</th>
-                        <th className="p-2.5">Email</th>
-                        <th className="p-2.5">Skills</th>
+                        <GridColumnHeader
+                          icon={<User className="w-3 h-3" />}
+                          label="Name"
+                          className="px-3 py-2 whitespace-nowrap"
+                        />
+                        <GridColumnHeader
+                          icon={<Briefcase className="w-3 h-3" />}
+                          label="Title / Work Auth"
+                          className="px-3 py-2 whitespace-nowrap"
+                        />
+                        <GridColumnHeader
+                          icon={<Mail className="w-3 h-3" />}
+                          label="Email"
+                          className="px-3 py-2 whitespace-nowrap"
+                        />
+                        <GridColumnHeader
+                          icon={<Cpu className="w-3 h-3" />}
+                          label="Skills"
+                          className="px-3 py-2 whitespace-nowrap"
+                        />
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="text-slate-700">
                       {parsedRows.slice(0, 5).map((row, idx) => (
-                        <tr key={idx}>
-                          <td className="p-2.5 font-semibold text-slate-900 whitespace-nowrap">
+                        <tr key={idx} className={STAFFING_GRID_ROW_STATIC_CLASS}>
+                          <td className="px-3 py-2 font-semibold text-slate-900 whitespace-nowrap">
                             {row.fullName || '—'}
                           </td>
-                          <td className="p-2.5 text-slate-600">
+                          <td className="px-3 py-2 text-slate-600">
                             <div>{row.currentTitle || '—'}</div>
                             {row.workAuth && (
                               <div className="text-[11px] text-slate-400">{row.workAuth}</div>
                             )}
                           </td>
-                          <td className="p-2.5 text-slate-600">{row.email || '—'}</td>
-                          <td className="p-2.5 text-slate-500 max-w-[160px] truncate">
+                          <td className="px-3 py-2 text-slate-600">{row.email || '—'}</td>
+                          <td className="px-3 py-2 text-slate-500 max-w-[160px] truncate">
                             {row.skillset || '—'}
                           </td>
                         </tr>

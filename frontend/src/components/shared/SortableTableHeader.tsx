@@ -4,12 +4,14 @@ import { SortDirection, TableSortState } from '../../utils/tableSort';
 
 interface SortableTableHeaderProps<K extends string = string> {
   label: React.ReactNode;
+  icon?: React.ReactNode;
   column: K;
   sort: TableSortState<K>;
   onSort: (column: K, defaultDir?: SortDirection) => void;
   defaultDir?: SortDirection;
   align?: 'left' | 'right' | 'center';
   disabled?: boolean;
+  uppercase?: boolean;
   className?: string;
 }
 
@@ -18,12 +20,14 @@ interface SortableTableHeaderProps<K extends string = string> {
  */
 export function SortableTableHeader<K extends string = string>({
   label,
+  icon,
   column,
   sort,
   onSort,
   defaultDir = 'asc',
   align = 'left',
   disabled = false,
+  uppercase = false,
   className = '',
 }: SortableTableHeaderProps<K>) {
   const isActive = !disabled && sort.sortBy === column;
@@ -40,10 +44,15 @@ export function SortableTableHeader<K extends string = string>({
         ? 'text-center'
         : 'text-left';
 
+  const caseClass = uppercase ? 'uppercase tracking-wider' : '';
+
   if (disabled) {
     return (
       <th scope="col" className={`${alignClass} ${className}`}>
-        <span className="uppercase tracking-wider">{label}</span>
+        <span className={`inline-flex items-center gap-1.5 ${caseClass}`}>
+          {icon && <span className="text-slate-400 shrink-0 inline-flex items-center">{icon}</span>}
+          <span>{label}</span>
+        </span>
       </th>
     );
   }
@@ -60,14 +69,23 @@ export function SortableTableHeader<K extends string = string>({
         type="button"
         onClick={() => onSort(column, defaultDir)}
         title={nextActionLabel}
-        className={`group inline-flex items-center gap-1 uppercase tracking-wider select-none cursor-pointer transition-colors ${
+        className={`group inline-flex items-center gap-1.5 ${caseClass} select-none cursor-pointer transition-colors ${
           align === 'right'
             ? 'justify-end ml-auto'
             : align === 'center'
               ? 'justify-center mx-auto'
               : ''
-        } ${isActive ? 'text-slate-800' : 'text-inherit hover:text-slate-700'}`}
+        } ${
+          isActive
+            ? uppercase
+              ? 'text-slate-800'
+              : 'text-slate-900'
+            : uppercase
+              ? 'text-inherit hover:text-slate-700'
+              : 'text-inherit hover:text-slate-900'
+        }`}
       >
+        {icon && <span className="text-slate-400 shrink-0 inline-flex items-center">{icon}</span>}
         <span>{label}</span>
         {isActive ? (
           sort.sortDir === 'asc' ? (

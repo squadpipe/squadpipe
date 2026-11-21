@@ -1,8 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronRight, Pencil, Plus, Search, Trash2, Users } from 'lucide-react';
+import {
+  Building2,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  Cpu,
+  FileText,
+  MapPin,
+  Pencil,
+  Phone,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+  Users,
+} from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Vendor, VendorContact } from '../../types';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
+import {
+  ContactActionChips,
+  GridColumnHeader,
+  STAFFING_GRID_CELL_CLASS,
+  STAFFING_GRID_FRAME_CLASS,
+  STAFFING_GRID_ROW_CLASS,
+  STAFFING_GRID_STICKY_TD_CLASS,
+  STAFFING_GRID_STICKY_TH_CLASS,
+  STAFFING_GRID_TABLE_CLASS,
+  STAFFING_GRID_THEAD_CLASS,
+  STAFFING_GRID_TH_CLASS,
+} from '../../components/shared/StaffingGrid';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ConfirmDeleteModal } from '../../components/shared/ConfirmDeleteModal';
@@ -43,6 +70,7 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
   const [tableRows, setTableRows] = useState<Vendor[]>(() => vendors.slice(0, 10));
   const [totalRows, setTotalRows] = useState(vendors.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
+  const hasServerSyncRef = React.useRef(false);
   const [vendorToDelete, setVendorToDelete] = useState<Vendor | null>(null);
 
   const debouncedSearch = useDebounce(search, 150);
@@ -63,7 +91,7 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
         v.location.toLowerCase().includes(q)
     );
 
-    if (vendors.length > 0 && !tableSort.sort.sortBy) {
+    if (!hasServerSyncRef.current && vendors.length > 0 && !tableSort.sort.sortBy) {
       setTotalRows(localFiltered.length);
       setTableRows(localFiltered.slice((page - 1) * limit, page * limit));
       setIsLoadingRows(false);
@@ -83,6 +111,7 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
       .then((res) => {
         if (!active) return;
         if (res.data?.success && Array.isArray(res.data.data)) {
+          hasServerSyncRef.current = true;
           const mapped = res.data.data.map(mapVendorFromApi);
           setTableRows(mapped);
           setTotalRows(res.data.pagination?.total ?? mapped.length);
@@ -140,9 +169,9 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
       </div>
 
       {/* Main Table Card */}
-      <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
+      <div className={STAFFING_GRID_FRAME_CLASS}>
         {/* Search Bar */}
-        <div className="px-6 py-3.5 border-b border-slate-100 flex items-center justify-between bg-white">
+        <div className="px-5 py-3 border-b border-slate-200/80 flex items-center justify-between bg-white">
           <span className="font-semibold text-xs text-slate-900">
             {totalRows} Registered Vendors
           </span>
@@ -160,70 +189,91 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-white border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+          <table className={STAFFING_GRID_TABLE_CLASS}>
+            <thead className={STAFFING_GRID_THEAD_CLASS}>
               <tr>
                 <SortableTableHeader
                   label="Vendor Company"
+                  icon={<Building2 className="w-3 h-3" />}
                   column="name"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="px-4 py-3 whitespace-nowrap"
+                  uppercase={false}
+                  className={`${STAFFING_GRID_TH_CLASS} ${STAFFING_GRID_STICKY_TH_CLASS}`}
                 />
                 <SortableTableHeader
                   label="Contacts"
+                  icon={<Users className="w-3 h-3" />}
                   column="contactName"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="px-4 py-3 whitespace-nowrap"
+                  uppercase={false}
+                  className={STAFFING_GRID_TH_CLASS}
                 />
-                <th className="px-4 py-3 whitespace-nowrap">Phone &amp; Email</th>
+                <GridColumnHeader
+                  icon={<Phone className="w-3 h-3" />}
+                  label="Phone & Email"
+                />
                 <SortableTableHeader
                   label="Location"
+                  icon={<MapPin className="w-3 h-3" />}
                   column="location"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="px-4 py-3 whitespace-nowrap"
+                  uppercase={false}
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="Specialization"
+                  icon={<Cpu className="w-3 h-3" />}
                   column="skillSpecialization"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="px-4 py-3 whitespace-nowrap"
+                  uppercase={false}
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="Payment Terms"
+                  icon={<FileText className="w-3 h-3" />}
                   column="paymentTerms"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="px-4 py-3 whitespace-nowrap"
+                  uppercase={false}
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="Invoicing"
+                  icon={<Clock className="w-3 h-3" />}
                   column="invoicingTerms"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="px-4 py-3 whitespace-nowrap"
+                  uppercase={false}
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="MSA Status"
+                  icon={<CheckCircle2 className="w-3 h-3" />}
                   column="msaSigned"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="desc"
-                  className="px-4 py-3 whitespace-nowrap"
+                  uppercase={false}
+                  className={STAFFING_GRID_TH_CLASS}
                 />
-                <th className="px-4 py-3 text-right whitespace-nowrap">Actions</th>
+                <GridColumnHeader
+                  icon={<SlidersHorizontal className="w-3 h-3" />}
+                  label="Actions"
+                  align="right"
+                />
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
+            <tbody className="text-slate-700">
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-6 py-10 text-center text-xs text-slate-400">
@@ -268,10 +318,12 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                     <tr
                       key={v.id}
                       onClick={() => onSelectVendor(v, false)}
-                      className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                      className={STAFFING_GRID_ROW_CLASS}
                     >
-                      <td className="px-4 py-3 font-semibold text-slate-900">{v.name}</td>
-                      <td className="px-4 py-3 text-slate-800">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} ${STAFFING_GRID_STICKY_TD_CLASS} font-semibold text-slate-900 whitespace-nowrap group-hover:text-brand-700`}>
+                        {v.name}
+                      </td>
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-slate-800`}>
                         <div
                           className="flex items-center gap-1.5"
                           title={contactList.map((c) => `${c.fullName}${c.email ? ` (${c.email})` : ''}`).join(', ')}
@@ -287,22 +339,27 @@ export const VendorsView: React.FC<VendorsViewProps> = ({
                           <div className="text-[11px] text-slate-400">{primaryContact.designation}</div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-[11px] text-slate-500">
-                        {primaryContact?.phone || v.phone || '—'} <br />
-                        {primaryContact?.email || v.email || '—'}
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-[11px] text-slate-500`}>
+                        <ContactActionChips
+                          phone={primaryContact?.phone || v.phone}
+                          email={primaryContact?.email || v.email}
+                          layout="stack"
+                          maxEmailWidthClass="max-w-[190px]"
+                          showEmptyPlaceholder
+                        />
                       </td>
-                      <td className="px-4 py-3 text-slate-600">{v.location}</td>
-                      <td className="px-4 py-3 text-[11px]">{v.skillSpecialization}</td>
-                      <td className="px-4 py-3 font-medium">{v.paymentTerms}</td>
-                      <td className="px-4 py-3 text-slate-600">{v.invoicingTerms}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-slate-600`}>{v.location}</td>
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-[11px]`}>{v.skillSpecialization}</td>
+                      <td className={`${STAFFING_GRID_CELL_CLASS} font-medium whitespace-nowrap`}>{v.paymentTerms}</td>
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-slate-600 whitespace-nowrap`}>{v.invoicingTerms}</td>
+                      <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap`}>
                         <StatusBadge
                           label={isMsaExecuted ? 'MSA Executed' : 'Pending Review'}
                           tone={isMsaExecuted ? 'emerald' : 'amber'}
                           size="xs"
                         />
                       </td>
-                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-right whitespace-nowrap`}>
                         <div
                           className="inline-flex items-center gap-1"
                           onClick={(e) => e.stopPropagation()}

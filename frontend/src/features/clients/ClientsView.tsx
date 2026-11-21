@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
+  Briefcase,
+  Building2,
+  CheckCircle2,
   ChevronRight,
   Globe,
   MapPin,
@@ -7,12 +10,26 @@ import {
   Phone,
   Plus,
   Search,
+  SlidersHorizontal,
   Trash2,
+  User,
   Users,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { Client, Requirement, BillablePlacement } from '../../types';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
+import {
+  ContactActionChips,
+  GridColumnHeader,
+  STAFFING_GRID_CELL_CLASS,
+  STAFFING_GRID_FRAME_CLASS,
+  STAFFING_GRID_ROW_CLASS,
+  STAFFING_GRID_STICKY_TD_CLASS,
+  STAFFING_GRID_STICKY_TH_CLASS,
+  STAFFING_GRID_TABLE_CLASS,
+  STAFFING_GRID_THEAD_CLASS,
+  STAFFING_GRID_TH_CLASS,
+} from '../../components/shared/StaffingGrid';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ConfirmDeleteModal } from '../../components/shared/ConfirmDeleteModal';
@@ -45,7 +62,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const tableSort = useTableSort<'name' | 'location' | 'requirementsCount' | 'placementsCount'>();
-  const [serverClients, setServerClients] = useState<Client[]>([]);
+  const [serverClients, setServerClients] = useState<Client[]>(() => clients.slice(0, 10));
   const [totalClients, setTotalClients] = useState(clients.length);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
@@ -148,49 +165,67 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
       </div>
 
       {/* Clients Table List View */}
-      <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
+      <div className={STAFFING_GRID_FRAME_CLASS}>
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-white border-b border-slate-100">
-              <tr className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">
+          <table className={STAFFING_GRID_TABLE_CLASS}>
+            <thead className={STAFFING_GRID_THEAD_CLASS}>
+              <tr>
                 <SortableTableHeader
                   label="Client Company"
+                  icon={<Building2 className="w-3 h-3" />}
                   column="name"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="px-4 py-3"
+                  uppercase={false}
+                  className={`${STAFFING_GRID_TH_CLASS} ${STAFFING_GRID_STICKY_TH_CLASS}`}
                 />
-                <th className="px-4 py-3">Primary Contact</th>
-                <th className="px-4 py-3">Phone &amp; Email</th>
+                <GridColumnHeader
+                  icon={<User className="w-3 h-3" />}
+                  label="Primary Contact"
+                />
+                <GridColumnHeader
+                  icon={<Phone className="w-3 h-3" />}
+                  label="Phone & Email"
+                />
                 <SortableTableHeader
                   label="Location"
+                  icon={<MapPin className="w-3 h-3" />}
                   column="location"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="px-4 py-3"
+                  uppercase={false}
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="Requisitions"
+                  icon={<Briefcase className="w-3 h-3" />}
                   column="requirementsCount"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="desc"
-                  className="px-4 py-3"
+                  uppercase={false}
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="Active Placements"
+                  icon={<CheckCircle2 className="w-3 h-3" />}
                   column="placementsCount"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="desc"
-                  className="px-4 py-3"
+                  uppercase={false}
+                  className={STAFFING_GRID_TH_CLASS}
                 />
-                <th className="px-4 py-3 text-right">Actions</th>
+                <GridColumnHeader
+                  icon={<SlidersHorizontal className="w-3 h-3" />}
+                  label="Actions"
+                  align="right"
+                />
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs">
+            <tbody className="text-slate-700">
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 px-6 text-center text-xs text-slate-400">
@@ -242,10 +277,12 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                     <tr
                       key={client.id}
                       onClick={() => onSelectClient(client, false)}
-                      className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                      className={STAFFING_GRID_ROW_CLASS}
                     >
-                      <td className="px-4 py-3">
-                        <div className="font-semibold text-slate-900">{client.name}</div>
+                      <td className={`${STAFFING_GRID_CELL_CLASS} ${STAFFING_GRID_STICKY_TD_CLASS} whitespace-nowrap`}>
+                        <div className="font-semibold text-slate-900 group-hover:text-brand-700 transition-colors">
+                          {client.name}
+                        </div>
                         {cleanWebsite && cleanWebsite !== 'https://' && (
                           <div className="text-[11px] text-brand-600 flex items-center gap-1 mt-0.5">
                             <Globe className="w-2.5 h-2.5 flex-shrink-0" />
@@ -253,7 +290,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-slate-800">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-slate-800`}>
                         <div className="flex items-center gap-1.5">
                           <span className="font-medium">
                             {primaryContact?.name || (primaryContact as any)?.fullName || '—'}
@@ -268,38 +305,36 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                           <div className="text-[11px] text-slate-400">{primaryContact.designation}</div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-[11px] text-slate-500">
-                        <div className="flex items-center gap-1">
-                          <Phone className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                          <span>{client.boardNumber || primaryContact?.phone || '—'}</span>
-                        </div>
-                        {primaryContact?.email && (
-                          <div className="text-[11px] text-slate-400 truncate max-w-[200px]">
-                            {primaryContact.email}
-                          </div>
-                        )}
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-[11px] text-slate-500`}>
+                        <ContactActionChips
+                          phone={client.boardNumber || primaryContact?.phone}
+                          email={primaryContact?.email}
+                          layout="stack"
+                          maxEmailWidthClass="max-w-[190px]"
+                          showEmptyPlaceholder
+                        />
                       </td>
-                      <td className="px-4 py-3 text-slate-600">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-slate-600`}>
                         <div className="flex items-center gap-1">
                           <MapPin className="w-3 h-3 text-slate-400 flex-shrink-0" />
                           <span>{client.location || '—'}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap`}>
                         <StatusBadge
                           tone="slate"
                           size="xs"
                           label={`${clientReqs.length} ${clientReqs.length === 1 ? 'Req' : 'Reqs'}`}
                         />
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap`}>
                         <StatusBadge
                           label={`${clientPlacements.length} Active`}
                           tone={clientPlacements.length > 0 ? 'emerald' : 'slate'}
                           size="xs"
                         />
                       </td>
-                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-right whitespace-nowrap`}>
                         <div className="inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"

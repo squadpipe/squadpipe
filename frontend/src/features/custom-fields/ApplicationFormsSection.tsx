@@ -3,9 +3,11 @@ import {
   Copy,
   Eye,
   FileText,
+  ListChecks,
   Pencil,
   Plus,
   Search,
+  SlidersHorizontal,
   Star,
   Trash2,
   X,
@@ -21,6 +23,17 @@ import { useDebounce } from '../../utils/useDebounce';
 import { ConfirmDeleteModal } from '../../components/shared/ConfirmDeleteModal';
 import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
+import {
+  GridColumnHeader,
+  STAFFING_GRID_CELL_CLASS,
+  STAFFING_GRID_FRAME_CLASS,
+  STAFFING_GRID_ROW_CLASS,
+  STAFFING_GRID_STICKY_TD_CLASS,
+  STAFFING_GRID_STICKY_TH_CLASS,
+  STAFFING_GRID_TABLE_CLASS,
+  STAFFING_GRID_THEAD_CLASS,
+  STAFFING_GRID_TH_CLASS,
+} from '../../components/shared/StaffingGrid';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { PageHeader } from '../../components/shared/PageHeader';
@@ -205,8 +218,8 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
       />
 
       {/* List View with Search, Sort & Pagination */}
-      <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
-        <div className="px-6 py-3.5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+      <div className={STAFFING_GRID_FRAME_CLASS}>
+        <div className="px-5 py-3 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
           <span className="font-semibold text-xs text-slate-900 tabular-nums">
             {totalForms} {totalForms === 1 ? 'Form Template' : 'Form Templates'}
           </span>
@@ -224,37 +237,44 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-white border-b border-slate-100">
-              <tr className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+          <table className={STAFFING_GRID_TABLE_CLASS}>
+            <thead className={STAFFING_GRID_THEAD_CLASS}>
+              <tr>
                 <SortableTableHeader
                   label="Form Name"
+                  icon={<FileText className="w-3 h-3" />}
                   column="name"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="py-2.5 px-5 whitespace-nowrap"
+                  className={`${STAFFING_GRID_TH_CLASS} ${STAFFING_GRID_STICKY_TH_CLASS}`}
                 />
                 <SortableTableHeader
                   label="Included Fields"
+                  icon={<ListChecks className="w-3 h-3" />}
                   column="fieldsCount"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="desc"
-                  className="py-2.5 px-4 whitespace-nowrap"
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="Default"
+                  icon={<Star className="w-3 h-3" />}
                   column="isDefault"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="desc"
-                  className="py-2.5 px-4 whitespace-nowrap"
+                  className={STAFFING_GRID_TH_CLASS}
                 />
-                <th className="py-2.5 px-5 text-right whitespace-nowrap">Actions</th>
+                <GridColumnHeader
+                  icon={<SlidersHorizontal className="w-3 h-3" />}
+                  label="Actions"
+                  align="right"
+                />
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="text-slate-700">
               {paginatedForms.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="py-10 text-center text-xs text-slate-400">
@@ -298,10 +318,10 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
                     <tr
                       key={form.id}
                       onClick={() => onEditForm(form)}
-                      className="hover:bg-slate-50/70 transition-colors cursor-pointer"
+                      className={STAFFING_GRID_ROW_CLASS}
                     >
-                      <td className="py-3.5 px-5 align-top max-w-[260px]">
-                        <div className="font-semibold text-slate-900 leading-snug break-words">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} ${STAFFING_GRID_STICKY_TD_CLASS} align-top max-w-[260px]`}>
+                        <div className="font-semibold text-slate-900 leading-snug break-words group-hover:text-brand-700 transition-colors">
                           {form.name}
                         </div>
                         <div className="text-[11px] text-slate-500 mt-0.5 leading-snug break-words">
@@ -309,7 +329,7 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4 align-top">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} align-top`}>
                         <div
                           className="flex flex-wrap gap-1 items-center"
                           onClick={(e) => e.stopPropagation()}
@@ -352,7 +372,7 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
                       </td>
 
                       <td
-                        className="py-3.5 px-4 align-top whitespace-nowrap"
+                        className={`${STAFFING_GRID_CELL_CLASS} align-top whitespace-nowrap`}
                         onClick={(e) => e.stopPropagation()}
                       >
                         {form.isDefault ? (
@@ -378,7 +398,7 @@ export const ApplicationFormsSection: React.FC<ApplicationFormsSectionProps> = (
                       </td>
 
                       <td
-                        className="py-3.5 px-5 align-top text-right whitespace-nowrap"
+                        className={`${STAFFING_GRID_CELL_CLASS} align-top text-right whitespace-nowrap`}
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="inline-flex items-center gap-1">

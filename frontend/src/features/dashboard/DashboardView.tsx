@@ -1,24 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import {
-  AlertTriangle,
   ArrowRight,
   Award,
   Briefcase,
+  Building2,
   CalendarCheck,
   DollarSign,
   FileSpreadsheet,
+  Hash,
+  Layers,
   ListChecks,
   Loader2,
+  Lock,
+  MapPin,
   Pencil,
   Plus,
   RefreshCw,
   Send,
+  SlidersHorizontal,
   Trash2,
+  User,
   UserCheck,
   X,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { AnimatedModal } from '../../components/shared/MotionPrimitives';
+import { DeleteRequirementModal } from '../../components/shared/DeleteRequirementModal';
 import {
   Requirement,
   Candidate,
@@ -27,6 +34,17 @@ import {
 } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
+import {
+  GridColumnHeader,
+  STAFFING_GRID_CELL_CLASS,
+  STAFFING_GRID_FRAME_CLASS,
+  STAFFING_GRID_ROW_STATIC_CLASS,
+  STAFFING_GRID_STICKY_TD_CLASS,
+  STAFFING_GRID_STICKY_TH_CLASS,
+  STAFFING_GRID_TABLE_CLASS,
+  STAFFING_GRID_THEAD_CLASS,
+  STAFFING_GRID_TH_CLASS,
+} from '../../components/shared/StaffingGrid';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { CustomSelect } from '../../components/shared/CustomSelect';
@@ -54,9 +72,9 @@ interface DashboardViewProps {
   placements: BillablePlacement[];
   slaTasks: SlaTask[];
   rateMasked: boolean;
-  onNavigate: (view: string) => void;
+  onNavigate: (view: string, query?: Record<string, string>) => void;
   onOpenCreateReq: () => void;
-  onSelectReq: (req: Requirement) => void;
+  onSelectReq: (req: Requirement, initialTab?: 'applicants' | 'placed' | 'details') => void;
   onEditReq?: (req: Requirement) => void;
   onUpdateReq?: (req: Requirement) => void;
   onDeleteReq?: (req: Requirement) => void;
@@ -99,11 +117,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [tableRows, setTableRows] = useState<Requirement[]>(() => requirements.slice(0, 10));
   const [totalRows, setTotalRows] = useState(requirements.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
+  const hasServerSyncRef = React.useRef(false);
   const [editingReq, setEditingReq] = useState<Requirement | null>(null);
   const [reqValidationAttempted, setReqValidationAttempted] = useState(false);
   const [reqToDelete, setReqToDelete] = useState<Requirement | null>(null);
   const [isUpdatingReq, setIsUpdatingReq] = useState(false);
-  const [isDeletingReq, setIsDeletingReq] = useState(false);
 
   const taxonomies = useMasterTaxonomies(true);
   const reqStageOptions = buildRequirementStageOptions(taxonomies.stages);
@@ -128,7 +146,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       return matchesSearch && matchesStatus;
     });
 
-    if (requirements.length > 0 && !reqSort.sort.sortBy) {
+    if (!hasServerSyncRef.current && requirements.length > 0 && !reqSort.sort.sortBy) {
       setTotalRows(localFiltered.length);
       setTableRows(localFiltered.slice((page - 1) * limit, page * limit));
       setIsLoadingRows(false);
@@ -149,6 +167,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       .then((res) => {
         if (!active) return;
         if (res.data?.success && Array.isArray(res.data.data)) {
+          hasServerSyncRef.current = true;
           const mapped = res.data.data.map(mapRequirementFromApi);
           setTableRows(mapped);
           setTotalRows(res.data.pagination?.total ?? mapped.length);
@@ -301,7 +320,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
         {/* Card 6: Active Billable */}
         <div
-          onClick={() => onNavigate('billable')}
+          onClick={() => onNavigate('billable', { status: 'Active' })}
           className="p-4 rounded-xl border border-slate-200/90 bg-white card-shadow card-hover cursor-pointer group"
         >
           <div className="flex items-center justify-between text-slate-500 mb-2">
@@ -316,8 +335,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* Requirements Overview Table matching prototype lines 2052-2134 */}
-      <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
-        <div className="px-6 py-3.5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+      <div className={STAFFING_GRID_FRAME_CLASS}>
+        <div className="px-5 py-3 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
           <div className="flex items-center gap-2.5">
             <span className="font-semibold text-xs text-slate-900">Requirements Overview</span>
             <span className="text-xs font-medium text-slate-400 tabular-nums">
@@ -359,62 +378,75 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-white border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+          <table className={STAFFING_GRID_TABLE_CLASS}>
+            <thead className={STAFFING_GRID_THEAD_CLASS}>
               <tr>
                 <SortableTableHeader
                   label="Req #"
+                  icon={<Hash className="w-3 h-3" />}
                   column="code"
                   sort={reqSort.sort}
                   onSort={reqSort.handleSort}
                   defaultDir="asc"
-                  className="px-3.5 py-2.5 whitespace-nowrap"
+                  className={`${STAFFING_GRID_TH_CLASS} ${STAFFING_GRID_STICKY_TH_CLASS}`}
                 />
                 <SortableTableHeader
                   label="Opportunity"
+                  icon={<Briefcase className="w-3 h-3" />}
                   column="opportunityTitle"
                   sort={reqSort.sort}
                   onSort={reqSort.handleSort}
                   defaultDir="asc"
-                  className="px-3.5 py-2.5 whitespace-nowrap"
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="Client Contact"
+                  icon={<User className="w-3 h-3" />}
                   column="contact"
                   sort={reqSort.sort}
                   onSort={reqSort.handleSort}
                   defaultDir="asc"
-                  className="px-3.5 py-2.5 whitespace-nowrap"
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="Company"
+                  icon={<Building2 className="w-3 h-3" />}
                   column="companyName"
                   sort={reqSort.sort}
                   onSort={reqSort.handleSort}
                   defaultDir="asc"
-                  className="px-3.5 py-2.5 whitespace-nowrap"
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="Location"
+                  icon={<MapPin className="w-3 h-3" />}
                   column="location"
                   sort={reqSort.sort}
                   onSort={reqSort.handleSort}
                   defaultDir="asc"
-                  className="px-3.5 py-2.5 whitespace-nowrap"
+                  className={STAFFING_GRID_TH_CLASS}
                 />
-                <th className="px-3.5 py-2.5 whitespace-nowrap">Consultant</th>
+                <GridColumnHeader
+                  icon={<UserCheck className="w-3 h-3" />}
+                  label="Consultant"
+                />
                 <SortableTableHeader
                   label="Status"
+                  icon={<Layers className="w-3 h-3" />}
                   column="status"
                   sort={reqSort.sort}
                   onSort={reqSort.handleSort}
                   defaultDir="asc"
-                  className="px-3.5 py-2.5 whitespace-nowrap"
+                  className={STAFFING_GRID_TH_CLASS}
                 />
-                <th className="px-3.5 py-2.5 text-right whitespace-nowrap">Actions</th>
+                <GridColumnHeader
+                  icon={<SlidersHorizontal className="w-3 h-3" />}
+                  label="Actions"
+                  align="right"
+                />
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
+            <tbody className="text-slate-700">
               {filteredRequirements.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-10 text-center text-xs text-slate-400">
@@ -470,8 +502,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       : new Date().toISOString().split('T')[0];
 
                   return (
-                    <tr key={req.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="px-3.5 py-3 whitespace-nowrap">
+                    <tr key={req.id} className={STAFFING_GRID_ROW_STATIC_CLASS}>
+                      <td className={`${STAFFING_GRID_CELL_CLASS} ${STAFFING_GRID_STICKY_TD_CLASS} whitespace-nowrap`}>
                         <div className="font-mono font-semibold text-[11px] text-slate-700">
                           {req.code}
                         </div>
@@ -479,7 +511,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           {dateStr}
                         </div>
                       </td>
-                      <td className="px-3.5 py-3 font-medium text-slate-900 min-w-[220px] max-w-[280px]">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} font-medium text-slate-900 min-w-[220px] max-w-[280px]`}>
                         <div
                           className="cursor-pointer hover:text-brand-600 transition-colors truncate font-semibold"
                           title={req.opportunityTitle}
@@ -493,7 +525,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           </div>
                         )}
                       </td>
-                      <td className="px-3.5 py-3 text-slate-600 max-w-[160px]">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-slate-600 max-w-[160px]`}>
                         {contactName ? (
                           <>
                             <div className="font-medium text-slate-800 truncate" title={contactName}>
@@ -509,13 +541,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           <span className="text-slate-300">—</span>
                         )}
                       </td>
-                      <td className="px-3.5 py-3 font-medium text-slate-800 max-w-[170px] truncate" title={req.companyName}>
+                      <td className={`${STAFFING_GRID_CELL_CLASS} font-medium text-slate-800 max-w-[170px] truncate`} title={req.companyName}>
                         {req.companyName || <span className="text-slate-300 font-normal">—</span>}
                       </td>
-                      <td className="px-3.5 py-3 text-slate-600 max-w-[155px] truncate" title={req.location}>
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-slate-600 max-w-[155px] truncate`} title={req.location}>
                         {req.location || <span className="text-slate-300">—</span>}
                       </td>
-                      <td className="px-3.5 py-3 whitespace-nowrap">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap`}>
                         {req.resourceName ? (
                           <span
                             className="font-medium text-slate-800 hover:text-brand-600 cursor-pointer transition-colors"
@@ -527,7 +559,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           <span className="text-slate-400 italic text-[11px]">Unassigned</span>
                         )}
                       </td>
-                      <td className="px-3.5 py-3 whitespace-nowrap">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap`}>
                         <CustomSelect
                           value={req.status}
                           onChange={(val) => onStatusChange(req, val)}
@@ -547,7 +579,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           )}
                         />
                       </td>
-                      <td className="px-3.5 py-3 text-right whitespace-nowrap">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-right whitespace-nowrap`}>
                         <div className="inline-flex items-center justify-end gap-1">
                           {(onEditReq || onUpdateReq) && (
                             <button
@@ -565,16 +597,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
                           )}
-                          {onDeleteReq && (
-                            <button
-                              type="button"
-                              onClick={() => setReqToDelete(req)}
-                              title="Delete requirement"
-                              className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                          {onDeleteReq && (() => {
+                            const rowFilledPos = req.filledPositions ?? req.activePlacements?.length ?? 0;
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => setReqToDelete(req)}
+                                title={
+                                  rowFilledPos > 0
+                                    ? `Protected: ${rowFilledPos} active billable consultant(s) attached`
+                                    : 'Delete requirement'
+                                }
+                                className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                                  rowFilledPos > 0
+                                    ? 'text-amber-500 hover:text-amber-700 hover:bg-amber-50'
+                                    : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
+                                }`}
+                              >
+                                {rowFilledPos > 0 ? (
+                                  <Lock className="w-3.5 h-3.5" />
+                                ) : (
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            );
+                          })()}
                         </div>
                       </td>
                     </tr>
@@ -705,7 +752,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         </button>
                       ) : actionType === 'billable' ? (
                         <button
-                          onClick={() => (onTaskAction ? onTaskAction(item) : onNavigate('billable'))}
+                          onClick={() =>
+                            onTaskAction
+                              ? onTaskAction(item)
+                              : onNavigate('billable', { status: 'Active' })
+                          }
                           className="flex-shrink-0 px-2.5 py-1 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-semibold transition-colors cursor-pointer"
                         >
                           Review
@@ -755,10 +806,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             </div>
             <button
-              onClick={() => onNavigate('billable')}
+              onClick={() => onNavigate('billable', { status: 'Active' })}
               className="text-xs font-semibold text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer"
             >
-              <span>View All ({activePlacements.length})</span>
+              <span>View Active ({activePlacements.length})</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -958,67 +1009,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </AnimatedModal>
 
       {/* Delete Requisition Confirmation Modal */}
-      <AnimatedModal
-        isOpen={Boolean(reqToDelete)}
-        onBackdropClick={() => setReqToDelete(null)}
-        zIndexClass="z-50"
-        panelClassName="bg-white rounded-xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden"
-        ariaLabel="Delete Requirement"
-      >
-        {reqToDelete && (
-            <div className="p-6 space-y-4">
-              <div className="flex items-start gap-3.5">
-                <div className="w-9 h-9 rounded-full bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center flex-shrink-0">
-                  <AlertTriangle className="w-4 h-4" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-sm font-semibold text-slate-900">Delete Requirement?</h3>
-                  <p className="text-xs text-slate-500 leading-relaxed">
-                    Are you sure you want to permanently remove{' '}
-                    <span className="font-bold text-slate-800">{reqToDelete.code}</span> —{' '}
-                    <span className="font-semibold text-slate-800">{reqToDelete.opportunityTitle}</span> at{' '}
-                    <span className="font-semibold text-slate-800">{reqToDelete.companyName}</span>?
-                  </p>
-                  <p className="text-[11px] text-rose-600 font-medium pt-0.5">
-                    This action cannot be undone and removes linked submission records.
-                  </p>
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
-                <button
-                  type="button"
-                  disabled={isDeletingReq}
-                  onClick={() => setReqToDelete(null)}
-                  className="h-8 px-3.5 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-60 rounded-lg transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <ActionButton
-                  type="button"
-                  loading={isDeletingReq}
-                  loadingText="Deleting..."
-                  icon={<Trash2 className="w-3.5 h-3.5" />}
-                  onClick={async () => {
-                    if (isDeletingReq) return;
-                    setIsDeletingReq(true);
-                    try {
-                      if (onDeleteReq) await onDeleteReq(reqToDelete);
-                      setReqToDelete(null);
-                    } catch {
-                      setReqToDelete(null);
-                    } finally {
-                      setIsDeletingReq(false);
-                    }
-                  }}
-                  className="h-8 px-4 text-[11px] font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition-colors cursor-pointer"
-                >
-                  Delete Requisition
-                </ActionButton>
-              </div>
-            </div>
-        )}
-      </AnimatedModal>
+      <DeleteRequirementModal
+        requirement={reqToDelete}
+        onClose={() => setReqToDelete(null)}
+        onDeleteReq={onDeleteReq}
+        onViewPlacedConsultants={(target) => onSelectReq(target, 'placed')}
+      />
     </section>
   );
 };

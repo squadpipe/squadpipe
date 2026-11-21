@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useId, useMemo, useState } from 'react';
+import { animate, motion } from 'framer-motion';
 import {
   AlertTriangle,
   ArrowRight,
@@ -29,6 +30,7 @@ import {
 } from '../../types';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { MaskedValue } from '../../components/shared/MaskedValue';
+import { APPLE_EASE } from '../../components/shared/MotionPrimitives';
 import {
   DetailBreadcrumb,
   DetailTabItem,
@@ -48,6 +50,156 @@ import {
   getVendorComplianceWarning,
   parseRate,
 } from './placementUtils';
+
+type ProgressTone = 'emerald' | 'amber' | 'rose';
+
+const BAR_TONE_CLASSES: Record<ProgressTone, string> = {
+  emerald: 'bg-gradient-to-r from-emerald-500 via-emerald-500 to-emerald-400',
+  amber: 'bg-gradient-to-r from-amber-500 to-amber-400',
+  rose: 'bg-gradient-to-r from-rose-500 to-rose-400',
+};
+
+const RING_TONE_STYLES: Record<
+  ProgressTone,
+  { start: string; end: string; glow?: string; pulseBorder: string; labelClass: string }
+> = {
+  emerald: {
+    start: '#34d399',
+    end: '#059669',
+    glow: 'drop-shadow(0 0 4px rgba(16, 185, 129, 0.28))',
+    pulseBorder: 'border-emerald-400',
+    labelClass: 'text-emerald-700',
+  },
+  amber: {
+    start: '#fbbf24',
+    end: '#d97706',
+    pulseBorder: 'border-amber-400',
+    labelClass: 'text-slate-900',
+  },
+  rose: {
+    start: '#fb7185',
+    end: '#e11d48',
+    pulseBorder: 'border-rose-400',
+    labelClass: 'text-slate-900',
+  },
+};
+
+/**
+ * Smoothly counts a percentage readout from 0 to targetPct when timeline progress mounts or updates.
+ */
+function useAnimatedPercentage(targetPct: number, active: boolean, replayKey: string): number {
+  const [displayPct, setDisplayPct] = useState(0);
+
+  useEffect(() => {
+    if (!active) {
+      setDisplayPct(0);
+      return;
+    }
+    setDisplayPct(0);
+    const controls = animate(0, targetPct, {
+      duration: 0.85,
+      ease: APPLE_EASE,
+      onUpdate: (latest) => setDisplayPct(Math.round(latest)),
+    });
+    return () => controls.stop();
+  }, [active, targetPct, replayKey]);
+
+  return displayPct;
+}
+
+interface ContractProgressRingProps {
+  pct: number;
+  hasTimeline: boolean;
+  tone: ProgressTone;
+  replayKey: string;
+}
+
+/**
+ * Animated radial SVG progress ring with smooth stroke sweep and completion pulse.
+ */
+const ContractProgressRing: React.FC<ContractProgressRingProps> = ({
+  pct,
+  hasTimeline,
+  tone,
+  replayKey,
+}) => {
+  const gradientId = useId();
+  const clampedPct = hasTimeline ? Math.min(100, Math.max(0, pct)) : 0;
+  const displayPct = useAnimatedPercentage(clampedPct, hasTimeline, replayKey);
+
+  const sizePx = 56;
+  const strokeWidth = 5;
+  const radius = (sizePx - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (clampedPct / 100) * circumference;
+  const toneStyle = RING_TONE_STYLES[tone];
+
+  return (
+    <motion.div
+      key={replayKey}
+      initial={{ scale: 0.92, opacity: 0.75 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ duration: 0.35, ease: APPLE_EASE }}
+      className="relative inline-flex items-center justify-center shrink-0"
+      style={{ width: sizePx, height: sizePx }}
+      aria-label={hasTimeline ? `${clampedPct}% of contract timeline elapsed` : 'Timeline unavailable'}
+    >
+      {hasTimeline && clampedPct === 100 && (
+        <motion.span
+          aria-hidden="true"
+          initial={{ scale: 0.9, opacity: 0.6 }}
+          animate={{ scale: 1.24, opacity: 0 }}
+          transition={{ duration: 0.85, delay: 0.55, ease: 'easeOut' }}
+          className={`absolute inset-0 rounded-full border-2 pointer-events-none ${toneStyle.pulseBorder}`}
+        />
+      )}
+      <svg
+        width={sizePx}
+        height={sizePx}
+        viewBox={`0 0 ${sizePx} ${sizePx}`}
+        className="-rotate-90"
+      >
+        <defs>
+          <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor={toneStyle.start} />
+            <stop offset="100%" stopColor={toneStyle.end} />
+          </linearGradient>
+        </defs>
+        <circle
+          cx={sizePx / 2}
+          cy={sizePx / 2}
+          r={radius}
+          fill="none"
+          strokeWidth={strokeWidth}
+          className="stroke-slate-200/80"
+        />
+        {hasTimeline && clampedPct > 0 && (
+          <motion.circle
+            cx={sizePx / 2}
+            cy={sizePx / 2}
+            r={radius}
+            fill="none"
+            strokeWidth={strokeWidth}
+            strokeDasharray={circumference}
+            initial={{ strokeDashoffset: circumference }}
+            animate={{ strokeDashoffset }}
+            transition={{ duration: 0.85, ease: APPLE_EASE }}
+            strokeLinecap="round"
+            stroke={`url(#${gradientId})`}
+            style={toneStyle.glow ? { filter: toneStyle.glow } : undefined}
+          />
+        )}
+      </svg>
+      <span
+        className={`absolute inset-0 flex items-center justify-center text-[11px] font-bold font-mono tabular-nums ${
+          clampedPct === 100 ? toneStyle.labelClass : 'text-slate-900'
+        }`}
+      >
+        {hasTimeline ? `${displayPct}%` : '—'}
+      </span>
+    </motion.div>
+  );
+};
 
 interface PlacementDetailPageProps {
   placement: BillablePlacement | null;
@@ -94,6 +246,20 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
   const [endingPlacement, setEndingPlacement] = useState<BillablePlacement | null>(null);
   const [deletingPlacement, setDeletingPlacement] = useState<BillablePlacement | null>(null);
   const [workspaceTab, setWorkspaceTab] = useState<'billing' | 'records' | 'details'>('billing');
+
+  const isCompleted = placement?.status === 'Completed';
+  const isTerminated = placement?.status === 'Terminated';
+  const ended = Boolean(isCompleted || isTerminated);
+  const daysLeft = placement ? getDaysRemaining(placement.endDate) : null;
+  const timeline = placement
+    ? getContractTimelineMetrics(placement.startDate, placement.endDate)
+    : null;
+  const timelinePct = timeline ? (ended ? 100 : timeline.progressPct) : 0;
+  const heroDisplayPct = useAnimatedPercentage(
+    timelinePct,
+    Boolean(placement && timeline),
+    `${placement?.id || 'none'}-${timelinePct}`
+  );
 
   useEffect(() => {
     setWorkspaceTab('billing');
@@ -159,9 +325,6 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
 
   const effectiveStatus = getEffectiveStatus(placement);
   const statusMeta = getPlacementStatusMeta(placement);
-  const ended = placement.status === 'Completed' || placement.status === 'Terminated';
-  const daysLeft = getDaysRemaining(placement.endDate);
-  const timeline = getContractTimelineMetrics(placement.startDate, placement.endDate);
 
   const recruiterInitials = getInitials(placement.recruiter || '—');
 
@@ -292,13 +455,19 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
 
   const readyCheckCount = agreementChecks.filter((item) => item.status === 'ok').length;
 
-  const progressBarClass = ended
-    ? 'bg-slate-400'
+  const timelineTone: ProgressTone = ended
+    ? 'emerald'
     : daysLeft !== null && daysLeft < 0
-      ? 'bg-rose-500'
+      ? 'rose'
       : daysLeft !== null && daysLeft <= 30
-        ? 'bg-amber-500'
-        : 'bg-emerald-500';
+        ? 'amber'
+        : 'emerald';
+
+  const progressBarClass = BAR_TONE_CLASSES[timelineTone];
+
+  const formatDayCount = (count: number) => `${count} ${count === 1 ? 'day' : 'days'}`;
+
+  const effectiveElapsedDays = timeline ? (ended ? timeline.totalDays : timeline.elapsedDays) : 0;
 
   const placementTabs: Array<DetailTabItem<'billing' | 'records' | 'details'>> = [
     { id: 'billing', label: 'Billing & Contract', icon: DollarSign },
@@ -346,11 +515,15 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
                 <span className="text-slate-300" aria-hidden="true">&middot;</span>
                 <span
                   className={`w-1.5 h-1.5 rounded-full ${
-                    ended
-                      ? 'bg-slate-400'
-                      : daysLeft !== null && daysLeft <= 30
-                        ? 'bg-amber-500'
-                        : 'bg-emerald-500'
+                    isCompleted
+                      ? 'bg-emerald-500'
+                      : isTerminated
+                        ? 'bg-rose-500'
+                        : daysLeft !== null && daysLeft < 0
+                          ? 'bg-rose-500'
+                          : daysLeft !== null && daysLeft <= 30
+                            ? 'bg-amber-500'
+                            : 'bg-emerald-500'
                   }`}
                 />
                 <span
@@ -506,19 +679,38 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
             <div className="flex items-baseline justify-between gap-2">
               <div className="leading-none">
                 <span className="text-lg font-bold font-mono text-slate-900 tabular-nums">
-                  {timeline ? `${ended ? 100 : timeline.progressPct}%` : '—'}
+                  {timeline ? `${heroDisplayPct}%` : '—'}
                 </span>
                 <span className="text-[11px] text-slate-500 ml-1.5">elapsed</span>
               </div>
-              <span className="text-[11px] font-mono text-slate-500 truncate">
+              <span className="text-[11px] font-mono text-slate-500 truncate tabular-nums">
                 {placement.endDate || '—'}
               </span>
             </div>
-            <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${progressBarClass}`}
-                style={{ width: `${timeline ? (ended ? 100 : timeline.progressPct) : 0}%` }}
-              />
+            <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden relative">
+              <motion.div
+                key={`hero-bar-${placement.id}-${timelinePct}`}
+                initial={{ width: '0%' }}
+                animate={{ width: `${timeline ? timelinePct : 0}%` }}
+                transition={{ duration: 0.85, ease: APPLE_EASE }}
+                className={`relative h-full rounded-full overflow-hidden ${progressBarClass}`}
+              >
+                {timeline && timelinePct > 0 && (
+                  <motion.span
+                    aria-hidden="true"
+                    initial={{ x: '-100%' }}
+                    animate={{ x: '220%' }}
+                    transition={{
+                      duration: 1.4,
+                      delay: 0.45,
+                      ease: 'easeInOut',
+                      repeat: Infinity,
+                      repeatDelay: 2.5,
+                    }}
+                    className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none"
+                  />
+                )}
+              </motion.div>
             </div>
           </div>
         </div>
@@ -639,72 +831,74 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
                 <h2 className="font-bold text-slate-900">Contract Period &amp; Timeline</h2>
               </div>
               {ended ? (
-                <span className="text-[11px] font-semibold text-slate-500">
-                  Contract ended ({effectiveStatus})
-                </span>
+                <StatusBadge
+                  label={`Ended · ${effectiveStatus}`}
+                  tone={isCompleted ? 'emerald' : 'rose'}
+                  size="xs"
+                />
               ) : daysLeft !== null ? (
-                <span
-                  className={`text-[11px] font-semibold ${
+                <StatusBadge
+                  tone={daysLeft < 0 ? 'rose' : daysLeft <= 30 ? 'amber' : 'emerald'}
+                  size="xs"
+                  label={
                     daysLeft < 0
-                      ? 'text-rose-600'
-                      : daysLeft <= 30
-                        ? 'text-amber-700'
-                        : 'text-emerald-700'
-                  }`}
-                >
-                  {daysLeft < 0
-                    ? `Past end date by ${Math.abs(daysLeft)} day${Math.abs(daysLeft) === 1 ? '' : 's'}`
-                    : daysLeft === 0
-                      ? 'Ends today'
-                      : daysLeft <= 30
-                        ? `Expiring in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`
-                        : `${daysLeft} days remaining`}
-                </span>
+                      ? `Past end date by ${formatDayCount(Math.abs(daysLeft))}`
+                      : daysLeft === 0
+                        ? 'Ends today'
+                        : daysLeft <= 30
+                          ? `Expiring in ${formatDayCount(daysLeft)}`
+                          : `${formatDayCount(daysLeft)} remaining`
+                  }
+                />
               ) : null}
             </div>
 
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 rounded-xl border border-slate-200/80 bg-white">
-                <div className="p-5">
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Start Date</div>
-                  <div className="text-sm font-bold text-slate-900 mt-1 font-mono">
-                    {placement.startDate || '—'}
-                  </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+              <div className="px-6 py-5 space-y-1">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  Start Date
                 </div>
-
-                <div className="p-5">
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">End Date</div>
-                  <div className="text-sm font-bold text-slate-900 mt-1 font-mono">
-                    {placement.endDate || '—'}
-                  </div>
+                <div className="text-sm font-bold text-slate-900 font-mono tabular-nums">
+                  {placement.startDate || '—'}
                 </div>
+                <div className="text-[11px] text-slate-500">Contract effective date</div>
+              </div>
 
-                <div className="p-5">
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Contract Length</div>
-                  <div className="text-sm font-bold text-slate-900 mt-1 font-mono">
-                    {timeline ? `${timeline.totalDays} days` : '—'}
-                  </div>
+              <div className="px-6 py-5 space-y-1">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  End Date
+                </div>
+                <div className="text-sm font-bold text-slate-900 font-mono tabular-nums">
+                  {placement.endDate || '—'}
+                </div>
+                <div className="text-[11px] text-slate-500">
+                  {ended ? `Closed (${effectiveStatus})` : 'Scheduled completion'}
                 </div>
               </div>
 
-              {timeline && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-[11px] text-slate-500">
-                    <span className="font-mono">{placement.startDate}</span>
-                    <span className="font-medium text-slate-700 inline-flex items-center gap-1">
-                      <span>{timeline.elapsedDays} of {timeline.totalDays} days elapsed</span>
-                      <span className="text-slate-400">({timeline.progressPct}%)</span>
-                    </span>
-                    <span className="font-mono">{placement.endDate}</span>
+              <div className="px-6 py-5 flex items-center gap-4">
+                <ContractProgressRing
+                  pct={timelinePct}
+                  hasTimeline={Boolean(timeline)}
+                  tone={timelineTone}
+                  replayKey={`${placement.id}-${timelinePct}-${workspaceTab}`}
+                />
+                <div className="min-w-0 space-y-0.5">
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    Contract Progress
                   </div>
-                  <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${progressBarClass}`}
-                      style={{ width: `${ended ? 100 : timeline.progressPct}%` }}
-                    />
+                  <div className="text-sm font-bold text-slate-900 font-mono tabular-nums">
+                    {timeline ? formatDayCount(timeline.totalDays) : '—'}
+                  </div>
+                  <div className="text-[11px] text-slate-500 tabular-nums">
+                    {timeline
+                      ? ended
+                        ? `${formatDayCount(effectiveElapsedDays)} of ${formatDayCount(timeline.totalDays)} (${effectiveStatus})`
+                        : `${formatDayCount(effectiveElapsedDays)} of ${formatDayCount(timeline.totalDays)} elapsed`
+                      : 'Add start and end dates'}
                   </div>
                 </div>
-              )}
+              </div>
             </div>
           </section>
         </div>

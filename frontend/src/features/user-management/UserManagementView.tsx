@@ -1,24 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Search,
-  UserPlus,
+  AlertTriangle,
+  Briefcase,
+  CheckCircle2,
   Download,
   Eye,
   EyeOff,
-  Trash2,
+  Loader2,
+  MapPin,
   Pause,
-  Play,
-  X,
-  AlertTriangle,
   Pencil,
+  Play,
+  Search,
   Send,
   ShieldCheck,
-  Loader2,
+  SlidersHorizontal,
+  Trash2,
+  User as UserIcon,
+  UserPlus,
+  X,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
 import { User } from '../../types';
+import {
+  GridColumnHeader,
+  STAFFING_GRID_CELL_CLASS,
+  STAFFING_GRID_ROW_STATIC_CLASS,
+  STAFFING_GRID_STICKY_TD_CLASS,
+  STAFFING_GRID_STICKY_TH_CLASS,
+  STAFFING_GRID_TABLE_CLASS,
+  STAFFING_GRID_THEAD_CLASS,
+  STAFFING_GRID_TH_CLASS,
+} from '../../components/shared/StaffingGrid';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import {
@@ -66,6 +81,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   const [tableUsers, setTableUsers] = useState<User[]>(() => users.slice(0, 10));
   const [totalUsers, setTotalUsers] = useState(users.length);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const hasServerSyncRef = React.useRef(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
   const [inviteValidationAttempted, setInviteValidationAttempted] = useState(false);
@@ -95,7 +111,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
       return matchesSearch && matchesRole && matchesStatus;
     });
 
-    if (users.length > 0 && !tableSort.sort.sortBy) {
+    if (!hasServerSyncRef.current && users.length > 0 && !tableSort.sort.sortBy) {
       setTotalUsers(localFiltered.length);
       setTableUsers(localFiltered.slice((page - 1) * limit, page * limit));
       setIsLoadingUsers(false);
@@ -117,6 +133,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
       .then((res) => {
         if (!active) return;
         if (res.data?.success && Array.isArray(res.data.data)) {
+          hasServerSyncRef.current = true;
           const mapped = res.data.data.map((u: any) => mapUserFromApi(u, currentUserEmail));
           setTableUsers(mapped);
           setTotalUsers(res.data.pagination?.total ?? mapped.length);
@@ -315,61 +332,71 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-white border-b border-slate-100">
-              <tr className="text-slate-400 font-bold uppercase text-[11px] tracking-wider">
+          <table className={STAFFING_GRID_TABLE_CLASS}>
+            <thead className={STAFFING_GRID_THEAD_CLASS}>
+              <tr>
                 <SortableTableHeader
                   label="Member"
+                  icon={<UserIcon className="w-3 h-3" />}
                   column="fullName"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="py-3 px-5 whitespace-nowrap"
+                  className={`${STAFFING_GRID_TH_CLASS} ${STAFFING_GRID_STICKY_TH_CLASS}`}
                 />
                 <SortableTableHeader
                   label="Role"
+                  icon={<ShieldCheck className="w-3 h-3" />}
                   column="role"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="py-3 px-4 whitespace-nowrap"
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="Desk"
+                  icon={<MapPin className="w-3 h-3" />}
                   column="desk"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="py-3 px-4 whitespace-nowrap"
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="Live Workload"
+                  icon={<Briefcase className="w-3 h-3" />}
                   column="workload"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="desc"
-                  className="py-3 px-4 whitespace-nowrap"
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="Rate Access"
+                  icon={<Eye className="w-3 h-3" />}
                   column="rateMasked"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="py-3 px-4 whitespace-nowrap"
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="Status"
+                  icon={<CheckCircle2 className="w-3 h-3" />}
                   column="status"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="py-3 px-4 whitespace-nowrap"
+                  className={STAFFING_GRID_TH_CLASS}
                 />
-                <th className="py-3 px-5 text-right whitespace-nowrap">Actions</th>
+                <GridColumnHeader
+                  icon={<SlidersHorizontal className="w-3 h-3" />}
+                  label="Actions"
+                  align="right"
+                />
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="text-slate-700">
               {filteredUsers.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-10 text-center text-xs text-slate-400">
@@ -413,9 +440,9 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                     .slice(0, 2);
 
                   return (
-                    <tr key={u.id} className="hover:bg-slate-50/70 transition-colors">
+                    <tr key={u.id} className={STAFFING_GRID_ROW_STATIC_CLASS}>
                       {/* Member Name & Email */}
-                      <td className="py-3 px-5">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} ${STAFFING_GRID_STICKY_TD_CLASS} whitespace-nowrap`}>
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200/90 text-slate-700 flex items-center justify-center font-semibold text-xs flex-shrink-0">
                             {initials}
@@ -441,7 +468,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                       </td>
 
                       {/* Role Badge */}
-                      <td className="py-3 px-4">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap`}>
                         <span
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-medium ${getRoleBadgeClass(
                             u.role
@@ -452,25 +479,24 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                       </td>
 
                       {/* Desk */}
-                      <td className="py-3 px-4 text-slate-700">{u.desk}</td>
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-slate-700 whitespace-nowrap`}>{u.desk}</td>
 
                       {/* Live Workload */}
-                      <td className="py-3 px-4">
+                      <td className={STAFFING_GRID_CELL_CLASS}>
                         <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-white border border-slate-200/90 text-[11px] font-medium text-slate-700 whitespace-nowrap">
                           {u.workload || '0 Reqs • 0 Subs • 0 Placements'}
                         </span>
                       </td>
 
                       {/* Rate Access Toggle */}
-                      <td className="py-3 px-4">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap`}>
                         <button
                           onClick={() => onToggleRateMask(u)}
                           title={u.rateMasked ? 'Click to reveal rates' : 'Click to mask rates'}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[11px] font-medium transition-colors cursor-pointer ${
-                            u.rateMasked
-                              ? 'bg-slate-100 text-slate-600 border-slate-200/90 hover:bg-slate-200/70'
-                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                          }`}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[11px] font-medium transition-colors cursor-pointer ${u.rateMasked
+                            ? 'bg-slate-100 text-slate-600 border-slate-200/90 hover:bg-slate-200/70'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                            }`}
                         >
                           {u.rateMasked ? (
                             <>
@@ -487,21 +513,21 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                       </td>
 
                       {/* Status */}
-                      <td className="py-3 px-4">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap`}>
                         <StatusBadge
                           label={u.status}
                           tone={
                             u.status === 'Active'
                               ? 'emerald'
                               : u.status === 'Invited'
-                              ? 'amber'
-                              : 'rose'
+                                ? 'amber'
+                                : 'rose'
                           }
                         />
                       </td>
 
                       {/* Actions */}
-                      <td className="py-3 px-5 text-right">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-right whitespace-nowrap`}>
                         <div className="flex items-center justify-end gap-1">
                           {u.status === 'Invited' && onResendInvite && (
                             <button
@@ -561,11 +587,10 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                                   ? 'Suspend member'
                                   : 'Activate member'
                             }
-                            className={`p-1.5 rounded-md transition-colors ${
-                              u.isSuperAdmin
-                                ? 'text-slate-300 cursor-not-allowed'
-                                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer'
-                            }`}
+                            className={`p-1.5 rounded-md transition-colors ${u.isSuperAdmin
+                              ? 'text-slate-300 cursor-not-allowed'
+                              : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer'
+                              }`}
                           >
                             {u.status === 'Active' ? (
                               <Pause className="w-3.5 h-3.5" />
@@ -592,11 +617,10 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                                 ? 'Super Admin cannot be deleted'
                                 : 'Remove member'
                             }
-                            className={`p-1.5 rounded-md transition-colors ${
-                              u.isSuperAdmin
-                                ? 'text-slate-300 cursor-not-allowed'
-                                : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer'
-                            }`}
+                            className={`p-1.5 rounded-md transition-colors ${u.isSuperAdmin
+                              ? 'text-slate-300 cursor-not-allowed'
+                              : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer'
+                              }`}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -689,125 +713,123 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
         panelClassName="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden"
         ariaLabel="Invite Team Member"
       >
-            <div className="px-6 py-4 border-b border-slate-100 bg-white flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-semibold text-slate-900">Invite Team Member</h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">Grant workspace access and assign a desk</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowInviteModal(false)}
-                aria-label="Close modal"
-                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
+        <div className="px-6 py-4 border-b border-slate-100 bg-white flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900">Invite Team Member</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">Grant workspace access and assign a desk</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowInviteModal(false)}
+            aria-label="Close modal"
+            className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form noValidate onSubmit={handleInviteSubmit} className="p-6 space-y-4 text-xs">
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-[11px] font-semibold text-slate-700">
+                Full Name <span className="text-rose-500">*</span>
+              </label>
+              {isInviteNameInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
+            </div>
+            <input
+              type="text"
+              placeholder="e.g. Rachel Adams"
+              value={newUser.name}
+              onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${isInviteNameInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-white focus:border-brand-600'
+                }`}
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-[11px] font-semibold text-slate-700">
+                Corporate Email <span className="text-rose-500">*</span>
+              </label>
+              {isInviteEmailInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
+            </div>
+            <input
+              type="email"
+              placeholder="e.g. r.adams@squadpipe.com"
+              value={newUser.email}
+              onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${isInviteEmailInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-white focus:border-brand-600'
+                }`}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-700 mb-1">Role</label>
+              <CustomSelect
+                value={newUser.role}
+                onChange={(val) => setNewUser({ ...newUser, role: val })}
+                ariaLabel="Role"
+                options={[
+                  'Administrator',
+                  'Senior Recruiter',
+                  'Technical Recruiter',
+                  'Bench Sales Lead',
+                  'Account Executive',
+                  'Associate Recruiter',
+                ]}
+              />
             </div>
 
-            <form noValidate onSubmit={handleInviteSubmit} className="p-6 space-y-4 text-xs">
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] font-semibold text-slate-700">
-                    Full Name <span className="text-rose-500">*</span>
-                  </label>
-                  {isInviteNameInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
-                </div>
-                <input
-                  type="text"
-                  placeholder="e.g. Rachel Adams"
-                  value={newUser.name}
-                  onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
-                    isInviteNameInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-white focus:border-brand-600'
-                  }`}
-                />
-              </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-700 mb-1">Desk</label>
+              <CustomSelect
+                value={newUser.desk}
+                onChange={(val) => setNewUser({ ...newUser, desk: val })}
+                ariaLabel="Desk"
+                options={[
+                  'Executive Operations & Billing',
+                  'US IT Contract (C2C & W2)',
+                  'Cloud & DevOps Practice',
+                  'Data & AI Practice',
+                  'Candidate Bench Marketing',
+                ]}
+              />
+            </div>
+          </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] font-semibold text-slate-700">
-                    Corporate Email <span className="text-rose-500">*</span>
-                  </label>
-                  {isInviteEmailInvalid && <span className="text-[11px] font-semibold text-rose-600">Required</span>}
-                </div>
-                <input
-                  type="email"
-                  placeholder="e.g. r.adams@squadpipe.com"
-                  value={newUser.email}
-                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
-                    isInviteEmailInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 bg-white focus:border-brand-600'
-                  }`}
-                />
-              </div>
+          <label className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between cursor-pointer">
+            <div>
+              <div className="font-semibold text-slate-800 text-xs">Mask Billing Rates</div>
+              <div className="text-[11px] text-slate-500">Hide hourly bill/pay margins from this member</div>
+            </div>
+            <input
+              type="checkbox"
+              checked={newUser.rateMasked}
+              onChange={(e) => setNewUser({ ...newUser, rateMasked: e.target.checked })}
+              className="w-4 h-4 text-brand-600 rounded border-slate-300 cursor-pointer"
+            />
+          </label>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Role</label>
-                  <CustomSelect
-                    value={newUser.role}
-                    onChange={(val) => setNewUser({ ...newUser, role: val })}
-                    ariaLabel="Role"
-                    options={[
-                      'Administrator',
-                      'Senior Recruiter',
-                      'Technical Recruiter',
-                      'Bench Sales Lead',
-                      'Account Executive',
-                      'Associate Recruiter',
-                    ]}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Desk</label>
-                  <CustomSelect
-                    value={newUser.desk}
-                    onChange={(val) => setNewUser({ ...newUser, desk: val })}
-                    ariaLabel="Desk"
-                    options={[
-                      'Executive Operations & Billing',
-                      'US IT Contract (C2C & W2)',
-                      'Cloud & DevOps Practice',
-                      'Data & AI Practice',
-                      'Candidate Bench Marketing',
-                    ]}
-                  />
-                </div>
-              </div>
-
-              <label className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between cursor-pointer">
-                <div>
-                  <div className="font-semibold text-slate-800 text-xs">Mask Billing Rates</div>
-                  <div className="text-[11px] text-slate-500">Hide hourly bill/pay margins from this member</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={newUser.rateMasked}
-                  onChange={(e) => setNewUser({ ...newUser, rateMasked: e.target.checked })}
-                  className="w-4 h-4 text-brand-600 rounded border-slate-300 cursor-pointer"
-                />
-              </label>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  disabled={isInviting}
-                  onClick={() => setShowInviteModal(false)}
-                  className="h-8 px-3.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-60 font-semibold rounded-lg text-[11px] transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <ActionButton
-                  type="submit"
-                  loading={isInviting}
-                  loadingText="Sending Invitation..."
-                  className="h-8 px-4 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-[11px] transition-colors cursor-pointer"
-                >
-                  Send Invitation
-                </ActionButton>
-              </div>
-            </form>
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              disabled={isInviting}
+              onClick={() => setShowInviteModal(false)}
+              className="h-8 px-3.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-60 font-semibold rounded-lg text-[11px] transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <ActionButton
+              type="submit"
+              loading={isInviting}
+              loadingText="Sending Invitation..."
+              className="h-8 px-4 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-[11px] transition-colors cursor-pointer"
+            >
+              Send Invitation
+            </ActionButton>
+          </div>
+        </form>
       </AnimatedModal>
 
       {/* Edit Team Member Modal */}
@@ -872,9 +894,8 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                   type="text"
                   value={editingUser.name}
                   onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
-                    isEditNameInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 focus:border-brand-600'
-                  }`}
+                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${isEditNameInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 focus:border-brand-600'
+                    }`}
                 />
               </div>
 
@@ -887,9 +908,8 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                   type="email"
                   value={editingUser.email}
                   onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${
-                    isEditEmailInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 focus:border-brand-600'
-                  }`}
+                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none ${isEditEmailInvalid ? INVALID_FIELD_CLASSES : 'border-slate-200 focus:border-brand-600'
+                    }`}
                 />
               </div>
 

@@ -2,13 +2,21 @@ import React, { useState, useEffect } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
+  Briefcase,
   ChevronRight,
+  Cpu,
+  DollarSign,
   FileSpreadsheet,
+  Layers,
+  MapPin,
   Pencil,
   Plus,
   Search,
   ShieldAlert,
+  ShieldCheck,
+  SlidersHorizontal,
   Trash2,
+  User,
   X,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
@@ -16,6 +24,18 @@ import { BillablePlacement, Candidate, Vendor } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { AiIcon, AiTag } from '../../components/shared/AiBrand';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
+import {
+  ContactActionChips,
+  GridColumnHeader,
+  STAFFING_GRID_CELL_CLASS,
+  STAFFING_GRID_FRAME_CLASS,
+  STAFFING_GRID_ROW_CLASS,
+  STAFFING_GRID_STICKY_TD_CLASS,
+  STAFFING_GRID_STICKY_TH_CLASS,
+  STAFFING_GRID_TABLE_CLASS,
+  STAFFING_GRID_THEAD_CLASS,
+  STAFFING_GRID_TH_CLASS,
+} from '../../components/shared/StaffingGrid';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { CustomSelect } from '../../components/shared/CustomSelect';
@@ -82,6 +102,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
   const [tableRows, setTableRows] = useState<Candidate[]>(() => candidates.slice(0, 10));
   const [totalRows, setTotalRows] = useState(candidates.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
+  const hasServerSyncRef = React.useRef(false);
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
   const [candidateToDelete, setCandidateToDelete] = useState<Candidate | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -146,7 +167,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
       return matchesSearch && matchesAuth && matchesStage && matchesRate;
     });
 
-    if (candidates.length > 0 && !tableSort.sort.sortBy) {
+    if (!hasServerSyncRef.current && candidates.length > 0 && !tableSort.sort.sortBy) {
       setTotalRows(localFiltered.length);
       setTableRows(localFiltered.slice((page - 1) * limit, page * limit));
       setIsLoadingRows(false);
@@ -173,6 +194,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
       .then((res) => {
         if (!active) return;
         if (res.data?.success && Array.isArray(res.data.data)) {
+          hasServerSyncRef.current = true;
           const mapped = res.data.data.map(mapCandidateFromApi);
           setTableRows(mapped);
           setTotalRows(res.data.pagination?.total ?? mapped.length);
@@ -273,9 +295,9 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
       </div>
 
       {/* Main Roster Table Card */}
-      <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
+      <div className={STAFFING_GRID_FRAME_CLASS}>
         {/* Subheader Search & Filter Toolbar */}
-        <div className="px-6 py-3.5 border-b border-slate-100 flex flex-col xl:flex-row xl:items-center gap-2.5 bg-white">
+        <div className="px-5 py-3 border-b border-slate-200/80 flex flex-col xl:flex-row xl:items-center gap-2.5 bg-white">
           <div className="relative flex-1 min-w-[230px]">
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
@@ -368,63 +390,82 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
 
         {/* Data Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-white border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+          <table className={STAFFING_GRID_TABLE_CLASS}>
+            <thead className={STAFFING_GRID_THEAD_CLASS}>
               <tr>
                 <SortableTableHeader
                   label="Full Name"
+                  icon={<User className="w-3 h-3" />}
                   column="fullName"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="px-4 py-3 whitespace-nowrap"
+                  uppercase={false}
+                  className={`${STAFFING_GRID_TH_CLASS} ${STAFFING_GRID_STICKY_TH_CLASS}`}
                 />
                 <SortableTableHeader
                   label="Work Auth"
+                  icon={<ShieldCheck className="w-3 h-3" />}
                   column="workAuth"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="px-4 py-3 whitespace-nowrap"
+                  uppercase={false}
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="Current Title"
+                  icon={<Briefcase className="w-3 h-3" />}
                   column="currentTitle"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="px-4 py-3 whitespace-nowrap"
+                  uppercase={false}
+                  className={STAFFING_GRID_TH_CLASS}
                 />
-                <th className="px-4 py-3 whitespace-nowrap">Key Skillset</th>
+                <GridColumnHeader
+                  icon={<Cpu className="w-3 h-3" />}
+                  label="Key Skillset"
+                />
                 <SortableTableHeader
                   label="Hourly Rate"
+                  icon={<DollarSign className="w-3 h-3" />}
                   column="hourlyRate"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="desc"
                   disabled={rateMasked}
-                  className="px-4 py-3 whitespace-nowrap"
+                  uppercase={false}
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="Relocation"
+                  icon={<MapPin className="w-3 h-3" />}
                   column="relocation"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="px-4 py-3 whitespace-nowrap"
+                  uppercase={false}
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="Stage"
+                  icon={<Layers className="w-3 h-3" />}
                   column="pipelineStage"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="px-4 py-3 whitespace-nowrap"
+                  uppercase={false}
+                  className={STAFFING_GRID_TH_CLASS}
                 />
-                <th className="px-4 py-3 text-right whitespace-nowrap">Actions</th>
+                <GridColumnHeader
+                  icon={<SlidersHorizontal className="w-3 h-3" />}
+                  label="Actions"
+                  align="right"
+                />
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
+            <tbody className="text-slate-700">
               {filtered.length === 0 ? (
                 <tr>
                   <td
@@ -474,27 +515,30 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                   <tr
                     key={c.id}
                     onClick={() => onPreviewResume(c, false)}
-                    className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                    className={STAFFING_GRID_ROW_CLASS}
                   >
                     {/* Full Name & Contacts */}
-                    <td className="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">
-                      <div className="font-semibold text-slate-900">
+                    <td className={`${STAFFING_GRID_CELL_CLASS} ${STAFFING_GRID_STICKY_TD_CLASS} font-medium text-slate-900 whitespace-nowrap`}>
+                      <div className="font-semibold text-slate-900 group-hover:text-brand-700 transition-colors">
                         {c.fullName}
                       </div>
-                      <div className="text-[11px] text-slate-400">
-                        {c.email} &bull; {c.phone}
-                      </div>
+                      <ContactActionChips
+                        email={c.email}
+                        phone={c.phone}
+                        layout="row"
+                        maxEmailWidthClass="max-w-[165px]"
+                      />
                     </td>
 
                     {/* Work Auth */}
-                    <td className="px-4 py-3 whitespace-nowrap text-[11px]">
+                    <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap text-[11px]`}>
                       <span className="bg-white text-slate-700 px-2 py-0.5 rounded border border-slate-300/90 font-medium">
                         {c.workAuth}
                       </span>
                     </td>
 
                     {/* Current Title */}
-                    <td className="px-4 py-3 text-slate-800 font-medium min-w-[160px] max-w-[220px]">
+                    <td className={`${STAFFING_GRID_CELL_CLASS} text-slate-800 font-medium min-w-[160px] max-w-[220px]`}>
                       <div className="leading-snug">{c.currentTitle}</div>
                       {c.vendorName && (
                         <div className="text-[11px] text-amber-700 font-medium mt-0.5 truncate">
@@ -512,7 +556,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                     </td>
 
                     {/* Key Skillset */}
-                    <td className="px-4 py-3 max-w-[240px]">
+                    <td className={`${STAFFING_GRID_CELL_CLASS} max-w-[240px]`}>
                       {(() => {
                         const skills = (c.skillset || '')
                           .split(',')
@@ -545,12 +589,12 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                     </td>
 
                     {/* Hourly Rate */}
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap tabular-nums`}>
                       <MaskedValue value={c.hourlyRate} isMasked={rateMasked} />
                     </td>
 
                     {/* Relocation */}
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap`}>
                       <StatusBadge
                         tone={c.relocation === 'Yes' ? 'emerald' : 'slate'}
                         size="xs"
@@ -559,11 +603,11 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
                     </td>
 
                     {/* Pipeline Stage */}
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap`}>
                       <StatusBadge stage={c.pipelineStage} size="xs" />
                     </td>
 
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                    <td className={`${STAFFING_GRID_CELL_CLASS} text-right whitespace-nowrap`}>
                       <div
                         className="inline-flex items-center gap-1"
                         onClick={(e) => e.stopPropagation()}

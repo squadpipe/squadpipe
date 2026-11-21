@@ -61,6 +61,7 @@ const BillablePlacementsView = React.lazy(() =>
     default: m.BillablePlacementsView,
   }))
 );
+import type { BillableStatusFilter } from './features/billable/BillablePlacementsView';
 const UserManagementView = React.lazy(() =>
   import('./features/user-management/UserManagementView').then((m) => ({
     default: m.UserManagementView,
@@ -445,6 +446,23 @@ export const App: React.FC = () => {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [selectedReqForDetail, setSelectedReqForDetail] = useState<Requirement | null>(null);
   const [reqDetailReturnView, setReqDetailReturnView] = useState<string>('pipeline');
+  const [reqDetailInitialTab, setReqDetailInitialTab] = useState<
+    'applicants' | 'placed' | 'details'
+  >(() => {
+    const t = initialRoute.view === 'requirement_detail' ? initialRoute.query?.tab : undefined;
+    return t === 'placed' || t === 'details' ? t : 'applicants';
+  });
+  const [billableStatusFilter, setBillableStatusFilter] = useState<BillableStatusFilter>(() => {
+    const raw =
+      initialRoute.view === 'billable'
+        ? String(initialRoute.query?.status || '').trim().toLowerCase()
+        : '';
+    if (raw === 'active') return 'Active';
+    if (raw === 'expiring soon' || raw === 'expiring_soon') return 'Expiring Soon';
+    if (raw === 'extended') return 'Extended';
+    if (raw === 'ended') return 'Ended';
+    return 'All';
+  });
   const [selectedCandForDetail, setSelectedCandForDetail] = useState<Candidate | null>(null);
   const [candDetailReturnView, setCandDetailReturnView] = useState<string>('consultants');
   const [candDetailInitialEdit, setCandDetailInitialEdit] = useState<boolean>(false);
@@ -508,20 +526,47 @@ export const App: React.FC = () => {
     }
   };
 
+  const parseBillableStatusFilter = (raw?: string | null): BillableStatusFilter => {
+    const normalized = String(raw || '').trim().toLowerCase();
+    if (normalized === 'active') return 'Active';
+    if (normalized === 'expiring soon' || normalized === 'expiring_soon') return 'Expiring Soon';
+    if (normalized === 'extended') return 'Extended';
+    if (normalized === 'ended') return 'Ended';
+    return 'All';
+  };
+
+  const parseRequirementTab = (
+    raw?: string | null
+  ): 'applicants' | 'placed' | 'details' => {
+    const normalized = String(raw || '').trim().toLowerCase();
+    if (normalized === 'placed' || normalized === 'details') return normalized;
+    return 'applicants';
+  };
+
   const handleOpenRequirementDetail = (
     req: Requirement,
     fromView?: string,
-    options?: { skipHistory?: boolean }
+    options?: {
+      skipHistory?: boolean;
+      initialTab?: 'applicants' | 'placed' | 'details';
+    }
   ) => {
     const returnView =
       fromView || (currentView !== 'requirement_detail' ? currentView : reqDetailReturnView);
+    const nextTab = options?.initialTab || 'applicants';
+    const nextQuery = nextTab !== 'applicants' ? { tab: nextTab } : undefined;
     setReqDetailReturnView(returnView);
+    setReqDetailInitialTab(nextTab);
     setSelectedReqForDetail(req);
     setResolvingRouteId(null);
-    setRouteTarget({ view: 'requirement_detail', entityId: req.id });
+    setRouteTarget({ view: 'requirement_detail', entityId: req.id, query: nextQuery });
     setCurrentView('requirement_detail');
     if (!options?.skipHistory) {
-      pushRouteUrl('requirement_detail', { entityId: req.id, returnView });
+      pushRouteUrl('requirement_detail', {
+        entityId: req.id,
+        returnView,
+        query: nextQuery,
+      });
     }
   };
 
@@ -747,9 +792,15 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleNavigateView = (nextView: string, options?: { skipHistory?: boolean }) => {
+  const handleNavigateView = (
+    nextView: string,
+    options?: { skipHistory?: boolean; query?: Record<string, string | undefined | null> }
+  ) => {
     if (!['requirement_detail', 'requirement_edit', 'consultant_detail', 'placement_detail'].includes(nextView)) {
       setSelectedReqForDetail(null);
+    }
+    if (nextView !== 'requirement_detail') {
+      setReqDetailInitialTab('applicants');
     }
     if (!['consultant_detail', 'consultant_edit', 'placement_detail'].includes(nextView)) {
       setSelectedCandForDetail(null);
@@ -778,11 +829,25 @@ export const App: React.FC = () => {
     ) {
       setSelectedPlacementForDetail(null);
     }
+    let nextQuery: Record<string, string> | undefined = options?.query
+      ? (Object.fromEntries(
+          Object.entries(options.query).filter(([, v]) => Boolean(v && String(v).trim()))
+        ) as Record<string, string>)
+      : undefined;
+    if (nextView === 'billable') {
+      if (options?.query?.status !== undefined) {
+        const parsedStatus = parseBillableStatusFilter(options.query.status);
+        setBillableStatusFilter(parsedStatus);
+        nextQuery = parsedStatus !== 'All' ? { status: parsedStatus } : undefined;
+      } else {
+        setBillableStatusFilter('All');
+      }
+    }
     setResolvingRouteId(null);
-    setRouteTarget({ view: nextView });
+    setRouteTarget({ view: nextView, query: nextQuery });
     setCurrentView(nextView);
     if (!options?.skipHistory) {
-      pushRouteUrl(nextView);
+      pushRouteUrl(nextView, { query: nextQuery });
     }
   };
 
@@ -902,7 +967,9 @@ export const App: React.FC = () => {
       const reqId = workflowReturnReqId || selectedReqForDetail?.id;
       const matched = reqId ? requirements.find((r) => r.id === reqId) : selectedReqForDetail;
       if (matched) {
-        handleOpenRequirementDetail(matched, reqDetailReturnView || 'pipeline');
+        handleOpenRequirementDetail(matched, reqDetailReturnView || 'pipeline', {
+          initialTab: reqDetailInitialTab,
+        });
         return;
       }
       if (reqId) {
@@ -914,6 +981,12 @@ export const App: React.FC = () => {
         pushRouteUrl('requirement_detail', { entityId: reqId, returnView: 'pipeline' });
         return;
       }
+    }
+    if (targetView === 'billable') {
+      handleNavigateView('billable', {
+        query: billableStatusFilter !== 'All' ? { status: billableStatusFilter } : undefined,
+      });
+      return;
     }
     handleNavigateView(targetView || 'dashboard');
   };
@@ -1770,7 +1843,10 @@ export const App: React.FC = () => {
           );
           return;
         }
-        routeHandlersRef.current.handleNavigateView(parsed.view, { skipHistory: true });
+        routeHandlersRef.current.handleNavigateView(parsed.view, {
+          skipHistory: true,
+          query: parsed.query,
+        });
         return;
       }
 
@@ -1802,13 +1878,16 @@ export const App: React.FC = () => {
         setSelectedReqForDetail(null);
       } else if (parsed.view === 'requirement_detail') {
         const matched = stateSnapshot.requirements.find((r) => r.id === entityId);
+        const parsedTab = parseRequirementTab(parsed.query?.tab);
         if (matched) {
           routeHandlersRef.current.handleOpenRequirementDetail(matched, returnView, {
             skipHistory: true,
+            initialTab: parsedTab,
           });
           return;
         }
         if (returnView) setReqDetailReturnView(returnView);
+        setReqDetailInitialTab(parsedTab);
         setSelectedReqForDetail(null);
       } else if (parsed.view === 'consultant_edit') {
         const matched = stateSnapshot.candidates.find((c) => c.id === entityId);
@@ -1944,6 +2023,7 @@ export const App: React.FC = () => {
           } else {
             routeHandlersRef.current.handleOpenRequirementDetail(cached, undefined, {
               skipHistory: true,
+              initialTab: parseRequirementTab(routeTarget.query?.tab),
             });
           }
           return;
@@ -2044,6 +2124,7 @@ export const App: React.FC = () => {
             } else {
               routeHandlersRef.current.handleOpenRequirementDetail(mapped, undefined, {
                 skipHistory: true,
+                initialTab: parseRequirementTab(routeTarget.query?.tab),
               });
             }
           }
@@ -3017,7 +3098,7 @@ export const App: React.FC = () => {
       setActiveReq(matchedReq || requirements[0] || null);
       setIsMatcherModalOpen(true);
     } else if (action === 'billable') {
-      handleNavigateView('billable');
+      handleNavigateView('billable', { query: { status: 'Active' } });
     } else if (action === 'checklist' || task.relatedEntityType === 'vendor') {
       let vendorList = vendors;
       if (vendorList.length === 0 || !loadedEntities.current.has('vendors')) {
@@ -3461,11 +3542,15 @@ export const App: React.FC = () => {
                 placements={placements}
                 slaTasks={slaTasks}
                 rateMasked={rateMasked}
-                onNavigate={handleNavigateView}
+                onNavigate={(view, query) =>
+                  handleNavigateView(view, query ? { query } : undefined)
+                }
                 onOpenCreateReq={() =>
                   handleOpenWorkflowPage('requirement_new', { fromView: 'dashboard' })
                 }
-                onSelectReq={(r) => handleOpenRequirementDetail(r, 'dashboard')}
+                onSelectReq={(r, initialTab) =>
+                  handleOpenRequirementDetail(r, 'dashboard', { initialTab })
+                }
                 onEditReq={(r) => handleOpenRequirementEdit(r, 'dashboard')}
                 onUpdateReq={handleUpdateRequirement}
                 onDeleteReq={canManageDataOperations ? handleDeleteRequirement : undefined}
@@ -3503,7 +3588,9 @@ export const App: React.FC = () => {
                 onOpenPlacementWizard={(req) =>
                   handleOpenPlacementPage(req, null, 'pipeline')
                 }
-                onSelectReq={(r) => handleOpenRequirementDetail(r, 'pipeline')}
+                onSelectReq={(r, initialTab) =>
+                  handleOpenRequirementDetail(r, 'pipeline', { initialTab })
+                }
                 onOpenAddReq={() =>
                   handleOpenWorkflowPage('requirement_new', { fromView: 'pipeline' })
                 }
@@ -3651,6 +3738,18 @@ export const App: React.FC = () => {
                 onPreviewApplicationForm={(req, templateId) =>
                   handleOpenRequirementFormPreview(req, templateId, reqDetailReturnView)
                 }
+                initialTab={reqDetailInitialTab}
+                onWorkspaceTabChange={(nextTab) => {
+                  setReqDetailInitialTab(nextTab);
+                  if (selectedReqForDetail) {
+                    pushRouteUrl('requirement_detail', {
+                      entityId: selectedReqForDetail.id,
+                      returnView: reqDetailReturnView,
+                      query: nextTab !== 'applicants' ? { tab: nextTab } : undefined,
+                      replace: true,
+                    });
+                  }
+                }}
                 showToast={showToast}
                 benchPickerCloseToken={benchPickerCloseToken}
               />
@@ -4024,6 +4123,14 @@ export const App: React.FC = () => {
                 placements={placements}
                 vendors={vendors}
                 rateMasked={rateMasked}
+                initialStatusFilter={billableStatusFilter}
+                onStatusFilterChange={(nextStatus) => {
+                  setBillableStatusFilter(nextStatus);
+                  pushRouteUrl('billable', {
+                    query: nextStatus !== 'All' ? { status: nextStatus } : undefined,
+                    replace: true,
+                  });
+                }}
                 onOpenNewPlacement={
                   !rateMasked
                     ? () => handleOpenWorkflowPage('placement_new', { fromView: 'billable' })
@@ -4184,7 +4291,24 @@ export const App: React.FC = () => {
                             ? 'Back to Dashboard'
                             : 'Back to Billable Consultants'
                 }
-                onBack={() => handleNavigateView(placementDetailReturnView)}
+                onBack={() => {
+                  if (placementDetailReturnView === 'billable') {
+                    handleNavigateView('billable', {
+                      query:
+                        billableStatusFilter !== 'All'
+                          ? { status: billableStatusFilter }
+                          : undefined,
+                    });
+                    return;
+                  }
+                  if (placementDetailReturnView === 'requirement_detail' && selectedReqForDetail) {
+                    handleOpenRequirementDetail(selectedReqForDetail, reqDetailReturnView, {
+                      initialTab: reqDetailInitialTab,
+                    });
+                    return;
+                  }
+                  handleNavigateView(placementDetailReturnView);
+                }}
                 candidates={candidates}
                 clients={clients}
                 vendors={vendors}

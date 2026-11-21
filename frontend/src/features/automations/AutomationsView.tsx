@@ -16,6 +16,16 @@ import {
 import { apiClient } from '../../config/api.config';
 import { AutomationRule, AutomationAuditLog } from '../../types';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
+import {
+  STAFFING_GRID_CELL_CLASS,
+  STAFFING_GRID_FRAME_CLASS,
+  STAFFING_GRID_ROW_STATIC_CLASS,
+  STAFFING_GRID_STICKY_TD_CLASS,
+  STAFFING_GRID_STICKY_TH_CLASS,
+  STAFFING_GRID_TABLE_CLASS,
+  STAFFING_GRID_THEAD_CLASS,
+  STAFFING_GRID_TH_CLASS,
+} from '../../components/shared/StaffingGrid';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { CustomSelect } from '../../components/shared/CustomSelect';
@@ -478,8 +488,8 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
       </div>
 
       {/* Recent Activity Log */}
-      <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
-        <div className="px-6 py-3.5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+      <div className={STAFFING_GRID_FRAME_CLASS}>
+        <div className="px-5 py-3 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
           <div className="flex items-center gap-2 flex-wrap">
             <Activity className="w-4 h-4 text-slate-500" />
             <h3 className="font-semibold text-xs text-slate-900">Recent Reminder Activity</h3>
@@ -501,44 +511,48 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
         </div>
 
         <div className="max-h-[340px] overflow-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-10 bg-white border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+          <table className={STAFFING_GRID_TABLE_CLASS}>
+            <thead className={`sticky top-0 z-20 ${STAFFING_GRID_THEAD_CLASS}`}>
               <tr>
                 <SortableTableHeader
                   label="Time"
+                  icon={<Clock className="w-3 h-3" />}
                   column="createdAt"
                   sort={logsSort.sort}
                   onSort={logsSort.handleSort}
                   defaultDir="desc"
-                  className="px-4 py-2.5 whitespace-nowrap"
+                  className={`${STAFFING_GRID_TH_CLASS} ${STAFFING_GRID_STICKY_TH_CLASS} !z-30`}
                 />
                 <SortableTableHeader
                   label="Reminder"
+                  icon={<Bell className="w-3 h-3" />}
                   column="ruleName"
                   sort={logsSort.sort}
                   onSort={logsSort.handleSort}
                   defaultDir="asc"
-                  className="px-4 py-2.5 whitespace-nowrap"
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="Details"
+                  icon={<FileText className="w-3 h-3" />}
                   column="target"
                   sort={logsSort.sort}
                   onSort={logsSort.handleSort}
                   defaultDir="asc"
-                  className="px-4 py-2.5 whitespace-nowrap"
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="Status"
+                  icon={<CheckCircle2 className="w-3 h-3" />}
                   column="status"
                   sort={logsSort.sort}
                   onSort={logsSort.handleSort}
                   defaultDir="asc"
-                  className="px-4 py-2.5 whitespace-nowrap"
+                  className={STAFFING_GRID_TH_CLASS}
                 />
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
+            <tbody className="text-slate-700">
               {logRows.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-6 py-8 text-center text-xs text-slate-400">
@@ -547,15 +561,15 @@ export const AutomationsView: React.FC<AutomationsViewProps> = ({
                 </tr>
               ) : (
                 logRows.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-4 py-2.5 text-[11px] text-slate-400 tabular-nums whitespace-nowrap">
+                  <tr key={log.id} className={STAFFING_GRID_ROW_STATIC_CLASS}>
+                    <td className={`${STAFFING_GRID_CELL_CLASS} ${STAFFING_GRID_STICKY_TD_CLASS} text-[11px] text-slate-400 tabular-nums whitespace-nowrap`}>
                       {log.timestamp}
                     </td>
-                    <td className="px-4 py-2.5 font-semibold text-slate-800 whitespace-nowrap">
+                    <td className={`${STAFFING_GRID_CELL_CLASS} font-semibold text-slate-800 whitespace-nowrap`}>
                       {log.ruleName}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-600">{log.actionDispatched}</td>
-                    <td className="px-4 py-2.5 whitespace-nowrap">
+                    <td className={`${STAFFING_GRID_CELL_CLASS} text-slate-600`}>{log.actionDispatched}</td>
+                    <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap`}>
                       <StatusBadge label={log.status} tone="emerald" size="xs" />
                     </td>
                   </tr>

@@ -5,12 +5,15 @@ import {
   BadgeCheck,
   Briefcase,
   Building2,
+  CalendarClock,
   CheckCircle2,
   ChevronDown,
   Code2,
+  DollarSign,
   Download,
   FileText,
   GraduationCap,
+  Hash,
   Info,
   Layers,
   Loader2,
@@ -21,7 +24,9 @@ import {
   Search,
   Send,
   ShieldCheck,
+  SlidersHorizontal,
   Trash2,
+  User,
   UserCheck,
 } from 'lucide-react';
 import { BillablePlacement, Candidate, Requirement, RequirementSubmission, Vendor } from '../../types';
@@ -47,6 +52,17 @@ import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ConfirmDeleteModal } from '../../components/shared/ConfirmDeleteModal';
 import { MaskedPdfToggle } from '../../components/shared/MaskedPdfControl';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
+import {
+  GridColumnHeader,
+  STAFFING_GRID_CELL_CLASS,
+  STAFFING_GRID_ROW_CLASS,
+  STAFFING_GRID_ROW_STATIC_CLASS,
+  STAFFING_GRID_STICKY_TD_CLASS,
+  STAFFING_GRID_STICKY_TH_CLASS,
+  STAFFING_GRID_TABLE_CLASS,
+  STAFFING_GRID_THEAD_CLASS,
+  STAFFING_GRID_TH_CLASS,
+} from '../../components/shared/StaffingGrid';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { PreparePitchModal } from '../../components/modals/PreparePitchModal';
 import { MaskedValue } from '../../components/shared/MaskedValue';
@@ -860,92 +876,101 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-white border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <table className={STAFFING_GRID_TABLE_CLASS}>
+                  <thead className={STAFFING_GRID_THEAD_CLASS}>
                     <tr>
                       <SortableTableHeader
                         label="Req ID"
+                        icon={<Hash className="w-3 h-3" />}
                         column="code"
                         sort={subsSort.sort}
                         onSort={subsSort.handleSort}
                         defaultDir="asc"
-                        className="pl-6 pr-4 py-3 whitespace-nowrap"
+                        className={`${STAFFING_GRID_TH_CLASS} ${STAFFING_GRID_STICKY_TH_CLASS}`}
                       />
                       <SortableTableHeader
                         label="Opportunity"
+                        icon={<Briefcase className="w-3 h-3" />}
                         column="opportunityTitle"
                         sort={subsSort.sort}
                         onSort={subsSort.handleSort}
                         defaultDir="asc"
-                        className="px-4 py-3 whitespace-nowrap"
+                        className={STAFFING_GRID_TH_CLASS}
                       />
                       <SortableTableHeader
                         label="Client"
+                        icon={<Building2 className="w-3 h-3" />}
                         column="companyName"
                         sort={subsSort.sort}
                         onSort={subsSort.handleSort}
                         defaultDir="asc"
-                        className="px-4 py-3 whitespace-nowrap"
+                        className={STAFFING_GRID_TH_CLASS}
                       />
                       <SortableTableHeader
                         label="Interview"
+                        icon={<CalendarClock className="w-3 h-3" />}
                         column="interviewDate"
                         sort={subsSort.sort}
                         onSort={subsSort.handleSort}
                         defaultDir="desc"
-                        className="px-4 py-3 whitespace-nowrap"
+                        className={STAFFING_GRID_TH_CLASS}
                       />
                       <SortableTableHeader
                         label="Stage"
+                        icon={<Layers className="w-3 h-3" />}
                         column="stage"
                         sort={subsSort.sort}
                         onSort={subsSort.handleSort}
                         defaultDir="asc"
-                        className="px-4 py-3 whitespace-nowrap"
+                        className={STAFFING_GRID_TH_CLASS}
                       />
-                      <th className="pl-4 pr-6 py-3 text-right whitespace-nowrap">Actions</th>
+                      <GridColumnHeader
+                        icon={<SlidersHorizontal className="w-3 h-3" />}
+                        label="Actions"
+                        align="right"
+                      />
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="text-slate-700">
                     {submissionsPg.pagedItems.map(({ requirement: req, submission: sub }) => (
                       <tr
                         key={sub.id}
                         onClick={() => onOpenRequirement && onOpenRequirement(req)}
                         className={
                           onOpenRequirement
-                            ? 'hover:bg-slate-50/80 cursor-pointer transition-colors group'
-                            : undefined
+                            ? STAFFING_GRID_ROW_CLASS
+                            : STAFFING_GRID_ROW_STATIC_CLASS
                         }
                       >
-                        <td className="pl-6 pr-4 py-3.5 whitespace-nowrap">
+                        <td className={`${STAFFING_GRID_CELL_CLASS} ${STAFFING_GRID_STICKY_TD_CLASS} whitespace-nowrap`}>
                           <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-white border border-slate-300 text-slate-700">
                             {req.code}
                           </span>
                         </td>
                         <td
-                          className={`px-4 py-3.5 font-semibold text-slate-900 ${
+                          className={`${STAFFING_GRID_CELL_CLASS} font-semibold text-slate-900 ${
                             onOpenRequirement ? 'group-hover:text-brand-700 transition-colors' : ''
                           }`}
                         >
                           {req.opportunityTitle}
                         </td>
-                        <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap">
+                        <td className={`${STAFFING_GRID_CELL_CLASS} text-slate-600 whitespace-nowrap`}>
                           {req.companyName}
                         </td>
-                        <td className="px-4 py-3.5 text-[11px] text-brand-700 font-medium whitespace-nowrap">
+                        <td className={`${STAFFING_GRID_CELL_CLASS} text-[11px] text-brand-700 font-medium whitespace-nowrap tabular-nums`}>
                           {sub.interviewDateTime || sub.interviewDate
                             ? formatDateTimeBadge(sub.interviewDateTime || sub.interviewDate) ||
                               sub.interviewDate
                             : '—'}
                         </td>
-                        <td className="px-4 py-3.5 whitespace-nowrap">
+                        <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap`}>
                           <StatusBadge
                             stage={sub.stage}
                             dotClass={getStageDotClass(sub.stage)}
                             size="xs"
                           />
                         </td>
-                        <td className="pl-4 pr-6 py-3.5 text-right whitespace-nowrap">
+                        <td className={`${STAFFING_GRID_CELL_CLASS} text-right whitespace-nowrap`}>
                           {!sub.id.startsWith('legacy_') ? (
                             <button
                               type="button"
@@ -1009,82 +1034,85 @@ export const ConsultantDetailPage: React.FC<ConsultantDetailPageProps> = ({
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-white border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <table className={STAFFING_GRID_TABLE_CLASS}>
+                  <thead className={STAFFING_GRID_THEAD_CLASS}>
                     <tr>
                       <SortableTableHeader
                         label="Client"
+                        icon={<Building2 className="w-3 h-3" />}
                         column="customer"
                         sort={placementsSort.sort}
                         onSort={placementsSort.handleSort}
                         defaultDir="asc"
-                        className="pl-6 pr-4 py-3 whitespace-nowrap"
+                        className={`${STAFFING_GRID_TH_CLASS} ${STAFFING_GRID_STICKY_TH_CLASS}`}
                       />
                       <SortableTableHeader
                         label="Role / Skill"
+                        icon={<Briefcase className="w-3 h-3" />}
                         column="skillRole"
                         sort={placementsSort.sort}
                         onSort={placementsSort.handleSort}
                         defaultDir="asc"
-                        className="px-4 py-3 whitespace-nowrap"
+                        className={STAFFING_GRID_TH_CLASS}
                       />
                       <SortableTableHeader
                         label="Contract Period"
+                        icon={<CalendarClock className="w-3 h-3" />}
                         column="startDate"
                         sort={placementsSort.sort}
                         onSort={placementsSort.handleSort}
                         defaultDir="desc"
-                        className="px-4 py-3 whitespace-nowrap"
+                        className={STAFFING_GRID_TH_CLASS}
                       />
                       <SortableTableHeader
                         label="Bill Rate"
+                        icon={<DollarSign className="w-3 h-3" />}
                         column="billing"
                         sort={placementsSort.sort}
                         onSort={placementsSort.handleSort}
                         defaultDir="desc"
                         disabled={rateMasked}
-                        className="px-4 py-3 whitespace-nowrap"
+                        className={STAFFING_GRID_TH_CLASS}
                       />
                       <SortableTableHeader
                         label="Status"
+                        icon={<CheckCircle2 className="w-3 h-3" />}
                         column="status"
                         sort={placementsSort.sort}
                         onSort={placementsSort.handleSort}
                         defaultDir="asc"
                         align="right"
-                        className="pl-4 pr-6 py-3 whitespace-nowrap"
+                        className={STAFFING_GRID_TH_CLASS}
                       />
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="text-slate-700">
                     {placementsPg.pagedItems.map((p) => (
                       <tr
                         key={p.id}
                         onClick={onSelectPlacement ? () => onSelectPlacement(p) : undefined}
-                        className={`group transition-colors ${
-                          onSelectPlacement ? 'hover:bg-slate-50/90 cursor-pointer' : 'hover:bg-slate-50/70'
-                        }`}
+                        className={onSelectPlacement ? STAFFING_GRID_ROW_CLASS : STAFFING_GRID_ROW_STATIC_CLASS}
                       >
                         <td
-                          className={`pl-6 pr-4 py-3.5 font-semibold text-slate-900 whitespace-nowrap ${
+                          className={`${STAFFING_GRID_CELL_CLASS} ${STAFFING_GRID_STICKY_TD_CLASS} font-semibold text-slate-900 whitespace-nowrap ${
                             onSelectPlacement ? 'group-hover:text-brand-700 transition-colors' : ''
                           }`}
                         >
                           {p.customer}
                         </td>
-                        <td className="px-4 py-3.5 text-slate-600">
+                        <td className={`${STAFFING_GRID_CELL_CLASS} text-slate-600`}>
                           {p.skillRole}{' '}
                           <span className="text-[11px] text-slate-400">
                             &middot; {p.placementType}
                           </span>
                         </td>
-                        <td className="px-4 py-3.5 text-slate-500 whitespace-nowrap font-mono text-[11px]">
+                        <td className={`${STAFFING_GRID_CELL_CLASS} text-slate-500 whitespace-nowrap font-mono tabular-nums text-[11px]`}>
                           {p.startDate} &rarr; {p.endDate}
                         </td>
-                        <td className="px-4 py-3.5 whitespace-nowrap">
+                        <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap tabular-nums`}>
                           <MaskedValue value={p.billing} isMasked={rateMasked} />
                         </td>
-                        <td className="pl-4 pr-6 py-3.5 text-right whitespace-nowrap">
+                        <td className={`${STAFFING_GRID_CELL_CLASS} text-right whitespace-nowrap`}>
                           <StatusBadge stage={p.status} size="xs" />
                         </td>
                       </tr>

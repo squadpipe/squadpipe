@@ -2,17 +2,21 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
+  Award,
   Briefcase,
   Building2,
   Calendar,
+  CalendarClock,
   Check,
   CheckCircle2,
   Copy,
+  DollarSign,
   Eye,
   ExternalLink,
   FileSpreadsheet,
   FileText,
   Globe,
+  Layers,
   Link2,
   Loader2,
   Mail,
@@ -22,7 +26,9 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
+  SlidersHorizontal,
   Trash2,
+  User,
   UserPlus,
   UsersRound,
 } from 'lucide-react';
@@ -70,6 +76,17 @@ import { StatusBadge } from '../../components/shared/StatusBadge';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { ConfirmDeleteModal } from '../../components/shared/ConfirmDeleteModal';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
+import {
+  GridColumnHeader,
+  STAFFING_GRID_CELL_CLASS,
+  STAFFING_GRID_ROW_CLASS,
+  STAFFING_GRID_ROW_STATIC_CLASS,
+  STAFFING_GRID_STICKY_TD_CLASS,
+  STAFFING_GRID_STICKY_TH_CLASS,
+  STAFFING_GRID_TABLE_CLASS,
+  STAFFING_GRID_THEAD_CLASS,
+  STAFFING_GRID_TH_CLASS,
+} from '../../components/shared/StaffingGrid';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { AnimatedModal } from '../../components/shared/MotionPrimitives';
@@ -126,6 +143,8 @@ interface RequirementDetailPageProps {
   onOpenCsvImport?: (req: Requirement) => void;
   onOpenResumeParser?: (req: Requirement) => void;
   onPreviewApplicationForm?: (req: Requirement, templateId?: string) => void;
+  initialTab?: WorkspaceTab;
+  onWorkspaceTabChange?: (tab: WorkspaceTab) => void;
   benchPickerCloseToken?: number;
   showToast?: (title: string, message: string, icon?: string) => void;
 }
@@ -239,6 +258,8 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   onOpenCsvImport,
   onOpenResumeParser,
   onPreviewApplicationForm,
+  initialTab = 'applicants',
+  onWorkspaceTabChange,
   benchPickerCloseToken,
   showToast,
 }) => {
@@ -246,11 +267,20 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   const aiCapabilities = useAiCapabilities();
   const taxonomies = useMasterTaxonomies(true);
 
-  const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>('applicants');
+  const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>(initialTab || 'applicants');
+
+  useEffect(() => {
+    setWorkspaceTab(initialTab || 'applicants');
+  }, [requirement?.id, initialTab]);
+
+  const handleWorkspaceTabChange = (nextTab: WorkspaceTab) => {
+    setWorkspaceTab(nextTab);
+    onWorkspaceTabChange?.(nextTab);
+  };
   const [applicantTab, setApplicantTab] = useState<ApplicantFilterTab>('All');
   const [applicantSearch, setApplicantSearch] = useState('');
   const applicantsSort = useTableSort<'applicant' | 'fitScore' | 'rate' | 'stage'>('fitScore', 'desc');
-  const placedSort = useTableSort<'resourceName' | 'customer' | 'startDate' | 'billRate' | 'status'>();
+  const placedSort = useTableSort<'resourceName' | 'skillRole' | 'customer' | 'startDate' | 'billRate' | 'status'>();
   const [fitModalSubId, setFitModalSubId] = useState<string | null>(null);
   const [evaluatingSubId, setEvaluatingSubId] = useState<string | null>(null);
   const [pitchTargetSub, setPitchTargetSub] = useState<RequirementSubmission | null>(null);
@@ -751,6 +781,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     if (!placedSort.sort.sortBy) return linkedPlacements;
     return sortArrayByColumn(linkedPlacements, placedSort.sort, {
       resourceName: (p) => formatDisplayName(p.resourceName, 'Consultant'),
+      skillRole: (p) => p.skillRole || effectiveRequirement?.opportunityTitle || '',
       customer: (p) => p.customer || effectiveRequirement?.companyName || '',
       startDate: (p) => (p.startDate ? new Date(p.startDate) : null),
       billRate: (p) => (rateMasked ? null : extractRateSortValue(p.billing || p.payRate)),
@@ -1643,7 +1674,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
         ariaLabel="Requisition workspace sections"
         tabs={reqTabs}
         activeTab={workspaceTab}
-        onChange={setWorkspaceTab}
+        onChange={handleWorkspaceTabChange}
       />
 
       {/* TAB 1: Applicants Pipeline (Full Width) */}
@@ -1750,66 +1781,72 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                     <>
                       {/* Desktop Table Layout (auto-sized columns prevent badge collision) */}
                       <div className="hidden lg:block overflow-x-auto">
-                        <table className="w-full text-left text-xs">
-                          <thead className="bg-white border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                        <table className={STAFFING_GRID_TABLE_CLASS}>
+                          <thead className={STAFFING_GRID_THEAD_CLASS}>
                             <tr>
                               <SortableTableHeader
-                                label={<span className="uppercase tracking-wider">Applicant</span>}
+                                label="Applicant"
+                                icon={<User className="w-3 h-3" />}
                                 column="applicant"
                                 sort={applicantsSort.sort}
                                 onSort={applicantsSort.handleSort}
                                 defaultDir="asc"
-                                className="pl-6 pr-4 py-3 min-w-[260px]"
+                                className={`${STAFFING_GRID_TH_CLASS} ${STAFFING_GRID_STICKY_TH_CLASS} min-w-[260px]`}
                               />
                               <SortableTableHeader
-                                label={<span className="uppercase tracking-wider">Fit Score</span>}
+                                label="Fit Score"
+                                icon={<Award className="w-3 h-3" />}
                                 column="fitScore"
                                 sort={applicantsSort.sort}
                                 onSort={applicantsSort.handleSort}
                                 defaultDir="desc"
-                                className="px-4 py-3 whitespace-nowrap"
+                                className={STAFFING_GRID_TH_CLASS}
                               />
                               <SortableTableHeader
-                                label={<span className="uppercase tracking-wider">Rate</span>}
+                                label="Rate"
+                                icon={<DollarSign className="w-3 h-3" />}
                                 column="rate"
                                 sort={applicantsSort.sort}
                                 onSort={applicantsSort.handleSort}
                                 defaultDir="desc"
                                 disabled={rateMasked}
-                                className="px-4 py-3 whitespace-nowrap"
+                                className={STAFFING_GRID_TH_CLASS}
                               />
                               <SortableTableHeader
-                                label={<span className="uppercase tracking-wider">Stage</span>}
+                                label="Stage"
+                                icon={<Layers className="w-3 h-3" />}
                                 column="stage"
                                 sort={applicantsSort.sort}
                                 onSort={applicantsSort.handleSort}
                                 defaultDir="asc"
-                                className="px-4 py-3 whitespace-nowrap"
+                                className={STAFFING_GRID_TH_CLASS}
                               />
-                              <th className="pl-4 pr-6 py-3 text-right whitespace-nowrap">
-                                Actions
-                              </th>
+                              <GridColumnHeader
+                                icon={<SlidersHorizontal className="w-3 h-3" />}
+                                label="Actions"
+                                align="right"
+                              />
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100">
+                          <tbody className="text-slate-700">
                             {preparedRows.map((row) => (
                               <tr
                                 key={row.sub.id}
-                                className="hover:bg-slate-50/60 transition-colors"
+                                className={STAFFING_GRID_ROW_STATIC_CLASS}
                               >
-                                <td className="pl-6 pr-4 py-4 align-middle">
+                                <td className={`${STAFFING_GRID_CELL_CLASS} ${STAFFING_GRID_STICKY_TD_CLASS} align-middle`}>
                                   {renderApplicantIdentity(row)}
                                 </td>
-                                <td className="px-4 py-4 align-middle whitespace-nowrap">
+                                <td className={`${STAFFING_GRID_CELL_CLASS} align-middle whitespace-nowrap`}>
                                   {renderFitScoreButton(row.sub)}
                                 </td>
-                                <td className="px-4 py-4 align-middle whitespace-nowrap">
+                                <td className={`${STAFFING_GRID_CELL_CLASS} align-middle whitespace-nowrap tabular-nums`}>
                                   {renderRateCell(row.sub)}
                                 </td>
-                                <td className="px-4 py-4 align-middle whitespace-nowrap">
+                                <td className={`${STAFFING_GRID_CELL_CLASS} align-middle whitespace-nowrap`}>
                                   {renderStageControl(row)}
                                 </td>
-                                <td className="pl-4 pr-6 py-4 align-middle text-right whitespace-nowrap">
+                                <td className={`${STAFFING_GRID_CELL_CLASS} align-middle text-right whitespace-nowrap`}>
                                   {renderApplicantActions(row)}
                                 </td>
                               </tr>
@@ -1857,7 +1894,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
       {/* TAB 2: Placed Candidates (Full Width) */}
       {workspaceTab === 'placed' && (
         <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden text-xs">
-          <div className="px-6 py-4 border-b border-slate-100 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="px-5 py-3.5 border-b border-slate-200/80 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 flex-wrap">
               <h2 className="font-bold text-slate-900 text-xs">
                 Placed candidates
@@ -1880,7 +1917,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                 <div className="flex items-center justify-center gap-2.5 flex-wrap">
                   <button
                     type="button"
-                    onClick={() => setWorkspaceTab('applicants')}
+                    onClick={() => handleWorkspaceTabChange('applicants')}
                     className="h-8 inline-flex items-center gap-1.5 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
                   >
                     <span>View Applicants Pipeline</span>
@@ -1937,12 +1974,12 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
             });
 
             const renderIdentity = (row: (typeof preparedPlacements)[number]) => (
-              <div className="flex items-start gap-3.5 min-w-0">
-                <div className="w-9 h-9 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-7 h-7 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold text-[11px] shrink-0">
                   {row.initials}
                 </div>
-                <div className="min-w-0 flex-1 space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     {row.matchedCand ? (
                       <button
                         type="button"
@@ -1950,29 +1987,21 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                           e.stopPropagation();
                           onOpenResumePreview(row.matchedCand!);
                         }}
-                        className="font-bold text-slate-900 hover:text-brand-600 text-sm cursor-pointer text-left truncate max-w-full"
+                        className="font-semibold text-slate-900 hover:text-brand-600 text-xs cursor-pointer text-left truncate max-w-full"
                       >
                         {row.displayName}
                       </button>
                     ) : (
-                      <span className="font-bold text-slate-900 text-sm truncate max-w-full">
+                      <span className="font-semibold text-slate-900 text-xs truncate max-w-full">
                         {row.displayName}
                       </span>
                     )}
                     {row.p.purchaseOrderNumber && (
-                      <span className="inline-flex items-center text-[11px] font-mono px-2 py-0.5 rounded-full bg-white border border-slate-300 text-slate-700 font-semibold whitespace-nowrap shrink-0">
+                      <span className="inline-flex items-center text-[11px] font-mono px-1.5 py-0.5 rounded-full bg-white border border-slate-300 text-slate-600 font-semibold whitespace-nowrap shrink-0">
                         PO {row.p.purchaseOrderNumber}
                       </span>
                     )}
                   </div>
-                  {row.roleTitle && (
-                    <div
-                      className="text-[11px] font-medium text-slate-600 leading-snug line-clamp-2"
-                      title={row.roleTitle}
-                    >
-                      {row.roleTitle}
-                    </div>
-                  )}
                   {row.metaItems.length > 0 && (
                     <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-slate-500">
                       {row.metaItems.map((item, idx) => (
@@ -2037,74 +2066,99 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
               <>
                 {/* Desktop Table */}
                 <div className="hidden lg:block overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-white border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  <table className={STAFFING_GRID_TABLE_CLASS}>
+                    <thead className={STAFFING_GRID_THEAD_CLASS}>
                       <tr>
                         <SortableTableHeader
-                          label="Consultant &amp; Role"
+                          label="Consultant"
+                          icon={<User className="w-3 h-3" />}
                           column="resourceName"
                           sort={placedSort.sort}
                           onSort={placedSort.handleSort}
                           defaultDir="asc"
-                          className="pl-6 pr-4 py-3 min-w-[270px] whitespace-nowrap"
+                          className={`${STAFFING_GRID_TH_CLASS} ${STAFFING_GRID_STICKY_TH_CLASS} min-w-[220px]`}
+                        />
+                        <SortableTableHeader
+                          label="Role"
+                          icon={<Briefcase className="w-3 h-3" />}
+                          column="skillRole"
+                          sort={placedSort.sort}
+                          onSort={placedSort.handleSort}
+                          defaultDir="asc"
+                          className={STAFFING_GRID_TH_CLASS}
                         />
                         <SortableTableHeader
                           label="Client / Vendor"
+                          icon={<Building2 className="w-3 h-3" />}
                           column="customer"
                           sort={placedSort.sort}
                           onSort={placedSort.handleSort}
                           defaultDir="asc"
-                          className="px-4 py-3 whitespace-nowrap"
+                          className={STAFFING_GRID_TH_CLASS}
                         />
                         <SortableTableHeader
                           label="SOW Period"
+                          icon={<CalendarClock className="w-3 h-3" />}
                           column="startDate"
                           sort={placedSort.sort}
                           onSort={placedSort.handleSort}
                           defaultDir="desc"
-                          className="px-4 py-3 whitespace-nowrap"
+                          className={STAFFING_GRID_TH_CLASS}
                         />
                         <SortableTableHeader
                           label="Commercials"
+                          icon={<DollarSign className="w-3 h-3" />}
                           column="billRate"
                           sort={placedSort.sort}
                           onSort={placedSort.handleSort}
                           defaultDir="desc"
                           disabled={rateMasked}
-                          className="px-4 py-3 whitespace-nowrap"
+                          className={STAFFING_GRID_TH_CLASS}
                         />
                         <SortableTableHeader
                           label="Status"
+                          icon={<CheckCircle2 className="w-3 h-3" />}
                           column="status"
                           sort={placedSort.sort}
                           onSort={placedSort.handleSort}
                           defaultDir="asc"
-                          className="px-4 py-3 whitespace-nowrap"
+                          className={STAFFING_GRID_TH_CLASS}
                         />
-                        <th className="pl-4 pr-6 py-3 text-right whitespace-nowrap">Record</th>
+                        <GridColumnHeader
+                          icon={<FileText className="w-3 h-3" />}
+                          label="Record"
+                          align="right"
+                        />
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="text-slate-700">
                       {preparedPlacements.map((row) => {
                         const { p } = row;
+                        const rowClickable = !p.isSummaryOnly && Boolean(onSelectPlacement);
                         return (
                           <tr
                             key={p.id}
                             onClick={
-                              !p.isSummaryOnly && onSelectPlacement
+                              rowClickable && onSelectPlacement
                                 ? () => onSelectPlacement(p)
                                 : undefined
                             }
-                            className={`transition-colors ${!p.isSummaryOnly && onSelectPlacement
-                              ? 'hover:bg-slate-50/80 cursor-pointer group'
-                              : 'hover:bg-slate-50/50'
-                              }`}
+                            className={rowClickable ? STAFFING_GRID_ROW_CLASS : STAFFING_GRID_ROW_STATIC_CLASS}
                           >
-                            <td className="pl-6 pr-4 py-4 align-middle min-w-[270px] max-w-[360px]">
+                            <td className={`${STAFFING_GRID_CELL_CLASS} ${STAFFING_GRID_STICKY_TD_CLASS} align-middle min-w-[220px] max-w-[290px]`}>
                               {renderIdentity(row)}
                             </td>
 
-                            <td className="px-4 py-4 align-middle min-w-[160px] max-w-[230px]">
+                            <td className={`${STAFFING_GRID_CELL_CLASS} align-middle max-w-[220px]`}>
+                              <div
+                                className="font-medium text-slate-600 truncate"
+                                title={row.roleTitle || ''}
+                              >
+                                {row.roleTitle || '—'}
+                              </div>
+                            </td>
+
+                            <td className={`${STAFFING_GRID_CELL_CLASS} align-middle min-w-[160px] max-w-[230px]`}>
                               <div className="font-semibold text-slate-800 leading-snug">
                                 {p.customer || reqView.companyName}
                               </div>
@@ -2115,7 +2169,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                               )}
                             </td>
 
-                            <td className="px-4 py-4 align-middle whitespace-nowrap text-slate-600 font-mono text-[11px] tabular-nums">
+                            <td className={`${STAFFING_GRID_CELL_CLASS} align-middle whitespace-nowrap text-slate-600 font-mono text-[11px] tabular-nums`}>
                               {p.startDate || p.endDate ? (
                                 <span>
                                   {p.startDate || 'TBD'} &rarr; {p.endDate || 'Ongoing'}
@@ -2125,15 +2179,15 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                               )}
                             </td>
 
-                            <td className="px-4 py-4 align-middle whitespace-nowrap font-mono tabular-nums">
+                            <td className={`${STAFFING_GRID_CELL_CLASS} align-middle whitespace-nowrap font-mono tabular-nums`}>
                               {renderCommercials(p)}
                             </td>
 
-                            <td className="px-4 py-4 align-middle whitespace-nowrap">
+                            <td className={`${STAFFING_GRID_CELL_CLASS} align-middle whitespace-nowrap`}>
                               <StatusBadge label={row.statusStr} tone={row.statusTone} size="xs" />
                             </td>
 
-                            <td className="pl-4 pr-6 py-4 align-middle text-right whitespace-nowrap">
+                            <td className={`${STAFFING_GRID_CELL_CLASS} align-middle text-right whitespace-nowrap`}>
                               {renderRecordButton(p)}
                             </td>
                           </tr>

@@ -28,16 +28,19 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { motion } from 'framer-motion';
 import {
-  AlertTriangle,
+  Briefcase,
   Building2,
   Clock,
   Columns,
+  Cpu,
   FileSpreadsheet,
+  Layers,
   List,
   Lock,
   Pencil,
   Plus,
   Search,
+  SlidersHorizontal,
   Trash2,
   UsersRound,
   X,
@@ -46,6 +49,17 @@ import { AiIcon, AiTag } from '../../components/shared/AiBrand';
 import { apiClient } from '../../config/api.config';
 import { Requirement, Candidate } from '../../types';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
+import {
+  GridColumnHeader,
+  STAFFING_GRID_CELL_CLASS,
+  STAFFING_GRID_FRAME_CLASS,
+  STAFFING_GRID_ROW_STATIC_CLASS,
+  STAFFING_GRID_STICKY_TD_CLASS,
+  STAFFING_GRID_STICKY_TH_CLASS,
+  STAFFING_GRID_TABLE_CLASS,
+  STAFFING_GRID_THEAD_CLASS,
+  STAFFING_GRID_TH_CLASS,
+} from '../../components/shared/StaffingGrid';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { ActionButton } from '../../components/shared/ActionButton';
@@ -54,6 +68,7 @@ import { RoleSummaryField } from '../../components/shared/RichTextEditor';
 import { buildClientSafeSummaryHtml } from '../../utils/richText';
 import { ModalPortal } from '../../components/shared/ModalPortal';
 import { AnimatedModal } from '../../components/shared/MotionPrimitives';
+import { DeleteRequirementModal } from '../../components/shared/DeleteRequirementModal';
 import { SkillTagInput } from '../../components/shared/SkillTagInput';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapRequirementFromApi } from '../../utils/entityMappers';
@@ -247,7 +262,7 @@ interface PipelineViewProps {
   onOpenEmailParser: () => void;
   onOpenMatcher: (req: Requirement) => void;
   onOpenPlacementWizard: (req: Requirement) => void;
-  onSelectReq?: (req: Requirement) => void;
+  onSelectReq?: (req: Requirement, initialTab?: 'applicants' | 'placed' | 'details') => void;
   onOpenAddReq?: () => void;
   onEditReq?: (req: Requirement) => void;
   onUpdateReq?: (req: Requirement) => void;
@@ -289,7 +304,6 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
   const [editOpenPosError, setEditOpenPosError] = useState<string>('');
   const [reqToDelete, setReqToDelete] = useState<Requirement | null>(null);
   const [isUpdatingReq, setIsUpdatingReq] = useState(false);
-  const [isDeletingReq, setIsDeletingReq] = useState(false);
 
   useEffect(() => {
     if (editingReq) {
@@ -1321,48 +1335,63 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
         </DndContext>
       ) : (
         /* List Mode */
-        <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
+        <div className={STAFFING_GRID_FRAME_CLASS}>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-white border-b border-slate-100">
-                <tr className="text-[11px] uppercase font-bold text-slate-400 tracking-wider">
+            <table className={STAFFING_GRID_TABLE_CLASS}>
+              <thead className={STAFFING_GRID_THEAD_CLASS}>
+                <tr>
                   <SortableTableHeader
-                    label="Code &amp; Role"
+                    label="Code & Role"
+                    icon={<Briefcase className="w-3 h-3" />}
                     column="title"
                     sort={tableSort.sort}
                     onSort={tableSort.handleSort}
                     defaultDir="asc"
-                    className="py-2.5 px-4"
+                    uppercase={false}
+                    className={`${STAFFING_GRID_TH_CLASS} ${STAFFING_GRID_STICKY_TH_CLASS}`}
                   />
                   <SortableTableHeader
                     label="Client Company"
+                    icon={<Building2 className="w-3 h-3" />}
                     column="companyName"
                     sort={tableSort.sort}
                     onSort={tableSort.handleSort}
                     defaultDir="asc"
-                    className="py-2.5 px-4"
+                    uppercase={false}
+                    className={STAFFING_GRID_TH_CLASS}
                   />
-                  <th className="py-2.5 px-4">Required Skills</th>
+                  <GridColumnHeader
+                    icon={<Cpu className="w-3 h-3" />}
+                    label="Required Skills"
+                  />
                   <SortableTableHeader
-                    label="Openings &amp; Applicants"
+                    label="Openings & Applicants"
+                    icon={<UsersRound className="w-3 h-3" />}
                     column="applicants"
                     sort={tableSort.sort}
                     onSort={tableSort.handleSort}
                     defaultDir="desc"
-                    className="py-2.5 px-4"
+                    uppercase={false}
+                    className={STAFFING_GRID_TH_CLASS}
                   />
                   <SortableTableHeader
                     label="Stage"
+                    icon={<Layers className="w-3 h-3" />}
                     column="status"
                     sort={tableSort.sort}
                     onSort={tableSort.handleSort}
                     defaultDir="asc"
-                    className="py-2.5 px-4"
+                    uppercase={false}
+                    className={STAFFING_GRID_TH_CLASS}
                   />
-                  <th className="py-2.5 px-4 text-right">Actions</th>
+                  <GridColumnHeader
+                    icon={<SlidersHorizontal className="w-3 h-3" />}
+                    label="Actions"
+                    align="right"
+                  />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="text-slate-700">
                 {filteredReqs.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-10 px-6 text-center text-xs text-slate-400">
@@ -1399,8 +1428,8 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                   </tr>
                 ) : (
                   filteredReqs.map((req) => (
-                    <tr key={req.id} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="py-3 px-4 font-semibold text-slate-900">
+                    <tr key={req.id} className={STAFFING_GRID_ROW_STATIC_CLASS}>
+                      <td className={`${STAFFING_GRID_CELL_CLASS} ${STAFFING_GRID_STICKY_TD_CLASS} font-semibold text-slate-900 whitespace-nowrap`}>
                         <span
                           onClick={() => onSelectReq && onSelectReq(req)}
                           className="cursor-pointer hover:text-brand-600 transition-colors block"
@@ -1411,11 +1440,11 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                           {req.code} &bull; {req.location}
                         </div>
                       </td>
-                      <td className="py-3 px-4 font-semibold text-slate-700">{req.companyName}</td>
-                      <td className="py-3 px-4 text-slate-600 text-[11px] max-w-xs truncate">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} font-semibold text-slate-700 whitespace-nowrap`}>{req.companyName}</td>
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-slate-600 text-[11px] max-w-xs truncate`}>
                         {req.skillsRequired}
                       </td>
-                      <td className="py-3 px-4">
+                      <td className={STAFFING_GRID_CELL_CLASS}>
                         {(() => {
                           const openPos = req.openPositions || 1;
                           const filledPos = req.filledPositions ?? req.activePlacements?.length ?? 0;
@@ -1452,10 +1481,10 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
                           );
                         })()}
                       </td>
-                      <td className="py-3 px-4">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap`}>
                         <StatusBadge stage={req.status} size="xs" />
                       </td>
-                      <td className="py-3 px-4 text-right whitespace-nowrap">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-right whitespace-nowrap`}>
                         <button
                           onClick={() => onOpenMatcher(req)}
                           className="h-7 px-2.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-semibold cursor-pointer transition-colors"
@@ -1713,111 +1742,14 @@ export const PipelineView: React.FC<PipelineViewProps> = ({
       </AnimatedModal>
 
       {/* Delete Requisition Confirmation Modal */}
-      <AnimatedModal
-        isOpen={Boolean(reqToDelete)}
-        onBackdropClick={() => setReqToDelete(null)}
-        zIndexClass="z-50"
-        panelClassName="bg-white rounded-xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden"
-      >
-        {reqToDelete && (() => {
-          const activePlacedCount = reqToDelete.filledPositions ?? reqToDelete.activePlacements?.length ?? 0;
-          const hasBillable = activePlacedCount > 0;
-          const activePlacementList = reqToDelete.activePlacements || [];
-          return (
-            <div className="p-6 space-y-4">
-              <div className="flex items-start gap-3.5">
-                <div className={`w-9 h-9 rounded-full border flex items-center justify-center flex-shrink-0 ${hasBillable ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-rose-50 border-rose-200 text-rose-600'}`}>
-                  {hasBillable ? <Lock className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
-                </div>
-                <div className="space-y-1.5 min-w-0 flex-1">
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    {hasBillable ? 'Protected: Active Billable Requirement' : 'Delete Requirement?'}
-                  </h3>
-                  {hasBillable ? (
-                    <>
-                      <p className="text-xs text-slate-600 leading-relaxed">
-                        <span className="font-bold text-slate-800">{reqToDelete.code}</span> ({reqToDelete.opportunityTitle}) currently has{' '}
-                        <span className="font-bold text-amber-700">{activePlacedCount} active billable consultant{activePlacedCount === 1 ? '' : 's'}</span>.
-                        To protect billing records and submission audit history, release all placed consultant(s) before deleting this requirement.
-                      </p>
-                      {activePlacementList.length > 0 && (
-                        <div className="pt-1 flex flex-wrap gap-1.5">
-                          {activePlacementList.map((pl) => (
-                            <StatusBadge
-                              key={pl.id}
-                              tone="emerald"
-                              size="xs"
-                              label={pl.resourceName}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-xs text-slate-500 leading-relaxed">
-                        Are you sure you want to permanently remove{' '}
-                        <span className="font-bold text-slate-800">{reqToDelete.code}</span> —{' '}
-                        <span className="font-semibold text-slate-800">{reqToDelete.opportunityTitle}</span> at{' '}
-                        <span className="font-semibold text-slate-800">{reqToDelete.companyName}</span>?
-                      </p>
-                      <p className="text-[11px] text-rose-600 font-medium pt-0.5">
-                        This action cannot be undone and removes linked submission records.
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  disabled={isDeletingReq}
-                  onClick={() => setReqToDelete(null)}
-                  className="h-8 px-3.5 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-60 rounded-lg transition-colors cursor-pointer"
-                >
-                  {hasBillable ? 'Close' : 'Cancel'}
-                </button>
-                {hasBillable && onSelectReq ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const target = reqToDelete;
-                      setReqToDelete(null);
-                      onSelectReq(target);
-                    }}
-                    className="h-8 px-3.5 text-[11px] font-semibold bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors cursor-pointer"
-                  >
-                    View Placed Consultants &rarr;
-                  </button>
-                ) : !hasBillable ? (
-                  <ActionButton
-                    type="button"
-                    loading={isDeletingReq}
-                    loadingText="Deleting..."
-                    icon={<Trash2 className="w-3.5 h-3.5" />}
-                    onClick={async () => {
-                      if (isDeletingReq) return;
-                      setIsDeletingReq(true);
-                      try {
-                        if (onDeleteReq) await onDeleteReq(reqToDelete);
-                        setReqToDelete(null);
-                      } catch {
-                        setReqToDelete(null);
-                      } finally {
-                        setIsDeletingReq(false);
-                      }
-                    }}
-                    className="h-8 px-4 text-[11px] font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition-colors cursor-pointer"
-                  >
-                    Delete Requisition
-                  </ActionButton>
-                ) : null}
-              </div>
-            </div>
-          );
-        })()}
-      </AnimatedModal>
+      <DeleteRequirementModal
+        requirement={reqToDelete}
+        onClose={() => setReqToDelete(null)}
+        onDeleteReq={onDeleteReq}
+        onViewPlacedConsultants={
+          onSelectReq ? (target) => onSelectReq(target, 'placed') : undefined
+        }
+      />
     </div>
   );
 };

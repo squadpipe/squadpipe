@@ -2,10 +2,7 @@ import assert from 'assert';
 import { PlacementStatus } from '@prisma/client';
 import { parseRateNumber } from '../../src/utils/rateParser';
 import {
-  validatePlacementCanDelete,
-  validateRequiredPoNumber,
-} from '../../src/services/placement.service';
-import {
+  buildPlacementStatusWhere,
   validatePlacementCanDelete,
   validateRequiredPoNumber,
 } from '../../src/services/placement.service';
@@ -111,6 +108,15 @@ export const runPlacementCalculationTests = () => {
     () => validatePlacementCanDelete(PlacementStatus.EXPIRING_SOON),
     (err: any) => err?.statusCode === 400
   );
+
+  // Active status filter covers all ongoing placements (excludes Completed/Terminated)
+  assert.strictEqual(buildPlacementStatusWhere('All'), null);
+  assert.deepStrictEqual(buildPlacementStatusWhere('Active'), {
+    status: { notIn: [PlacementStatus.COMPLETED, PlacementStatus.TERMINATED] },
+  });
+  assert.deepStrictEqual(buildPlacementStatusWhere('Ended'), {
+    status: { in: [PlacementStatus.COMPLETED, PlacementStatus.TERMINATED] },
+  });
 
   console.log('✅ Placement Margin & Rate Parser Calculations: PASSED (Exact prototype arithmetic match)');
 };

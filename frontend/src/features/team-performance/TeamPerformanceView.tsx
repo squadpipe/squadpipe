@@ -3,9 +3,12 @@ import {
   Briefcase,
   CheckCircle2,
   Loader2,
+  Percent,
   RefreshCw,
   Search,
   Send,
+  User,
+  UserCheck,
   Users,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
@@ -15,6 +18,16 @@ import { PageHeader } from '../../components/shared/PageHeader';
 import { SegmentedControl } from '../../components/shared/SegmentedControl';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
+import {
+  STAFFING_GRID_CELL_CLASS,
+  STAFFING_GRID_FRAME_CLASS,
+  STAFFING_GRID_ROW_STATIC_CLASS,
+  STAFFING_GRID_STICKY_TD_CLASS,
+  STAFFING_GRID_STICKY_TH_CLASS,
+  STAFFING_GRID_TABLE_CLASS,
+  STAFFING_GRID_THEAD_CLASS,
+  STAFFING_GRID_TH_CLASS,
+} from '../../components/shared/StaffingGrid';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { useClientPagination } from '../../utils/usePagination';
 import { useTableSort } from '../../utils/tableSort';
@@ -218,8 +231,8 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
       </div>
 
       {/* Recruiter Scorecard Table */}
-      <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
-        <div className="px-6 py-3.5 border-b border-slate-100 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className={STAFFING_GRID_FRAME_CLASS}>
+        <div className="px-5 py-3 border-b border-slate-200/80 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold text-xs text-slate-900">
               Recruiter Scorecard ({filteredTeam.length})
@@ -255,65 +268,71 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
                 : `No team members match "${search}".`}
             </div>
           ) : (
-            <table className="w-full text-left text-xs">
-              <thead className="bg-white border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            <table className={STAFFING_GRID_TABLE_CLASS}>
+              <thead className={STAFFING_GRID_THEAD_CLASS}>
                 <tr>
                   <SortableTableHeader
                     label="Recruiter"
+                    icon={<User className="w-3 h-3" />}
                     column="recruiterName"
                     sort={perfSort.sort}
                     onSort={perfSort.handleSort}
                     defaultDir="asc"
-                    className="pl-6 pr-4 py-3 whitespace-nowrap"
+                    className={`${STAFFING_GRID_TH_CLASS} ${STAFFING_GRID_STICKY_TH_CLASS}`}
                   />
                   <SortableTableHeader
                     label="Open Reqs"
+                    icon={<Briefcase className="w-3 h-3" />}
                     column="openReqs"
                     sort={perfSort.sort}
                     onSort={perfSort.handleSort}
                     defaultDir="desc"
                     align="right"
-                    className="px-4 py-3 whitespace-nowrap"
+                    className={STAFFING_GRID_TH_CLASS}
                   />
                   <SortableTableHeader
                     label="Submissions"
+                    icon={<Send className="w-3 h-3" />}
                     column="submissions"
                     sort={perfSort.sort}
                     onSort={perfSort.handleSort}
                     defaultDir="desc"
                     align="right"
-                    className="px-4 py-3 whitespace-nowrap"
+                    className={STAFFING_GRID_TH_CLASS}
                   />
                   <SortableTableHeader
                     label="Interviews"
+                    icon={<UserCheck className="w-3 h-3" />}
                     column="interviews"
                     sort={perfSort.sort}
                     onSort={perfSort.handleSort}
                     defaultDir="desc"
                     align="right"
-                    className="px-4 py-3 whitespace-nowrap"
+                    className={STAFFING_GRID_TH_CLASS}
                   />
                   <SortableTableHeader
                     label="Placements"
+                    icon={<CheckCircle2 className="w-3 h-3" />}
                     column="placements"
                     sort={perfSort.sort}
                     onSort={perfSort.handleSort}
                     defaultDir="desc"
                     align="right"
-                    className="px-4 py-3 whitespace-nowrap"
+                    className={STAFFING_GRID_TH_CLASS}
                   />
                   <SortableTableHeader
                     label="Conversion %"
+                    icon={<Percent className="w-3 h-3" />}
                     column="conversionPct"
                     sort={perfSort.sort}
                     onSort={perfSort.handleSort}
                     defaultDir="desc"
                     align="right"
-                    className="pl-4 pr-6 py-3 whitespace-nowrap"
+                    className={STAFFING_GRID_TH_CLASS}
                   />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="text-slate-700">
                 {pg.pagedItems.map((row) => {
                   const interviewRate =
                     row.submissions > 0
@@ -331,8 +350,8 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
                     .slice(0, 2);
 
                   return (
-                    <tr key={row.userId} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="pl-6 pr-4 py-3.5">
+                    <tr key={row.userId} className={STAFFING_GRID_ROW_STATIC_CLASS}>
+                      <td className={`${STAFFING_GRID_CELL_CLASS} ${STAFFING_GRID_STICKY_TD_CLASS}`}>
                         <div className="flex items-center gap-2.5">
                           <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[11px] flex items-center justify-center flex-shrink-0">
                             {initials}
@@ -348,13 +367,13 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3.5 text-right font-semibold text-slate-700 tabular-nums">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-right font-semibold text-slate-700 tabular-nums`}>
                         {row.openReqs}
                       </td>
-                      <td className="px-4 py-3.5 text-right font-semibold text-slate-900 tabular-nums">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-right font-semibold text-slate-900 tabular-nums`}>
                         {row.submissions}
                       </td>
-                      <td className="px-4 py-3.5 text-right tabular-nums">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-right tabular-nums`}>
                         <span className="font-semibold text-slate-800">{row.interviews}</span>
                         {row.submissions > 0 && (
                           <span className="ml-1.5 text-[11px] text-slate-400">
@@ -362,10 +381,10 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3.5 text-right font-bold text-emerald-700 tabular-nums">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-right font-bold text-emerald-700 tabular-nums`}>
                         {row.placements}
                       </td>
-                      <td className="pl-4 pr-6 py-3.5 text-right whitespace-nowrap tabular-nums">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-right whitespace-nowrap tabular-nums`}>
                         <StatusBadge
                           tone={
                             placementRate >= 15
@@ -382,16 +401,16 @@ export const TeamPerformanceView: React.FC<TeamPerformanceViewProps> = ({ showTo
                   );
                 })}
               </tbody>
-              <tfoot className="bg-slate-50 border-t border-slate-200 text-[11px] font-bold text-slate-800">
+              <tfoot className="text-[11px] font-bold text-slate-800">
                 <tr>
-                  <td className="pl-6 pr-4 py-3">Team Totals</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{totals.openReqs}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{totals.submissions}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{totals.interviews}</td>
-                  <td className="px-4 py-3 text-right text-emerald-700 tabular-nums">
+                  <td className={`${STAFFING_GRID_CELL_CLASS} sticky left-0 z-10 bg-slate-50 shadow-[2px_0_6px_-4px_rgba(15,23,42,0.06)]`}>Team Totals</td>
+                  <td className={`${STAFFING_GRID_CELL_CLASS} text-right tabular-nums`}>{totals.openReqs}</td>
+                  <td className={`${STAFFING_GRID_CELL_CLASS} text-right tabular-nums`}>{totals.submissions}</td>
+                  <td className={`${STAFFING_GRID_CELL_CLASS} text-right tabular-nums`}>{totals.interviews}</td>
+                  <td className={`${STAFFING_GRID_CELL_CLASS} text-right text-emerald-700 tabular-nums`}>
                     {totals.placements}
                   </td>
-                  <td className="pl-4 pr-6 py-3 text-right tabular-nums">{teamPlacementRate}%</td>
+                  <td className={`${STAFFING_GRID_CELL_CLASS} text-right tabular-nums`}>{teamPlacementRate}%</td>
                 </tr>
               </tfoot>
             </table>

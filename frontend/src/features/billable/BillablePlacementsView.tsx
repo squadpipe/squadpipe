@@ -1,24 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import {
-  DollarSign,
-  TrendingUp,
-  Wallet,
+  AlertTriangle,
+  ArrowRight,
+  Briefcase,
+  Building2,
   CalendarClock,
-  Search,
-  Plus,
-  Pencil,
-  Trash2,
   CalendarPlus,
   CalendarX,
-  AlertTriangle,
+  DollarSign,
   FileSpreadsheet,
   FileText,
-  ArrowRight,
+  Layers,
+  Pencil,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+  TrendingUp,
+  User,
+  Wallet,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { BillablePlacement, Vendor } from '../../types';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
+import {
+  GridColumnHeader,
+  STAFFING_GRID_CELL_CLASS,
+  STAFFING_GRID_FRAME_CLASS,
+  STAFFING_GRID_ROW_CLASS,
+  STAFFING_GRID_ROW_STATIC_CLASS,
+  STAFFING_GRID_STICKY_TD_CLASS,
+  STAFFING_GRID_STICKY_TH_CLASS,
+  STAFFING_GRID_TABLE_CLASS,
+  STAFFING_GRID_THEAD_CLASS,
+  STAFFING_GRID_TH_CLASS,
+} from '../../components/shared/StaffingGrid';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { CustomSelect } from '../../components/shared/CustomSelect';
@@ -42,10 +59,14 @@ import {
   isExpiringSoon,
 } from './placementUtils';
 
+export type BillableStatusFilter = 'All' | 'Active' | 'Expiring Soon' | 'Extended' | 'Ended';
+
 interface BillablePlacementsViewProps {
   placements: BillablePlacement[];
   vendors?: Vendor[];
   rateMasked: boolean;
+  initialStatusFilter?: BillableStatusFilter;
+  onStatusFilterChange?: (status: BillableStatusFilter) => void;
   onOpenNewPlacement?: () => void;
   onSelectPlacement?: (placement: BillablePlacement) => void;
   onExtendContract?: (placement: BillablePlacement, extensionData?: ExtensionData) => Promise<void> | void;
@@ -58,6 +79,8 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
   placements,
   vendors = [],
   rateMasked,
+  initialStatusFilter,
+  onStatusFilterChange,
   onOpenNewPlacement,
   onSelectPlacement,
   onExtendContract,
@@ -67,16 +90,21 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
 }) => {
   const { symbol: currencySymbol, formatRate } = useCurrency();
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Expiring Soon' | 'Extended' | 'Ended'>('All');
+  const [statusFilter, setStatusFilter] = useState<BillableStatusFilter>(initialStatusFilter || 'All');
+
+  useEffect(() => {
+    setStatusFilter(initialStatusFilter || 'All');
+  }, [initialStatusFilter]);
   const [modelFilter, setModelFilter] = useState<'All' | 'W2 Hourly' | 'C2C Subcontractor' | '1099' | 'Full-Time'>('All');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const tableSort = useTableSort<
-    'customer' | 'resourceName' | 'status' | 'payRate' | 'billRate' | 'hourlySpread' | 'endDate'
+    'customer' | 'resourceName' | 'skillRole' | 'status' | 'payRate' | 'billRate' | 'hourlySpread' | 'endDate'
   >();
   const [tableRows, setTableRows] = useState<BillablePlacement[]>(() => placements.slice(0, 10));
   const [totalRows, setTotalRows] = useState(placements.length);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
+  const hasServerSyncRef = React.useRef(false);
 
   const debouncedSearch = useDebounce(search, 150);
 
@@ -98,14 +126,19 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
         (p.vendorName || '').toLowerCase().includes(q);
       const effStatus = getEffectiveStatus(p);
       const matchesStatus =
-        statusFilter === 'All' ||
-        (statusFilter === 'Ended' ? effStatus === 'Completed' || effStatus === 'Terminated' : effStatus === statusFilter);
+        statusFilter === 'All'
+          ? true
+          : statusFilter === 'Active'
+            ? p.status !== 'Completed' && p.status !== 'Terminated'
+            : statusFilter === 'Ended'
+              ? effStatus === 'Completed' || effStatus === 'Terminated'
+              : effStatus === statusFilter;
       const pModel = p.placementType || 'C2C Subcontractor';
       const matchesModel = modelFilter === 'All' || pModel.toLowerCase().includes(modelFilter.toLowerCase());
       return matchesSearch && matchesStatus && matchesModel;
     });
 
-    if (placements.length > 0 && !tableSort.sort.sortBy) {
+    if (!hasServerSyncRef.current && placements.length > 0 && !tableSort.sort.sortBy) {
       setTotalRows(localFiltered.length);
       setTableRows(localFiltered.slice((page - 1) * limit, page * limit));
       setIsLoadingRows(false);
@@ -135,6 +168,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
       .then((res) => {
         if (!active) return;
         if (res.data?.success && Array.isArray(res.data.data)) {
+          hasServerSyncRef.current = true;
           const mapped = res.data.data.map(mapPlacementFromApi);
           setTableRows(mapped);
           setTotalRows(res.data.pagination?.total ?? mapped.length);
@@ -145,6 +179,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
         const sortedFallback = sortArrayByColumn(localFiltered, tableSort.sort, {
           customer: (p) => p.customer,
           resourceName: (p) => p.resourceName,
+          skillRole: (p) => p.skillRole,
           status: (p) => getEffectiveStatus(p),
           payRate: (p) => (rateMasked ? null : extractRateSortValue(p.payRate)),
           billRate: (p) => (rateMasked ? null : extractRateSortValue(p.billing)),
@@ -342,9 +377,9 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
       </div>
 
       {/* Billable Ledger Table Card */}
-      <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
+      <div className={STAFFING_GRID_FRAME_CLASS}>
         {/* Table Filter Bar */}
-        <div className="px-6 py-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 bg-white">
+        <div className="px-5 py-3 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3 bg-white">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold text-xs text-slate-900 mr-1">
               {totalRows} Placements
@@ -353,7 +388,10 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
               <button
                 key={tab}
                 type="button"
-                onClick={() => setStatusFilter(tab)}
+                onClick={() => {
+                  setStatusFilter(tab);
+                  onStatusFilterChange?.(tab);
+                }}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
                   statusFilter === tab
                     ? 'bg-white text-slate-900 border border-slate-300 shadow-sm font-semibold'
@@ -395,75 +433,103 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
 
         {/* Ledger Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-white border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+          <table className={STAFFING_GRID_TABLE_CLASS}>
+            <thead className={STAFFING_GRID_THEAD_CLASS}>
               <tr>
                 <SortableTableHeader
-                  label="Customer &amp; PO"
+                  label="Customer & PO"
+                  icon={<Building2 className="w-3 h-3" />}
                   column="customer"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="px-3.5 py-3"
+                  uppercase={false}
+                  className={`${STAFFING_GRID_TH_CLASS} ${STAFFING_GRID_STICKY_TH_CLASS}`}
                 />
                 <SortableTableHeader
-                  label="Consultant &amp; Role"
+                  label="Consultant"
+                  icon={<User className="w-3 h-3" />}
                   column="resourceName"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="px-3.5 py-3"
+                  uppercase={false}
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
-                  label="Model &amp; Status"
+                  label="Role"
+                  icon={<Briefcase className="w-3 h-3" />}
+                  column="skillRole"
+                  sort={tableSort.sort}
+                  onSort={tableSort.handleSort}
+                  defaultDir="asc"
+                  uppercase={false}
+                  className={STAFFING_GRID_TH_CLASS}
+                />
+                <SortableTableHeader
+                  label="Model & Status"
+                  icon={<Layers className="w-3 h-3" />}
                   column="status"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="px-3.5 py-3"
+                  uppercase={false}
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="Pay Rate"
+                  icon={<DollarSign className="w-3 h-3" />}
                   column="payRate"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="desc"
                   disabled={rateMasked}
-                  className="px-3.5 py-3"
+                  uppercase={false}
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="Bill Rate"
+                  icon={<Wallet className="w-3 h-3" />}
                   column="billRate"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="desc"
                   disabled={rateMasked}
-                  className="px-3.5 py-3"
+                  uppercase={false}
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="Hourly Spread"
+                  icon={<TrendingUp className="w-3 h-3" />}
                   column="hourlySpread"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="desc"
                   disabled={rateMasked}
-                  className="px-3.5 py-3"
+                  uppercase={false}
+                  className={STAFFING_GRID_TH_CLASS}
                 />
                 <SortableTableHeader
                   label="Contract Period"
+                  icon={<CalendarClock className="w-3 h-3" />}
                   column="endDate"
                   sort={tableSort.sort}
                   onSort={tableSort.handleSort}
                   defaultDir="asc"
-                  className="px-3.5 py-3"
+                  uppercase={false}
+                  className={STAFFING_GRID_TH_CLASS}
                 />
-                <th className="px-3.5 py-3 text-right">Actions</th>
+                <GridColumnHeader
+                  icon={<SlidersHorizontal className="w-3 h-3" />}
+                  label="Actions"
+                  align="right"
+                />
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+            <tbody className="text-slate-700">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-10 text-center text-slate-400 text-xs">
+                  <td colSpan={9} className="px-6 py-10 text-center text-slate-400 text-xs">
                     {search.trim() || statusFilter !== 'All' || modelFilter !== 'All' ? (
                       <>
                         No billable placements match your current filters.{' '}
@@ -472,6 +538,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                           onClick={() => {
                             setSearch('');
                             setStatusFilter('All');
+                            onStatusFilterChange?.('All');
                             setModelFilter('All');
                           }}
                           className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
@@ -502,38 +569,57 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                     <tr
                       key={p.id}
                       onClick={onSelectPlacement ? () => onSelectPlacement(p) : undefined}
-                      className={`group transition-colors ${
-                        onSelectPlacement ? 'hover:bg-slate-50/90 cursor-pointer' : 'hover:bg-slate-50/80'
-                      }`}
+                      className={
+                        onSelectPlacement ? STAFFING_GRID_ROW_CLASS : STAFFING_GRID_ROW_STATIC_CLASS
+                      }
                     >
                       {/* Customer & PO */}
-                      <td className="px-3.5 py-3">
-                        <div className={`font-bold text-slate-900 ${onSelectPlacement ? 'group-hover:text-brand-700 transition-colors' : ''}`}>{p.customer}</div>
-                        <div className="text-[11px] text-slate-500 font-sans mt-0.5">{p.customerContact || 'Hiring Manager'}</div>
-                        {p.purchaseOrderNumber && (
-                          <div className="mt-1 inline-flex items-center gap-1 text-[11px] bg-white border border-slate-300/90 text-slate-600 px-1.5 py-0.5 rounded">
-                            <FileText className="w-2.5 h-2.5" />
-                            <span>PO: {p.purchaseOrderNumber}</span>
+                      <td className={`${STAFFING_GRID_CELL_CLASS} ${STAFFING_GRID_STICKY_TD_CLASS} whitespace-nowrap`}>
+                        <div className={`font-semibold text-slate-900 ${onSelectPlacement ? 'group-hover:text-brand-700 transition-colors' : ''}`}>
+                          {p.customer}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-500">
+                          <span>{p.customerContact || 'Hiring Manager'}</span>
+                          {p.purchaseOrderNumber && (
+                            <span className="inline-flex items-center gap-0.5 text-[11px] bg-white border border-slate-300/90 text-slate-600 px-1.5 py-0.5 rounded">
+                              <FileText className="w-2.5 h-2.5" />
+                              <span>PO: {p.purchaseOrderNumber}</span>
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Consultant */}
+                      <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap`}>
+                        <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+                          <span className={onSelectPlacement ? 'group-hover:text-brand-700 transition-colors' : ''}>
+                            {p.resourceName}
+                          </span>
+                          {p.deployment && (
+                            <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-white border border-slate-300/90 text-slate-600">
+                              {p.deployment}
+                            </span>
+                          )}
+                        </div>
+                        {p.vendorName && (
+                          <div className="text-[11px] text-amber-700 font-medium mt-0.5 truncate max-w-[200px]">
+                            via {p.vendorName}
                           </div>
                         )}
                       </td>
 
-                      {/* Consultant & Role */}
-                      <td className="px-3.5 py-3">
-                        <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                          <span className={onSelectPlacement ? 'group-hover:text-brand-700 transition-colors' : ''}>{p.resourceName}</span>
-                          <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-white border border-slate-300/90 text-slate-600">
-                            {p.deployment}
-                          </span>
+                      {/* Role */}
+                      <td className={`${STAFFING_GRID_CELL_CLASS} max-w-[210px]`}>
+                        <div
+                          className="font-medium text-slate-600 truncate"
+                          title={p.skillRole || ''}
+                        >
+                          {p.skillRole || '—'}
                         </div>
-                        <div className="text-[11px] text-slate-500 font-sans mt-0.5">{p.skillRole}</div>
-                        {p.vendorName && (
-                          <div className="text-[11px] text-amber-700 font-medium mt-0.5">via {p.vendorName}</div>
-                        )}
                       </td>
 
                       {/* Placement Model & Status */}
-                      <td className="px-3.5 py-3 space-y-1.5">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} space-y-1 whitespace-nowrap`}>
                         <div>
                           <StatusBadge
                             tone={
@@ -549,17 +635,17 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                       </td>
 
                       {/* Pay Rate */}
-                      <td className="px-3.5 py-3 font-medium text-slate-600">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} font-medium text-slate-600 tabular-nums whitespace-nowrap`}>
                         <MaskedValue value={p.payRate || '-'} isMasked={rateMasked} />
                       </td>
 
                       {/* Bill Rate */}
-                      <td className="px-3.5 py-3 font-bold text-slate-900">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} font-bold text-slate-900 tabular-nums whitespace-nowrap`}>
                         <MaskedValue value={p.billing} isMasked={rateMasked} />
                       </td>
 
                       {/* Hourly Margin Spread */}
-                      <td className="px-3.5 py-3">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} tabular-nums whitespace-nowrap`}>
                         <div className="font-bold text-emerald-600 text-xs">
                           <MaskedValue value={formatSpread(p.hourlySpread, currencySymbol)} isMasked={rateMasked} />
                         </div>
@@ -569,8 +655,8 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
                       </td>
 
                       {/* Contract Period */}
-                      <td className="px-3.5 py-3 text-[11px] text-slate-600">
-                        <div className="inline-flex items-center gap-1">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-[11px] text-slate-600 whitespace-nowrap`}>
+                        <div className="inline-flex items-center gap-1 tabular-nums">
                           <span>{p.startDate}</span>
                           <ArrowRight className="w-3 h-3 text-slate-400 flex-shrink-0" />
                           <span>{p.endDate}</span>
@@ -597,7 +683,7 @@ export const BillablePlacementsView: React.FC<BillablePlacementsViewProps> = ({
 
                       {/* Actions */}
                       <td
-                        className="px-3.5 py-3 text-right whitespace-nowrap"
+                        className={`${STAFFING_GRID_CELL_CLASS} text-right whitespace-nowrap`}
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="inline-flex items-center justify-end gap-1.5">

@@ -18,6 +18,8 @@ import {
   GraduationCap,
   GitBranch,
   Search,
+  CheckCircle2,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { apiClient } from '../../config/api.config';
 import { ApplicationFormTemplate, CustomField } from '../../types';
@@ -27,6 +29,16 @@ import { invalidateSchemaCaches } from '../../components/shared/DynamicCustomFie
 import { useCurrency } from '../../utils/currency';
 import { AnimatedModal } from '../../components/shared/MotionPrimitives';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
+import {
+  GridColumnHeader,
+  STAFFING_GRID_CELL_CLASS,
+  STAFFING_GRID_ROW_STATIC_CLASS,
+  STAFFING_GRID_STICKY_TD_CLASS,
+  STAFFING_GRID_STICKY_TH_CLASS,
+  STAFFING_GRID_TABLE_CLASS,
+  STAFFING_GRID_THEAD_CLASS,
+  STAFFING_GRID_TH_CLASS,
+} from '../../components/shared/StaffingGrid';
 import { TablePagination } from '../../components/shared/TablePagination';
 import { ActionButton } from '../../components/shared/ActionButton';
 import { CustomSelect } from '../../components/shared/CustomSelect';
@@ -537,7 +549,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
       {/* Tab 1: Custom Form Fields */}
       {activeSection === 'fields' && (
         <div className="bg-white rounded-xl border border-slate-200/90 card-shadow overflow-hidden">
-          <div className="px-6 py-3.5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+          <div className="px-5 py-3 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
             <div className="flex flex-wrap items-center gap-1 text-xs bg-slate-50/90 border border-slate-200 p-0.5 rounded-lg">
               {(
                 [
@@ -579,54 +591,66 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-white border-b border-slate-100">
-                <tr className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            <table className={STAFFING_GRID_TABLE_CLASS}>
+              <thead className={STAFFING_GRID_THEAD_CLASS}>
+                <tr>
                   <SortableTableHeader
                     label="Field Name"
+                    icon={<Type className="w-3 h-3" />}
                     column="name"
                     sort={tableSort.sort}
                     onSort={tableSort.handleSort}
                     defaultDir="asc"
-                    className="py-2.5 px-5 whitespace-nowrap"
+                    className={`${STAFFING_GRID_TH_CLASS} ${STAFFING_GRID_STICKY_TH_CLASS}`}
                   />
                   <SortableTableHeader
                     label="Form"
+                    icon={<Layers className="w-3 h-3" />}
                     column="entity"
                     sort={tableSort.sort}
                     onSort={tableSort.handleSort}
                     defaultDir="asc"
-                    className="py-2.5 px-4 whitespace-nowrap"
+                    className={STAFFING_GRID_TH_CLASS}
                   />
                   <SortableTableHeader
                     label="Input Type"
+                    icon={<Columns className="w-3 h-3" />}
                     column="type"
                     sort={tableSort.sort}
                     onSort={tableSort.handleSort}
                     defaultDir="asc"
-                    className="py-2.5 px-4 whitespace-nowrap"
+                    className={STAFFING_GRID_TH_CLASS}
                   />
-                  <th className="py-2.5 px-4">Dropdown Options</th>
+                  <GridColumnHeader
+                    icon={<ListChecks className="w-3 h-3" />}
+                    label="Dropdown Options"
+                  />
                   <SortableTableHeader
                     label="Required"
+                    icon={<ShieldCheck className="w-3 h-3" />}
                     column="required"
                     sort={tableSort.sort}
                     onSort={tableSort.handleSort}
                     defaultDir="desc"
-                    className="py-2.5 px-4 whitespace-nowrap"
+                    className={STAFFING_GRID_TH_CLASS}
                   />
                   <SortableTableHeader
                     label="Status"
+                    icon={<CheckCircle2 className="w-3 h-3" />}
                     column="active"
                     sort={tableSort.sort}
                     onSort={tableSort.handleSort}
                     defaultDir="desc"
-                    className="py-2.5 px-4 whitespace-nowrap"
+                    className={STAFFING_GRID_TH_CLASS}
                   />
-                  <th className="py-2.5 px-5 text-right">Actions</th>
+                  <GridColumnHeader
+                    icon={<SlidersHorizontal className="w-3 h-3" />}
+                    label="Actions"
+                    align="right"
+                  />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="text-slate-700">
                 {filteredFields.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-10 text-center text-xs text-slate-400">
@@ -643,19 +667,21 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                   </tr>
                 ) : (
                   filteredFields.map((field) => (
-                    <tr key={field.id} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="py-3 px-5 font-semibold text-slate-900 flex items-center gap-2">
-                        <GripVertical className="w-3.5 h-3.5 text-slate-300" />
-                        <span>{field.name}</span>
+                    <tr key={field.id} className={STAFFING_GRID_ROW_STATIC_CLASS}>
+                      <td className={`${STAFFING_GRID_CELL_CLASS} ${STAFFING_GRID_STICKY_TD_CLASS} font-semibold text-slate-900 whitespace-nowrap`}>
+                        <div className="flex items-center gap-2">
+                          <GripVertical className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+                          <span>{field.name}</span>
+                        </div>
                       </td>
 
-                      <td className="py-3 px-4">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap`}>
                         <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-white text-slate-700 border border-slate-300/90">
                           {field.entityLabel}
                         </span>
                       </td>
 
-                      <td className="py-3 px-4 text-xs text-slate-700">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-xs text-slate-700 whitespace-nowrap`}>
                         <span className="inline-flex items-center gap-1.5 font-medium">
                           {field.type === 'Dropdown' ? (
                             <ListChecks className="w-3.5 h-3.5 text-slate-400" />
@@ -672,13 +698,13 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                         </span>
                       </td>
 
-                      <td className="py-3 px-4 text-slate-500 text-xs max-w-xs truncate">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-slate-500 text-xs max-w-xs truncate`}>
                         {field.type === 'Dropdown' && field.options && field.options !== 'Standard Format'
                           ? field.options
                           : '—'}
                       </td>
 
-                      <td className="py-3 px-4">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap`}>
                         {field.required ? (
                           <StatusBadge tone="amber" size="xs" label="Yes" />
                         ) : (
@@ -686,7 +712,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                         )}
                       </td>
 
-                      <td className="py-3 px-4">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap`}>
                         <button
                           type="button"
                           onClick={() => handleToggleFieldActive(field.id)}
@@ -709,7 +735,7 @@ export const CustomFieldsView: React.FC<CustomFieldsViewProps> = ({
                         </button>
                       </td>
 
-                      <td className="py-3 px-5 text-right whitespace-nowrap">
+                      <td className={`${STAFFING_GRID_CELL_CLASS} text-right whitespace-nowrap`}>
                         <button
                           type="button"
                           onClick={() => setEditingField({ ...field })}
