@@ -1645,17 +1645,20 @@ export const App: React.FC = () => {
     handleOpenWorkflowPage,
   };
 
-  // Global Cmd+K / Ctrl+K shortcut for Command Palette
+  // Global Cmd+K / Ctrl+K (Search) and Cmd+\ / Ctrl+\ (Sidebar toggle) shortcuts
   useEffect(() => {
     if (publicApplyToken || (!authToken && !currentUser)) return;
-    const handleGlobalCmdK = (e: KeyboardEvent) => {
+    const handleGlobalShortcuts = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setShowCommandPalette((prev) => !prev);
+      } else if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
+        e.preventDefault();
+        handleToggleSidebarCollapse();
       }
     };
-    window.addEventListener('keydown', handleGlobalCmdK);
-    return () => window.removeEventListener('keydown', handleGlobalCmdK);
+    window.addEventListener('keydown', handleGlobalShortcuts);
+    return () => window.removeEventListener('keydown', handleGlobalShortcuts);
   }, [publicApplyToken, authToken, currentUser]);
 
   // Sync `/` -> `/dashboard` once authenticated (preserving query tokens like ?inviteToken=)
@@ -3399,17 +3402,17 @@ export const App: React.FC = () => {
         onOpenSignOut={() => setShowSignOutModal(true)}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={handleToggleSidebarCollapse}
+        onOpenSearch={() => setShowCommandPalette(true)}
         isMobileOpen={mobileSidebarOpen}
         onCloseMobile={() => setMobileSidebarOpen(false)}
       />
 
       {/* Main Container */}
       <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
-        {/* Topbar with clean design matching prototype + Global Cmd+K Command Palette trigger */}
+        {/* Topbar with current section label & Quick Add */}
         <Topbar
           currentView={currentView}
           canCreatePlacement={!rateMasked}
-          onOpenCommandPalette={() => setShowCommandPalette(true)}
           onOpenCreateModal={(type) => {
             if (type === 'requirement') {
               handleOpenWorkflowPage('requirement_new', { fromView: currentView });

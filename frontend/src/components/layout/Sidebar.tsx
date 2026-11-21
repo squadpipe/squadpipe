@@ -15,6 +15,7 @@ import {
   Kanban,
   Lightning,
   Lock,
+  MagnifyingGlass,
   SignOut,
   SlidersHorizontal,
   Stack,
@@ -48,34 +49,12 @@ interface SidebarProps {
   canImportData?: boolean;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  onOpenSearch?: () => void;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
   onOpenProfile: () => void;
   onOpenSignOut: () => void;
 }
-
-interface NavItemConfig {
-  view: string;
-  label: string;
-  icon: PhosphorIcon;
-  activeIconClass?: string;
-  restricted?: boolean;
-  tooltip?: string;
-  badge?: React.ReactNode;
-  children?: NavItemConfig[];
-}
-
-interface NavSectionConfig {
-  title: string;
-  items: NavItemConfig[];
-}
-
-const RestrictedBadge: React.FC = () => (
-  <span className="inline-flex items-center gap-1 text-[11px] text-amber-300/80 font-medium bg-amber-500/10 border border-amber-400/15 px-1.5 py-0.5 rounded-md">
-    <Lock className="w-2.5 h-2.5" weight="regular" />
-    <span>Restricted</span>
-  </span>
-);
 
 const SidebarToggleIcon: React.FC<{ collapsed?: boolean; className?: string }> = ({
   collapsed = false,
@@ -104,7 +83,7 @@ const SidebarToggleIcon: React.FC<{ collapsed?: boolean; className?: string }> =
       height="10.5"
       rx="1.25"
       fill="currentColor"
-      fillOpacity="0.32"
+      fillOpacity="0.28"
     />
     <line
       x1="8.75"
@@ -134,6 +113,29 @@ const SidebarToggleIcon: React.FC<{ collapsed?: boolean; className?: string }> =
   </svg>
 );
 
+interface NavItemConfig {
+  view: string;
+  label: string;
+  icon: PhosphorIcon;
+  activeIconClass?: string;
+  restricted?: boolean;
+  tooltip?: string;
+  badge?: React.ReactNode;
+  children?: NavItemConfig[];
+}
+
+interface NavSectionConfig {
+  title: string;
+  items: NavItemConfig[];
+}
+
+const RestrictedBadge: React.FC = () => (
+  <span className="inline-flex items-center gap-1 text-[11px] text-amber-300/80 font-medium bg-amber-500/10 border border-amber-400/15 px-1.5 py-0.5 rounded-md">
+    <Lock className="w-2.5 h-2.5" weight="regular" />
+    <span>Restricted</span>
+  </span>
+);
+
 export const Sidebar: React.FC<SidebarProps> = ({
   currentView,
   onNavigate,
@@ -143,6 +145,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   canImportData: canImportDataProp,
   isCollapsed = false,
   onToggleCollapse,
+  onOpenSearch,
   isMobileOpen = false,
   onCloseMobile,
   onOpenProfile,
@@ -354,9 +357,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const renderSidebarBody = (compact: boolean, mobileDrawer: boolean) => (
     <>
-      {/* Header with App Logo + Collapse/Close Control */}
+      {/* Header with Brand + Search & Collapse Controls */}
       <div
-        className={`h-14 flex items-center border-b border-white/[0.08] bg-gradient-to-b from-[#191C1A] to-[#121514] flex-shrink-0 ${
+        className={`h-14 flex items-center border-b border-white/[0.06] bg-[#141615] flex-shrink-0 ${
           compact ? 'px-2 justify-center' : 'px-4 justify-between gap-2'
         }`}
       >
@@ -374,46 +377,75 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        {mobileDrawer ? (
-          <button
-            type="button"
-            onClick={onCloseMobile}
-            aria-label="Close navigation menu"
-            className="h-7 w-7 rounded-lg bg-white/[0.06] border border-white/[0.12] text-slate-300 hover:text-white hover:bg-white/[0.12] inline-flex items-center justify-center transition-all cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        ) : (
-          !compact &&
-          onToggleCollapse && (
-            <button
-              type="button"
-              onClick={onToggleCollapse}
-              title="Collapse sidebar"
-              aria-label="Collapse sidebar"
-              className="relative w-7 h-7 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.12] hover:border-white/[0.22] text-slate-300 hover:text-white inline-flex items-center justify-center transition-all cursor-pointer flex-shrink-0 group/toggle"
-            >
-              <SidebarToggleIcon collapsed={false} className="w-4 h-4 transition-transform group-hover/toggle:scale-105" />
-              <span className="pointer-events-none opacity-0 group-hover/toggle:opacity-100 transition-opacity duration-150 absolute right-0 top-full mt-1.5 px-2 py-1 rounded-md bg-[#1F2422] border border-white/15 text-[11px] font-medium text-slate-200 whitespace-nowrap shadow-lg z-50">
-                Collapse sidebar
-              </span>
-            </button>
-          )
+        {!compact && (
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {onOpenSearch && (
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenSearch();
+                  onCloseMobile?.();
+                }}
+                title="Search workspace (⌘K)"
+                aria-label="Search workspace"
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.08] inline-flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <MagnifyingGlass className="w-[17px] h-[17px]" weight="regular" />
+              </button>
+            )}
+            {mobileDrawer ? (
+              <button
+                type="button"
+                onClick={onCloseMobile}
+                aria-label="Close navigation menu"
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.08] inline-flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            ) : (
+              onToggleCollapse && (
+                <button
+                  type="button"
+                  onClick={onToggleCollapse}
+                  title="Collapse sidebar (⌘\)"
+                  aria-label="Collapse sidebar"
+                  aria-expanded={true}
+                  className="w-7 h-7 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.08] inline-flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <SidebarToggleIcon collapsed={false} className="w-4 h-4" />
+                </button>
+              )
+            )}
+          </div>
         )}
       </div>
 
-      {/* Prominent Expand Trigger in Collapsed Icon-Rail Mode */}
-      {compact && !mobileDrawer && onToggleCollapse && (
-        <div className="px-2.5 pt-2.5 flex justify-center">
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            title="Expand sidebar"
-            aria-label="Expand sidebar"
-            className="w-9 h-8 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.12] hover:border-white/[0.22] text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer group/toggle"
-          >
-            <SidebarToggleIcon collapsed={true} className="w-4 h-4 transition-transform group-hover/toggle:scale-105" />
-          </button>
+      {/* Centered Expand & Search Triggers in Collapsed Rail */}
+      {compact && !mobileDrawer && (onToggleCollapse || onOpenSearch) && (
+        <div className="px-2 pt-2.5 flex flex-col items-center gap-1.5">
+          {onToggleCollapse && (
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              title="Expand sidebar (⌘\)"
+              aria-label="Expand sidebar"
+              aria-expanded={false}
+              className="w-9 h-8 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <SidebarToggleIcon collapsed={true} className="w-4 h-4" />
+            </button>
+          )}
+          {onOpenSearch && (
+            <button
+              type="button"
+              onClick={onOpenSearch}
+              title="Search workspace (⌘K)"
+              aria-label="Search workspace"
+              className="w-9 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.08] flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <MagnifyingGlass className="w-[17px] h-[17px]" weight="regular" />
+            </button>
+          )}
         </div>
       )}
 
@@ -423,12 +455,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div key={section.title}>
             {compact ? (
               <div
-                className="mx-4 my-1.5 border-t border-white/[0.08]"
+                className="mx-4 my-1.5 border-t border-white/[0.06]"
                 title={section.title}
                 aria-hidden="true"
               />
             ) : (
-              <div className="px-3.5 text-[11px] font-semibold uppercase tracking-wider mb-1 text-slate-400">
+              <div className="px-4 text-[11px] font-medium mb-1.5 text-slate-500">
                 {section.title}
               </div>
             )}
@@ -691,25 +723,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <div
           onClick={() => setShowProfileMenu(!showProfileMenu)}
-          className={`rounded-lg border flex items-center cursor-pointer transition-all group ${
-            compact ? 'p-1.5 justify-center' : 'p-2.5 justify-between'
+          className={`rounded-lg flex items-center cursor-pointer transition-all group ${
+            compact ? 'p-1.5 justify-center' : 'px-2.5 py-2 justify-between'
           } ${
             showProfileMenu
-              ? 'bg-white/[0.08] border-white/20 shadow-sm'
-              : 'bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.06]'
+              ? 'bg-white/[0.08]'
+              : 'hover:bg-white/[0.05]'
           }`}
           title={`${currentUser?.name || 'Administrator'} (${displayRole})`}
         >
           <div className={`flex items-center overflow-hidden ${compact ? 'justify-center' : 'gap-2.5'}`}>
-            <div className="w-7 h-7 rounded-full bg-brand-600 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+            <div className="w-7 h-7 rounded-md bg-white/[0.12] text-white flex items-center justify-center text-[11px] font-semibold flex-shrink-0">
               {userInitials}
             </div>
             {!compact && (
               <div className="overflow-hidden">
-                <div className="text-xs font-semibold text-slate-200 group-hover:text-white transition-colors truncate">
+                <div className="text-xs font-medium text-slate-200 group-hover:text-white transition-colors truncate">
                   {currentUser?.name || 'Administrator'}
                 </div>
-                <div className="text-[11px] text-slate-400 font-normal truncate mt-0.5">
+                <div className="text-[11px] text-slate-500 font-normal truncate">
                   {displayRole}
                 </div>
               </div>
@@ -717,9 +749,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           {!compact &&
             (showProfileMenu ? (
-              <CaretDown className="w-3.5 h-3.5 text-white mr-1 flex-shrink-0 transition-transform" />
+              <CaretDown className="w-3.5 h-3.5 text-white mr-0.5 flex-shrink-0 transition-transform" />
             ) : (
-              <DotsThreeVertical className="w-4 h-4 text-slate-400 group-hover:text-slate-200 mr-0.5 flex-shrink-0 transition-colors" />
+              <DotsThreeVertical className="w-4 h-4 text-slate-500 opacity-0 group-hover:opacity-100 group-hover:text-slate-300 flex-shrink-0 transition-all" />
             ))}
         </div>
       </div>

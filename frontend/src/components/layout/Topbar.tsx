@@ -7,31 +7,65 @@ import {
   FileXls,
   Handshake,
   List,
-  MagnifyingGlass,
   Plus,
   UserPlus,
 } from '@phosphor-icons/react';
 import { AnimatedPopover } from '../shared/MotionPrimitives';
 
+const VIEW_LABELS: Record<string, string> = {
+  dashboard: 'Dashboard',
+  pipeline: 'Pipeline',
+  requirement_detail: 'Requirement Details',
+  requirement_new: 'Create Requirement',
+  requirement_edit: 'Edit Requirement',
+  requirement_from_email: 'Create from Email or PDF',
+  consultants: 'Consultants',
+  consultant_detail: 'Consultant Profile',
+  consultant_new: 'Add Consultant',
+  consultant_edit: 'Edit Consultant',
+  clients: 'Clients',
+  client_detail: 'Client Details',
+  client_edit: 'Edit Client',
+  vendors: 'Vendors',
+  vendor_detail: 'Vendor Details',
+  vendor_edit: 'Edit Vendor',
+  billable: 'Billable Consultants',
+  placement_detail: 'Placement Details',
+  placement_new: 'Create Placement',
+  automation: 'Smart Reminders',
+  application_forms: 'Application Forms',
+  application_form_new: 'Create Application Form',
+  application_form_edit: 'Edit Application Form',
+  custom_fields: 'Custom Form Fields',
+  dropdown_lists: 'Master Dropdown Lists',
+  import_data: 'Import Data',
+  import_resume: 'Resume Import',
+  import_csv: 'CSV / Excel Import',
+  team_performance: 'Team Performance',
+  usage: 'Usage & Storage',
+  settings_general: 'General Settings',
+  user_management: 'Team Members',
+};
+
 interface TopbarProps {
   currentView?: string;
   canCreatePlacement?: boolean;
   onOpenMobileMenu?: () => void;
-  onOpenCommandPalette?: () => void;
   onOpenCreateModal: (type: 'consultant' | 'requirement' | 'client' | 'vendor' | 'placement') => void;
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
+  currentView = 'dashboard',
   canCreatePlacement = true,
   onOpenMobileMenu,
-  onOpenCommandPalette,
   onOpenCreateModal,
 }) => {
   const [showQuickAddDropdown, setShowQuickAddDropdown] = useState(false);
+  const currentViewLabel = VIEW_LABELS[currentView] || 'Workspace';
 
   return (
     <header className="h-14 bg-white border-b border-slate-200/80 flex items-center justify-between px-4 sm:px-6 flex-shrink-0 z-40 select-none gap-3">
-      {/* Left Utility: Mobile Menu Trigger + Global Command Search (⌘K) */}
+      {/* Left Utility: Mobile Menu + Current Workspace Section */}
       <div className="flex items-center gap-2.5 flex-1 min-w-0">
         {onOpenMobileMenu && (
           <button
@@ -43,26 +77,9 @@ export const Topbar: React.FC<TopbarProps> = ({
             <List className="w-4 h-4" />
           </button>
         )}
-        {onOpenCommandPalette && (
-          <button
-            type="button"
-            onClick={onOpenCommandPalette}
-            aria-label="Global Search (⌘K)"
-            title="Search requirements, consultants, placements, clients, and vendors (⌘K)"
-            className="w-full max-w-md h-8 inline-flex items-center justify-between gap-3 px-3 rounded-lg border border-slate-200 bg-slate-50/90 hover:bg-white hover:border-slate-300 hover:shadow-sm text-xs text-slate-600 transition-all cursor-pointer"
-          >
-            <span className="inline-flex items-center gap-2 min-w-0">
-              <MagnifyingGlass className="w-3.5 h-3.5 text-brand-600 shrink-0" />
-              <span className="font-medium text-slate-700 shrink-0">Search</span>
-              <span className="hidden md:inline text-slate-400 truncate">
-                &middot; Requirements, consultants, clients, placements...
-              </span>
-            </span>
-            <kbd className="inline-flex px-1.5 py-0.5 rounded-md bg-white border border-slate-200 text-[11px] font-medium text-slate-500 leading-none shrink-0">
-              ⌘K
-            </kbd>
-          </button>
-        )}
+        <span className="text-xs font-medium text-slate-600 truncate">
+          {currentViewLabel}
+        </span>
       </div>
 
       {/* Right Utility: Global Quick Add */}
