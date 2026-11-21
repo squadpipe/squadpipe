@@ -205,7 +205,7 @@ export const runSlaAgentTests = async () => {
               content: JSON.stringify({
                 subject: 'Follow-Up: Priya Nair — REQ-401 ($145/hr)',
                 bodyText:
-                  'Hi Meridian team,\n\nChecking in on interview availability for Priya Nair (target $110/hr).\n\nBest,\nSoftiox Staffing',
+                  'Hi Meridian team,\n\nChecking in on interview availability for Priya Nair (target $110/hr).\n\nBest,\nApex Staffing',
               }),
             },
           },
@@ -224,7 +224,7 @@ export const runSlaAgentTests = async () => {
       skillset: 'Java, Spring Boot, AWS',
       workAuth: 'GC',
     },
-    agencyName: 'Softiox Staffing',
+    agencyName: 'Apex Staffing',
     recipientEmail: 'vendor@meridian.com',
     tenantId: 'tenant-1',
     aiSvc: activeDraftAi,
@@ -248,7 +248,7 @@ export const runSlaAgentTests = async () => {
       skillRole: 'Snowflake Data Architect',
       endDate: new Date('2026-12-15T00:00:00Z'),
     },
-    agencyName: 'Softiox Staffing',
+    agencyName: 'Apex Staffing',
     tenantId: 'tenant-1',
     aiSvc: offlineAi,
   });
@@ -267,7 +267,7 @@ export const runSlaAgentTests = async () => {
       skillRole: 'Snowflake Data Architect',
       endDate: new Date('2026-12-15T00:00:00Z'),
     },
-    agencyName: 'Softiox Staffing',
+    agencyName: 'Apex Staffing',
     tenantId: 'tenant-1',
     aiSvc: activeDraftAi,
   });

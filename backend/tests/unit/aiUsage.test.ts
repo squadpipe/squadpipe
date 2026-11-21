@@ -111,7 +111,7 @@ export const runAiUsageTests = async () => {
             message: {
               content: JSON.stringify({
                 subject: 'Candidate Profile: Maya',
-                bodyText: 'Hi,\n\nSharing Maya for the Lead Cloud role.\n\nBest regards,\nSoftiox',
+                bodyText: 'Hi,\n\nSharing Maya for the Lead Cloud role.\n\nBest regards,\nApex Staffing',
               }),
             },
           },
@@ -123,7 +123,7 @@ export const runAiUsageTests = async () => {
   const meteredPitch = await meteredService.draftClientPitch(
     { id: 'c1', fullName: 'Maya', currentTitle: 'Cloud Architect', skillset: 'AWS, Terraform' },
     { opportunityTitle: 'Lead Cloud Architect' },
-    { tenantId: 'tenant-1', userId: 'usr-9', agencyName: 'Softiox' }
+    { tenantId: 'tenant-1', userId: 'usr-9', agencyName: 'Apex Staffing' }
   );
   assert.equal(meteredPitch.aiUsed, true);
   assert.equal(recordedEntries.length, 1);
@@ -153,12 +153,12 @@ export const runAiUsageTests = async () => {
   const quotaFallbackPitch = await quotaBlockedService.draftClientPitch(
     { id: 'c1', fullName: 'Maya', currentTitle: 'Cloud Architect', skillset: 'AWS, Terraform' },
     { opportunityTitle: 'Lead Cloud Architect' },
-    { tenantId: 'tenant-1', agencyName: 'Softiox' }
+    { tenantId: 'tenant-1', agencyName: 'Apex Staffing' }
   );
   assert.equal(llmCalledAfterLimit, false);
   assert.equal(quotaFallbackPitch.aiUsed, false);
   assert.ok(quotaFallbackPitch.quotaNotice?.includes('100/100'));
-  assert.ok(quotaFallbackPitch.bodyText.includes('Softiox'));
+  assert.ok(quotaFallbackPitch.bodyText.includes('Apex Staffing'));
 
   // 5. Multi-tenant SaaS / White-Label / On-Prem Plan Entitlements vs Tenant Self-Caps
   assert.equal(resolveEffectiveQuotaCeilingPure(0, 0, false), 0);

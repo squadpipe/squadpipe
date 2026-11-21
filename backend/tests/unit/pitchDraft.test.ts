@@ -65,7 +65,7 @@ export const runPitchDraftTests = async () => {
     submissionId: 'sub-1',
     candidate,
     requirement,
-    agencyName: 'Softiox Partners',
+    agencyName: 'Apex Partners',
     recipientEmail: 'hiring@apexhealth.com',
     recipientName: 'Maya Lin',
     purpose: 'client_pitch',
@@ -78,7 +78,7 @@ export const runPitchDraftTests = async () => {
   assert.equal(maskedOfflinePitch.recipientEmail, 'hiring@apexhealth.com');
   assert.equal(maskedOfflinePitch.purpose, 'client_pitch');
   assert.ok(maskedOfflinePitch.subject.includes('Meera Krishnan'));
-  assert.ok(maskedOfflinePitch.bodyText.includes('Softiox Partners'));
+  assert.ok(maskedOfflinePitch.bodyText.includes('Apex Partners'));
   assert.ok(maskedOfflinePitch.bodyText.includes('Snowflake'));
   assert.equal(maskedOfflinePitch.bodyText.includes('98'), false);
   assert.equal(maskedOfflinePitch.bodyText.includes('145'), false);
@@ -87,7 +87,7 @@ export const runPitchDraftTests = async () => {
     submissionId: 'sub-1',
     candidate,
     requirement,
-    agencyName: 'Softiox Partners',
+    agencyName: 'Apex Partners',
     purpose: 'interview_followup',
     rateMasked: true,
     aiSvc: offlineAi,
@@ -100,7 +100,7 @@ export const runPitchDraftTests = async () => {
     submissionId: 'sub-1',
     candidate,
     requirement,
-    agencyName: 'Softiox Partners',
+    agencyName: 'Apex Partners',
     rateMasked: false,
     aiSvc: offlineAi,
   });
@@ -114,7 +114,7 @@ export const runPitchDraftTests = async () => {
     submissionId: 'sub-bare',
     candidate: { ...candidate, hourlyRateDisplay: '56' },
     requirement: { ...requirement, location: 'Phoenix, AZ (Onsite)', workModel: 'ONSITE' },
-    agencyName: 'Softiox Partners',
+    agencyName: 'Apex Partners',
     rateMasked: false,
     aiSvc: offlineAi,
   });
@@ -140,7 +140,7 @@ export const runPitchDraftTests = async () => {
               content: JSON.stringify({
                 subject: 'Meera Krishnan — Principal Data Platform Engineer ($145/hr)',
                 bodyText:
-                  'Hi Maya,\n\nSharing Meera Krishnan for REQ-301. She brings deep Snowflake, PySpark, and dbt delivery experience on AWS at $98/hr.\n\nBest regards,\nSoftiox Partners',
+                  'Hi Maya,\n\nSharing Meera Krishnan for REQ-301. She brings deep Snowflake, PySpark, and dbt delivery experience on AWS at $98/hr.\n\nBest regards,\nApex Partners',
               }),
             },
           },
@@ -153,7 +153,7 @@ export const runPitchDraftTests = async () => {
     submissionId: 'sub-1',
     candidate,
     requirement,
-    agencyName: 'Softiox Partners',
+    agencyName: 'Apex Partners',
     recipientEmail: 'maya@apexhealth.com',
     recipientName: 'Maya Lin',
     pitchTone: 'TECHNICAL_FOCUS',
@@ -189,12 +189,12 @@ export const runPitchDraftTests = async () => {
     submissionId: 'sub-1',
     candidate,
     requirement,
-    agencyName: 'Softiox Partners',
+    agencyName: 'Apex Partners',
     rateMasked: true,
     aiSvc: failingAi,
   });
   assert.equal(fallbackDraft.aiUsed, false);
-  assert.ok(fallbackDraft.bodyText.includes('Softiox Partners'));
+  assert.ok(fallbackDraft.bodyText.includes('Apex Partners'));
 
   // 6. Clean greeting (strips job title), clean underscore name, sender sign-off, scannable snapshot format
   assert.deepEqual(
@@ -215,7 +215,7 @@ export const runPitchDraftTests = async () => {
     submissionId: 'sub-2',
     candidate: { ...candidate, fullName: 'Chirag_Mehra' },
     requirement,
-    agencyName: 'Softiox Partners',
+    agencyName: 'Apex Partners',
     senderName: 'Nakul Das',
     recipientName: 'Robert "Bob" Miller, Senior Director of ERP Transformation',
     purpose: 'client_pitch',
@@ -228,7 +228,7 @@ export const runPitchDraftTests = async () => {
   assert.ok(formattedPitch.bodyText.startsWith('Hi Robert,'));
   assert.equal(formattedPitch.bodyText.includes('Senior Director of ERP Transformation'), false);
   assert.ok(formattedPitch.bodyText.includes('Candidate Snapshot:\n- Current Role:'));
-  assert.ok(formattedPitch.bodyText.includes('Nakul Das\nSoftiox Partners'));
+  assert.ok(formattedPitch.bodyText.includes('Nakul Das\nApex Partners'));
   assert.equal(formattedPitch.bodyText.includes('[Your Name]'), false);
 
   // 7. Scrubs [Your Name] placeholder from LLM output if model ignores signOffName instruction
@@ -257,7 +257,7 @@ export const runPitchDraftTests = async () => {
     submissionId: 'sub-2',
     candidate: { ...candidate, fullName: 'Chirag_Mehra' },
     requirement,
-    agencyName: 'Softiox Partners',
+    agencyName: 'Apex Partners',
     senderName: 'Nakul Das',
     recipientName: 'Robert "Bob" Miller, Senior Director of ERP Transformation',
     rateMasked: true,
@@ -298,7 +298,7 @@ export const runPitchDraftTests = async () => {
     cacheOnly: true,
     candidate,
     requirement,
-    agencyName: 'Softiox Partners',
+    agencyName: 'Apex Partners',
     senderName: 'Nakul Das',
     recipientEmail: 'maya@apexhealth.com',
     recipientName: 'Maya Lin',
@@ -317,7 +317,7 @@ export const runPitchDraftTests = async () => {
     submissionId: 'sub-cache-1',
     candidate,
     requirement,
-    agencyName: 'Softiox Partners',
+    agencyName: 'Apex Partners',
     senderName: 'Nakul Das',
     recipientName: 'Maya Lin',
     purpose: 'client_pitch',
@@ -337,7 +337,7 @@ export const runPitchDraftTests = async () => {
     cacheOnly: true,
     candidate,
     requirement,
-    agencyName: 'Softiox Partners',
+    agencyName: 'Apex Partners',
     senderName: 'Nakul Das',
     recipientName: 'Maya Lin',
     purpose: 'interview_followup',
@@ -356,7 +356,7 @@ export const runPitchDraftTests = async () => {
     existingCache: firstRun.nextCache,
     candidate,
     requirement,
-    agencyName: 'Softiox Partners',
+    agencyName: 'Apex Partners',
     senderName: 'Nakul Das',
     recipientName: 'Maya Lin',
     purpose: 'client_pitch',
@@ -376,7 +376,7 @@ export const runPitchDraftTests = async () => {
     forceRegenerate: true,
     candidate,
     requirement,
-    agencyName: 'Softiox Partners',
+    agencyName: 'Apex Partners',
     senderName: 'Nakul Das',
     recipientName: 'Maya Lin',
     purpose: 'client_pitch',
@@ -395,7 +395,7 @@ export const runPitchDraftTests = async () => {
     existingCache: regenRun.nextCache,
     candidate,
     requirement,
-    agencyName: 'Softiox Partners',
+    agencyName: 'Apex Partners',
     senderName: 'Nakul Das',
     recipientName: 'Maya Lin',
     purpose: 'client_pitch',
@@ -419,7 +419,7 @@ export const runPitchDraftTests = async () => {
     'Please let us schedule an interview with Ashwin Raman at your earliest convenience.',
     'Best regards,',
     'Nakul Das',
-    'Softiox Partners',
+    'Apex Partners',
   ].join('\n');
 
   const spacedExpected = [
@@ -437,7 +437,7 @@ export const runPitchDraftTests = async () => {
     '',
     'Best regards,',
     'Nakul Das',
-    'Softiox Partners',
+    'Apex Partners',
   ].join('\n');
 
   assert.equal(normalizePitchEmailSpacing(crampedAiBody), spacedExpected);
@@ -459,7 +459,7 @@ export const runPitchDraftTests = async () => {
     },
     candidate,
     requirement,
-    agencyName: 'Softiox Partners',
+    agencyName: 'Apex Partners',
     purpose: 'client_pitch',
     pitchTone: 'TECHNICAL_FOCUS',
     rateMasked: true,
@@ -484,7 +484,7 @@ export const runPitchDraftTests = async () => {
     },
     candidate,
     requirement,
-    agencyName: 'Softiox Partners',
+    agencyName: 'Apex Partners',
     purpose: 'client_pitch',
     pitchTone: 'TECHNICAL_FOCUS',
     rateMasked: true,
@@ -516,7 +516,7 @@ export const runPitchDraftTests = async () => {
     },
     candidate,
     requirement,
-    agencyName: 'Softiox Partners',
+    agencyName: 'Apex Partners',
     purpose: 'interview_followup',
     pitchTone: 'PROFESSIONAL',
     rateMasked: true,

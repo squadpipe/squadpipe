@@ -309,11 +309,11 @@ export const runAiServiceTests = async () => {
       hourlyRateDisplay: '$95/hr (C2C)',
     },
     { opportunityTitle: 'Lead Java Engineer', location: 'Austin, TX' },
-    { rateMasked: true, agencyName: 'Softiox Talent' }
+    { rateMasked: true, agencyName: 'Apex Talent' }
   );
   assert.equal(pitchOffline.aiUsed, false);
   assert.equal(pitchOffline.bodyText.includes('95'), false);
-  assert.ok(pitchOffline.bodyText.includes('Softiox Talent'));
+  assert.ok(pitchOffline.bodyText.includes('Apex Talent'));
 
   const emptySkillEval = computeOfflineCapabilityEvaluation(
     { id: 'c1', currentTitle: 'Java Developer', skillset: 'Java, AWS' },

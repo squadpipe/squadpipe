@@ -48,7 +48,7 @@ export const ROLE_PERMISSION_GUIDES: Record<string, RolePermissionGuide> = {
     tierLabel: 'Team Lead / Ops',
     tierTone: 'emerald',
     recommendedDesk: 'US IT Contract (C2C & W2)',
-    defaultRateMasked: true,
+    defaultRateMasked: false,
     shortHint: 'Full recruiting, bulk imports & vendor edits',
     summary:
       'Runs full recruiting desk plus bulk CSV/resume imports, vendor edits, and requirement/consultant cleanup.',
@@ -58,7 +58,7 @@ export const ROLE_PERMISSION_GUIDES: Record<string, RolePermissionGuide> = {
     tierLabel: 'Team Lead / Ops',
     tierTone: 'emerald',
     recommendedDesk: 'Candidate Bench Marketing',
-    defaultRateMasked: true,
+    defaultRateMasked: false,
     shortHint: 'Bench marketing, C2C vendors & bulk imports',
     summary:
       'Markets bench consultants, manages C2C partner vendors, runs bulk imports, and coordinates submissions.',
@@ -78,7 +78,7 @@ export const ROLE_PERMISSION_GUIDES: Record<string, RolePermissionGuide> = {
     tierLabel: 'Standard Desk',
     tierTone: 'slate',
     recommendedDesk: 'US IT Contract (C2C & W2)',
-    defaultRateMasked: true,
+    defaultRateMasked: false,
     shortHint: 'Sourcing, AI matching & client pitches',
     summary:
       'Sources candidates, evaluates AI fit scores, drafts client pitches, and moves applicants through pipeline stages.',
@@ -88,7 +88,7 @@ export const ROLE_PERMISSION_GUIDES: Record<string, RolePermissionGuide> = {
     tierLabel: 'Standard Desk',
     tierTone: 'slate',
     recommendedDesk: 'US IT Contract (C2C & W2)',
-    defaultRateMasked: true,
+    defaultRateMasked: false,
     shortHint: 'Candidate screening & pipeline support',
     summary:
       'Supports screening, adds candidate profiles, and logs pipeline submissions with optional rate masking.',

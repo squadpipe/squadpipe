@@ -20,7 +20,7 @@ export function runEmailTemplateTests() {
     brandName: companyName,
     recipientName: 'Nakul Das',
     roleLabel: 'Technical Recruiter',
-    inviteUrl: 'https://squadpipe.softiox.com/?inviteToken=abc',
+    inviteUrl: 'https://app.squadpipe.example/?inviteToken=abc',
     expiresHours: 24,
   });
   assert(
@@ -112,30 +112,30 @@ export function runEmailTemplateTests() {
 
   // 4. SMTP From Name formatting: "<Company> via <App>" for generic/blank SMTP_FROM_NAME
   assert.strictEqual(
-    resolveSmtpFromName('Softiox Recruitment', 'TalentOS Recruitment Desk', 'SquadPipe'),
-    'Softiox Recruitment via SquadPipe'
+    resolveSmtpFromName('Acme Recruitment', 'TalentOS Recruitment Desk', 'SquadPipe'),
+    'Acme Recruitment via SquadPipe'
   );
   assert.strictEqual(
-    resolveSmtpFromName('Softiox Recruitment', 'SquadPipe Recruitment Desk', 'SquadPipe'),
-    'Softiox Recruitment via SquadPipe'
+    resolveSmtpFromName('Acme Recruitment', 'SquadPipe Recruitment Desk', 'SquadPipe'),
+    'Acme Recruitment via SquadPipe'
   );
   assert.strictEqual(
-    resolveSmtpFromName('Softiox Recruitment', '', 'SquadPipe'),
-    'Softiox Recruitment via SquadPipe'
+    resolveSmtpFromName('Acme Recruitment', '', 'SquadPipe'),
+    'Acme Recruitment via SquadPipe'
   );
   assert.strictEqual(
     resolveSmtpFromName('SquadPipe Staffing', '', 'SquadPipe'),
     'SquadPipe Staffing'
   );
   assert.strictEqual(
-    resolveSmtpFromName('Softiox Recruitment', '"Custom Desk"', 'SquadPipe'),
+    resolveSmtpFromName('Acme Recruitment', '"Custom Desk"', 'SquadPipe'),
     'Custom Desk'
   );
   console.log('  ✅ SMTP sender name formats cleanly as "<Company> via <App>"');
 
   // 5. No-reply headers vs explicit recruiter Reply-To
   const noReplyDispatch = resolveMailReplyToAndHeaders({
-    fromEmail: 'noreply@softiox.com',
+    fromEmail: 'noreply@acme-staffing.example',
     noReply: true,
   });
   assert.strictEqual(noReplyDispatch.replyTo, undefined);
@@ -143,10 +143,10 @@ export function runEmailTemplateTests() {
   assert.strictEqual(noReplyDispatch.headers?.['X-Auto-Response-Suppress'], 'All');
 
   const submissionDispatch = resolveMailReplyToAndHeaders({
-    fromEmail: 'noreply@softiox.com',
-    explicitReplyTo: 'recruiter@softiox.com',
+    fromEmail: 'noreply@acme-staffing.example',
+    explicitReplyTo: 'recruiter@acme-staffing.example',
   });
-  assert.strictEqual(submissionDispatch.replyTo, 'recruiter@softiox.com');
+  assert.strictEqual(submissionDispatch.replyTo, 'recruiter@acme-staffing.example');
   assert.strictEqual(submissionDispatch.headers, undefined);
   console.log('  ✅ No-reply system emails suppress Reply-To and set Auto-Submitted headers');
 }

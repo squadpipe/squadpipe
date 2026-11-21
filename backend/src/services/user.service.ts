@@ -352,7 +352,7 @@ export class UserService {
         agencyName: resolvedAgencyName,
         role: validRole,
         desk: data.desk?.trim() || 'US IT Contract (C2C & W2)',
-        rateMasked: data.rateMasked !== undefined ? Boolean(data.rateMasked) : true,
+        rateMasked: data.rateMasked !== undefined ? Boolean(data.rateMasked) : false,
         status: UserStatus.INVITED,
         workload: '0 Reqs • 0 Subs • 0 Placements'
       },

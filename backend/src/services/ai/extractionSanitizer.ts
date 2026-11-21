@@ -424,11 +424,11 @@ export function hasJobRoleKeyword(text: string): boolean {
 }
 
 const NON_PERSON_NAME_RE =
-  /\b(?:technologies|technology|private|limited|pvt|ltd|inc|llc|corp|corporation|company|enterprise|enterprises|solutions|services|systems|platform|knowledge\s*base|guide|workflow|manual|handbook|brochure|overview|complete\s+features|welcome\s+to|table\s+of\s+contents|contents|curriculum\s+vitae|resume|cv|candidate\s+profile|uploaded\s+candidate|professional\s+consultant|squadpipe|softiox|invoice|agreement|requisition|requirement|description)\b/i;
+  /\b(?:technologies|technology|private|limited|pvt|ltd|inc|llc|corp|corporation|company|enterprise|enterprises|solutions|services|systems|platform|knowledge\s*base|guide|workflow|manual|handbook|brochure|overview|complete\s+features|welcome\s+to|table\s+of\s+contents|contents|curriculum\s+vitae|resume|cv|candidate\s+profile|uploaded\s+candidate|professional\s+consultant|squadpipe|invoice|agreement|requisition|requirement|description)\b/i;
 
 /**
  * Ensures an extracted candidate fullName is an actual human personal name and never a job title
- * (e.g. "Senior Financial Analyst"), company name ("Softiox Technologies"), or document header ("Knowledge Base").
+ * (e.g. "Senior Financial Analyst"), company name ("Acme Technologies"), or document header ("Knowledge Base").
  */
 export function sanitizeCandidatePersonName(rawName?: unknown, currentTitle?: unknown): string {
   const cleaned = sanitizeExtractedText(rawName);

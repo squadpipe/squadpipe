@@ -65,7 +65,7 @@ const PLACEHOLDER_VALUE_RE =
   /^(?:not\s+(?:explicitly\s+)?(?:specified|mentioned|provided|stated|disclosed|available|found)|unspecified|none|n\/?a|unknown|tbd|missing|pending|assigned\s+recruiter|candidate\s+profile|uploaded\s+candidate)$/i;
 
 const NON_PERSON_TOKEN_RE =
-  /\b(?:developers?|engineers?|architects?|consultants?|analysts?|managers?|directors?|leads?|specialists?|administrators?|admins?|designers?|coordinators?|technicians?|nurses?|accountants?|controllers?|auditors?|recruiters?|scientists?|strategists?|technologies|technology|private|limited|pvt|ltd|inc|llc|corp|corporation|company|enterprise|solutions|services|systems|platform|knowledge|base|guide|workflow|manual|handbook|brochure|overview|complete|features|welcome|contents|section|curriculum|vitae|resume|cv|profile|uploaded|candidate|squadpipe|softiox|invoice|agreement|requisition|requirement|description|senior|junior|principal|staff)\b/i;
+  /\b(?:developers?|engineers?|architects?|consultants?|analysts?|managers?|directors?|leads?|specialists?|administrators?|admins?|designers?|coordinators?|technicians?|nurses?|accountants?|controllers?|auditors?|recruiters?|scientists?|strategists?|technologies|technology|private|limited|pvt|ltd|inc|llc|corp|corporation|company|enterprise|solutions|services|systems|platform|knowledge|base|guide|workflow|manual|handbook|brochure|overview|complete|features|welcome|contents|section|curriculum|vitae|resume|cv|profile|uploaded|candidate|squadpipe|invoice|agreement|requisition|requirement|description|senior|junior|principal|staff)\b/i;
 
 function cleanParsedField(val?: unknown): string {
   const cleaned = String(val ?? '').trim();

@@ -3148,7 +3148,7 @@ export const App: React.FC = () => {
       email,
       role: newUser.role || 'Technical Recruiter',
       desk: newUser.desk || 'US IT Contract (C2C & W2)',
-      rateMasked: newUser.rateMasked ?? true,
+      rateMasked: newUser.rateMasked ?? false,
       workload: '0 Requisitions • 0 Submissions',
       status: 'Invited',
       lastActive: 'Invite Pending',

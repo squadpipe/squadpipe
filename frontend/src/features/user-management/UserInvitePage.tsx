@@ -138,7 +138,7 @@ export const UserInvitePage: React.FC<UserInvitePageProps> = ({
   const roleGuide = getRolePermissionGuide(activeRow?.role);
   const roleCapabilities = getUserRoleCapabilities(
     activeRow?.role || 'Technical Recruiter',
-    activeRow?.rateMasked ?? true
+    activeRow?.rateMasked ?? false
   );
 
   const readyCount = useMemo(

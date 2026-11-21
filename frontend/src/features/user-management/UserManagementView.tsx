@@ -191,7 +191,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
     email: '',
     role: 'Technical Recruiter',
     desk: 'US IT Contract (C2C & W2)',
-    rateMasked: true,
+    rateMasked: false,
   });
 
   const filteredUsers = tableUsers;
@@ -227,7 +227,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
         email: '',
         role: 'Technical Recruiter',
         desk: 'US IT Contract (C2C & W2)',
-        rateMasked: true,
+        rateMasked: false,
       });
     } catch {
       // Error toast is already displayed by the parent handler

@@ -526,7 +526,7 @@ export const ApplicationFormBuilderPage: React.FC<ApplicationFormBuilderPageProp
 
   const formNameInputRef = useRef<HTMLInputElement>(null);
   const fieldsListRef = useRef<HTMLDivElement>(null);
-  const agencyName = getWorkspaceBrand().agencyName || 'Softiox Team';
+  const agencyName = getWorkspaceBrand().agencyName || 'SquadPipe Staffing';
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),

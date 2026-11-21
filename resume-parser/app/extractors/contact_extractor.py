@@ -28,7 +28,7 @@ NON_NAME_TERMS = {
     "overview", "complete", "features", "welcome", "contents", "section",
     "prepared", "table", "document", "report", "invoice", "agreement",
     "contract", "requisition", "requirement", "description", "client",
-    "vendor", "staffing", "recruiting", "recruitment", "squadpipe", "softiox",
+    "vendor", "staffing", "recruiting", "recruitment", "squadpipe",
     "financial", "healthcare", "clinical", "technical", "business", "operations",
 }
 
