@@ -3050,13 +3050,34 @@ export const App: React.FC = () => {
   const handleUpdatePlacement = async (updated: BillablePlacement) => {
     try {
       const existingBeforeSave = placements.find((p) => p.id === updated.id);
-      const billNum = parseRateNumber(updated.billing, 0);
-      const payNum = parseRateNumber(updated.payRate, 0);
+      const isSummaryUpdate = Boolean(
+        (updated as BillablePlacement & { isSummaryOnly?: boolean }).isSummaryOnly
+      );
+      const hydratedUpdate: BillablePlacement =
+        isSummaryUpdate && existingBeforeSave
+          ? {
+              ...existingBeforeSave,
+              status: updated.status,
+              endDate: updated.endDate || existingBeforeSave.endDate,
+            }
+          : updated;
+      const { isSummaryOnly: _omitSummary, ...cleanUpdate } =
+        hydratedUpdate as BillablePlacement & { isSummaryOnly?: boolean };
+      const billNum = parseRateNumber(cleanUpdate.billing, 0);
+      const payNum = parseRateNumber(cleanUpdate.payRate, 0);
       const hourlySpread = billNum - payNum;
       const marginPct = billNum > 0 ? parseFloat(((hourlySpread / billNum) * 100).toFixed(2)) : 0;
-      const payload = { ...updated, hourlySpread, marginPct };
-      const res = await apiClient.put(`/placements/${updated.id}`, payload);
-      const saved: BillablePlacement = res.data?.data ? normalizePlacement(res.data.data) : payload;
+      const fullPayload: BillablePlacement = { ...cleanUpdate, hourlySpread, marginPct };
+      const requestPayload =
+        isSummaryUpdate && !existingBeforeSave
+          ? {
+              id: cleanUpdate.id,
+              status: cleanUpdate.status,
+              ...(cleanUpdate.endDate ? { endDate: cleanUpdate.endDate } : {}),
+            }
+          : fullPayload;
+      const res = await apiClient.put(`/placements/${updated.id}`, requestPayload);
+      const saved: BillablePlacement = res.data?.data ? normalizePlacement(res.data.data) : fullPayload;
       setPlacements((prev) => prev.map((p) => (p.id === saved.id ? { ...p, ...saved } : p)));
       const isEnding = saved.status === 'Completed' || saved.status === 'Terminated';
       if (isEnding) {
@@ -4080,6 +4101,7 @@ export const App: React.FC = () => {
                   handleOpenConsultantDetail(cand, false, 'requirement_detail')
                 }
                 onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'requirement_detail')}
+                onUpdatePlacement={!rateMasked ? handleUpdatePlacement : undefined}
                 onOpenPlacementWizard={(req, cand) =>
                   handleOpenPlacementPage(req, cand || null, 'requirement_detail')
                 }

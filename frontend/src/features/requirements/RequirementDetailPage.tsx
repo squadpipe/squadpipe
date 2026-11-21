@@ -7,6 +7,7 @@ import {
   Building2,
   Calendar,
   CalendarClock,
+  CalendarX,
   Check,
   CheckCircle2,
   Copy,
@@ -73,6 +74,7 @@ import {
   DetailUnderlineTabs,
 } from '../../components/shared/DetailPageShell';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { PlacementModals } from '../billable/PlacementModals';
 import { MaskedValue } from '../../components/shared/MaskedValue';
 import { ConfirmDeleteModal } from '../../components/shared/ConfirmDeleteModal';
 import { SortableTableHeader } from '../../components/shared/SortableTableHeader';
@@ -136,6 +138,7 @@ interface RequirementDetailPageProps {
   onDetachSubmission?: (req: Requirement, submissionId: string) => Promise<void> | void;
   onOpenResumePreview: (candidate: Candidate) => void;
   onSelectPlacement?: (placement: BillablePlacement) => void;
+  onUpdatePlacement?: (placement: BillablePlacement) => Promise<void> | void;
   onOpenPlacementWizard: (req: Requirement, candidate?: Candidate | null) => void;
   onEditReq?: (req: Requirement) => void;
   onUpdateReq?: (req: Requirement) => Promise<Requirement | void> | void;
@@ -151,6 +154,11 @@ interface RequirementDetailPageProps {
 
 type ApplicantFilterTab = 'All' | 'Active' | 'Interview' | 'Selected' | 'Placed' | 'Closed';
 type WorkspaceTab = 'applicants' | 'placed' | 'details';
+
+function isEndedPlacementStatus(status?: string | null): boolean {
+  const lower = String(status || '').trim().toLowerCase();
+  return lower === 'terminated' || lower === 'completed';
+}
 
 function formatDisplayName(rawName?: string | null, fallback = 'Applicant'): string {
   return (
@@ -251,6 +259,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   onDetachSubmission,
   onOpenResumePreview,
   onSelectPlacement,
+  onUpdatePlacement,
   onOpenPlacementWizard,
   onEditReq,
   onUpdateReq,
@@ -284,6 +293,11 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
   const [fitModalSubId, setFitModalSubId] = useState<string | null>(null);
   const [evaluatingSubId, setEvaluatingSubId] = useState<string | null>(null);
   const [pitchTargetSub, setPitchTargetSub] = useState<RequirementSubmission | null>(null);
+  const [endingTarget, setEndingTarget] = useState<{
+    placement: BillablePlacement;
+    submission?: RequirementSubmission;
+    nextStage?: RequirementSubmission['stage'];
+  } | null>(null);
   const [showBenchPicker, setShowBenchPicker] = useState(false);
 
   useEffect(() => {
@@ -340,6 +354,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     setFitModalSubId(null);
     setEvaluatingSubId(null);
     setPitchTargetSub(null);
+    setEndingTarget(null);
     setShowBenchPicker(false);
     setSubToDetach(null);
     setConfirmDeleteNoteId(null);
@@ -712,16 +727,39 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     requirement?.opportunityTitle,
   ]);
 
-  const isPlacedApplicant = (sub: RequirementSubmission): boolean => {
+  const findActivePlacementForSubmission = (sub: RequirementSubmission) => {
     const nameLower = sub.fullName.trim().toLowerCase();
-    return linkedPlacements.some(
-      (p) =>
-        p.status !== 'Terminated' &&
-        p.status !== 'Completed' &&
-        ((sub.candidateId && p.candidateId === sub.candidateId) ||
-          p.resourceName.trim().toLowerCase() === nameLower)
+    const displayLower = formatDisplayName(sub.fullName).toLowerCase();
+    const matchesCandidate = (p: (typeof linkedPlacements)[number]) => {
+      if (isEndedPlacementStatus(p.status)) return false;
+      if (sub.candidateId && p.candidateId === sub.candidateId) return true;
+      const resourceLower = p.resourceName.trim().toLowerCase();
+      return resourceLower === nameLower || resourceLower === displayLower;
+    };
+    return (
+      linkedPlacements.find((p) => !p.isSummaryOnly && matchesCandidate(p)) ||
+      linkedPlacements.find(matchesCandidate) ||
+      null
     );
   };
+
+  const isPlacedApplicant = (sub: RequirementSubmission): boolean =>
+    Boolean(findActivePlacementForSubmission(sub));
+
+  const renderEndAgreementButton = (placement: BillablePlacement) => (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        setEndingTarget({ placement });
+      }}
+      title="End active consultant agreement"
+      className="h-7 px-2.5 inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-700 hover:border-rose-200 text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap"
+    >
+      <CalendarX className="w-3 h-3 text-rose-500 shrink-0" />
+      <span>End Agreement</span>
+    </button>
+  );
 
   const activeApplicantsCount = submissions.filter(
     (s) => s.stage.trim().toLowerCase() !== 'closed'
@@ -1236,6 +1274,16 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
             onOpenPlacementWizard(reqView, resolvePlacementCandidateForSubmission(sub, candObj));
             return;
           }
+          const activePlacement =
+            nextLower === 'closed' ? findActivePlacementForSubmission(sub) : null;
+          if (activePlacement && onUpdatePlacement) {
+            setEndingTarget({
+              placement: activePlacement,
+              submission: sub,
+              nextStage,
+            });
+            return;
+          }
           setBusySubId(sub.id);
           try {
             await onUpdateSubmissionStage(reqView, sub.id, nextStage);
@@ -1270,6 +1318,11 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     const showNotesBtn = !isLegacy && Boolean(onUpdateSubmissionNotes);
     const showDetachBtn = !isLegacy && Boolean(onDetachSubmission);
     const showPitchBtn = !isLegacy;
+    const activePlacement = placed ? findActivePlacementForSubmission(sub) : null;
+    const showEndAgreementBtn =
+      Boolean(activePlacement) &&
+      sub.stage.trim().toLowerCase() === 'closed' &&
+      Boolean(onUpdatePlacement);
 
     return (
       <div className="inline-flex items-center justify-start lg:justify-end gap-1.5 flex-wrap lg:flex-nowrap">
@@ -1284,6 +1337,8 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
             <span>Place</span>
           </button>
         )}
+
+        {showEndAgreementBtn && activePlacement && renderEndAgreementButton(activePlacement)}
 
         {showPitchBtn && (
           <button
@@ -2045,22 +2100,36 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                 <span className="text-slate-400 font-sans">&mdash;</span>
               );
 
-            const renderRecordButton = (p: (typeof preparedPlacements)[number]['p']) =>
-              !p.isSummaryOnly && onSelectPlacement ? (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelectPlacement(p);
-                  }}
-                  className="h-7 px-2.5 inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white group-hover:border-brand-300 group-hover:text-brand-700 text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap"
-                >
-                  <span>View Details</span>
-                  <ArrowRight className="w-3 h-3" />
-                </button>
-              ) : (
-                <span className="text-[11px] text-slate-400">Placed</span>
+            const renderRecordButton = (p: (typeof preparedPlacements)[number]['p']) => {
+              const isEnded = isEndedPlacementStatus(p.status);
+              const canEnd = !isEnded && Boolean(onUpdatePlacement);
+              const canView = !p.isSummaryOnly && Boolean(onSelectPlacement);
+              if (!canEnd && !canView) {
+                return (
+                  <span className="text-[11px] text-slate-400">
+                    {isEnded ? p.status : 'Placed'}
+                  </span>
+                );
+              }
+              return (
+                <div className="inline-flex items-center justify-end gap-1.5 flex-wrap">
+                  {canEnd && renderEndAgreementButton(p)}
+                  {canView && onSelectPlacement && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectPlacement(p);
+                      }}
+                      className="h-7 px-2.5 inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white group-hover:border-brand-300 group-hover:text-brand-700 text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                    >
+                      <span>View Details</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
               );
+            };
 
             return (
               <>
@@ -2126,7 +2195,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                         />
                         <GridColumnHeader
                           icon={<FileText className="w-3 h-3" />}
-                          label="Record"
+                          label="Actions"
                           align="right"
                         />
                       </tr>
@@ -2807,6 +2876,54 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
             if (!subToDetach) return;
             await onDetachSubmission(reqView, subToDetach.sub.id);
           }}
+        />
+      )}
+
+      {onUpdatePlacement && (
+        <PlacementModals
+          endingPlacement={endingTarget?.placement || null}
+          onCloseEnd={() => setEndingTarget(null)}
+          onUpdatePlacement={async (endedPlacement) => {
+            const targetSnapshot = endingTarget;
+            await onUpdatePlacement(endedPlacement);
+            if (isEndedPlacementStatus(endedPlacement.status)) {
+              setHydratedReq((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      activePlacements: (prev.activePlacements || []).filter(
+                        (ap) => ap.id !== endedPlacement.id
+                      ),
+                    }
+                  : prev
+              );
+            }
+            if (
+              targetSnapshot?.submission &&
+              targetSnapshot.nextStage &&
+              onUpdateSubmissionStage &&
+              !targetSnapshot.submission.id.startsWith('legacy_')
+            ) {
+              setBusySubId(targetSnapshot.submission.id);
+              try {
+                await onUpdateSubmissionStage(
+                  reqView,
+                  targetSnapshot.submission.id,
+                  targetSnapshot.nextStage
+                );
+              } catch {
+                // Placement already ended; stage update error toast handled by parent
+              } finally {
+                setBusySubId(null);
+              }
+            }
+          }}
+          extendingPlacement={null}
+          onCloseExtend={() => {}}
+          editingPlacement={null}
+          onCloseEdit={() => {}}
+          deletingPlacement={null}
+          onCloseDelete={() => {}}
         />
       )}
 
