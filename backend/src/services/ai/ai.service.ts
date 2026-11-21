@@ -15,10 +15,12 @@ import {
   SubmissionCapabilityAiSchema,
 } from './ai.schemas';
 import {
+  isGenericRoleTitle,
   purifyJobTitle,
   sanitizeCandidatePersonName,
   sanitizeExtractedText,
   sanitizeMissingNotes,
+  splitContactAndDesignation,
 } from './extractionSanitizer';
 import {
   sanitizePublicSummaryHtml,
@@ -101,6 +103,20 @@ function formatAiProviderError(
   const looksTechnical =
     !raw ||
     lower.includes('ai provider') ||
+    lower.includes('json repair') ||
+    lower.includes('schema validation') ||
+    lower.includes('validation failed') ||
+    lower.includes('invalid json') ||
+    lower.includes('unexpected token') ||
+    lower.includes('number must be') ||
+    lower.includes('expected string') ||
+    lower.includes('expected number') ||
+    lower.includes('zod') ||
+    lower.includes('econn') ||
+    lower.includes('enotfound') ||
+    lower.includes('fetch failed') ||
+    lower.includes('syntaxerror') ||
+    lower.includes('typeerror') ||
     lower.includes('status ') ||
     lower.includes('cloudflare') ||
     lower.includes('openai') ||
@@ -675,7 +691,10 @@ export class AiService {
       };
     } catch (err: any) {
       if (!config.fallbackToOffline) {
-        throw toSafeAiHttpError(err, 'PipeAI resume parsing failed. Please try again later.');
+        throw toSafeAiHttpError(
+          err,
+          'We could not read the uploaded resume automatically right now. Please try again in a moment.'
+        );
       }
       console.warn('[AI] enhanceResumeParse fallback to offline baseline:', err?.message || err);
       return { data: normalizedBaseline, aiUsed: false };
@@ -699,15 +718,19 @@ export class AiService {
       repaired: boolean;
     };
   }> {
+    const baselineContact = splitContactAndDesignation(
+      baselineFields.clientContact,
+      baselineFields.clientContactTitle
+    );
     const normalizedBaseline: Required<Omit<EmailIntakeBaseline, 'openPositions'>> & {
       openPositions?: number;
     } = {
       companyName: sanitizeExtractedText(baselineFields.companyName),
       opportunityTitle: purifyJobTitle(baselineFields.opportunityTitle),
       openPositions: baselineFields.openPositions,
-      clientContact: sanitizeExtractedText(baselineFields.clientContact),
+      clientContact: baselineContact.name,
       clientContactEmail: sanitizeExtractedText(baselineFields.clientContactEmail),
-      clientContactTitle: sanitizeExtractedText(baselineFields.clientContactTitle),
+      clientContactTitle: baselineContact.title,
       location: sanitizeExtractedText(baselineFields.location),
       workModel: baselineFields.workModel || 'Remote',
       targetBillRate: Number(baselineFields.targetBillRate || 0),
@@ -742,7 +765,7 @@ export class AiService {
           {
             role: 'system',
             content:
-              'You extract structured staffing job requisition fields from client/vendor email threads. Return ONLY strict JSON with keys: companyName, opportunityTitle, openPositions (integer >=1 only if explicitly stated), clientContact, clientContactEmail, clientContactTitle, location, workModel ("Remote"|"Hybrid"|"Onsite"), targetBillRate (number, 0 if unknown), targetPayRate (number, 0 if unknown), skills (array of concise skill names), missingNotes (brief list of absent details such as company name, pay rate, or phone), publicDescription (candidate-facing client-safe rich HTML summary).\n\nCRITICAL RULES:\n1. Never output placeholders like "Not specified in email", "Not specified", "Unknown", "N/A", "None", or "TBD" in any field. If a text field (companyName, clientContact, clientContactTitle, clientContactEmail, location) is not explicitly mentioned in the email, return "".\n2. opportunityTitle MUST be ONLY the pure canonical job role title (typically 2-6 words, e.g. "React Developer", "Senior Java Cloud Engineer"). Remove filler words ("looking for a", "for one of our ongoing projects", "with 4-5 years experience"), durations, locations, work models, and hourly rates.\n3. Never guess or invent companyName, clientContact, clientContactTitle, or location if omitted.\n4. In missingNotes, avoid saying "Not specified in email"; write concisely like "Missing: company name, explicit pay rate, direct phone."\n5. For publicDescription: write a clean, engaging, candidate-facing job overview using only simple HTML tags (<p>, <strong>, <ul>, <li>) summarizing the role scope, core responsibilities as bullets, and expected experience/engagement duration if present. NEVER include end-client company names, hiring manager names, emails, phone numbers, bill/pay rates, or REQ codes inside publicDescription.',
+              'You extract structured staffing job requisition fields from client/vendor email threads or PDFs. Return ONLY strict JSON with keys: companyName, opportunityTitle, openPositions (integer >=1 only if explicitly stated), clientContact, clientContactEmail, clientContactTitle, location, workModel ("Remote"|"Hybrid"|"Onsite"), targetBillRate (number, 0 if unknown), targetPayRate (number, 0 if unknown), skills (array of concise skill names), missingNotes (brief list of absent form fields), publicDescription (candidate-facing client-safe rich HTML summary).\n\nCRITICAL RULES:\n1. Never output placeholders like "Not specified in email", "Not specified", "Unknown", "N/A", "None", or "TBD" in any field. If a text field (companyName, clientContact, clientContactTitle, clientContactEmail, location) is not explicitly mentioned in the email, return "".\n2. opportunityTitle MUST be ONLY the pure canonical job role title (typically 2-6 words, e.g. "React Developer", "Data Engineer", "Senior Java Cloud Engineer"). NEVER pick generic plural or overview words ("Consultants", "Candidates", "Contractors", "Resources", "Positions", "Engineers", "Developers") from an overview sentence when a specific role heading exists. When itemized/numbered roles appear (e.g. "1. Data Engineer"), extract the primary specific role title without its leading number ("Data Engineer"), and note any additional roles concisely in missingNotes. Remove filler prose, durations, locations, work models, and hourly rates.\n3. Split inline contact designations: when a contact header reads "Kevin Roberts, Delivery Manager" or "Name - Title", put ONLY the person name in clientContact ("Kevin Roberts") and put the title/role in clientContactTitle ("Delivery Manager"). Never mix person names with designations or guess companyName, clientContact, clientContactTitle, or location if omitted.\n4. For location, extract cleanly (e.g. "United States", "Austin, TX") without spilling into adjacent table labels like "Work model", "Experience", or rates.\n5. In missingNotes, ONLY report missing fields that exist on our Requirement form: Target Company, Job Title, Client Contact Name, Contact Designation, Contact Email, Location, Bill Rate, Pay Rate, Required Skillset. NEVER mention telephone/phone numbers (there is no phone field on the form) or write "Not specified in email"; write concisely like "Missing: Target Company, Contact Email, Pay Rate." or "All form fields detected from source."\n6. For publicDescription: write a clean, engaging, candidate-facing job overview using only simple HTML tags (<p>, <strong>, <ul>, <li>) summarizing the role scope, core responsibilities as bullets, and expected experience/engagement duration if present. NEVER include end-client company names, hiring manager names, emails, phone numbers, bill/pay rates, or REQ codes inside publicDescription.',
           },
           {
             role: 'user',
@@ -758,12 +781,20 @@ export class AiService {
       const resolvedPay = result.data.targetPayRate || normalizedBaseline.targetPayRate;
       await this.recordFeatureUsage('email_parse', result.completion, context);
 
-      const pureTitle = purifyJobTitle(result.data.opportunityTitle) || normalizedBaseline.opportunityTitle;
+      const rawAiTitle = purifyJobTitle(result.data.opportunityTitle);
+      const pureTitle =
+        rawAiTitle && !isGenericRoleTitle(rawAiTitle)
+          ? rawAiTitle
+          : normalizedBaseline.opportunityTitle || rawAiTitle;
 
       const resolvedCompanyName =
         sanitizeExtractedText(result.data.companyName) || normalizedBaseline.companyName;
-      const resolvedContactName =
-        sanitizeExtractedText(result.data.clientContact) || normalizedBaseline.clientContact;
+      const aiContactParts = splitContactAndDesignation(
+        result.data.clientContact,
+        result.data.clientContactTitle
+      );
+      const resolvedContactName = aiContactParts.name || normalizedBaseline.clientContact;
+      const resolvedContactTitle = aiContactParts.title || normalizedBaseline.clientContactTitle;
       const rawAiSummary = result.data.publicDescription || '';
       const scrubbedAiSummary = rawAiSummary
         ? sanitizePublicSummaryHtml(
@@ -783,9 +814,7 @@ export class AiService {
           clientContactEmail:
             sanitizeExtractedText(result.data.clientContactEmail) ||
             normalizedBaseline.clientContactEmail,
-          clientContactTitle:
-            sanitizeExtractedText(result.data.clientContactTitle) ||
-            normalizedBaseline.clientContactTitle,
+          clientContactTitle: resolvedContactTitle,
           location: sanitizeExtractedText(result.data.location) || normalizedBaseline.location,
           workModel: result.data.workModel || normalizedBaseline.workModel,
           targetBillRate: resolvedBill,
@@ -807,7 +836,10 @@ export class AiService {
       };
     } catch (err: any) {
       if (!config.fallbackToOffline) {
-        throw toSafeAiHttpError(err, 'PipeAI email intake parsing failed. Please try again later.');
+        throw toSafeAiHttpError(
+          err,
+          'We could not extract all requirement details automatically right now. Please try again or review fields manually.'
+        );
       }
       console.warn('[AI] enhanceEmailIntakeParse fallback to offline baseline:', err?.message || err);
       return { data: normalizedBaseline, aiUsed: false };
@@ -877,7 +909,10 @@ export class AiService {
       };
     } catch (err: any) {
       if (!config.fallbackToOffline) {
-        throw toSafeAiHttpError(err, 'PipeAI capability check failed. Please try again later.');
+        throw toSafeAiHttpError(
+          err,
+          'We could not complete the candidate fit review right now. Please try again shortly.'
+        );
       }
       console.warn(
         '[AI] evaluateSubmissionCapability fallback to offline baseline:',
@@ -1100,7 +1135,7 @@ export class AiService {
         if (!config.fallbackToOffline) {
           throw toSafeAiHttpError(
             acc.firstError,
-            'PipeAI ranking failed to evaluate candidates.'
+            'We could not rank candidates automatically right now. Please try again shortly.'
           );
         }
         return { rankings: buildOfflineRankings(clippedCandidates), aiUsed: false };
@@ -1136,7 +1171,10 @@ export class AiService {
       };
     } catch (err: any) {
       if (!config.fallbackToOffline) {
-        throw toSafeAiHttpError(err, 'PipeAI ranking failed to evaluate candidates.');
+        throw toSafeAiHttpError(
+          err,
+          'We could not rank candidates automatically right now. Please try again shortly.'
+        );
       }
       console.warn(
         '[AI] rankCandidatesForRequirement fallback to offline baseline:',
@@ -1340,7 +1378,10 @@ export class AiService {
       };
     } catch (err: any) {
       if (!config.fallbackToOffline) {
-        throw toSafeAiHttpError(err, 'PipeAI email drafting failed. Please try again later.');
+        throw toSafeAiHttpError(
+          err,
+          'We could not draft the client email right now. Please try again in a moment.'
+        );
       }
       console.warn('[AI] draftClientPitch fallback to offline template:', err?.message || err);
       return { subject: offlineSubject, bodyText: offlineBody, aiUsed: false };

@@ -6,7 +6,7 @@ import {
   parseAndValidateJson,
   stripJsonMarkdownFences,
 } from '../../src/services/ai/ai.json';
-import { SubmissionCapabilityAiSchema } from '../../src/services/ai/ai.schemas';
+import { EmailIntakeAiSchema, SubmissionCapabilityAiSchema } from '../../src/services/ai/ai.schemas';
 import { createAiAdapter } from '../../src/services/ai/ai.router';
 import {
   AiService,
@@ -16,6 +16,7 @@ import {
 import {
   purifyJobTitle,
   sanitizeExtractedText,
+  splitContactAndDesignation,
 } from '../../src/services/ai/extractionSanitizer';
 import {
   buildEnhancedEmailParseResponse,
@@ -657,6 +658,164 @@ export const runAiServiceTests = async () => {
     { preserveLineBreaks: true }
   );
   assert.equal(pdfBinaryFallback, '');
+
+  // Numbered role titles strip numbering while generic plural overview words are rejected
+  assert.equal(purifyJobTitle('1. Data Engineer'), 'Data Engineer');
+  assert.equal(purifyJobTitle('Consultants'), '');
+  assert.equal(purifyJobTitle('experienced consultants'), '');
+  assert.deepEqual(splitContactAndDesignation('Kevin Roberts, Delivery Manager'), {
+    name: 'Kevin Roberts',
+    title: 'Delivery Manager',
+  });
+  assert.deepEqual(splitContactAndDesignation('Roberts, Kevin'), {
+    name: 'Roberts, Kevin',
+    title: '',
+  });
+  assert.deepEqual(splitContactAndDesignation('Jean-Luc Picard - VP Engineering'), {
+    name: 'Jean-Luc Picard',
+    title: 'VP Engineering',
+  });
+
+  // Multi-role PDF overview + inline contact designation + space-separated labels (Northstar case)
+  const northstarEmail = [
+    'Client: Northstar Technologies LLC',
+    'Client Contact: Kevin Roberts, Delivery Manager',
+    'Project: Data modernization for a financial services customer',
+    'Engagement: Contract roles',
+    'Work authorization: Valid US work authorization required; no visa sponsorship',
+    'RECRUITMENT OVERVIEW',
+    'Northstar Technologies LLC is seeking experienced consultants for three positions supporting a data modernization',
+    'project. Candidates should have enterprise-client experience, strong communication skills, and availability for interviews',
+    'during regular US business hours. Please avoid duplicate submissions.',
+    '1. Data Engineer',
+    'Location United States Work model Remote',
+    'Experience 5–8 years Duration Not specified',
+    'Client bill rate Up to $115/hour Target pay rate $80–$90/hour target',
+    'Required skills',
+    'Python, SQL, Apache Spark, Databricks, Snowflake, AWS, Airflow, data pipelines and ETL processes.',
+    'Role expectations',
+    "Build and support data pipelines and ETL processes for the client's data modernization work.",
+    'Additional notes',
+    'Candidate must be US-based. Submit candidates with relevant enterprise data engineering experience.',
+  ].join('\n');
+
+  const northstarHeuristics = extractEmailHeuristics(northstarEmail);
+  assert.equal(northstarHeuristics.companyName, 'Northstar Technologies LLC');
+  assert.equal(northstarHeuristics.opportunityTitle, 'Data Engineer');
+  assert.equal(northstarHeuristics.openPositions, 3);
+  assert.equal(northstarHeuristics.clientContact, 'Kevin Roberts');
+  assert.equal(northstarHeuristics.clientContactTitle, 'Delivery Manager');
+  assert.equal(northstarHeuristics.location, 'United States');
+  assert.equal(northstarHeuristics.workModel, 'Remote');
+  assert.equal(northstarHeuristics.targetBillRate, 115);
+  assert.equal(northstarHeuristics.targetPayRate, 90);
+  assert.ok(northstarHeuristics.skillsRequired.includes('Python'));
+  assert.ok(northstarHeuristics.skillsRequired.includes('SQL'));
+  assert.ok(northstarHeuristics.skillsRequired.includes('Apache Spark'));
+  assert.ok(northstarHeuristics.skillsRequired.includes('Databricks'));
+  assert.ok(northstarHeuristics.skillsRequired.includes('Snowflake'));
+  assert.ok(northstarHeuristics.skillsRequired.includes('AWS'));
+  assert.ok(northstarHeuristics.skillsRequired.includes('Airflow'));
+  assert.ok(northstarHeuristics.skillsRequired.includes('Data Pipelines'));
+  assert.ok(northstarHeuristics.skillsRequired.includes('ETL'));
+
+  // Even if LLM outputs "Consultants" and leaves "Name, Designation" unsplit, sanitizer recovers clean fields
+  const genericTitleAiService = new AiService({
+    getConfig: () =>
+      resolveAiConfig({
+        AI_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test',
+        AI_FALLBACK_TO_OFFLINE: 'true',
+      }),
+    fetchImpl: async () =>
+      makeJsonResponse({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                companyName: 'Northstar Technologies LLC',
+                opportunityTitle: 'Consultants',
+                openPositions: 3,
+                clientContact: 'Kevin Roberts, Delivery Manager',
+                clientContactEmail: '',
+                clientContactTitle: '',
+                location: 'United States',
+                workModel: 'Remote',
+                targetBillRate: 115,
+                targetPayRate: 90,
+                skills: ['Python', 'SQL', 'Apache Spark', 'Databricks', 'Snowflake', 'AWS', 'Airflow', 'ETL'],
+                missingNotes: 'Missing: direct phone and email.',
+              }),
+            },
+          },
+        ],
+      }),
+  });
+
+  const northstarAiRes = await buildEnhancedEmailParseResponse({
+    rawEmailText: northstarEmail,
+    aiSvc: genericTitleAiService,
+  });
+  assert.equal(northstarAiRes.aiUsed, true);
+  assert.equal(northstarAiRes.opportunityTitle, 'Data Engineer');
+  assert.equal(northstarAiRes.clientContact, 'Kevin Roberts');
+  assert.equal(northstarAiRes.clientContactTitle, 'Delivery Manager');
+  assert.equal(northstarAiRes.targetBillRate, 115);
+  assert.equal(northstarAiRes.targetPayRate, 90);
+  assert.equal(northstarHeuristics.missingNotes, 'Missing: Contact Email.');
+  assert.equal(northstarAiRes.missingNotes, 'Missing: Contact Email.');
+  assert.equal(/telephone|phone/i.test(northstarAiRes.missingNotes), false);
+
+  // EmailIntakeAiSchema safely ignores openPositions=0 and null optional strings without throwing
+  const zeroPositionsParsed = EmailIntakeAiSchema.parse({
+    companyName: 'Acme Corp',
+    opportunityTitle: 'Data Engineer',
+    openPositions: 0,
+    clientContact: null,
+    clientContactEmail: null,
+    clientContactTitle: null,
+    location: 'Remote',
+    workModel: 'Remote',
+    targetBillRate: null,
+    targetPayRate: null,
+    skills: ['Python', null],
+    missingNotes: null,
+    publicDescription: null,
+  });
+  assert.equal(zeroPositionsParsed.openPositions, undefined);
+  assert.equal(zeroPositionsParsed.clientContactEmail, '');
+  assert.equal(zeroPositionsParsed.targetBillRate, 0);
+  assert.deepEqual(zeroPositionsParsed.skills, ['Python']);
+
+  // Strict AI mode hides internal JSON/schema repair errors behind a customer-friendly message
+  const schemaCrashStrictAi = new AiService({
+    getConfig: () =>
+      resolveAiConfig({
+        AI_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test',
+        AI_FALLBACK_TO_OFFLINE: 'false',
+      }),
+    fetchImpl: async () =>
+      makeJsonResponse({
+        choices: [
+          {
+            message: {
+              content: '{"not_json":',
+            },
+          },
+        ],
+      }),
+  });
+  await assert.rejects(
+    () =>
+      schemaCrashStrictAi.enhanceEmailIntakeParse('Client: Acme\nJob Title: Engineer', {
+        companyName: 'Acme',
+      }),
+    (err: any) => {
+      assert.equal(/repair|schema|json|zod|openPositions/i.test(String(err?.message || '')), false);
+      return true;
+    }
+  );
 
   console.log('✅ Provider-Agnostic AI Adapter & Guardrail Tests: PASSED');
 };

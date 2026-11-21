@@ -12,7 +12,8 @@ MULTI_INDUSTRY_SKILLS_TAXONOMY = [
     # Data, Analytics & AI/ML
     "Snowflake", "Databricks", "PySpark", "Apache Spark", "Airflow", "Apache Airflow", "dbt", "Kafka",
     "Hadoop", "Flink", "SQL", "PostgreSQL", "MySQL", "MongoDB", "Cassandra", "DynamoDB", "BigQuery",
-    "Redshift", "Power BI", "Tableau", "Looker", "Snowpark", "ETL", "Machine Learning", "Deep Learning",
+    "Redshift", "Power BI", "Tableau", "Looker", "Snowpark", "ETL", "Data Pipelines", "Data Pipeline",
+    "Machine Learning", "Deep Learning",
     "NLP", "LLM", "PyTorch", "TensorFlow", "Scikit-learn", "LangChain", "RAG", "Pandas", "NumPy",
     # Programming, Web & Mobile
     "Python", "Java", "Java 17", "Spring Boot", "Spring Cloud", "Node.js", "Express", "TypeScript", "JavaScript",
@@ -58,6 +59,7 @@ SYNONYM_MAP = {
     "salesforce crm": "Salesforce",
     "rest api": "REST APIs",
     "rest apis": "REST APIs",
+    "data pipeline": "Data Pipelines",
 }
 
 TITLE_KEYWORDS = (

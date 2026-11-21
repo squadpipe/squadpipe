@@ -3,10 +3,12 @@ import { aiService, redactRatesFromText } from './ai.service';
 import {
   cleanRawField,
   hasJobRoleKeyword,
+  isGenericRoleTitle,
   purifyJobTitle,
   sanitizeCandidatePersonName,
   sanitizeExtractedText,
   sanitizeMissingNotes,
+  splitContactAndDesignation,
 } from './extractionSanitizer';
 import type { EmailIntakeBaseline, ResumeParseBaseline } from './ai.types';
 import {
@@ -86,9 +88,12 @@ const COMMON_EMAIL_SKILLS: Array<{ label: string; aliases?: string[] }> = [
   { label: 'Kafka' },
   { label: 'Snowflake' },
   { label: 'PySpark' },
+  { label: 'Apache Spark', aliases: ['Spark'] },
   { label: 'Databricks' },
   { label: 'dbt' },
   { label: 'Airflow', aliases: ['Apache Airflow'] },
+  { label: 'ETL' },
+  { label: 'Data Pipelines', aliases: ['Data Pipeline'] },
   { label: 'BigQuery' },
   { label: 'Redshift' },
   { label: 'Power BI' },
@@ -607,28 +612,80 @@ function extractEmailSignature(lines: string[]): {
   return { sigName, sigTitle, sigCompany };
 }
 
-function extractCandidateJobTitle(text: string): string {
+const NON_ROLE_NUMBERED_LINE_RE =
+  /^(?:build|support|develop|design|create|submit|provide|ensure|work|collaborate|implement|maintain|avoid|must|please|candidates?|experience|duration|location|work\s*model|client|project|engagement|required|role\s*expectations|additional\s*notes|recruitment)\b/i;
+
+const WORD_NUMBER_MAP: Record<string, number> = {
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+};
+
+function parseCountToken(token?: string): number | undefined {
+  if (!token) return undefined;
+  const trimmed = token.trim().toLowerCase();
+  if (/^\d+$/.test(trimmed)) {
+    return Math.max(1, Math.min(1000, parseInt(trimmed, 10)));
+  }
+  return WORD_NUMBER_MAP[trimmed];
+}
+
+function extractNumberedRoleHeadings(text: string): string[] {
+  const results: string[] = [];
+  const seen = new Set<string>();
+  for (const rawLine of text.split(/\r?\n/)) {
+    const match = rawLine.match(/^\s*(?:#?\d{1,2})\s*[.)]\s+([A-Za-z][^\n\r]{2,80})$/);
+    if (!match?.[1]) continue;
+    const body = match[1].trim();
+    if (NON_ROLE_NUMBERED_LINE_RE.test(body)) continue;
+    const purified = purifyJobTitle(body);
+    if (!purified || isGenericRoleTitle(purified) || !hasJobRoleKeyword(purified)) continue;
+    if (purified.split(/\s+/).length > 7) continue;
+    const key = purified.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      results.push(purified);
+    }
+  }
+  return results;
+}
+
+function extractCandidateJobTitle(text: string, numberedRoles: string[] = []): string {
   const explicitLine = text.match(
     /(?:Job\s*Title|Position(?:\s*Title)?|Opportunity(?:\s*Title)?|Role(?:\s*Title)?|Opening)\s*:\s*([^\n\r]+)/i
   );
-  if (explicitLine?.[1]) {
-    const purified = purifyJobTitle(explicitLine[1]);
-    if (purified) return purified;
+  const explicitPurified = explicitLine?.[1] ? purifyJobTitle(explicitLine[1]) : '';
+  if (explicitPurified && !isGenericRoleTitle(explicitPurified)) {
+    return explicitPurified;
   }
 
   // Handle standalone "Title:" line when used as requisition title (e.g. Title: Senior Java Developer)
   const standaloneTitleLine = text.match(/(?:^|\n)\s*Title\s*:\s*([^\n\r]+)/i);
   if (standaloneTitleLine?.[1] && hasJobRoleKeyword(standaloneTitleLine[1])) {
     const purified = purifyJobTitle(standaloneTitleLine[1]);
-    if (purified) return purified;
+    if (purified && !isGenericRoleTitle(purified)) return purified;
   }
 
   const subjectMatch = text.match(
     /Subject:\s*(?:Re:|Fwd:|Fw:|Urgent(?:\s*Need|\s*Req)?\s*[:\-]?|Contract\s*[:\-]?|Open\s*Req\s*[:\-]?|Requisition\s*[:\-]?|Hot\s*Req\s*[:\-]?|Immediate\s*Need\s*[:\-]?)?\s*([^\n\r]+)/i
   );
   const purifiedSubject = subjectMatch?.[1] ? purifyJobTitle(subjectMatch[1]) : '';
-  if (purifiedSubject && hasJobRoleKeyword(purifiedSubject)) {
+  if (purifiedSubject && hasJobRoleKeyword(purifiedSubject) && !isGenericRoleTitle(purifiedSubject)) {
     return purifiedSubject;
+  }
+
+  // Prefer explicit itemized role headings (e.g. "1. Data Engineer") over vague overview prose
+  if (numberedRoles.length > 0) {
+    return numberedRoles[0];
   }
 
   const conversationalPatterns = [
@@ -638,17 +695,20 @@ function extractCandidateJobTitle(text: string): string {
     /(?:open(?:ing)?|role|position|requirement)\s+(?:is\s+)?(?:for\s+)?(?:an?\s+)?([^\n\r.;!?]{3,90})/i,
   ];
 
-  for (const pattern of conversationalPatterns) {
-    const m = text.match(pattern);
-    if (m?.[1]) {
-      const purified = purifyJobTitle(m[1]);
-      if (purified && hasJobRoleKeyword(purified)) {
-        return purified;
+  for (const basePattern of conversationalPatterns) {
+    const globalRe = new RegExp(basePattern.source, 'gi');
+    let m: RegExpExecArray | null;
+    while ((m = globalRe.exec(text)) !== null) {
+      if (m[1]) {
+        const purified = purifyJobTitle(m[1]);
+        if (purified && !isGenericRoleTitle(purified) && hasJobRoleKeyword(purified)) {
+          return purified;
+        }
       }
     }
   }
 
-  if (purifiedSubject && !GENERIC_SUBJECT_RE.test(purifiedSubject)) {
+  if (purifiedSubject && !GENERIC_SUBJECT_RE.test(purifiedSubject) && !isGenericRoleTitle(purifiedSubject)) {
     return purifiedSubject;
   }
 
@@ -657,18 +717,53 @@ function extractCandidateJobTitle(text: string): string {
   );
   if (forRole?.[1]) {
     const purified = purifyJobTitle(forRole[1]);
-    if (purified && hasJobRoleKeyword(purified)) return purified;
+    if (purified && !isGenericRoleTitle(purified) && hasJobRoleKeyword(purified)) return purified;
   }
 
-  return '';
+  return explicitPurified;
 }
 
 /**
  * Deterministic regex/heuristic client intake email parser (Non-AI baseline).
  */
+function buildFormMissingNotes(
+  fields: {
+    companyName?: string;
+    opportunityTitle?: string;
+    clientContact?: string;
+    clientContactTitle?: string;
+    clientContactEmail?: string;
+    location?: string;
+    targetBillRate?: number;
+    targetPayRate?: number;
+    skillsRequired?: string;
+  },
+  options?: { rateMasked?: boolean; multiRoleNote?: string }
+): string {
+  const missing: string[] = [];
+  if (!String(fields.companyName || '').trim()) missing.push('Target Company');
+  if (!String(fields.opportunityTitle || '').trim()) missing.push('Job Title');
+  if (!String(fields.clientContact || '').trim()) missing.push('Client Contact Name');
+  if (!String(fields.clientContactTitle || '').trim()) missing.push('Contact Designation');
+  if (!String(fields.clientContactEmail || '').trim()) missing.push('Contact Email');
+  if (!String(fields.location || '').trim()) missing.push('Location');
+  if (!options?.rateMasked) {
+    if (!(Number(fields.targetBillRate) > 0)) missing.push('Bill Rate');
+    if (!(Number(fields.targetPayRate) > 0)) missing.push('Pay Rate');
+  }
+  if (!String(fields.skillsRequired || '').trim()) missing.push('Required Skillset');
+
+  const base =
+    missing.length > 0
+      ? `Missing: ${missing.join(', ')}.`
+      : 'All form fields detected from source.';
+  return `${base}${options?.multiRoleNote || ''}`;
+}
+
 export function extractEmailHeuristics(rawText: string) {
   const text = rawText.replace(/\*\*/g, '').replace(/__/g, '');
   const lines = text.split(/\r?\n/).map((l) => cleanParseField(l));
+  const numberedRoles = extractNumberedRoleHeadings(text);
 
   const companyLine = text.match(
     /(?:Target\s*Company|Company(?:\s*Name)?|Client(?:\s*Company|\s*Name)?|End\s*Client|Organization)\s*:\s*([^\n\r]+)/i
@@ -687,12 +782,22 @@ export function extractEmailHeuristics(rawText: string) {
     /\bat\s+([A-Z][A-Za-z0-9& .-]{1,40}?)(?:\s*\(|,|\s+for\b|\s+in\b|\s+is\b|\s+He\b|\s+She\b|\.|\n|$)/
   );
   const contactLine = text.match(
-    /(?:From|Hiring\s*Manager|Contact(?:\s*Name)?|POC)\s*:\s*([^<\n\r]+?)(?:<|$)/i
+    /(?:From|Hiring\s*Manager|Client\s*Contact|Contact(?:\s*Name)?|POC)\s*:\s*([^<\n\r]+?)(?:<|$)/im
   );
   const emailMatch =
     text.match(/<([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})>/) ||
     text.match(/\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/);
-  const locationLine = text.match(/(?:Work\s*Location|Location)\s*:\s*([^\n\r]+)/i);
+  const locationLine =
+    text.match(/(?:Work\s*Location|Location)\s*:\s*([^\n\r]+)/i) ||
+    text.match(/(?:^|\n|\|)\s*(?:Work\s*Location|Location)\s+([^\n\r]+)/i);
+  const cleanedLocationLine = locationLine?.[1]
+    ? locationLine[1]
+        .replace(
+          /\s+(?:\|\s*)?(?:Work\s*model|Work\s*type|Experience|Duration|Client\s*bill\s*rate|Bill\s*rate|Target\s*pay\s*rate|Pay\s*rate|Open\s*positions?|Required\s*skills?)\b[\s\S]*$/i,
+          ''
+        )
+        .trim()
+    : '';
   const basedInLocation = text.match(
     /(?:based\s+in|located\s+in|office\s+in)\s+([A-Z][A-Za-z. ,]{2,40}?)(?:\s+but\b|\s+and\b|\.|,|\n|$)/i
   );
@@ -707,7 +812,7 @@ export function extractEmailHeuristics(rawText: string) {
   const { sigName, sigTitle, sigCompany } = extractEmailSignature(lines);
 
   const billRangeMatch = text.match(
-    /(?:budget|bill(?:ing)?(?:\s*rate)?|client\s*rate|max(?:imum)?\s*rate)[^.\n\r]{0,35}[$£€]\d{2,3}(?!\d|,\d{3}|[kK]\b)\s*(?:to|-|–)\s*[$£€]?(\d{2,3})(?!\d|,\d{3}|[kK]\b)/i
+    /(?:budget|bill(?:ing)?(?:\s*rate)?|client\s*rate|max(?:imum)?\s*rate)[^$£€\d.\n\r]{0,30}[$£€]\d{2,3}(?!\d|,\d{3}|[kK]\b)\s*(?:\bto\b|[-–—])\s*[$£€]?(\d{2,3})(?!\d|,\d{3}|[kK]\b)/i
   );
   const billRateMatch =
     billRangeMatch ||
@@ -718,7 +823,7 @@ export function extractEmailHeuristics(rawText: string) {
       /[$£€](\d{2,3})(?!\d|,\d{3}|[kK]\b)\s*(?:\/(?:hr|hour)|per\s*(?:hr|hour)|an\s*hour|hr\b|hourly)/i
     );
   const payRangeMatch = text.match(
-    /(?:pay(?:\s+(?:the\s+\w+\s+)*candidate)?|pay\s*rate|w2\s*rate|c2c\s*rate)[^.\n\r]{0,40}[$£€]\d{2,3}(?!\d|,\d{3}|[kK]\b)\s*(?:to|-|–)\s*[$£€]?(\d{2,3})(?!\d|,\d{3}|[kK]\b)/i
+    /(?:pay(?:\s+(?:the\s+\w+\s+)*candidate)?|pay\s*rate|w2\s*rate|c2c\s*rate)[^$£€\d.\n\r]{0,30}[$£€]\d{2,3}(?!\d|,\d{3}|[kK]\b)\s*(?:\bto\b|[-–—])\s*[$£€]?(\d{2,3})(?!\d|,\d{3}|[kK]\b)/i
   );
   const payRateMatch =
     payRangeMatch ||
@@ -750,20 +855,28 @@ export function extractEmailHeuristics(rawText: string) {
     cleanCompanyCandidate(sigCompany) ||
     cleanCompanyCandidate(atCompany?.[1]);
 
-  const resolvedTitle = extractCandidateJobTitle(text);
-  const resolvedContact = sanitizeExtractedText(
-    contactLine?.[1]?.replace(/^["']+|["']+$/g, '') || managerFromCompany?.[1] || sigName
+  const resolvedTitle = extractCandidateJobTitle(text, numberedRoles);
+  const headerContact = splitContactAndDesignation(
+    contactLine?.[1]?.replace(/^["']+|["']+$/g, ''),
+    contactTitleLine?.[1]
   );
+  const sigContact = splitContactAndDesignation(sigName, sigTitle);
+
+  const resolvedContact =
+    headerContact.name ||
+    sanitizeExtractedText(managerFromCompany?.[1]) ||
+    sigContact.name;
   const resolvedContactEmail = sanitizeExtractedText(emailMatch?.[1]);
-  const resolvedContactTitle = sanitizeExtractedText(
-    contactTitleLine?.[1] ||
+  const resolvedContactTitle =
+    headerContact.title ||
+    sanitizeExtractedText(
       (managerFromCompany?.[3] ? managerFromCompany[2] : '') ||
-      sentenceContactTitle?.[1] ||
-      sigTitle
-  );
+        sentenceContactTitle?.[1] ||
+        sigContact.title
+    );
 
   const rawLocation = sanitizeExtractedText(
-    locationLine?.[1] ||
+    cleanedLocationLine ||
       (basedInLocation?.[1]
         ? hasExplicitRemote
           ? `${basedInLocation[1].trim()} / Remote`
@@ -773,24 +886,23 @@ export function extractEmailHeuristics(rawText: string) {
       (hasExplicitRemote ? 'Remote' : '')
   );
 
-  const missingParts: string[] = [];
-  if (!resolvedCompany) missingParts.push('company name');
-  if (!resolvedContactTitle) missingParts.push('contact designation');
-  if (!/\+?(?:\d[\d\s().-]{7,}\d)/.test(text)) missingParts.push('direct telephone');
-  if (!parsedBillRate) missingParts.push('target bill rate');
-  if (!payRateMatch) missingParts.push('explicit pay rate');
-
   const positionsMatch =
     text.match(
       /(?:open\s*positions?|openings?|headcount|positions?\s*open|roles?\s*open|no\.?\s*of\s*positions?)\s*[:\-]?\s*(\d{1,3})\b/i
     ) ||
-    text.match(/\b(\d{1,3})\s*(?:open\s*positions?|openings?|headcount)\b/i) ||
+    text.match(
+      /\b(\d{1,3}|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(?:open\s+)?(?:positions?|openings?|headcount|roles?)\b/i
+    ) ||
     text.match(
       /(?:looking\s+for|seeking|hiring|need)\s+(\d{1,2})\s+[A-Za-z0-9/+#&-\s]{2,45}?\b(?:developers|engineers|architects|consultants|analysts)\b/i
     );
-  const parsedOpenPositions = positionsMatch
-    ? Math.max(1, Math.min(1000, parseInt(positionsMatch[1], 10)))
-    : undefined;
+  const parsedOpenPositions = parseCountToken(positionsMatch?.[1]);
+
+  const multiRoleNote =
+    numberedRoles.length > 1
+      ? ` Multiple itemized roles found (${numberedRoles.slice(0, 3).join(', ')}); extracted Role #1.`
+      : '';
+  const skillsCsv = matchedSkills.join(', ');
 
   return {
     companyName: resolvedCompany,
@@ -803,11 +915,21 @@ export function extractEmailHeuristics(rawText: string) {
     workModel,
     targetBillRate: parsedBillRate,
     targetPayRate: parsedPayRate,
-    skillsRequired: matchedSkills.join(', '),
-    missingNotes:
-      missingParts.length > 0
-        ? `Missing in email: ${missingParts.join(', ')}.`
-        : 'All primary intake fields detected from email body.',
+    skillsRequired: skillsCsv,
+    missingNotes: buildFormMissingNotes(
+      {
+        companyName: resolvedCompany,
+        opportunityTitle: resolvedTitle,
+        clientContact: resolvedContact,
+        clientContactTitle: resolvedContactTitle,
+        clientContactEmail: resolvedContactEmail,
+        location: rawLocation,
+        targetBillRate: parsedBillRate,
+        targetPayRate: parsedPayRate,
+        skillsRequired: skillsCsv,
+      },
+      { multiRoleNote }
+    ),
   };
 }
 
@@ -849,19 +971,21 @@ export async function buildEnhancedEmailParseResponse(
   const parsedCompany = cleanCompanyCandidate(parsed.companyName || parsed.clientName);
   const parsedLocation = sanitizeExtractedText(parsed.location);
   const purifiedUpstreamTitle = purifyJobTitle(parsed.opportunityTitle || parsed.jobTitle);
+  const mergedContactParts = splitContactAndDesignation(
+    sanitizeExtractedText(parsed.clientContact || parsed.contactName) || fallback.clientContact,
+    sanitizeExtractedText(parsed.clientContactTitle || parsed.contactTitle) ||
+      fallback.clientContactTitle
+  );
 
   const enriched = {
     ...parsed,
     companyName: parsedCompany || fallback.companyName,
     opportunityTitle: purifiedUpstreamTitle || fallback.opportunityTitle,
     openPositions: parsed.openPositions || fallback.openPositions,
-    clientContact:
-      sanitizeExtractedText(parsed.clientContact || parsed.contactName) || fallback.clientContact,
+    clientContact: mergedContactParts.name,
     clientContactEmail:
       sanitizeExtractedText(parsed.clientContactEmail) || fallback.clientContactEmail,
-    clientContactTitle:
-      sanitizeExtractedText(parsed.clientContactTitle || parsed.contactTitle) ||
-      fallback.clientContactTitle,
+    clientContactTitle: mergedContactParts.title,
     location:
       parsedLocation && parsedLocation !== 'Remote / Hybrid'
         ? parsedLocation
@@ -937,8 +1061,17 @@ export async function buildEnhancedEmailParseResponse(
     aiResult.data.skills.length > 0 ? aiResult.data.skills.join(', ') : enriched.skillsRequired;
 
   const finalCompany = sanitizeExtractedText(aiResult.data.companyName) || enriched.companyName;
-  const finalContact =
-    sanitizeExtractedText(aiResult.data.clientContact) || enriched.clientContact;
+  const aiContactSplit = splitContactAndDesignation(
+    aiResult.data.clientContact,
+    aiResult.data.clientContactTitle
+  );
+  const finalContact = aiContactSplit.name || enriched.clientContact;
+  const finalContactTitle = aiContactSplit.title || enriched.clientContactTitle;
+  const aiPurifiedTitle = purifyJobTitle(aiResult.data.opportunityTitle);
+  const finalTitle =
+    aiPurifiedTitle && !isGenericRoleTitle(aiPurifiedTitle)
+      ? aiPurifiedTitle
+      : enriched.opportunityTitle || aiPurifiedTitle;
   const finalPublicSummary = sanitizePublicSummaryHtml(
     scrubConfidentialText(
       aiResult.data.publicDescription || baselineSummary.publicDescription || '',
@@ -946,22 +1079,45 @@ export async function buildEnhancedEmailParseResponse(
     )
   );
 
+  const finalContactEmail =
+    sanitizeExtractedText(aiResult.data.clientContactEmail) || enriched.clientContactEmail;
+  const finalLocation =
+    sanitizeExtractedText(aiResult.data.location) || enriched.location;
+  const multiRoleMatch = String(enriched.missingNotes || '').match(
+    /\s*(Multiple itemized roles found \([^)]+\); extracted Role #1\.)$/
+  );
+  const finalMissingNotes = buildFormMissingNotes(
+    {
+      companyName: finalCompany,
+      opportunityTitle: finalTitle,
+      clientContact: finalContact,
+      clientContactTitle: finalContactTitle,
+      clientContactEmail: finalContactEmail,
+      location: finalLocation,
+      targetBillRate: resolvedBillRate,
+      targetPayRate: resolvedPayRate,
+      skillsRequired: mergedSkills,
+    },
+    {
+      rateMasked,
+      multiRoleNote: multiRoleMatch?.[1] ? ` ${multiRoleMatch[1]}` : '',
+    }
+  );
+
   return {
     ...enriched,
     companyName: finalCompany,
-    opportunityTitle: purifyJobTitle(aiResult.data.opportunityTitle) || enriched.opportunityTitle,
+    opportunityTitle: finalTitle,
     openPositions: aiResult.data.openPositions ?? enriched.openPositions,
     clientContact: finalContact,
-    clientContactEmail:
-      sanitizeExtractedText(aiResult.data.clientContactEmail) || enriched.clientContactEmail,
-    clientContactTitle:
-      sanitizeExtractedText(aiResult.data.clientContactTitle) || enriched.clientContactTitle,
-    location: sanitizeExtractedText(aiResult.data.location) || enriched.location,
+    clientContactEmail: finalContactEmail,
+    clientContactTitle: finalContactTitle,
+    location: finalLocation,
     workModel: aiResult.data.workModel || enriched.workModel,
     targetBillRate: resolvedBillRate,
     targetPayRate: resolvedPayRate,
     skillsRequired: mergedSkills,
-    missingNotes: sanitizeMissingNotes(aiResult.data.missingNotes) || enriched.missingNotes,
+    missingNotes: finalMissingNotes,
     publicDescription: finalPublicSummary || baselineSummary.publicDescription || '',
     aiUsed: true,
   };

@@ -1,5 +1,6 @@
 const UNIQUE_CONSTRAINT_PATTERN = /Unique constraint failed/i;
 const NOT_FOUND_PATTERN = /Record to (?:update|delete) (?:not found|does not exist)/i;
+const FILE_TOO_LARGE_PATTERN = /\b(?:LIMIT_FILE_SIZE|File too large|entity\.too\.large)\b/i;
 
 const INTERNAL_ERROR_PATTERNS: RegExp[] = [
   /\bprisma\b/i,
@@ -18,9 +19,20 @@ const INTERNAL_ERROR_PATTERNS: RegExp[] = [
   /\bdatabase "[^"]*" does not exist\b/i,
   /\bpg_hba\b/i,
   /\bpg_catalog\b/i,
-  /\bECONNREFUSED\b/i,
-  /\bETIMEDOUT\b/i,
+  /\b(?:ECONNREFUSED|ETIMEDOUT|ECONNRESET|ENOTFOUND|EAI_AGAIN)\b/i,
+  /\bfetch failed\b/i,
+  /\bsocket hang up\b/i,
   /\bpostgres(?:ql)?\b/i,
+  /AI JSON repair failed/i,
+  /Schema validation failed/i,
+  /Invalid JSON syntax/i,
+  /\bZodError\b/i,
+  /\b(?:TypeError|SyntaxError|ReferenceError|RangeError|MulterError)\b/,
+  /Unexpected token/i,
+  /Failed to (?:upload|retrieve) CV (?:to|from)/i,
+  /Resume parser service/i,
+  /Number must be (?:greater|less) than/i,
+  /Expected (?:string|number|boolean|object|array), received/i,
 ];
 
 const SERVER_5XX_DB_PATTERNS: RegExp[] = [
@@ -28,11 +40,12 @@ const SERVER_5XX_DB_PATTERNS: RegExp[] = [
   /\bdatabase\b/i,
   /\bsql\b/i,
   /constraint/i,
+  /\bERR_[A-Z0-9_]+\b/,
 ];
 
 /**
- * Strips database, ORM, connection string, and query internals from HTTP error messages
- * so clients and toast banners never expose infrastructure details.
+ * Strips database, ORM, connection string, AI/schema internals, and stack traces from HTTP
+ * error messages so clients and toast banners never expose technical or infrastructure details.
  */
 export const sanitizeErrorMessage = (
   rawMessage: unknown,
@@ -51,6 +64,10 @@ export const sanitizeErrorMessage = (
 
   if (NOT_FOUND_PATTERN.test(trimmed)) {
     return 'The requested record was not found.';
+  }
+
+  if (FILE_TOO_LARGE_PATTERN.test(trimmed)) {
+    return 'The uploaded file is too large. Please upload a smaller file.';
   }
 
   const patterns = isServerError ? SERVER_5XX_DB_PATTERNS : INTERNAL_ERROR_PATTERNS;

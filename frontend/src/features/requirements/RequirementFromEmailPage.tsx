@@ -58,6 +58,96 @@ const stripClientLocation = (name?: string) =>
     .replace(/\s+Location:\s*.*$/i, '')
     .trim();
 
+const INLINE_DESIGNATION_HINT_RE =
+  /\b(?:manager|director|lead|head|vp|vice\s+president|president|chief|officer|ceo|cto|cfo|cio|coo|partner|principal|architect|recruiter|coordinator|specialist|supervisor|executive|owner|founder|delivery|account|hiring|talent|acquisition|staffing|operations|practice|program|project|hr|vendor)\b/i;
+
+const splitInlineContactDesignation = (rawContact: unknown, rawTitle: unknown) => {
+  let contact = cleanField(rawContact).replace(/<[^>]*@[^>]*>/g, '').trim();
+  const explicitTitle = cleanField(rawTitle);
+  let inferredTitle = '';
+
+  const delimMatch = contact.match(
+    /^([A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z.'-]+){0,3})\s*(?:,\s*|\s+[-–—|]\s+)\s*(.+)$/
+  );
+  if (delimMatch) {
+    const left = cleanField(delimMatch[1]);
+    const rhs = cleanField(delimMatch[2]);
+    if (left && rhs && INLINE_DESIGNATION_HINT_RE.test(rhs)) {
+      contact = left;
+      inferredTitle = rhs;
+    }
+  }
+
+  return {
+    clientContact: contact,
+    clientContactTitle: explicitTitle || inferredTitle,
+  };
+};
+
+const resolveClientContactFields = (
+  rawContact: string,
+  rawTitle: string,
+  matchedClient?: Client
+) => {
+  const split = splitInlineContactDesignation(rawContact, rawTitle);
+  if (!matchedClient?.contacts?.length) {
+    return split;
+  }
+
+  if (split.clientContact) {
+    const exactSavedContact = matchedClient.contacts.find(
+      (c) => cleanField(c.name).toLowerCase() === split.clientContact.toLowerCase()
+    );
+    return {
+      clientContact: split.clientContact,
+      clientContactTitle:
+        split.clientContactTitle ||
+        (exactSavedContact ? cleanField(exactSavedContact.designation) : ''),
+    };
+  }
+
+  const primaryContact = matchedClient.contacts[0];
+  return {
+    clientContact: cleanField(primaryContact?.name),
+    clientContactTitle: split.clientContactTitle || cleanField(primaryContact?.designation),
+  };
+};
+
+const buildFormMissingNotes = (
+  fields: {
+    companyName: string;
+    opportunityTitle: string;
+    clientContact: string;
+    clientContactTitle: string;
+    clientContactEmail: string;
+    location: string;
+    targetBillRate: number;
+    targetPayRate: number;
+    skillsRequired: string;
+  },
+  backendNotes?: unknown
+): string => {
+  const missing: string[] = [];
+  if (!fields.companyName.trim()) missing.push('Target Company');
+  if (!fields.opportunityTitle.trim()) missing.push('Job Title');
+  if (!fields.clientContact.trim()) missing.push('Client Contact Name');
+  if (!fields.clientContactTitle.trim()) missing.push('Contact Designation');
+  if (!fields.clientContactEmail.trim()) missing.push('Contact Email');
+  if (!fields.location.trim()) missing.push('Location');
+  if (!(Number(fields.targetBillRate) > 0)) missing.push('Bill Rate');
+  if (!(Number(fields.targetPayRate) > 0)) missing.push('Pay Rate');
+  if (!fields.skillsRequired.trim()) missing.push('Required Skillset');
+
+  const multiRoleMatch = cleanNotes(backendNotes).match(
+    /(Multiple itemized roles found \([^)]+\); extracted Role #1\.)/
+  );
+  const base =
+    missing.length > 0
+      ? `Missing: ${missing.join(', ')}.`
+      : 'All form fields detected from source.';
+  return multiRoleMatch?.[1] ? `${base} ${multiRoleMatch[1]}` : base;
+};
+
 const normalizeCompanyKey = (name?: string) =>
   stripClientLocation(name)
     .toLowerCase()
@@ -151,6 +241,8 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
   const { symbol: currencySymbol } = useCurrency();
   const aiCapabilities = useAiCapabilities();
   const [isParsing, setIsParsing] = useState(false);
+  const [parseProgress, setParseProgress] = useState<number>(0);
+  const [parseStageLabel, setParseStageLabel] = useState<string>('');
   const [hasParsed, setHasParsed] = useState(false);
   const [aiUsed, setAiUsed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -163,9 +255,54 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
   const [highlightedSkillIdx, setHighlightedSkillIdx] = useState<number>(-1);
   const [extractedReq, setExtractedReq] = useState(EMPTY_FORM);
   const lastParsedTextRef = useRef<string>('');
+  const parseTimersRef = useRef<number[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const clientsRef = useRef<Client[]>(clients);
   clientsRef.current = clients;
+
+  const clearParseTimers = () => {
+    parseTimersRef.current.forEach((id) => window.clearTimeout(id));
+    parseTimersRef.current = [];
+  };
+
+  useEffect(() => () => clearParseTimers(), []);
+
+  const startParseProgress = (source: 'file' | 'text') => {
+    clearParseTimers();
+    setParseProgress(source === 'file' ? 18 : 28);
+    setParseStageLabel(
+      source === 'file'
+        ? 'Uploading & reading document text...'
+        : 'Analyzing source text & detecting entities...'
+    );
+    parseTimersRef.current.push(
+      window.setTimeout(() => {
+        setParseProgress((prev) => (prev < 58 ? 58 : prev));
+        setParseStageLabel('Extracting role, contact, rates & required skills...');
+      }, 320),
+      window.setTimeout(() => {
+        setParseProgress((prev) => (prev < 86 ? 86 : prev));
+        setParseStageLabel('Refining fields & generating client-safe summary...');
+      }, 950)
+    );
+  };
+
+  const finishParseProgress = (ok: boolean) => {
+    clearParseTimers();
+    if (ok) {
+      setParseProgress(100);
+      setParseStageLabel('Extraction complete');
+      parseTimersRef.current.push(
+        window.setTimeout(() => {
+          setParseProgress(0);
+          setParseStageLabel('');
+        }, 3000)
+      );
+    } else {
+      setParseProgress(0);
+      setParseStageLabel('');
+    }
+  };
 
   const applyParsedRequirement = (
     d: Record<string, any>,
@@ -195,45 +332,58 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
 
     setExtractedReq((prev) => {
       const nextLocation = cleanField(d.location) || matchedClient?.location || '';
+      const contactFields = resolveClientContactFields(
+        cleanField(d.clientContact || d.contactName),
+        cleanField(d.clientContactTitle || d.contactTitle),
+        matchedClient
+      );
+      const resolvedLoc =
+        nextLocation === 'Remote' && matchedClient?.location
+          ? matchedClient.location
+          : nextLocation;
+      const resolvedTitle = cleanField(d.opportunityTitle || d.jobTitle) || '';
+      const resolvedEmail = cleanField(d.clientContactEmail) || '';
+      const resolvedSkills = parsedSkills || '';
+      const rawBackendNotes = Array.isArray(d.missingFields)
+        ? d.missingFields.map((item: unknown) => cleanField(item)).filter(Boolean).join(', ')
+        : cleanNotes(d.missingNotes);
       return {
         ...prev,
         companyName: resolvedCompany || '',
-        opportunityTitle: cleanField(d.opportunityTitle || d.jobTitle) || '',
+        opportunityTitle: resolvedTitle,
         openPositions: d.openPositions ? String(d.openPositions) : '1',
-        location:
-          nextLocation === 'Remote' && matchedClient?.location
-            ? matchedClient.location
-            : nextLocation,
+        location: resolvedLoc,
         workModel: detectedWorkModel,
-        clientContact:
-          cleanField(d.clientContact || d.contactName) ||
-          matchedClient?.contacts?.[0]?.name ||
-          '',
-        clientContactTitle:
-          cleanField(d.clientContactTitle || d.contactTitle) ||
-          matchedClient?.contacts?.[0]?.designation ||
-          '',
-        clientContactEmail: cleanField(d.clientContactEmail) || '',
-        skillsRequired: parsedSkills || '',
+        clientContact: contactFields.clientContact,
+        clientContactTitle: contactFields.clientContactTitle,
+        clientContactEmail: resolvedEmail,
+        skillsRequired: resolvedSkills,
         assignedRecruiter:
           cleanField(d.assignedRecruiter) || prev.assignedRecruiter || users[0]?.name || '',
         targetBillRate: parsedBillRate,
         targetPayRate: parsedPayRate,
-        missingNotes: Array.isArray(d.missingFields)
-          ? d.missingFields.map((item: unknown) => cleanField(item)).filter(Boolean).join(', ')
-          : cleanNotes(d.missingNotes),
+        missingNotes: buildFormMissingNotes(
+          {
+            companyName: resolvedCompany || '',
+            opportunityTitle: resolvedTitle,
+            clientContact: contactFields.clientContact,
+            clientContactTitle: contactFields.clientContactTitle,
+            clientContactEmail: resolvedEmail,
+            location: resolvedLoc,
+            targetBillRate: parsedBillRate,
+            targetPayRate: parsedPayRate,
+            skillsRequired: resolvedSkills,
+          },
+          rawBackendNotes
+        ),
         publicDescription:
           String(d.publicDescription || '').trim() ||
           buildClientSafeSummaryHtml({
-            opportunityTitle:
-              cleanField(d.opportunityTitle || d.jobTitle) || 'Technical Specialist',
+            opportunityTitle: resolvedTitle || 'Technical Specialist',
             openPositions: d.openPositions ? Number(d.openPositions) : 1,
             workModel: detectedWorkModel,
-            location:
-              nextLocation === 'Remote' && matchedClient?.location
-                ? matchedClient.location
-                : nextLocation,
-            skillsRequired: parsedSkills || '',
+            location: resolvedLoc,
+            skillsRequired: resolvedSkills,
             companyName: resolvedCompany || '',
             rawEmailText: cleanInput,
           }),
@@ -251,20 +401,25 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
     setIsParsing(true);
     setAiUsed(false);
     setValidationAttempted(false);
+    startParseProgress('text');
+    let parsedOk = false;
     try {
       const res = await apiClient.post('/parse-email', { rawEmailText: cleanInput });
       const d = res.data?.data?.data || res.data?.data;
       if (d) {
         applyParsedRequirement(d, Boolean(res.data?.aiUsed ?? d?.aiUsed), cleanInput);
+        parsedOk = true;
       }
     } catch (err: any) {
       setAiUsed(false);
       showToast(
-        'Parse Failed',
-        err.response?.data?.message || err.message || 'Could not parse email right now.',
+        'Extraction Issue',
+        err.response?.data?.message ||
+          'We could not extract all fields automatically right now. Please try again or review the fields manually.',
         'error'
       );
     } finally {
+      finishParseProgress(parsedOk);
       setIsParsing(false);
     }
   };
@@ -296,6 +451,8 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
     setIsParsing(true);
     setAiUsed(false);
     setValidationAttempted(false);
+    startParseProgress('file');
+    let parsedOk = false;
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -317,6 +474,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
           extractedText || rawEmailText.trim()
         );
       }
+      parsedOk = true;
       showToast(
         'Document Extracted',
         `Loaded and parsed fields from "${res.data?.fileName || file.name}".`,
@@ -325,11 +483,13 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
     } catch (err: any) {
       setAiUsed(false);
       showToast(
-        'Document Extract Failed',
-        err.response?.data?.message || err.message || 'Could not extract text from uploaded file.',
+        'Could Not Read File',
+        err.response?.data?.message ||
+          'We could not extract text from that document. Try another PDF/DOCX or paste the text directly.',
         'error'
       );
     } finally {
+      finishParseProgress(parsedOk);
       setIsParsing(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -344,8 +504,13 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
       const matched = findMatchingClient(prev.companyName, clients, rawEmailText);
       if (!matched) return prev;
       const canonicalName = stripClientLocation(matched.name);
-      const nextContact = prev.clientContact || matched.contacts?.[0]?.name || '';
-      const nextTitle = prev.clientContactTitle || matched.contacts?.[0]?.designation || '';
+      const resolvedContact = resolveClientContactFields(
+        prev.clientContact,
+        prev.clientContactTitle,
+        matched
+      );
+      const nextContact = resolvedContact.clientContact;
+      const nextTitle = resolvedContact.clientContactTitle;
       const nextLoc =
         (!prev.location || prev.location === 'Remote') && matched.location
           ? matched.location
@@ -364,6 +529,20 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
         clientContact: nextContact,
         clientContactTitle: nextTitle,
         location: nextLoc,
+        missingNotes: buildFormMissingNotes(
+          {
+            companyName: canonicalName,
+            opportunityTitle: prev.opportunityTitle,
+            clientContact: nextContact,
+            clientContactTitle: nextTitle,
+            clientContactEmail: prev.clientContactEmail,
+            location: nextLoc,
+            targetBillRate: prev.targetBillRate,
+            targetPayRate: prev.targetPayRate,
+            skillsRequired: prev.skillsRequired,
+          },
+          prev.missingNotes
+        ),
       };
     });
   }, [clients, hasParsed, rawEmailText]);
@@ -374,6 +553,9 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
       setHasParsed(false);
       setAiUsed(false);
       if (!trimmed) {
+        clearParseTimers();
+        setParseProgress(0);
+        setParseStageLabel('');
         lastParsedTextRef.current = '';
         setExtractedReq(EMPTY_FORM);
       }
@@ -386,6 +568,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
   }, [rawEmailText]);
 
   const handleClearAll = () => {
+    clearParseTimers();
     setRawEmailText('');
     setUploadedFileName(null);
     if (fileInputRef.current) {
@@ -395,6 +578,8 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
     setHasParsed(false);
     setAiUsed(false);
     setIsParsing(false);
+    setParseProgress(0);
+    setParseStageLabel('');
     setValidationAttempted(false);
     lastParsedTextRef.current = '';
     setExtractedReq(EMPTY_FORM);
@@ -462,6 +647,22 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
     (Number(extractedReq.targetBillRate) || 0) - (Number(extractedReq.targetPayRate) || 0)
   );
 
+  const capturedFieldCount = useMemo(() => {
+    const checks = [
+      Boolean(extractedReq.companyName.trim()),
+      Boolean(extractedReq.opportunityTitle.trim()),
+      Number(extractedReq.openPositions) >= 1,
+      Boolean(extractedReq.clientContact.trim()),
+      Boolean(extractedReq.clientContactTitle.trim()),
+      Boolean(extractedReq.clientContactEmail.trim()),
+      Boolean(extractedReq.location.trim()),
+      Number(extractedReq.targetBillRate) > 0,
+      Number(extractedReq.targetPayRate) > 0,
+      Boolean(extractedReq.skillsRequired.trim()),
+    ];
+    return checks.filter(Boolean).length;
+  }, [extractedReq]);
+
   const isCompanyMissing = !extractedReq.companyName.trim();
   const isTitleMissing = !extractedReq.opportunityTitle.trim();
   const openPosStr = String(extractedReq.openPositions || '').trim();
@@ -476,6 +677,40 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
   const showCompanyError = (hasParsed || validationAttempted) && isCompanyMissing;
   const showTitleError = (hasParsed || validationAttempted) && isTitleMissing;
   const showOpenPosError = (hasParsed || validationAttempted) && isOpenPosInvalid;
+
+  const renderActionButtons = () => (
+    <>
+      {(rawEmailText || uploadedFileName || extractedReq.companyName) && (
+        <button
+          type="button"
+          onClick={handleClearAll}
+          disabled={isSaving || isParsing}
+          className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+        >
+          <Eraser className="w-3.5 h-3.5" />
+          <span>Clear</span>
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => guardNavigation(onBack)}
+        disabled={isSaving}
+        className="h-8 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold cursor-pointer disabled:opacity-50"
+      >
+        Cancel
+      </button>
+      <ActionButton
+        loading={isSaving}
+        loadingText="Creating..."
+        disabled={isParsing}
+        onClick={handleApprove}
+        icon={<Plus className="w-3.5 h-3.5" strokeWidth={2} />}
+        className="h-8 px-4 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-[11px] font-semibold cursor-pointer"
+      >
+        Create Requisition
+      </ActionButton>
+    </>
+  );
 
   const handleApprove = async () => {
     const missingFields = getMissingFieldLabels([
@@ -598,40 +833,70 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
             )}
           </>
         }
-        actions={
-          <>
-            {(rawEmailText || uploadedFileName || extractedReq.companyName) && (
-              <button
-                type="button"
-                onClick={handleClearAll}
-                disabled={isSaving || isParsing}
-                className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                <Eraser className="w-3.5 h-3.5" />
-                <span>Clear</span>
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => guardNavigation(onBack)}
-              disabled={isSaving}
-              className="h-8 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold cursor-pointer disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <ActionButton
-              loading={isSaving}
-              loadingText="Creating..."
-              disabled={isParsing}
-              onClick={handleApprove}
-              icon={<Plus className="w-3.5 h-3.5" strokeWidth={2} />}
-              className="h-8 px-4 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-[11px] font-semibold cursor-pointer"
-            >
-              Create Requisition
-            </ActionButton>
-          </>
-        }
+        actions={renderActionButtons()}
       />
+
+      {(isParsing || (hasParsed && parseProgress > 0)) && (
+        <div
+          className={`rounded-xl border px-4 py-2.5 space-y-1.5 transition-colors ${
+            isParsing
+              ? 'bg-brand-50/90 border-brand-200 text-brand-900'
+              : 'bg-white border-slate-200/90 text-slate-700 card-shadow'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2 text-xs font-semibold">
+            <span className="flex items-center gap-2 min-w-0">
+              {isParsing ? (
+                <Loader2 className="w-3.5 h-3.5 text-brand-600 animate-spin shrink-0" />
+              ) : (
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              )}
+              <span className="truncate">
+                {isParsing
+                  ? parseStageLabel || 'Extracting requirement details...'
+                  : `Extraction complete · ${capturedFieldCount}/10 form fields detected`}
+              </span>
+            </span>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[11px] font-semibold tabular-nums text-slate-600">
+                {parseProgress}%
+              </span>
+              {!isParsing && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearParseTimers();
+                    setParseProgress(0);
+                    setParseStageLabel('');
+                  }}
+                  title="Dismiss"
+                  aria-label="Dismiss extraction progress banner"
+                  className="p-0.5 text-slate-400 hover:text-slate-600 rounded cursor-pointer transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+          <div
+            role="progressbar"
+            aria-valuenow={parseProgress}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Email and PDF extraction progress"
+            className={`w-full h-1.5 rounded-full overflow-hidden ${
+              isParsing ? 'bg-brand-200/80' : 'bg-slate-100'
+            }`}
+          >
+            <div
+              className={`h-full transition-all duration-300 ${
+                isParsing ? 'bg-brand-600' : 'bg-emerald-500'
+              }`}
+              style={{ width: `${parseProgress}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Main 12-Column Split Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
@@ -674,7 +939,7 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
               <AiIcon className="w-3.5 h-3.5 text-teal-600 shrink-0" />
               <span>Client email / PDF source</span>
             </label>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 flex-wrap">
               {isParsing ? (
                 <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-brand-600">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -683,6 +948,17 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
               ) : hasParsed ? (
                 <StatusBadge tone="emerald" size="xs" label="Parsed" />
               ) : null}
+              {rawEmailText.trim().length > 20 && (
+                <button
+                  type="button"
+                  disabled={isParsing || isSaving}
+                  onClick={() => parseEmailText(rawEmailText, true)}
+                  className="h-7 px-2.5 rounded-lg border border-brand-200 bg-brand-50/70 hover:bg-brand-100/70 text-brand-700 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-50 transition-colors"
+                >
+                  <AiIcon className="w-3 h-3 text-teal-600 shrink-0" />
+                  <span>Re-run {aiCapabilities.enabled ? 'AI ' : ''}Extraction</span>
+                </button>
+              )}
               <button
                 type="button"
                 disabled={isParsing || isSaving}
@@ -746,22 +1022,9 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
             className="w-full p-3.5 text-xs bg-white border border-slate-200 rounded-xl text-slate-700 leading-relaxed focus:border-brand-600 focus:outline-none min-h-[340px]"
           />
 
-          <div className="flex items-center justify-between gap-2 pt-0.5">
-            <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
-              <Info className="w-3.5 h-3.5 shrink-0" />
-              <span>Pasting text or uploading a PDF automatically triggers extraction.</span>
-            </div>
-            {rawEmailText.trim().length > 20 && (
-              <button
-                type="button"
-                disabled={isParsing}
-                onClick={() => parseEmailText(rawEmailText, true)}
-                className="text-[11px] font-semibold text-brand-600 hover:text-brand-700 inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
-              >
-                <AiIcon className="w-3 h-3 text-teal-600" />
-                <span>Re-run {aiCapabilities.enabled ? 'AI ' : ''}Extraction</span>
-              </button>
-            )}
+          <div className="text-[11px] text-slate-400 flex items-center gap-1.5 pt-0.5">
+            <Info className="w-3.5 h-3.5 shrink-0" />
+            <span>Pasting text or uploading a PDF automatically triggers extraction.</span>
           </div>
         </div>
 
@@ -1187,6 +1450,36 @@ export const RequirementFromEmailPage: React.FC<RequirementFromEmailPageProps> =
               className="mt-1 w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-700 focus:border-brand-600 focus:outline-none"
             />
           </div>
+        </div>
+      </div>
+
+      {/* Bottom Action Bar */}
+      <div className="bg-white rounded-xl border border-slate-200/90 px-5 py-3.5 card-shadow flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-2 text-xs text-slate-600 min-w-0">
+          {isCompanyMissing || isTitleMissing || isOpenPosInvalid ? (
+            <>
+              <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+              <span className="truncate">
+                {hasParsed
+                  ? 'Review required fields (Target Company, Job Title, Open Positions) before creating.'
+                  : 'Paste an email or upload a PDF on the left to extract requisition details.'}
+              </span>
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span className="truncate text-slate-700">
+                Ready to create requisition for{' '}
+                <span className="font-semibold text-slate-900">
+                  {extractedReq.opportunityTitle}
+                </span>
+                {extractedReq.companyName ? ` at ${extractedReq.companyName}` : ''}.
+              </span>
+            </>
+          )}
+        </div>
+        <div className="flex items-center justify-end gap-2 shrink-0">
+          {renderActionButtons()}
         </div>
       </div>
 

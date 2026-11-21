@@ -501,7 +501,11 @@ router.post('/parse-resume', uploadRateLimiter, upload.single('file'), async (re
 
     return res.json(responsePayload);
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Resume parsing failed' });
+    const status = typeof error?.statusCode === 'number' ? error.statusCode : 500;
+    res.status(status).json({
+      success: false,
+      message: error?.message || 'We could not read the uploaded resume automatically right now.',
+    });
   }
 });
 
@@ -533,7 +537,13 @@ router.post('/parse-email', async (req: Request, res: Response) => {
     const enhanced = await runEmailIntakeParsePipeline(rawEmailText, req.user);
     res.json({ success: true, aiUsed: enhanced.aiUsed, data: enhanced });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Email parse failed' });
+    const status = typeof error?.statusCode === 'number' ? error.statusCode : 500;
+    res.status(status).json({
+      success: false,
+      message:
+        error?.message ||
+        'We could not extract requirement details automatically right now. Please try again or fill in the fields manually.',
+    });
   }
 });
 
@@ -598,9 +608,13 @@ router.post(
         data: enhanced,
       });
     } catch (error: any) {
-      return res
-        .status(error?.statusCode || 500)
-        .json({ success: false, message: error.message || 'Requirement file parse failed' });
+      const status = typeof error?.statusCode === 'number' ? error.statusCode : 500;
+      return res.status(status).json({
+        success: false,
+        message:
+          error?.message ||
+          'We could not read this requirement file. Please try another PDF/DOCX or paste the text directly.',
+      });
     }
   }
 );

@@ -1,6 +1,38 @@
 import axios from 'axios';
 import { clearAuthSession, getStoredAuthToken } from '../utils/authStorage';
 
+const TECHNICAL_ERR_RE =
+  /(?:AI JSON repair failed|Schema validation failed|Invalid JSON|Unexpected token|ZodError|\bPrisma\b|\bTypeError\b|\bSyntaxError\b|\bReferenceError\b|\bECONN|\bETIMEDOUT|\bENOTFOUND|Number must be (?:greater|less) than|Expected (?:string|number)|<!DOCTYPE|<html)/i;
+
+const getCustomerFriendlyErrorMessage = (error: any): string => {
+  const status = error?.response?.status;
+  const serverMsg =
+    typeof error?.response?.data?.message === 'string'
+      ? error.response.data.message.trim()
+      : '';
+
+  if (serverMsg && !TECHNICAL_ERR_RE.test(serverMsg)) {
+    return serverMsg;
+  }
+
+  if (error?.code === 'ERR_NETWORK' || error?.message === 'Network Error') {
+    return 'Unable to connect right now. Please check your internet connection and try again.';
+  }
+  if (error?.code === 'ECONNABORTED' || /timeout of \d+ms exceeded/i.test(String(error?.message || ''))) {
+    return 'The request took too long to finish. Please try again.';
+  }
+  if (status === 413) {
+    return 'The uploaded file is too large. Please upload a smaller file.';
+  }
+  if (status === 429) {
+    return 'Too many requests right now. Please wait a moment and try again.';
+  }
+  if (status === 502 || status === 503 || status === 504) {
+    return 'The service is temporarily unavailable. Please try again in a moment.';
+  }
+  return 'Something went wrong while processing your request. Please try again.';
+};
+
 export const AUTH_EXPIRED_EVENT = 'squadpipe:auth-expired';
 export const USER_SESSION_SYNC_EVENT = 'squadpipe:user-session-sync';
 export const APP_TOAST_EVENT = 'squadpipe:app-toast';
@@ -91,6 +123,14 @@ apiClient.interceptors.response.use(
           },
         })
       );
+    }
+
+    const friendlyMsg = getCustomerFriendlyErrorMessage(error);
+    if (error?.response?.data && typeof error.response.data === 'object') {
+      error.response.data.message = friendlyMsg;
+    }
+    if (error && typeof error === 'object') {
+      error.message = friendlyMsg;
     }
 
     return Promise.reject(error);

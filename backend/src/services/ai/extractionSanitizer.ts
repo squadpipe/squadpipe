@@ -14,6 +14,18 @@ const ROLE_SUFFIX_RE =
 const PLURAL_ROLE_NOUNS_RE =
   /\b(Developers|Engineers|Architects|Consultants|Analysts|Managers|Directors|Specialists|Administrators|Designers|Coordinators|Technicians|Nurses|Accountants|Recruiters|Scientists|Strategists|Responders|Owners|Officers|Representatives|Supervisors|Paralegals|Underwriters|Planners|Buyers|Instructors|Therapists|Pharmacists|Physicians)$/i;
 
+const BARE_PLURAL_OR_OVERVIEW_ROLE_RE =
+  /^(?:consultants|candidates?|contractors?|resources?|professionals?|talent|staff|personnel|workers?|positions?|roles?|openings?|developers|engineers|architects|analysts|specialists|managers|designers|recruiters|coordinators|administrators|technicians)$/i;
+
+const GENERIC_SINGLE_ROLE_RE =
+  /^(?:consultant|developer|engineer|architect|analyst|specialist|manager|designer|lead|coordinator|administrator|technician|candidate|contractor|resource|position|role|opening)$/i;
+
+const DESIGNATION_HINT_RE =
+  /\b(?:manager|director|lead|head|vp|vice\s+president|president|chief|officer|ceo|cto|cfo|cio|coo|chro|ciso|partner|principal|architect|engineer|developer|consultant|recruiter|coordinator|specialist|analyst|administrator|supervisor|executive|owner|founder|delivery|account|hiring|talent|acquisition|staffing|operations|practice|program|project|hr|human\s+resources|people|vendor|resource)\b/i;
+
+const NON_DESIGNATION_SUFFIX_RE =
+  /^(?:jr\.?|sr\.?|ii|iii|iv|phd|md|esq\.?|cpa|pmp|inc\.?|llc|ltd\.?|corp\.?|co\.?|plc|gmbh|he\/him|she\/her|they\/them|remote|hybrid|onsite|usa|us|uk)$/i;
+
 const PAREN_METADATA_RE =
   /(?:remote|hybrid|onsite|on-site|in[- ]?office|wfh|contract|c2c|w-?2|1099|full[- ]?time|part[- ]?time|months?|mos?|weeks?|years?|yrs?|urgent|asap|\$\d+|£\d+|€\d+|^[A-Z][a-zA-Z .]+,\s*[A-Z]{2}$)/i;
 
@@ -259,6 +271,9 @@ export function purifyJobTitle(raw?: unknown): string {
   // Remove wrapping quotes if entire title was quoted
   candidate = candidate.replace(/^["']+|["']+$/g, '').trim();
 
+  // Strip numbered list markers ("1. Data Engineer", "2) Cloud Architect", "#1 Java Dev")
+  candidate = candidate.replace(/^(?:#?\d{1,2}\s*[.)]|#\d+)\s*/i, '').trim();
+
   // Strip email header tags and conversational lead-ins iteratively
   for (let i = 0; i < 4; i += 1) {
     const before = candidate;
@@ -325,9 +340,78 @@ export function purifyJobTitle(raw?: unknown): string {
   }
 
   candidate = candidate.replace(/^[\s:•\-–—/,&]+|[\s:•\-–—/,&.;]+$/g, '').trim();
-  if (!candidate || isPlaceholderText(candidate)) return '';
+  if (!candidate || isPlaceholderText(candidate) || BARE_PLURAL_OR_OVERVIEW_ROLE_RE.test(candidate)) {
+    return '';
+  }
 
   return formatPureTitleCase(candidate);
+}
+
+/**
+ * Returns true if the parsed title is only an unprefixed generic overview noun
+ * (e.g. "Consultants", "Engineers", "Position") rather than a specific requisition role.
+ */
+export function isGenericRoleTitle(text?: string): boolean {
+  const cleaned = sanitizeExtractedText(text);
+  if (!cleaned) return true;
+  return BARE_PLURAL_OR_OVERVIEW_ROLE_RE.test(cleaned) || GENERIC_SINGLE_ROLE_RE.test(cleaned);
+}
+
+/**
+ * Splits an inline "Person Name, Designation" or "Person Name - Designation" header
+ * without splitting hyphenated surnames or "Last, First" names.
+ */
+export function splitContactAndDesignation(
+  rawContact?: unknown,
+  rawTitle?: unknown
+): { name: string; title: string } {
+  let name = sanitizeExtractedText(rawContact)
+    .replace(/<[^>]*@[^>]*>/g, '')
+    .replace(/^["']+|["']+$/g, '')
+    .trim();
+  const explicitTitle = sanitizeExtractedText(rawTitle).replace(/^["']+|["']+$/g, '').trim();
+  let inferredTitle = '';
+
+  const parenMatch = name.match(/^(.+?)\s*\(([^()]{2,60})\)\s*$/);
+  if (parenMatch) {
+    const left = parenMatch[1].trim();
+    const paren = parenMatch[2].trim();
+    if (
+      left &&
+      paren &&
+      !NON_DESIGNATION_SUFFIX_RE.test(paren) &&
+      !/@|\d{3}/.test(paren) &&
+      DESIGNATION_HINT_RE.test(paren)
+    ) {
+      name = left;
+      inferredTitle = paren;
+    }
+  }
+
+  if (!inferredTitle) {
+    const delimMatch = name.match(
+      /^([A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z.'-]+){0,3})\s*(?:,\s*|\s+[-–—|]\s+)\s*(.+)$/
+    );
+    if (delimMatch) {
+      const left = delimMatch[1].trim();
+      const rhs = delimMatch[2].trim().replace(/^[,\s-]+|[,\s-]+$/g, '');
+      if (
+        left &&
+        rhs &&
+        !NON_DESIGNATION_SUFFIX_RE.test(rhs) &&
+        !/@|\d{4}/.test(rhs) &&
+        DESIGNATION_HINT_RE.test(rhs)
+      ) {
+        name = left;
+        inferredTitle = rhs;
+      }
+    }
+  }
+
+  return {
+    name,
+    title: explicitTitle || inferredTitle,
+  };
 }
 
 /**

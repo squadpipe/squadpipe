@@ -1302,6 +1302,68 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
     );
   };
 
+  const renderActivatePlacementButton = (variant: 'header' | 'card') => {
+    if (submissions.length === 0 && !isPositionsFull) return null;
+
+    const fullMessage = `All open positions are already filled (${filledPositions}/${openPositions}).`;
+    const handleActivateClick = () => {
+      if (isPositionsFull) return;
+      const preferred =
+        submissions.find((s) => s.stage === 'Selected' && !isPlacedApplicant(s)) ||
+        submissions.find((s) => s.stage !== 'Closed' && !isPlacedApplicant(s)) ||
+        submissions[0];
+      onOpenPlacementWizard(
+        reqView,
+        preferred ? resolvePlacementCandidateForSubmission(preferred) : null
+      );
+    };
+
+    const enabledClasses =
+      variant === 'card'
+        ? 'border-emerald-300 bg-white hover:bg-emerald-50/50 text-emerald-700 cursor-pointer'
+        : 'border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-700 cursor-pointer';
+    const disabledClasses =
+      'border-slate-200 bg-slate-100/80 text-slate-400 cursor-not-allowed';
+
+    return (
+      <div
+        className={`relative group/full inline-flex ${
+          variant === 'card' ? 'self-start sm:self-auto' : ''
+        }`}
+        title={isPositionsFull ? fullMessage : 'Start placement onboarding'}
+      >
+        <button
+          type="button"
+          disabled={isPositionsFull}
+          aria-disabled={isPositionsFull}
+          onClick={handleActivateClick}
+          className={`h-8 px-3 rounded-lg border text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors ${
+            isPositionsFull ? disabledClasses : enabledClasses
+          }`}
+        >
+          <FileSpreadsheet
+            className={`${
+              variant === 'card' ? 'w-3.5 h-3.5' : 'w-3 h-3'
+            } ${isPositionsFull ? 'text-slate-400' : 'text-emerald-600'}`}
+          />
+          <span>Activate placement</span>
+        </button>
+
+        {isPositionsFull && (
+          <div
+            role="tooltip"
+            className="pointer-events-none opacity-0 invisible group-hover/full:opacity-100 group-hover/full:visible group-focus-within/full:opacity-100 group-focus-within/full:visible transition-all duration-150 absolute right-0 top-full mt-2 z-40 w-64 rounded-xl bg-slate-900 text-white px-3 py-2 text-[11px] leading-snug shadow-lg"
+          >
+            <div className="font-semibold text-white">All positions are filled</div>
+            <div className="text-slate-300 mt-0.5">
+              {filledPositions}/{openPositions} filled. Edit Open Positions to add another placement.
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const reqTabs: Array<DetailTabItem<'applicants' | 'placed' | 'details'>> = [
     {
       id: 'applicants',
@@ -1395,25 +1457,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
             </button>
           )}
 
-          {submissions.length > 0 && !isPositionsFull && (
-            <button
-              type="button"
-              onClick={() => {
-                const preferredSub =
-                  submissions.find((s) => s.stage === 'Selected') ||
-                  submissions.find((s) => s.stage !== 'Closed') ||
-                  submissions[0];
-                onOpenPlacementWizard(
-                  reqView,
-                  preferredSub ? resolvePlacementCandidateForSubmission(preferredSub) : null
-                );
-              }}
-              className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-700 text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <FileSpreadsheet className="w-3 h-3 text-emerald-600" />
-              <span>Activate placement</span>
-            </button>
-          )}
+          {renderActivatePlacementButton('header')}
 
           <button
             type="button"
@@ -1828,22 +1872,7 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
               </span>
             </div>
 
-            {submissions.length > 0 && !isPositionsFull && (
-              <button
-                type="button"
-                onClick={() => {
-                  const preferred =
-                    submissions.find((s) => s.stage === 'Selected' && !isPlacedApplicant(s)) ||
-                    submissions.find((s) => s.stage !== 'Closed' && !isPlacedApplicant(s)) ||
-                    submissions[0];
-                  onOpenPlacementWizard(reqView, resolvePlacementCandidateForSubmission(preferred));
-                }}
-                className="h-8 px-3 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-50/50 text-emerald-700 text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Activate placement</span>
-              </button>
-            )}
+            {renderActivatePlacementButton('card')}
           </div>
 
           {linkedPlacements.length === 0 ? (
@@ -1877,223 +1906,302 @@ export const RequirementDetailPage: React.FC<RequirementDetailPageProps> = ({
                 </div>
               </div>
             </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-white border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    <tr>
-                      <SortableTableHeader
-                        label="Consultant &amp; Role"
-                        column="resourceName"
-                        sort={placedSort.sort}
-                        onSort={placedSort.handleSort}
-                        defaultDir="asc"
-                        className="px-6 py-3"
-                      />
-                      <SortableTableHeader
-                        label="Client / Vendor"
-                        column="customer"
-                        sort={placedSort.sort}
-                        onSort={placedSort.handleSort}
-                        defaultDir="asc"
-                        className="px-5 py-3 whitespace-nowrap"
-                      />
-                      <SortableTableHeader
-                        label="SOW Period"
-                        column="startDate"
-                        sort={placedSort.sort}
-                        onSort={placedSort.handleSort}
-                        defaultDir="desc"
-                        className="px-5 py-3 whitespace-nowrap"
-                      />
-                      <SortableTableHeader
-                        label="Commercials"
-                        column="billRate"
-                        sort={placedSort.sort}
-                        onSort={placedSort.handleSort}
-                        defaultDir="desc"
-                        disabled={rateMasked}
-                        className="px-5 py-3 whitespace-nowrap"
-                      />
-                      <SortableTableHeader
-                        label="Status"
-                        column="status"
-                        sort={placedSort.sort}
-                        onSort={placedSort.handleSort}
-                        defaultDir="asc"
-                        className="px-5 py-3 whitespace-nowrap"
-                      />
-                      <th className="px-6 py-3 text-right whitespace-nowrap">Record</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {placedPg.pagedItems.map((p) => {
-                      const pDisplayName = formatDisplayName(p.resourceName, 'Consultant');
-                      const pInitials = pDisplayName
-                        .split(' ')
-                        .map((n) => n[0])
-                        .join('')
-                        .slice(0, 2)
-                        .toUpperCase();
-                      const matchedCand = candidates.find(
-                        (c) =>
-                          (p.candidateId && c.id === p.candidateId) ||
-                          c.fullName.trim().toLowerCase() === p.resourceName.trim().toLowerCase()
-                      );
-                      const statusStr = p.status || 'Active';
-                      const statusTone =
-                        statusStr === 'Completed' || statusStr === 'Terminated'
-                          ? 'slate'
-                          : statusStr === 'Expiring Soon'
-                            ? 'amber'
-                            : 'emerald';
+          ) : (() => {
+            const preparedPlacements = placedPg.pagedItems.map((p) => {
+              const displayName = formatDisplayName(p.resourceName, 'Consultant');
+              const initials = displayName
+                .split(' ')
+                .map((n) => n[0])
+                .join('')
+                .slice(0, 2)
+                .toUpperCase();
+              const matchedCand = candidates.find(
+                (c) =>
+                  (p.candidateId && c.id === p.candidateId) ||
+                  c.fullName.trim().toLowerCase() === p.resourceName.trim().toLowerCase()
+              );
+              const statusStr = p.status || 'Active';
+              const statusTone: 'slate' | 'amber' | 'emerald' =
+                statusStr === 'Completed' || statusStr === 'Terminated'
+                  ? 'slate'
+                  : statusStr === 'Expiring Soon'
+                    ? 'amber'
+                    : 'emerald';
+              const roleTitle = p.skillRole || reqView.opportunityTitle;
+              const metaItems = [p.placementType, p.deployment].filter(Boolean) as string[];
+              return {
+                p,
+                displayName,
+                initials,
+                matchedCand,
+                statusStr,
+                statusTone,
+                roleTitle,
+                metaItems,
+              };
+            });
 
-                      return (
-                        <tr
-                          key={p.id}
-                          onClick={
-                            !p.isSummaryOnly && onSelectPlacement
-                              ? () => onSelectPlacement(p)
-                              : undefined
-                          }
-                          className={`transition-colors ${!p.isSummaryOnly && onSelectPlacement
-                              ? 'hover:bg-slate-50/80 cursor-pointer group'
-                              : 'hover:bg-slate-50/50'
-                            }`}
+            const renderIdentity = (row: (typeof preparedPlacements)[number]) => (
+              <div className="flex items-start gap-3.5 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">
+                  {row.initials}
+                </div>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {row.matchedCand ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenResumePreview(row.matchedCand!);
+                        }}
+                        className="font-bold text-slate-900 hover:text-brand-600 text-sm cursor-pointer text-left truncate max-w-full"
+                      >
+                        {row.displayName}
+                      </button>
+                    ) : (
+                      <span className="font-bold text-slate-900 text-sm truncate max-w-full">
+                        {row.displayName}
+                      </span>
+                    )}
+                    {row.p.purchaseOrderNumber && (
+                      <span className="inline-flex items-center text-[11px] font-mono px-2 py-0.5 rounded-full bg-white border border-slate-300 text-slate-700 font-semibold whitespace-nowrap shrink-0">
+                        PO {row.p.purchaseOrderNumber}
+                      </span>
+                    )}
+                  </div>
+                  {row.roleTitle && (
+                    <div
+                      className="text-[11px] font-medium text-slate-600 leading-snug line-clamp-2"
+                      title={row.roleTitle}
+                    >
+                      {row.roleTitle}
+                    </div>
+                  )}
+                  {row.metaItems.length > 0 && (
+                    <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-slate-500">
+                      {row.metaItems.map((item, idx) => (
+                        <span
+                          key={`${item}-${idx}`}
+                          className="inline-flex items-center gap-1.5 whitespace-nowrap"
                         >
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-3.5 min-w-0">
-                              <div className="w-9 h-9 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold text-[11px] flex-shrink-0">
-                                {pInitials}
-                              </div>
-                              <div className="min-w-0 space-y-0.5">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  {matchedCand ? (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        onOpenResumePreview(matchedCand);
-                                      }}
-                                      className="font-bold text-slate-900 hover:text-brand-600 text-sm cursor-pointer text-left"
-                                    >
-                                      {pDisplayName}
-                                    </button>
-                                  ) : (
-                                    <span className="font-bold text-slate-900 text-sm">
-                                      {pDisplayName}
-                                    </span>
-                                  )}
-                                  {p.purchaseOrderNumber && (
-                                    <span className="inline-flex items-center text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-white border border-slate-300 text-slate-700 font-semibold">
-                                      PO {p.purchaseOrderNumber}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap">
-                                  <span className="font-medium text-slate-600">
-                                    {p.skillRole || reqView.opportunityTitle}
-                                  </span>
-                                  {p.placementType && (
-                                    <>
-                                      <span className="text-slate-300">&bull;</span>
-                                      <span>{p.placementType}</span>
-                                    </>
-                                  )}
-                                  {p.deployment && (
-                                    <>
-                                      <span className="text-slate-300">&bull;</span>
-                                      <span>{p.deployment}</span>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
+                          {idx > 0 && (
+                            <span className="text-slate-300" aria-hidden="true">
+                              &bull;
+                            </span>
+                          )}
+                          <span>{item}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
 
-                          <td className="px-5 py-4 whitespace-nowrap">
+            const renderCommercials = (p: (typeof preparedPlacements)[number]['p']) =>
+              rateMasked ? (
+                <MaskedValue value="" isMasked={true} className="font-semibold" />
+              ) : p.billing || p.payRate ? (
+                <div className="space-y-0.5">
+                  <div className="font-bold text-slate-900">
+                    {p.billing ? `Bill ${formatRate(p.billing)}` : 'Bill TBD'}
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    {p.payRate ? `Pay ${formatRate(p.payRate)}` : ''}
+                    {typeof p.hourlySpread === 'number' && p.hourlySpread !== 0 && (
+                      <span className="ml-1.5 text-emerald-700 font-semibold">
+                        (+{currencySymbol}
+                        {p.hourlySpread.toFixed(2)}/hr)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <span className="text-slate-400 font-sans">&mdash;</span>
+              );
+
+            const renderRecordButton = (p: (typeof preparedPlacements)[number]['p']) =>
+              !p.isSummaryOnly && onSelectPlacement ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectPlacement(p);
+                  }}
+                  className="h-7 px-2.5 inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white group-hover:border-brand-300 group-hover:text-brand-700 text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  <span>View Details</span>
+                  <ArrowRight className="w-3 h-3" />
+                </button>
+              ) : (
+                <span className="text-[11px] text-slate-400">Placed</span>
+              );
+
+            return (
+              <>
+                {/* Desktop Table */}
+                <div className="hidden lg:block overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-white border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                      <tr>
+                        <SortableTableHeader
+                          label="Consultant &amp; Role"
+                          column="resourceName"
+                          sort={placedSort.sort}
+                          onSort={placedSort.handleSort}
+                          defaultDir="asc"
+                          className="pl-6 pr-4 py-3 min-w-[270px] whitespace-nowrap"
+                        />
+                        <SortableTableHeader
+                          label="Client / Vendor"
+                          column="customer"
+                          sort={placedSort.sort}
+                          onSort={placedSort.handleSort}
+                          defaultDir="asc"
+                          className="px-4 py-3 whitespace-nowrap"
+                        />
+                        <SortableTableHeader
+                          label="SOW Period"
+                          column="startDate"
+                          sort={placedSort.sort}
+                          onSort={placedSort.handleSort}
+                          defaultDir="desc"
+                          className="px-4 py-3 whitespace-nowrap"
+                        />
+                        <SortableTableHeader
+                          label="Commercials"
+                          column="billRate"
+                          sort={placedSort.sort}
+                          onSort={placedSort.handleSort}
+                          defaultDir="desc"
+                          disabled={rateMasked}
+                          className="px-4 py-3 whitespace-nowrap"
+                        />
+                        <SortableTableHeader
+                          label="Status"
+                          column="status"
+                          sort={placedSort.sort}
+                          onSort={placedSort.handleSort}
+                          defaultDir="asc"
+                          className="px-4 py-3 whitespace-nowrap"
+                        />
+                        <th className="pl-4 pr-6 py-3 text-right whitespace-nowrap">Record</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {preparedPlacements.map((row) => {
+                        const { p } = row;
+                        return (
+                          <tr
+                            key={p.id}
+                            onClick={
+                              !p.isSummaryOnly && onSelectPlacement
+                                ? () => onSelectPlacement(p)
+                                : undefined
+                            }
+                            className={`transition-colors ${!p.isSummaryOnly && onSelectPlacement
+                                ? 'hover:bg-slate-50/80 cursor-pointer group'
+                                : 'hover:bg-slate-50/50'
+                              }`}
+                          >
+                            <td className="pl-6 pr-4 py-4 align-middle min-w-[270px] max-w-[360px]">
+                              {renderIdentity(row)}
+                            </td>
+
+                            <td className="px-4 py-4 align-middle min-w-[160px] max-w-[230px]">
+                              <div className="font-semibold text-slate-800 leading-snug">
+                                {p.customer || reqView.companyName}
+                              </div>
+                              {p.vendorName && (
+                                <div className="text-[11px] text-amber-700 font-medium mt-0.5">
+                                  via {p.vendorName}
+                                </div>
+                              )}
+                            </td>
+
+                            <td className="px-4 py-4 align-middle whitespace-nowrap text-slate-600 font-mono text-[11px] tabular-nums">
+                              {p.startDate || p.endDate ? (
+                                <span>
+                                  {p.startDate || 'TBD'} &rarr; {p.endDate || 'Ongoing'}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 font-sans">Dates in billing record</span>
+                              )}
+                            </td>
+
+                            <td className="px-4 py-4 align-middle whitespace-nowrap font-mono tabular-nums">
+                              {renderCommercials(p)}
+                            </td>
+
+                            <td className="px-4 py-4 align-middle whitespace-nowrap">
+                              <StatusBadge label={row.statusStr} tone={row.statusTone} size="xs" />
+                            </td>
+
+                            <td className="pl-4 pr-6 py-4 align-middle text-right whitespace-nowrap">
+                              {renderRecordButton(p)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Compact / Mobile Stacked Cards */}
+                <div className="lg:hidden divide-y divide-slate-100">
+                  {preparedPlacements.map((row) => {
+                    const { p } = row;
+                    return (
+                      <div key={p.id} className="px-5 py-4 space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">{renderIdentity(row)}</div>
+                          <StatusBadge label={row.statusStr} tone={row.statusTone} size="xs" />
+                        </div>
+                        <div className="pl-12 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-600">
+                          <div>
+                            <div className="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">
+                              Client / Vendor
+                            </div>
                             <div className="font-semibold text-slate-800">
                               {p.customer || reqView.companyName}
                             </div>
                             {p.vendorName && (
-                              <div className="text-[11px] text-amber-700 font-medium">
-                                via {p.vendorName}
-                              </div>
+                              <div className="text-amber-700 font-medium">via {p.vendorName}</div>
                             )}
-                          </td>
+                          </div>
+                          <div>
+                            <div className="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">
+                              SOW Period
+                            </div>
+                            <div className="font-mono tabular-nums text-slate-700">
+                              {p.startDate || p.endDate
+                                ? `${p.startDate || 'TBD'} → ${p.endDate || 'Ongoing'}`
+                                : 'Dates in billing record'}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="pl-12 flex items-center justify-between gap-3 flex-wrap">
+                          <div className="font-mono tabular-nums text-xs">{renderCommercials(p)}</div>
+                          {renderRecordButton(p)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
 
-                          <td className="px-5 py-4 whitespace-nowrap text-slate-600 font-mono text-[11px]">
-                            {p.startDate || p.endDate ? (
-                              <span>
-                                {p.startDate || 'TBD'} &rarr; {p.endDate || 'Ongoing'}
-                              </span>
-                            ) : (
-                              <span className="text-slate-400 font-sans">Dates in billing record</span>
-                            )}
-                          </td>
-
-                          <td className="px-5 py-4 whitespace-nowrap font-mono">
-                            {rateMasked ? (
-                              <MaskedValue value="" isMasked={true} className="font-semibold" />
-                            ) : p.billing || p.payRate ? (
-                              <div className="space-y-0.5">
-                                <div className="font-bold text-slate-900">
-                                  {p.billing ? `Bill ${formatRate(p.billing)}` : 'Bill TBD'}
-                                </div>
-                                <div className="text-[11px] text-slate-500">
-                                  {p.payRate ? `Pay ${formatRate(p.payRate)}` : ''}
-                                  {typeof p.hourlySpread === 'number' && p.hourlySpread !== 0 && (
-                                    <span className="ml-1.5 text-emerald-700 font-semibold">
-                                      (+{currencySymbol}
-                                      {p.hourlySpread.toFixed(2)}/hr)
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            ) : (
-                              <span className="text-slate-400 font-sans">&mdash;</span>
-                            )}
-                          </td>
-
-                          <td className="px-5 py-4 whitespace-nowrap">
-                            <StatusBadge label={statusStr} tone={statusTone} size="xs" />
-                          </td>
-
-                          <td className="px-6 py-4 text-right whitespace-nowrap">
-                            {!p.isSummaryOnly && onSelectPlacement ? (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onSelectPlacement(p);
-                                }}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-slate-200 bg-white group-hover:border-brand-300 group-hover:text-brand-700 text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
-                              >
-                                <span>View Details</span>
-                                <ArrowRight className="w-3 h-3" />
-                              </button>
-                            ) : (
-                              <span className="text-[11px] text-slate-400">Placed</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <TablePagination
-                page={placedPg.page}
-                limit={placedPg.limit}
-                total={placedPg.total}
-                onPageChange={placedPg.setPage}
-                onLimitChange={placedPg.setLimit}
-                itemLabel="placements"
-                pageSizeOptions={[10, 20, 50]}
-              />
-            </>
-          )}
+                <TablePagination
+                  page={placedPg.page}
+                  limit={placedPg.limit}
+                  total={placedPg.total}
+                  onPageChange={placedPg.setPage}
+                  onLimitChange={placedPg.setLimit}
+                  itemLabel="placements"
+                  pageSizeOptions={[10, 20, 50]}
+                />
+              </>
+            );
+          })()}
         </div>
       )}
 

@@ -6,28 +6,63 @@ import {
 } from './extractionSanitizer';
 import { sanitizePublicSummaryHtml } from '../../utils/publicSummary';
 
+const coerceString = (val: unknown) =>
+  val === null || val === undefined ? '' : typeof val === 'string' ? val : String(val);
+
 const cleanStringList = (maxItems: number, maxLen: number) =>
-  z
-    .array(z.string())
-    .default([])
-    .transform((items) =>
-      items
-        .map((s) => sanitizeExtractedText(s).slice(0, maxLen))
-        .filter(Boolean)
-        .slice(0, maxItems)
-    );
+  z.preprocess(
+    (val) => (Array.isArray(val) ? val.map((item) => coerceString(item)) : []),
+    z
+      .array(z.string())
+      .default([])
+      .transform((items) =>
+        items
+          .map((s) => sanitizeExtractedText(s).slice(0, maxLen))
+          .filter(Boolean)
+          .slice(0, maxItems)
+      )
+  );
 
 const sanitizedString = (maxLen: number) =>
-  z
-    .string()
-    .default('')
-    .transform((s) => sanitizeExtractedText(s).slice(0, maxLen));
+  z.preprocess(
+    coerceString,
+    z
+      .string()
+      .default('')
+      .transform((s) => sanitizeExtractedText(s).slice(0, maxLen))
+  );
 
 const boundedString = (maxLen: number) =>
-  z
-    .string()
-    .trim()
-    .transform((s) => s.slice(0, maxLen));
+  z.preprocess(
+    coerceString,
+    z
+      .string()
+      .trim()
+      .transform((s) => s.slice(0, maxLen))
+  );
+
+const optionalPositiveInt = (maxVal: number) =>
+  z.preprocess((val) => {
+    if (val === null || val === undefined || val === '') return undefined;
+    const num =
+      typeof val === 'number' ? val : Number(String(val).replace(/[^0-9.-]/g, '').trim());
+    if (!Number.isFinite(num) || num < 1) return undefined;
+    return Math.min(maxVal, Math.round(num));
+  }, z.number().int().min(1).max(maxVal).optional());
+
+const nonNegativeNumber = (maxVal: number) =>
+  z.preprocess((val) => {
+    if (val === null || val === undefined || val === '') return 0;
+    const num =
+      typeof val === 'number' ? val : Number(String(val).replace(/[^0-9.-]/g, '').trim());
+    if (!Number.isFinite(num) || num < 0) return 0;
+    return Math.min(maxVal, Math.round(num * 100) / 100);
+  }, z.number().min(0).max(maxVal).default(0));
+
+const clampedScore = () =>
+  z.coerce
+    .number()
+    .transform((n) => (Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 0));
 
 export const ResumeParseAiSchema = z.object({
   fullName: sanitizedString(120),
@@ -44,11 +79,14 @@ export const ResumeParseAiSchema = z.object({
 
 export const EmailIntakeAiSchema = z.object({
   companyName: sanitizedString(120),
-  opportunityTitle: z
-    .string()
-    .default('')
-    .transform((s) => purifyJobTitle(s).slice(0, 160)),
-  openPositions: z.coerce.number().int().min(1).max(1000).optional(),
+  opportunityTitle: z.preprocess(
+    coerceString,
+    z
+      .string()
+      .default('')
+      .transform((s) => purifyJobTitle(s).slice(0, 160))
+  ),
+  openPositions: optionalPositiveInt(1000),
   clientContact: sanitizedString(120),
   clientContactEmail: sanitizedString(160),
   clientContactTitle: sanitizedString(120),
@@ -61,25 +99,27 @@ export const EmailIntakeAiSchema = z.object({
       return 'Remote';
     }, z.enum(['Remote', 'Hybrid', 'Onsite']))
     .default('Remote'),
-  targetBillRate: z.coerce.number().min(0).max(10000).default(0),
-  targetPayRate: z.coerce.number().min(0).max(10000).default(0),
+  targetBillRate: nonNegativeNumber(10000),
+  targetPayRate: nonNegativeNumber(10000),
   skills: cleanStringList(30, 60),
-  missingNotes: z
-    .string()
-    .default('')
-    .transform((s) => sanitizeMissingNotes(s).slice(0, 500)),
-  publicDescription: z
-    .string()
-    .default('')
-    .transform((s) => sanitizePublicSummaryHtml(s).slice(0, 3000)),
+  missingNotes: z.preprocess(
+    coerceString,
+    z
+      .string()
+      .default('')
+      .transform((s) => sanitizeMissingNotes(s).slice(0, 500))
+  ),
+  publicDescription: z.preprocess(
+    coerceString,
+    z
+      .string()
+      .default('')
+      .transform((s) => sanitizePublicSummaryHtml(s).slice(0, 3000))
+  ),
 });
 
 export const SubmissionCapabilityAiSchema = z.object({
-  fitScore: z.coerce
-    .number()
-    .min(0)
-    .max(100)
-    .transform((n) => Math.round(n)),
+  fitScore: clampedScore(),
   recommendation: z.enum(['STRONG_FIT', 'GOOD_FIT', 'PARTIAL_FIT', 'LOW_FIT']),
   strengths: cleanStringList(6, 180),
   gaps: cleanStringList(6, 180),
@@ -91,11 +131,7 @@ export const BatchRankAiSchema = z.object({
     .array(
       z.object({
         candidateId: z.string().trim().min(1),
-        fitScore: z.coerce
-          .number()
-          .min(0)
-          .max(100)
-          .transform((n) => Math.round(n)),
+        fitScore: clampedScore(),
         matchedHighlights: cleanStringList(5, 140),
         gaps: cleanStringList(5, 140),
         oneLineSummary: boundedString(240).refine((s) => s.length >= 1, 'oneLineSummary must not be empty'),

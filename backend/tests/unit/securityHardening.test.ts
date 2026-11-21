@@ -149,6 +149,22 @@ export const runSecurityHardeningTests = () => {
     sanitizeThrownError({ code: 'P2002' }, 'Fallback error', false),
     'A record with these details already exists.'
   );
+  assert.equal(
+    sanitizeErrorMessage(
+      'AI JSON repair failed: Schema validation failed: openPositions: Number must be greater than or equal to 1',
+      'Friendly parse fallback',
+      false
+    ),
+    'Friendly parse fallback'
+  );
+  assert.equal(
+    sanitizeErrorMessage(
+      'Failed to upload CV to CLOUDFLARE storage (403): AccessDenied',
+      'Friendly upload fallback',
+      true
+    ),
+    'Friendly upload fallback'
+  );
 
   // 7. Tenant-isolated unique CV object keys
   assert.equal(resolveCvStorageProvider('local'), 'local');
