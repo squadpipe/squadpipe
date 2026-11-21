@@ -1,5 +1,17 @@
 import assert from 'node:assert/strict';
-import { getJwtAccessSecret } from '../../src/config/jwt.config';
+import {
+  getJwtAccessSecret,
+  getJwtRefreshExpiryMs,
+  parseDurationToMs,
+} from '../../src/config/jwt.config';
+import {
+  createRawSessionToken,
+  hashSessionRefreshToken,
+  isValidRawSessionTokenFormat,
+  parseCookieHeader,
+  resolveRefreshCookieOptions,
+  SESSION_TOKEN_DB_PREFIX,
+} from '../../src/services/sessionToken.service';
 import {
   decryptSecret,
   encryptSecret,
@@ -165,6 +177,22 @@ export const runSecurityHardeningTests = () => {
     ),
     'Friendly upload fallback'
   );
+  assert.equal(
+    sanitizeErrorMessage(
+      'Please configure SMTP_HOST environment variables on the server',
+      'Friendly config fallback',
+      false
+    ),
+    'Friendly config fallback'
+  );
+  assert.equal(
+    sanitizeErrorMessage(
+      'JsonWebTokenError: invalid signature',
+      'Your session has expired. Please sign in again.',
+      false
+    ),
+    'Your session has expired. Please sign in again.'
+  );
 
   // 7. Tenant-isolated unique CV object keys
   assert.equal(resolveCvStorageProvider('local'), 'local');
@@ -217,6 +245,50 @@ export const runSecurityHardeningTests = () => {
     }
   );
   assert.equal(unmaskedNext, true);
+
+  // 11. Refresh token duration parsing, hashing isolation, cookie parsing & HTTPS/HTTP flags
+  assert.equal(parseDurationToMs('15m', 1000), 15 * 60 * 1000);
+  assert.equal(parseDurationToMs('7d', 1000), 7 * 24 * 60 * 60 * 1000);
+  withEnv({ JWT_REFRESH_EXPIRY: '14d' }, () => {
+    assert.equal(getJwtRefreshExpiryMs(true), 14 * 24 * 60 * 60 * 1000);
+    assert.equal(getJwtRefreshExpiryMs(false), 24 * 60 * 60 * 1000);
+  });
+
+  const persistentRaw = createRawSessionToken(true);
+  const ephemeralRaw = createRawSessionToken(false);
+  assert.equal(isValidRawSessionTokenFormat(persistentRaw), true);
+  assert.equal(isValidRawSessionTokenFormat(ephemeralRaw), true);
+  assert.equal(persistentRaw.startsWith('1.'), true);
+  assert.equal(ephemeralRaw.startsWith('0.'), true);
+  assert.equal(isValidRawSessionTokenFormat('reset_otp_123456'), false);
+
+  const hashedToken = hashSessionRefreshToken(persistentRaw);
+  assert.equal(hashedToken.startsWith(SESSION_TOKEN_DB_PREFIX), true);
+  assert.equal(hashedToken.includes(persistentRaw), false);
+
+  const parsedCookies = parseCookieHeader(`foo=bar; sp_refresh_token=${encodeURIComponent(persistentRaw)}`);
+  assert.equal(parsedCookies.sp_refresh_token, persistentRaw);
+
+  const localHttpCookieOpts = resolveRefreshCookieOptions(
+    { secure: false, headers: {} } as any,
+    604800000
+  );
+  assert.equal(localHttpCookieOpts.httpOnly, true);
+  assert.equal(localHttpCookieOpts.secure, false);
+  assert.equal(localHttpCookieOpts.sameSite, 'lax');
+  assert.equal(localHttpCookieOpts.path, '/api/v1/auth');
+  assert.equal(localHttpCookieOpts.maxAge, 604800000);
+
+  const prodHttpsCookieOpts = resolveRefreshCookieOptions(
+    {
+      secure: false,
+      headers: { 'x-forwarded-proto': 'https', origin: 'https://app.squadpipe.com' },
+    } as any,
+    604800000
+  );
+  assert.equal(prodHttpsCookieOpts.httpOnly, true);
+  assert.equal(prodHttpsCookieOpts.secure, true);
+  assert.equal(prodHttpsCookieOpts.sameSite, 'none');
 
   console.log('✅ Security, Encryption, CORS & Storage Hardening: PASSED');
 };

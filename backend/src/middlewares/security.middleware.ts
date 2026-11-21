@@ -140,6 +140,13 @@ export const sensitiveAuthRateLimiter = createRateLimiter({
   message: 'Too many password or verification attempts. Please try again later.',
 });
 
+export const refreshRateLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.REFRESH_RATE_LIMIT_MAX || 120),
+  keyPrefix: 'auth-refresh',
+  message: 'Too many session refresh requests. Please sign in again.',
+});
+
 export const emailRateLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: Number(process.env.EMAIL_RATE_LIMIT_MAX || 60),

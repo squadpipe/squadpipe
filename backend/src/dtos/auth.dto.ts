@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const LoginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
+  rememberMe: z.boolean().optional().default(true),
 });
 
 export const InviteUserSchema = z.object({

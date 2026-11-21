@@ -12,6 +12,15 @@ import { smtpService } from '../services/smtp.service';
 import { renderOtpEmail } from '../services/emailTemplate.service';
 import { analyticsService } from '../services/analytics.service';
 import { userService } from '../services/user.service';
+import {
+  clearSessionRefreshCookie,
+  getRefreshCookieFromRequest,
+  issueSessionRefreshToken,
+  revokeAllUserSessions,
+  revokeSessionRefreshToken,
+  rotateSessionRefreshToken,
+  setSessionRefreshCookie,
+} from '../services/sessionToken.service';
 
 async function resolveUserLiveWorkload(userId: string, tenantId: string, fallback: string | null) {
   try {
@@ -22,6 +31,72 @@ async function resolveUserLiveWorkload(userId: string, tenantId: string, fallbac
   }
 }
 
+async function buildSignedSessionPayload(
+  user: {
+    id: string;
+    email: string;
+    fullName: string;
+    agencyName: string | null;
+    tenantId: string | null;
+    role: UserRole;
+    desk: string | null;
+    rateMasked: boolean;
+    workload: string | null;
+    status: UserStatus;
+    tokenVersion: number;
+  },
+  options?: { isSuperAdminOverride?: boolean }
+) {
+  const tenantId = user.tenantId || `tenant_${user.id}`;
+  const settings = await getTenantSettings(tenantId);
+  const resolvedAgencyName =
+    settings.general.agencyName?.trim() || user.agencyName || 'SquadPipe Staffing';
+
+  const authPayload: AuthenticatedUser = {
+    id: user.id,
+    email: user.email,
+    fullName: user.fullName,
+    agencyName: resolvedAgencyName,
+    tenantId,
+    role: user.role,
+    rateMasked: user.rateMasked,
+    tokenVersion: user.tokenVersion,
+  };
+
+  const token = jwt.sign(authPayload, getJwtAccessSecret(), {
+    expiresIn: getJwtAccessExpiry() as jwt.SignOptions['expiresIn'],
+  });
+
+  const [liveWorkload, isSuperAdmin] = await Promise.all([
+    resolveUserLiveWorkload(user.id, tenantId, user.workload),
+    typeof options?.isSuperAdminOverride === 'boolean'
+      ? Promise.resolve(options.isSuperAdminOverride)
+      : userService.isSuperAdmin(tenantId, user.id).catch(() => false),
+  ]);
+
+  return {
+    token,
+    tenantId,
+    resolvedAgencyName,
+    user: {
+      id: user.id,
+      name: user.fullName,
+      fullName: user.fullName,
+      email: user.email,
+      agencyName: resolvedAgencyName,
+      tenantId,
+      role: user.role,
+      desk: user.desk,
+      rateMasked: user.rateMasked,
+      workload: liveWorkload,
+      status: user.status,
+      isSuperAdmin,
+      isCurrentUser: true,
+      lastActive: 'Active Now',
+    },
+  };
+}
+
 const OTP_RESEND_COOLDOWN_SECONDS = 120;
 
 export const login = async (req: Request, res: Response) => {
@@ -29,12 +104,11 @@ export const login = async (req: Request, res: Response) => {
   if (!parseResult.success) {
     return res.status(400).json({
       success: false,
-      message: 'Invalid login payload',
-      errors: parseResult.error.flatten()
+      message: 'Please enter a valid email address and password (at least 6 characters).',
     });
   }
 
-  const { email, password } = parseResult.data;
+  const { email, password, rememberMe } = parseResult.data;
 
   // Find user in database
   const user = await prisma.user.findUnique({
@@ -66,28 +140,10 @@ export const login = async (req: Request, res: Response) => {
     });
   }
 
-  const tenantId = user.tenantId || `tenant_${user.id}`;
-  const settings = await getTenantSettings(tenantId);
-  const resolvedAgencyName = settings.general.agencyName?.trim() || user.agencyName || 'SquadPipe Staffing';
-
-  // Build authenticated payload
-  const authPayload: AuthenticatedUser = {
-    id: user.id,
-    email: user.email,
-    fullName: user.fullName,
-    agencyName: resolvedAgencyName,
-    tenantId,
-    role: user.role,
-    rateMasked: user.rateMasked,
-    tokenVersion: user.tokenVersion
-  };
-
-  const token = jwt.sign(authPayload, getJwtAccessSecret(), {
-    expiresIn: getJwtAccessExpiry() as jwt.SignOptions['expiresIn']
-  });
+  const persistent = rememberMe !== false;
 
   // Update last active timestamp and activate invited user on valid sign-in
-  await prisma.user.update({
+  const updatedUser = await prisma.user.update({
     where: { id: user.id },
     data: {
       lastActiveAt: new Date(),
@@ -95,30 +151,18 @@ export const login = async (req: Request, res: Response) => {
     }
   });
 
-  const [liveWorkload, isSuperAdmin] = await Promise.all([
-    resolveUserLiveWorkload(user.id, authPayload.tenantId, user.workload),
-    userService.isSuperAdmin(authPayload.tenantId, user.id).catch(() => false),
+  const [session, refreshSessionData] = await Promise.all([
+    buildSignedSessionPayload(updatedUser),
+    issueSessionRefreshToken(updatedUser.id, persistent),
   ]);
+
+  setSessionRefreshCookie(req, res, refreshSessionData.rawToken, persistent);
 
   res.json({
     success: true,
-    message: `Welcome back, ${user.fullName}`,
-    token,
-    user: {
-      id: user.id,
-      name: user.fullName,
-      email: user.email,
-      agencyName: resolvedAgencyName,
-      tenantId: authPayload.tenantId,
-      role: user.role,
-      desk: user.desk,
-      rateMasked: user.rateMasked,
-      workload: liveWorkload,
-      status: user.status,
-      isSuperAdmin,
-      isCurrentUser: true,
-      lastActive: 'Active Now'
-    }
+    message: `Welcome back, ${updatedUser.fullName}`,
+    token: session.token,
+    user: session.user,
   });
 };
 
@@ -186,14 +230,55 @@ export const me = async (req: Request, res: Response) => {
   });
 };
 
-export const logout = async (req: Request, res: Response) => {
+export const refreshSession = async (req: Request, res: Response) => {
   try {
-    if (req.user?.id) {
-      await prisma.user.updateMany({
-        where: { id: req.user.id },
-        data: { tokenVersion: { increment: 1 } }
+    const rawToken = getRefreshCookieFromRequest(req);
+    const rotated = await rotateSessionRefreshToken(rawToken);
+
+    if (!rotated.ok) {
+      clearSessionRefreshCookie(req, res);
+      if (rotated.reason === 'suspended') {
+        return res.status(403).json({
+          success: false,
+          message: 'Account suspended. Contact your workspace administrator.',
+        });
+      }
+      return res.status(401).json({
+        success: false,
+        message: 'Your session has expired. Please sign in again.',
       });
     }
+
+    const session = await buildSignedSessionPayload(rotated.user);
+    setSessionRefreshCookie(req, res, rotated.newRawToken, rotated.persistent);
+
+    return res.json({
+      success: true,
+      token: session.token,
+      user: session.user,
+    });
+  } catch (error) {
+    console.error('Refresh session error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Unable to refresh your session right now. Please try again.',
+    });
+  }
+};
+
+export const logout = async (req: Request, res: Response) => {
+  try {
+    const rawRefreshToken = getRefreshCookieFromRequest(req);
+    if (rawRefreshToken) {
+      // Revoke only this browser/device refresh token so other active sessions remain signed in
+      await revokeSessionRefreshToken(rawRefreshToken);
+    } else if (req.user?.id) {
+      await prisma.user.updateMany({
+        where: { id: req.user.id },
+        data: { tokenVersion: { increment: 1 } },
+      });
+    }
+    clearSessionRefreshCookie(req, res);
     res.json({
       success: true,
       message: 'Signed out successfully'
@@ -329,42 +414,20 @@ export const signup = async (req: Request, res: Response) => {
       }
     });
 
-    const authPayload: AuthenticatedUser = {
-      id: user.id,
-      email: user.email,
-      fullName: user.fullName,
-      agencyName: user.agencyName,
-      tenantId: user.tenantId,
-      role: user.role,
-      rateMasked: user.rateMasked,
-      tokenVersion: user.tokenVersion
-    };
+    await saveGeneralSettings(tenantId, { agencyName: resolvedAgencyName }).catch(() => { });
 
-    const token = jwt.sign(authPayload, getJwtAccessSecret(), {
-      expiresIn: getJwtAccessExpiry() as jwt.SignOptions['expiresIn']
-    });
+    const [session, refreshSessionData] = await Promise.all([
+      buildSignedSessionPayload(user, { isSuperAdminOverride: !isDemoDomain }),
+      issueSessionRefreshToken(user.id, true),
+    ]);
 
-    await saveGeneralSettings(tenantId, { agencyName: resolvedAgencyName }).catch(() => {});
+    setSessionRefreshCookie(req, res, refreshSessionData.rawToken, true);
 
     res.status(201).json({
       success: true,
       message: `Account created successfully! Welcome to ${user.agencyName}, ${user.fullName}.`,
-      token,
-      user: {
-        id: user.id,
-        name: user.fullName,
-        email: user.email,
-        agencyName: user.agencyName,
-        tenantId: user.tenantId,
-        role: user.role,
-        desk: user.desk,
-        rateMasked: user.rateMasked,
-        workload: user.workload,
-        status: user.status,
-        isSuperAdmin: !isDemoDomain,
-        isCurrentUser: true,
-        lastActive: 'Active Now'
-      }
+      token: session.token,
+      user: session.user,
     });
   } catch (error: any) {
     console.error('Signup error:', error);
@@ -475,8 +538,8 @@ export const forgotPassword = async (req: Request, res: Response) => {
         success: false,
         message:
           mailResult.code === 'SMTP_NOT_CONFIGURED'
-            ? 'Password reset email service is not configured on the server. Please configure SMTP_* environment variables.'
-            : 'Unable to send password reset email right now. Please try again later.'
+            ? 'Password reset email is not set up for this workspace yet. Please ask your administrator for help.'
+            : 'Unable to send the verification email right now. Please try again later.'
       });
       return;
     }
@@ -643,6 +706,8 @@ export const resetPassword = async (req: Request, res: Response) => {
       })
     ]);
 
+    await revokeAllUserSessions(user.id);
+
     res.json({
       success: true,
       message: 'Your password has been reset successfully. Please sign in with your new credentials.'
@@ -769,41 +834,20 @@ export const acceptInvite = async (req: Request, res: Response) => {
       })
     ]);
 
-    const tenantId = updatedUser.tenantId || `tenant_${updatedUser.id}`;
-    const settings = await getTenantSettings(tenantId);
-    const resolvedAgencyName =
-      settings.general.agencyName?.trim() || updatedUser.agencyName || 'SquadPipe Staffing';
+    await revokeAllUserSessions(user.id);
 
-    const authPayload: AuthenticatedUser = {
-      id: updatedUser.id,
-      email: updatedUser.email,
-      fullName: updatedUser.fullName,
-      agencyName: resolvedAgencyName,
-      tenantId,
-      role: updatedUser.role,
-      rateMasked: updatedUser.rateMasked,
-      tokenVersion: updatedUser.tokenVersion
-    };
+    const [session, refreshSessionData] = await Promise.all([
+      buildSignedSessionPayload(updatedUser),
+      issueSessionRefreshToken(updatedUser.id, true),
+    ]);
 
-    const accessToken = jwt.sign(authPayload, getJwtAccessSecret(), {
-      expiresIn: getJwtAccessExpiry() as jwt.SignOptions['expiresIn']
-    });
+    setSessionRefreshCookie(req, res, refreshSessionData.rawToken, true);
 
     res.json({
       success: true,
-      message: `Welcome to ${resolvedAgencyName}, ${updatedUser.fullName}!`,
-      token: accessToken,
-      user: {
-        id: updatedUser.id,
-        email: updatedUser.email,
-        fullName: updatedUser.fullName,
-        agencyName: resolvedAgencyName,
-        tenantId,
-        role: updatedUser.role,
-        desk: updatedUser.desk,
-        rateMasked: updatedUser.rateMasked,
-        status: updatedUser.status
-      }
+      message: `Welcome to ${session.resolvedAgencyName}, ${updatedUser.fullName}!`,
+      token: session.token,
+      user: session.user,
     });
   } catch (error: any) {
     console.error('Accept invite error:', error);

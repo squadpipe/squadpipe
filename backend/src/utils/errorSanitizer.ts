@@ -33,6 +33,11 @@ const INTERNAL_ERROR_PATTERNS: RegExp[] = [
   /Resume parser service/i,
   /Number must be (?:greater|less) than/i,
   /Expected (?:string|number|boolean|object|array), received/i,
+  /environment variable/i,
+  /\b(?:SMTP|JWT|CLOUDFLARE_R2|AWS_S3|OPENAI|ANTHROPIC|GEMINI)_[A-Z0-9_]+\b/,
+  /\b(?:JsonWebTokenError|TokenExpiredError|NotBeforeError)\b/i,
+  /Request failed with status code/i,
+  /\b(?:EHOSTUNREACH|EPIPE)\b/i,
 ];
 
 const SERVER_5XX_DB_PATTERNS: RegExp[] = [

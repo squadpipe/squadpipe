@@ -42,9 +42,11 @@ import {
   authRateLimiter,
   emailRateLimiter,
   publicUploadRateLimiter,
+  refreshRateLimiter,
   sensitiveAuthRateLimiter,
   uploadRateLimiter,
 } from '../middlewares/security.middleware';
+import { revokeAllUserSessions } from '../services/sessionToken.service';
 import { escapeHtml, sanitizeEmailHtml } from '../utils/cryptoSecret';
 import { sanitizePublicSummaryHtml } from '../utils/publicSummary';
 import { capabilityService } from '../services/capability.service';
@@ -105,6 +107,8 @@ router.get('/health', async (_req: Request, res: Response) => {
 
 router.post('/auth/signup', authRateLimiter, authController.signup);
 router.post('/auth/login', authRateLimiter, authController.login);
+router.post('/auth/refresh', refreshRateLimiter, authController.refreshSession);
+router.post('/auth/logout', authController.logout);
 router.post('/auth/forgot-password', sensitiveAuthRateLimiter, authController.forgotPassword);
 router.post('/auth/verify-reset-otp', sensitiveAuthRateLimiter, authController.verifyResetOtp);
 router.post('/auth/reset-password', sensitiveAuthRateLimiter, authController.resetPassword);
@@ -239,7 +243,6 @@ router.use(rateMaskMiddleware);
 // Authenticated session routes
 router.get('/auth/me', authController.me);
 router.patch('/auth/profile', authController.updateProfile);
-router.post('/auth/logout', authController.logout);
 
 // Dashboard metrics
 router.get('/dashboard/metrics', async (req: Request, res: Response) => {
@@ -1037,8 +1040,8 @@ router.post('/smtp/send', emailRateLimiter, async (req: Request, res: Response) 
         message:
           result.error ||
           (isUnconfigured
-            ? 'Email (SMTP) is not configured. Please configure your SMTP settings in Settings → Email Setup (SMTP) to dispatch emails.'
-            : 'Failed to dispatch email via SMTP.'),
+            ? 'Email sending is not set up yet. Please configure your email settings in Settings -> Email Setup.'
+            : 'We could not send that email right now. Please check your email settings and try again.'),
         data: result,
       });
     }
@@ -1147,6 +1150,9 @@ router.put('/users/:id', requireRole([UserRole.ADMINISTRATOR]), async (req: Requ
         status: true,
       },
     });
+    if (isSuspending) {
+      await revokeAllUserSessions(user.id);
+    }
     res.json({ success: true, data: { ...updated, isSuperAdmin: targetIsSuperAdmin } });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'Failed to update user' });
@@ -1173,6 +1179,9 @@ router.patch('/users/:id/status', requireRole([UserRole.ADMINISTRATOR]), async (
       },
       select: { id: true, fullName: true, status: true }
     });
+    if (nextStatus === 'SUSPENDED') {
+      await revokeAllUserSessions(user.id);
+    }
     res.json({ success: true, data: updated });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Failed to update user status' });

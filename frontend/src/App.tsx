@@ -5,8 +5,15 @@ import { AppIcon } from './components/shared/AppIcon';
 import { AiBadge } from './components/shared/AiBrand';
 import { AnimatedToast } from './components/shared/MotionPrimitives';
 import { useBulkResumeQueue } from './hooks/useBulkResumeQueue';
-import { apiClient, APP_TOAST_EVENT, AUTH_EXPIRED_EVENT, USER_SESSION_SYNC_EVENT } from './config/api.config';
 import {
+  apiClient,
+  APP_TOAST_EVENT,
+  AUTH_EXPIRED_EVENT,
+  cleanCustomerErrorMessage,
+  USER_SESSION_SYNC_EVENT,
+} from './config/api.config';
+import {
+  ACCESS_TOKEN_KEY,
   clearAuthSession,
   getStoredAuthToken,
   getStoredCurrentUserRaw,
@@ -920,29 +927,8 @@ export const App: React.FC = () => {
   );
   const toastTimerRef = React.useRef<number | null>(null);
 
-  const sanitizeToastMessage = (rawMessage: string): string => {
-    const internalPatterns = [
-      /\bprisma\b/i,
-      /PrismaClient/i,
-      /ConnectorError/i,
-      /PostgresError/i,
-      /postgresql:\/\//i,
-      /postgres:\/\//i,
-      /Invalid `[^`]+` invocation/i,
-      /Can't reach database server/i,
-      /Unique constraint failed/i,
-      /Foreign key constraint/i,
-      /\brelation "[^"]+" does not exist\b/i,
-      /\bcolumn "[^"]+" (?:of relation "[^"]+" )?does not exist\b/i,
-      /\bdatabase "[^"]*" does not exist\b/i,
-      /\bpg_hba\b/i,
-      /\bECONNREFUSED\b/i,
-    ];
-    if (internalPatterns.some((pattern) => pattern.test(rawMessage))) {
-      return 'An unexpected error occurred. Please try again.';
-    }
-    return rawMessage;
-  };
+  const sanitizeToastMessage = (rawMessage: string): string =>
+    cleanCustomerErrorMessage(rawMessage, 'Something went wrong. Please try again.');
 
   const showToast = (
     title: string,
@@ -960,7 +946,8 @@ export const App: React.FC = () => {
   };
 
   const showApiErrorToast = (e: any, title: string, fallback: string) => {
-    const msg = e?.response?.data?.message || e?.response?.data?.error || fallback;
+    const msg =
+      e?.response?.data?.message || e?.response?.data?.error || e?.message || fallback;
     showToast(title, msg, 'error');
   };
 
@@ -1031,7 +1018,19 @@ export const App: React.FC = () => {
       );
     };
     window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
-    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+    const handleCrossTabSignOut = (e: StorageEvent) => {
+      if (e.key === ACCESS_TOKEN_KEY && !e.newValue && currentUserRef.current) {
+        resetWorkspaceState();
+        setCurrentUser(null);
+        setAuthToken(null);
+        setShowSignOutModal(false);
+      }
+    };
+    window.addEventListener('storage', handleCrossTabSignOut);
+    return () => {
+      window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+      window.removeEventListener('storage', handleCrossTabSignOut);
+    };
   }, []);
 
   useEffect(() => {

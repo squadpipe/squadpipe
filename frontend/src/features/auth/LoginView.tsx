@@ -143,6 +143,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
       const res = await apiClient.post('/auth/login', {
         email: loginEmail,
         password: loginPassword,
+        rememberMe,
       });
 
       if (res.data?.success && res.data.token) {
@@ -152,12 +153,17 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
         showToast('Authentication Successful', `Welcome back, ${user.name}!`, 'success');
         onLoginSuccess(user, token);
       } else {
-        setErrorMessage(res.data?.message || 'Login failed. Please verify credentials.');
+        setErrorMessage(
+          res.data?.message || 'We could not sign you in. Please double-check your details.'
+        );
       }
     } catch (err: any) {
-      const msg = err.response?.data?.message || 'Unable to connect to authentication server. Please check backend status.';
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'We could not sign you in right now. Please try again in a moment.';
       setErrorMessage(msg);
-      showToast('Authentication Error', msg, 'error');
+      showToast('Sign-In Issue', msg, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -215,12 +221,15 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
         showToast('Account Created', `Welcome to SquadPipe, ${user.name}!`, 'success');
         onLoginSuccess(user, token);
       } else {
-        setErrorMessage(res.data?.message || 'Registration failed.');
+        setErrorMessage(res.data?.message || 'We could not create your account. Please try again.');
       }
     } catch (err: any) {
-      const msg = err.response?.data?.message || 'Failed to create account. Please try again.';
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'We could not create your account right now. Please try again.';
       setErrorMessage(msg);
-      showToast('Signup Failed', msg, 'error');
+      showToast('Signup Issue', msg, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -412,7 +421,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
         setErrorMessage(res.data?.message || 'Password reset failed.');
       }
     } catch (err: any) {
-      const msg = err.response?.data?.message || 'Failed to reset password.';
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'We could not reset your password right now. Please try again.';
       setErrorMessage(msg);
     } finally {
       setIsLoading(false);
@@ -469,10 +481,16 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
         );
         onLoginSuccess(res.data.user, res.data.token);
       } else {
-        setErrorMessage(res.data?.message || 'Failed to complete onboarding.');
+        setErrorMessage(
+          res.data?.message || 'We could not complete your setup. Please try again.'
+        );
       }
     } catch (err: any) {
-      setErrorMessage(err?.response?.data?.message || 'Failed to complete onboarding.');
+      setErrorMessage(
+        err?.response?.data?.message ||
+          err?.message ||
+          'We could not complete your setup right now. Please try again.'
+      );
     } finally {
       setIsLoading(false);
     }

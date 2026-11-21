@@ -65,6 +65,19 @@ export function updateStoredCurrentUser(user: unknown, fallbackToLocal: boolean 
   }
 }
 
+export function updateStoredAuthToken(token: string): void {
+  if (typeof window === 'undefined' || !token) return;
+  for (const storage of [window.sessionStorage, window.localStorage]) {
+    if (storage.getItem(ACCESS_TOKEN_KEY) || storage.getItem(CURRENT_USER_KEY)) {
+      storage.setItem(ACCESS_TOKEN_KEY, token);
+      storage.removeItem(LEGACY_ACCESS_TOKEN_KEY);
+      return;
+    }
+  }
+  window.localStorage.setItem(ACCESS_TOKEN_KEY, token);
+  window.localStorage.removeItem(LEGACY_ACCESS_TOKEN_KEY);
+}
+
 export function clearAuthSession(): void {
   if (typeof window === 'undefined') return;
   for (const storage of [window.localStorage, window.sessionStorage]) {
