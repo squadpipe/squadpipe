@@ -45,6 +45,9 @@ const VIEW_LABELS: Record<string, string> = {
   usage: 'Usage & Storage',
   settings_general: 'General Settings',
   user_management: 'Team Members',
+  user_invite: 'Invite Team Members',
+  user_detail: 'Member Details',
+  user_edit: 'Edit Team Member',
 };
 
 interface TopbarProps {

@@ -71,21 +71,21 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 
 
 const createSingleFileUpload =
   (limitLabel = 'File') =>
-  (req: Request, res: Response, next: (err?: any) => void) => {
-    upload.single('file')(req, res, (err: any) => {
-      if (err instanceof multer.MulterError) {
-        const msg =
-          err.code === 'LIMIT_FILE_SIZE'
-            ? `${limitLabel} exceeds the 15 MB upload limit`
-            : err.message;
-        return res.status(400).json({ success: false, message: msg });
-      }
-      if (err) {
-        return res.status(400).json({ success: false, message: err.message || 'Invalid file upload' });
-      }
-      return next();
-    });
-  };
+    (req: Request, res: Response, next: (err?: any) => void) => {
+      upload.single('file')(req, res, (err: any) => {
+        if (err instanceof multer.MulterError) {
+          const msg =
+            err.code === 'LIMIT_FILE_SIZE'
+              ? `${limitLabel} exceeds the 15 MB upload limit`
+              : err.message;
+          return res.status(400).json({ success: false, message: msg });
+        }
+        if (err) {
+          return res.status(400).json({ success: false, message: err.message || 'Invalid file upload' });
+        }
+        return next();
+      });
+    };
 
 const optionalSingleCvUpload = createSingleFileUpload('CV file');
 const singleRequirementFileUpload = createSingleFileUpload('Requirement file');
@@ -489,9 +489,9 @@ router.post('/parse-resume', uploadRateLimiter, upload.single('file'), async (re
 
     const rawTextForAi = String(
       upstreamPayload?.data?.rawSnippet ||
-        upstreamPayload?.raw_text_snippet ||
-        upstreamPayload?.rawSnippet ||
-        ''
+      upstreamPayload?.raw_text_snippet ||
+      upstreamPayload?.rawSnippet ||
+      ''
     );
 
     const responsePayload = await buildEnhancedResumeParseResponse({
@@ -1067,7 +1067,9 @@ router.delete('/placements/:id', requireRole([UserRole.ADMINISTRATOR]), requireU
 
 // Users & Roles
 router.get('/users', userController.getUsers);
+router.get('/users/:id', userController.getUserById);
 router.post('/users/invite', requireRole([UserRole.ADMINISTRATOR]), userController.inviteUser);
+router.post('/users/invite/batch', requireRole([UserRole.ADMINISTRATOR]), userController.inviteUsersBatch);
 router.post('/users/:id/resend-invite', requireRole([UserRole.ADMINISTRATOR]), userController.resendUserInvite);
 router.put('/users/:id', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
   try {
@@ -1125,36 +1127,51 @@ router.put('/users/:id', requireRole([UserRole.ADMINISTRATOR]), async (req: Requ
       }
     }
 
+    if (req.user?.id === user.id && resolvedNextStatus === 'SUSPENDED') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot suspend your own active administrator account.',
+      });
+    }
+
+    const normalizedEmail = email ? String(email).trim().toLowerCase() : undefined;
+    if (email !== undefined && (!normalizedEmail || !normalizedEmail.includes('@'))) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid corporate email address.' });
+    }
+    if (normalizedEmail && normalizedEmail !== user.email.toLowerCase()) {
+      const emailTaken = await prisma.user.findUnique({
+        where: { email: normalizedEmail },
+        select: { id: true },
+      });
+      if (emailTaken && emailTaken.id !== user.id) {
+        return res.status(409).json({ success: false, message: 'A user with this email address already exists.' });
+      }
+    }
+
     const isSuspending = resolvedNextStatus === 'SUSPENDED' && user.status !== 'SUSPENDED';
 
-    const updated = await prisma.user.update({
+    await prisma.user.update({
       where: { id: user.id },
       data: {
         ...(fullName || name ? { fullName: String(fullName || name).trim() } : {}),
-        ...(email ? { email: String(email).trim().toLowerCase() } : {}),
+        ...(normalizedEmail ? { email: normalizedEmail } : {}),
         ...(resolvedNextRole ? { role: resolvedNextRole } : {}),
         ...(desk !== undefined ? { desk: String(desk).trim() } : {}),
         ...(rateMasked !== undefined ? { rateMasked: Boolean(rateMasked) } : {}),
         ...(resolvedNextStatus ? { status: resolvedNextStatus } : {}),
         ...(isSuspending ? { tokenVersion: { increment: 1 } } : {}),
       },
-      select: {
-        id: true,
-        tenantId: true,
-        fullName: true,
-        email: true,
-        role: true,
-        desk: true,
-        rateMasked: true,
-        workload: true,
-        status: true,
-      },
+      select: { id: true },
     });
     if (isSuspending) {
       await revokeAllUserSessions(user.id);
     }
-    res.json({ success: true, data: { ...updated, isSuperAdmin: targetIsSuperAdmin } });
+    const enrichedUpdated = await userService.getUserById(user.id, tenantId);
+    res.json({ success: true, data: enrichedUpdated });
   } catch (error: any) {
+    if (error?.code === 'P2002') {
+      return res.status(409).json({ success: false, message: 'A user with this email address already exists.' });
+    }
     res.status(500).json({ success: false, message: error.message || 'Failed to update user' });
   }
 });
@@ -1328,37 +1345,37 @@ router.put(
         includeCurrentTitle,
         requireCurrentTitle: Boolean(
           includeCurrentTitle &&
-            (body.requireCurrentTitle !== undefined
-              ? body.requireCurrentTitle
-              : current.requireCurrentTitle)
+          (body.requireCurrentTitle !== undefined
+            ? body.requireCurrentTitle
+            : current.requireCurrentTitle)
         ),
         includeExpectedRate,
         requireExpectedRate: Boolean(
           includeExpectedRate &&
-            (body.requireExpectedRate !== undefined
-              ? body.requireExpectedRate
-              : current.requireExpectedRate)
+          (body.requireExpectedRate !== undefined
+            ? body.requireExpectedRate
+            : current.requireExpectedRate)
         ),
         includeVendorName,
         requireVendorName: Boolean(
           includeVendorName &&
-            (body.requireVendorName !== undefined
-              ? body.requireVendorName
-              : current.requireVendorName)
+          (body.requireVendorName !== undefined
+            ? body.requireVendorName
+            : current.requireVendorName)
         ),
         includeNoticePeriod,
         requireNoticePeriod: Boolean(
           includeNoticePeriod &&
-            (body.requireNoticePeriod !== undefined
-              ? body.requireNoticePeriod
-              : current.requireNoticePeriod)
+          (body.requireNoticePeriod !== undefined
+            ? body.requireNoticePeriod
+            : current.requireNoticePeriod)
         ),
         includeLinkedinUrl,
         requireLinkedinUrl: Boolean(
           includeLinkedinUrl &&
-            (body.requireLinkedinUrl !== undefined
-              ? body.requireLinkedinUrl
-              : current.requireLinkedinUrl)
+          (body.requireLinkedinUrl !== undefined
+            ? body.requireLinkedinUrl
+            : current.requireLinkedinUrl)
         ),
         fieldWidths:
           body.fieldWidths && typeof body.fieldWidths === 'object'

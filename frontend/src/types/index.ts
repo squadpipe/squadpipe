@@ -19,6 +19,8 @@ export interface User {
   isSuperAdmin?: boolean;
   isCurrentUser?: boolean;
   lastActive: string;
+  lastActiveAt?: string;
+  createdAt?: string;
 }
 
 export interface Candidate {

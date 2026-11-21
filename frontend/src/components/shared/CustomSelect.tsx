@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence } from 'framer-motion';
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, Search, X } from 'lucide-react';
 import { AnimatedPopover } from './MotionPrimitives';
 
 export interface CustomSelectOption {
@@ -9,6 +9,7 @@ export interface CustomSelectOption {
   label: string;
   dotClass?: string;
   description?: string;
+  keywords?: string;
   disabled?: boolean;
 }
 
@@ -27,6 +28,10 @@ interface CustomSelectProps {
   className?: string;
   minMenuWidth?: number;
   prefixNode?: React.ReactNode;
+  searchable?: boolean;
+  searchPlaceholder?: string;
+  emptySearchText?: string;
+  menuMaxHeight?: number;
 }
 
 interface MenuCoords {
@@ -53,11 +58,19 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
   className = '',
   minMenuWidth = 140,
   prefixNode,
+  searchable = false,
+  searchPlaceholder = 'Search options...',
+  emptySearchText = 'No matching options found',
+  menuMaxHeight,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [coords, setCoords] = useState<MenuCoords | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [highlightedIdx, setHighlightedIdx] = useState(-1);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const normalizedOptions = useMemo<CustomSelectOption[]>(
     () =>
@@ -67,19 +80,36 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
     [options]
   );
 
+  const filteredOptions = useMemo<CustomSelectOption[]>(() => {
+    if (!searchable || !searchQuery.trim()) return normalizedOptions;
+    const tokens = searchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    return normalizedOptions.filter((opt) => {
+      const haystack = [opt.label, opt.value, opt.description, opt.keywords]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return tokens.every((token) => haystack.includes(token));
+    });
+  }, [normalizedOptions, searchable, searchQuery]);
+
   const stringValue = String(value ?? '');
   const selectedOption = normalizedOptions.find((o) => o.value === stringValue);
+  const capHeight = menuMaxHeight ?? (searchable ? 320 : 248);
 
   const computePosition = useCallback(() => {
     const el = triggerRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    const estimatedHeight = Math.min(248, Math.max(44, normalizedOptions.length * 34 + 10));
+    const searchHeaderOffset = searchable ? 48 : 0;
+    const estimatedHeight = Math.min(
+      capHeight,
+      Math.max(44 + searchHeaderOffset, normalizedOptions.length * 36 + 10 + searchHeaderOffset)
+    );
     const spaceBelow = window.innerHeight - rect.bottom - 8;
     const spaceAbove = rect.top - 8;
     const openUpwards = spaceBelow < estimatedHeight && spaceAbove > spaceBelow;
 
-    const menuWidth = Math.max(rect.width, minMenuWidth);
+    const menuWidth = Math.min(Math.max(rect.width, minMenuWidth), window.innerWidth - 16);
     const maxLeft = Math.max(8, window.innerWidth - menuWidth - 8);
     const left = Math.min(Math.max(8, rect.left), maxLeft);
 
@@ -88,21 +118,32 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         left,
         bottom: window.innerHeight - rect.top + 4,
         width: menuWidth,
-        maxHeight: Math.max(120, Math.min(248, spaceAbove)),
+        maxHeight: Math.max(140, Math.min(capHeight, spaceAbove)),
       });
     } else {
       setCoords({
         left,
         top: rect.bottom + 4,
         width: menuWidth,
-        maxHeight: Math.max(120, Math.min(248, spaceBelow)),
+        maxHeight: Math.max(140, Math.min(capHeight, spaceBelow)),
       });
     }
-  }, [normalizedOptions.length, minMenuWidth]);
+  }, [normalizedOptions.length, minMenuWidth, searchable, capHeight]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setSearchQuery('');
+      setHighlightedIdx(-1);
+      return;
+    }
+
     computePosition();
+
+    const focusTimer = searchable
+      ? window.requestAnimationFrame(() => {
+          searchInputRef.current?.focus();
+        })
+      : null;
 
     const handleMouseDown = (e: MouseEvent) => {
       const target = e.target as Node;
@@ -131,19 +172,31 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
     window.addEventListener('scroll', handleScrollOrResize, true);
     window.addEventListener('resize', handleScrollOrResize);
     return () => {
+      if (focusTimer !== null) window.cancelAnimationFrame(focusTimer);
       document.removeEventListener('mousedown', handleMouseDown);
       document.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('scroll', handleScrollOrResize, true);
       window.removeEventListener('resize', handleScrollOrResize);
     };
-  }, [isOpen, computePosition]);
+  }, [isOpen, searchable, computePosition]);
+
+  useEffect(() => {
+    if (highlightedIdx < 0 || !isOpen) return;
+    optionRefs.current[highlightedIdx]?.scrollIntoView({ block: 'nearest' });
+  }, [highlightedIdx, isOpen]);
+
+  const handleSelectOption = (opt: CustomSelectOption) => {
+    if (opt.disabled) return;
+    onChange(opt.value);
+    setIsOpen(false);
+  };
 
   const sizeClasses =
     size === 'xs'
       ? 'px-2 py-1 text-[11px] rounded-md'
       : size === 'sm'
       ? 'h-8 px-2.5 text-xs rounded-lg'
-      : 'px-3 py-2 text-xs rounded-lg';
+      : 'h-9 px-3 text-xs rounded-lg';
 
   return (
     <>
@@ -194,47 +247,131 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                   left: coords.left,
                   top: coords.top,
                   bottom: coords.bottom,
+                  width: coords.width,
                   minWidth: coords.width,
-                  maxWidth: Math.min(440, window.innerWidth - 16),
+                  maxWidth: Math.min(480, window.innerWidth - 16),
                   maxHeight: coords.maxHeight,
                   zIndex: 9999,
                 }}
-                className="bg-white border border-slate-200/95 rounded-xl popover-shadow py-1 overflow-y-auto custom-scrollbar select-none"
+                className="bg-white border border-slate-200/95 rounded-xl popover-shadow flex flex-col overflow-hidden select-none"
               >
-            {normalizedOptions.length === 0 ? (
-              <div className="px-3 py-2 text-[11px] text-slate-400 text-center">No options</div>
-            ) : (
-              normalizedOptions.map((opt) => {
-                const isSelected = opt.value === stringValue;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    role="option"
-                    aria-selected={isSelected}
-                    disabled={opt.disabled}
-                    onClick={() => {
-                      if (opt.disabled) return;
-                      onChange(opt.value);
-                      setIsOpen(false);
-                    }}
-                    className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between gap-2.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                      isSelected
-                        ? 'bg-brand-50/80 text-brand-700 font-semibold'
-                        : 'text-slate-700 hover:bg-slate-50 font-medium'
-                    }`}
-                  >
-                    <span className="inline-flex items-center gap-2 min-w-0">
-                      {opt.dotClass && (
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${opt.dotClass}`} />
+                {searchable && (
+                  <div className="p-2 border-b border-slate-100 bg-white shrink-0">
+                    <div className="relative flex items-center">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
+                      <input
+                        ref={searchInputRef}
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value);
+                          setHighlightedIdx(0);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'ArrowDown' && filteredOptions.length > 0) {
+                            e.preventDefault();
+                            setHighlightedIdx((prev) =>
+                              prev < 0 ? 0 : (prev + 1) % filteredOptions.length
+                            );
+                          } else if (e.key === 'ArrowUp' && filteredOptions.length > 0) {
+                            e.preventDefault();
+                            setHighlightedIdx((prev) =>
+                              prev <= 0 ? filteredOptions.length - 1 : prev - 1
+                            );
+                          } else if (e.key === 'Enter' && filteredOptions.length > 0) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const targetOpt =
+                              highlightedIdx >= 0 && highlightedIdx < filteredOptions.length
+                                ? filteredOptions[highlightedIdx]
+                                : filteredOptions[0];
+                            if (targetOpt) handleSelectOption(targetOpt);
+                          }
+                        }}
+                        placeholder={searchPlaceholder}
+                        aria-label={searchPlaceholder}
+                        className="w-full h-8 pl-8 pr-7 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-brand-600 focus:outline-none transition-colors"
+                      />
+                      {searchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchQuery('');
+                            setHighlightedIdx(-1);
+                            searchInputRef.current?.focus();
+                          }}
+                          aria-label="Clear search"
+                          className="absolute right-2 p-0.5 text-slate-400 hover:text-slate-600 rounded cursor-pointer"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
                       )}
-                      <span className="truncate">{opt.label}</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="py-1 overflow-y-auto custom-scrollbar flex-1">
+                  {filteredOptions.length === 0 ? (
+                    <div className="px-3 py-4 text-[11px] text-slate-400 text-center">
+                      {searchable && searchQuery.trim() ? emptySearchText : 'No options'}
+                    </div>
+                  ) : (
+                    filteredOptions.map((opt, idx) => {
+                      const isSelected = opt.value === stringValue;
+                      const isHighlighted = idx === highlightedIdx;
+                      return (
+                        <button
+                          key={opt.value}
+                          ref={(el) => {
+                            optionRefs.current[idx] = el;
+                          }}
+                          type="button"
+                          role="option"
+                          aria-selected={isSelected}
+                          disabled={opt.disabled}
+                          onClick={() => handleSelectOption(opt)}
+                          className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between gap-2.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                            isSelected
+                              ? 'bg-brand-50/80 text-brand-700 font-semibold'
+                              : isHighlighted
+                              ? 'bg-slate-100 text-slate-900 font-medium'
+                              : 'text-slate-700 hover:bg-slate-50 font-medium'
+                          }`}
+                        >
+                          <span className="inline-flex items-start gap-2 min-w-0 flex-1">
+                            {opt.dotClass && (
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${opt.dotClass}`}
+                              />
+                            )}
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate">{opt.label}</span>
+                              {opt.description && (
+                                <span
+                                  className={`block truncate text-[10px] mt-0.5 ${
+                                    isSelected ? 'text-brand-600/80 font-normal' : 'text-slate-400 font-normal'
+                                  }`}
+                                >
+                                  {opt.description}
+                                </span>
+                              )}
+                            </span>
+                          </span>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-brand-600 shrink-0" />}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+
+                {searchable && normalizedOptions.length > 10 && (
+                  <div className="px-3 py-1.5 border-t border-slate-100 bg-slate-50/80 text-[10px] text-slate-400 flex items-center justify-between shrink-0">
+                    <span>
+                      {filteredOptions.length} of {normalizedOptions.length} options
                     </span>
-                    {isSelected && <Check className="w-3.5 h-3.5 text-brand-600 shrink-0" />}
-                  </button>
-                );
-              })
-            )}
+                    <span>Enter to select</span>
+                  </div>
+                )}
               </AnimatedPopover>
             )}
           </AnimatePresence>,

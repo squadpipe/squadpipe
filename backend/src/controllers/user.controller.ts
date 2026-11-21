@@ -25,6 +25,19 @@ export const getUsers = async (req: Request, res: Response) => {
   }
 };
 
+export const getUserById = async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const user = await userService.getUserById(req.params.id, tenantId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    res.json({ success: true, data: user });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'Failed to fetch user details' });
+  }
+};
+
 export const toggleUserRateMask = async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
@@ -46,6 +59,35 @@ export const inviteUser = async (req: Request, res: Response) => {
     const msg = error?.message || 'Failed to invite user';
     const status = msg.includes('already exists') ? 409 : msg.includes('valid corporate email') ? 400 : 500;
     res.status(status).json({ success: false, message: msg });
+  }
+};
+
+export const inviteUsersBatch = async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const agencyName = req.user?.agencyName;
+    const members = Array.isArray(req.body?.members) ? req.body.members : [];
+    if (members.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Provide at least one team member to invite.',
+      });
+    }
+    const batch = await userService.inviteUsersBatch(members, tenantId, agencyName);
+    const status = batch.created.length > 0 ? 201 : 400;
+    res.status(status).json({
+      success: batch.created.length > 0,
+      data: batch,
+      message:
+        batch.created.length > 0
+          ? `Invited ${batch.created.length} team member${batch.created.length === 1 ? '' : 's'}.`
+          : batch.failed[0]?.error || 'No invitations could be created.',
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: error?.message || 'Failed to process team invitations',
+    });
   }
 };
 

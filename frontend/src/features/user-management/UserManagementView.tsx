@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   Briefcase,
   CheckCircle2,
+  ChevronRight,
   Download,
   Eye,
   EyeOff,
@@ -27,6 +28,7 @@ import { User } from '../../types';
 import {
   GridColumnHeader,
   STAFFING_GRID_CELL_CLASS,
+  STAFFING_GRID_ROW_CLASS,
   STAFFING_GRID_ROW_STATIC_CLASS,
   STAFFING_GRID_STICKY_TD_CLASS,
   STAFFING_GRID_STICKY_TH_CLASS,
@@ -48,9 +50,18 @@ import { mapUserFromApi } from '../../utils/entityMappers';
 import { getWorkspaceBrandSlug } from '../../utils/workspaceBrand';
 import { sortArrayByColumn, useTableSort } from '../../utils/tableSort';
 import { AnimatedModal } from '../../components/shared/MotionPrimitives';
+import {
+  USER_DESK_OPTIONS,
+  USER_ROLE_OPTIONS,
+  getUserRoleBadgeClass,
+  getUserStatusTone,
+} from './userUtils';
 
 interface UserManagementViewProps {
   users: User[];
+  onOpenInvitePage?: () => void;
+  onSelectUser?: (user: User, startEditing?: boolean) => void;
+  onEditUser?: (user: User) => void;
   onToggleRateMask: (user: User) => Promise<void> | void;
   onInviteUser: (user: Partial<User>) => Promise<void> | void;
   onResendInvite?: (user: User) => Promise<void> | void;
@@ -62,6 +73,9 @@ interface UserManagementViewProps {
 
 export const UserManagementView: React.FC<UserManagementViewProps> = ({
   users,
+  onOpenInvitePage,
+  onSelectUser,
+  onEditUser,
   onToggleRateMask,
   onInviteUser,
   onResendInvite,
@@ -180,15 +194,6 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
     rateMasked: true,
   });
 
-  const getRoleBadgeClass = (role: string) => {
-    switch (role) {
-      case 'Administrator':
-        return 'bg-white border border-slate-800 text-slate-900';
-      default:
-        return 'bg-white border border-slate-300 text-slate-700';
-    }
-  };
-
   const filteredUsers = tableUsers;
 
   const isInviteNameInvalid = inviteValidationAttempted && !newUser.name.trim();
@@ -271,11 +276,11 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
             <span>Export CSV</span>
           </button>
           <button
-            onClick={() => setShowInviteModal(true)}
+            onClick={() => (onOpenInvitePage ? onOpenInvitePage() : setShowInviteModal(true))}
             className="h-8 px-3.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <UserPlus className="w-3.5 h-3.5" />
-            <span>Invite Member</span>
+            <span>Invite Members</span>
           </button>
         </div>
       </div>
@@ -304,12 +309,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
               minMenuWidth={170}
               options={[
                 { value: 'All', label: 'All Roles' },
-                'Administrator',
-                'Senior Recruiter',
-                'Technical Recruiter',
-                'Bench Sales Lead',
-                'Account Executive',
-                'Associate Recruiter',
+                ...USER_ROLE_OPTIONS,
               ]}
             />
 
@@ -420,10 +420,10 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                         No team members found. Click{' '}
                         <button
                           type="button"
-                          onClick={() => setShowInviteModal(true)}
+                          onClick={() => (onOpenInvitePage ? onOpenInvitePage() : setShowInviteModal(true))}
                           className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
                         >
-                          Invite Team Member
+                          Invite Team Members
                         </button>{' '}
                         to add one.
                       </>
@@ -439,8 +439,14 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                     .toUpperCase()
                     .slice(0, 2);
 
+                  const isProtectedStatusOrDelete = Boolean(u.isSuperAdmin || u.isCurrentUser);
+
                   return (
-                    <tr key={u.id} className={STAFFING_GRID_ROW_STATIC_CLASS}>
+                    <tr
+                      key={u.id}
+                      onClick={onSelectUser ? () => onSelectUser(u, false) : undefined}
+                      className={onSelectUser ? STAFFING_GRID_ROW_CLASS : STAFFING_GRID_ROW_STATIC_CLASS}
+                    >
                       {/* Member Name & Email */}
                       <td className={`${STAFFING_GRID_CELL_CLASS} ${STAFFING_GRID_STICKY_TD_CLASS} whitespace-nowrap`}>
                         <div className="flex items-center gap-3">
@@ -448,7 +454,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                             {initials}
                           </div>
                           <div>
-                            <div className="font-semibold text-slate-900 flex items-center gap-1.5 flex-wrap">
+                            <div className="font-semibold text-slate-900 group-hover:text-brand-700 flex items-center gap-1.5 flex-wrap">
                               <span>{u.name}</span>
                               {u.isSuperAdmin && (
                                 <StatusBadge
@@ -470,7 +476,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                       {/* Role Badge */}
                       <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap`}>
                         <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-medium ${getRoleBadgeClass(
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-medium ${getUserRoleBadgeClass(
                             u.role
                           )}`}
                         >
@@ -489,7 +495,10 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                       </td>
 
                       {/* Rate Access Toggle */}
-                      <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap`}>
+                      <td
+                        className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <button
                           onClick={() => onToggleRateMask(u)}
                           title={u.rateMasked ? 'Click to reveal rates' : 'Click to mask rates'}
@@ -516,18 +525,15 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                       <td className={`${STAFFING_GRID_CELL_CLASS} whitespace-nowrap`}>
                         <StatusBadge
                           label={u.status}
-                          tone={
-                            u.status === 'Active'
-                              ? 'emerald'
-                              : u.status === 'Invited'
-                                ? 'amber'
-                                : 'rose'
-                          }
+                          tone={getUserStatusTone(u.status)}
                         />
                       </td>
 
                       {/* Actions */}
-                      <td className={`${STAFFING_GRID_CELL_CLASS} text-right whitespace-nowrap`}>
+                      <td
+                        className={`${STAFFING_GRID_CELL_CLASS} text-right whitespace-nowrap`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <div className="flex items-center justify-end gap-1">
                           {u.status === 'Invited' && onResendInvite && (
                             <button
@@ -553,9 +559,27 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                               <span>{resendingUserId === u.id ? 'Sending...' : 'Resend'}</span>
                             </button>
                           )}
+                          {onSelectUser && (
+                            <button
+                              type="button"
+                              onClick={() => onSelectUser(u, false)}
+                              title="View member details"
+                              className="h-7 px-2.5 rounded-lg border border-slate-200 bg-white text-[11px] font-semibold text-slate-700 hover:bg-slate-50 inline-flex items-center gap-1 transition-colors cursor-pointer"
+                            >
+                              <span>View</span>
+                              <ChevronRight className="w-3 h-3" />
+                            </button>
+                          )}
                           {onUpdateUser && (!u.isSuperAdmin || u.isCurrentUser) && (
                             <button
-                              onClick={() => setEditingUser({ ...u })}
+                              type="button"
+                              onClick={() =>
+                                onEditUser
+                                  ? onEditUser(u)
+                                  : onSelectUser
+                                    ? onSelectUser(u, true)
+                                    : setEditingUser({ ...u })
+                              }
                               title="Edit member"
                               className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors cursor-pointer"
                             >
@@ -564,12 +588,20 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                           )}
                           <button
                             type="button"
-                            disabled={Boolean(u.isSuperAdmin)}
+                            disabled={isProtectedStatusOrDelete}
                             onClick={() => {
                               if (u.isSuperAdmin) {
                                 showToast(
                                   'Protected Account',
                                   'The Super Admin account cannot be suspended.',
+                                  'warning'
+                                );
+                                return;
+                              }
+                              if (u.isCurrentUser) {
+                                showToast(
+                                  'Active Session',
+                                  'Cannot suspend your own active administrator account.',
                                   'warning'
                                 );
                                 return;
@@ -583,11 +615,13 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                             title={
                               u.isSuperAdmin
                                 ? 'Super Admin cannot be suspended'
-                                : u.status === 'Active'
-                                  ? 'Suspend member'
-                                  : 'Activate member'
+                                : u.isCurrentUser
+                                  ? 'Cannot suspend your own account'
+                                  : u.status === 'Active'
+                                    ? 'Suspend member'
+                                    : 'Activate member'
                             }
-                            className={`p-1.5 rounded-md transition-colors ${u.isSuperAdmin
+                            className={`p-1.5 rounded-md transition-colors ${isProtectedStatusOrDelete
                               ? 'text-slate-300 cursor-not-allowed'
                               : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer'
                               }`}
@@ -600,7 +634,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                           </button>
                           <button
                             type="button"
-                            disabled={Boolean(u.isSuperAdmin)}
+                            disabled={isProtectedStatusOrDelete}
                             onClick={() => {
                               if (u.isSuperAdmin) {
                                 showToast(
@@ -610,14 +644,24 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                                 );
                                 return;
                               }
+                              if (u.isCurrentUser) {
+                                showToast(
+                                  'Active Session',
+                                  'Cannot delete your own administrator account.',
+                                  'warning'
+                                );
+                                return;
+                              }
                               setUserToDelete(u);
                             }}
                             title={
                               u.isSuperAdmin
                                 ? 'Super Admin cannot be deleted'
-                                : 'Remove member'
+                                : u.isCurrentUser
+                                  ? 'Cannot delete your own account'
+                                  : 'Remove member'
                             }
-                            className={`p-1.5 rounded-md transition-colors ${u.isSuperAdmin
+                            className={`p-1.5 rounded-md transition-colors ${isProtectedStatusOrDelete
                               ? 'text-slate-300 cursor-not-allowed'
                               : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer'
                               }`}
@@ -770,14 +814,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                 value={newUser.role}
                 onChange={(val) => setNewUser({ ...newUser, role: val })}
                 ariaLabel="Role"
-                options={[
-                  'Administrator',
-                  'Senior Recruiter',
-                  'Technical Recruiter',
-                  'Bench Sales Lead',
-                  'Account Executive',
-                  'Associate Recruiter',
-                ]}
+                options={[...USER_ROLE_OPTIONS]}
               />
             </div>
 
@@ -787,13 +824,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                 value={newUser.desk}
                 onChange={(val) => setNewUser({ ...newUser, desk: val })}
                 ariaLabel="Desk"
-                options={[
-                  'Executive Operations & Billing',
-                  'US IT Contract (C2C & W2)',
-                  'Cloud & DevOps Practice',
-                  'Data & AI Practice',
-                  'Candidate Bench Marketing',
-                ]}
+                options={[...USER_DESK_OPTIONS]}
               />
             </div>
           </div>
@@ -923,14 +954,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                     disabled={Boolean(editingUser.isSuperAdmin)}
                     onChange={(val) => setEditingUser({ ...editingUser, role: val })}
                     ariaLabel="Role"
-                    options={[
-                      'Administrator',
-                      'Senior Recruiter',
-                      'Technical Recruiter',
-                      'Bench Sales Lead',
-                      'Account Executive',
-                      'Associate Recruiter',
-                    ]}
+                    options={[...USER_ROLE_OPTIONS]}
                   />
                 </div>
 
@@ -959,13 +983,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                   value={editingUser.desk}
                   onChange={(val) => setEditingUser({ ...editingUser, desk: val })}
                   ariaLabel="Desk"
-                  options={[
-                    'Executive Operations & Billing',
-                    'US IT Contract (C2C & W2)',
-                    'Cloud & DevOps Practice',
-                    'Data & AI Practice',
-                    'Candidate Bench Marketing',
-                  ]}
+                  options={[...USER_DESK_OPTIONS]}
                 />
               </div>
 

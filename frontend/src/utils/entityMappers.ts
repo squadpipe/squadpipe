@@ -8,7 +8,7 @@ import {
   BillablePlacement,
   User,
 } from '../types';
-import { formatRateDisplay, getCurrencySymbol, parseRateNumber } from './currency';
+import { formatRateDisplay, getCurrencySymbol, hasCurrencySymbol, parseRateNumber } from './currency';
 
 /**
  * Derive crisp 1-2 character uppercase initials from a contact/owner name,
@@ -419,7 +419,7 @@ export const mapPlacementFromApi = (p: any): BillablePlacement => {
   let billing = '';
   if (typeof p.billing === 'string' && p.billing.trim()) {
     const num = parseNum(p.billing);
-    billing = /(?:A\$|S\$|[$£€₹])/.test(p.billing)
+    billing = hasCurrencySymbol(p.billing)
       ? formatRateDisplay(p.billing.trim(), sym)
       : num > 0
       ? `${sym}${num}/hr`
@@ -429,7 +429,7 @@ export const mapPlacementFromApi = (p: any): BillablePlacement => {
   }
 
   let payRate = '';
-  if (typeof p.payRate === 'string' && /(?:A\$|S\$|[$£€₹])/.test(p.payRate)) {
+  if (typeof p.payRate === 'string' && hasCurrencySymbol(p.payRate)) {
     payRate = formatRateDisplay(p.payRate.trim(), sym);
   } else if (p.payRate !== undefined && p.payRate !== null && p.payRate !== '') {
     payRate = `${sym}${parseNum(p.payRate)}/hr`;
@@ -482,24 +482,37 @@ export const mapPlacementFromApi = (p: any): BillablePlacement => {
   };
 };
 
-export const mapUserFromApi = (u: any, currentUserEmail?: string): User => ({
-  id: u.id,
-  name: u.fullName || u.name || '',
-  email: u.email || '',
-  role: formatUserRole(u.role),
-  desk: u.desk || '',
-  rateMasked: u.rateMasked ?? true,
-  workload: u.workload || '0 Reqs • 0 Subs • 0 Placements',
-  metrics: u.metrics
-    ? {
-        openReqs: Number(u.metrics.openReqs) || 0,
-        submissions: Number(u.metrics.submissions) || 0,
-        placements: Number(u.metrics.placements) || 0,
-      }
-    : undefined,
-  status: formatUserStatus(u.status),
-  isSuperAdmin: Boolean(u.isSuperAdmin),
-  isCurrentUser: u.isCurrentUser ?? (currentUserEmail ? u.email === currentUserEmail : false),
-  lastActive: u.lastActive || 'Active Now',
-});
+export const mapUserFromApi = (u: any, currentUserEmail?: string): User => {
+  const status = formatUserStatus(u.status);
+  const lastActiveAt = safeIsoDateTime(u.lastActiveAt);
+  const createdAt = safeIsoDate(u.createdAt);
+  const formattedLastActive =
+    u.lastActive ||
+    (lastActiveAt ? formatDateTimeBadge(lastActiveAt) : status === 'Invited' ? 'Invite Pending' : 'Active Now');
+
+  return {
+    id: u.id,
+    tenantId: u.tenantId,
+    agencyName: u.agencyName,
+    name: u.fullName || u.name || '',
+    email: u.email || '',
+    role: formatUserRole(u.role),
+    desk: u.desk || '',
+    rateMasked: u.rateMasked ?? true,
+    workload: u.workload || '0 Reqs • 0 Subs • 0 Placements',
+    metrics: u.metrics
+      ? {
+          openReqs: Number(u.metrics.openReqs) || 0,
+          submissions: Number(u.metrics.submissions) || 0,
+          placements: Number(u.metrics.placements) || 0,
+        }
+      : undefined,
+    status,
+    isSuperAdmin: Boolean(u.isSuperAdmin),
+    isCurrentUser: u.isCurrentUser ?? (currentUserEmail ? u.email === currentUserEmail : false),
+    lastActive: formattedLastActive,
+    lastActiveAt: lastActiveAt || undefined,
+    createdAt: createdAt || undefined,
+  };
+};
 

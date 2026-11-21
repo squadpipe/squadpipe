@@ -19,7 +19,7 @@ import {
   getStoredCurrentUserRaw,
   updateStoredCurrentUser,
 } from './utils/authStorage';
-import { formatRateDisplay, getCurrencySymbol, initWorkspaceCurrency, parseRateNumber } from './utils/currency';
+import { formatRateDisplay, getCurrencySymbol, hasCurrencySymbol, initWorkspaceCurrency, parseRateNumber } from './utils/currency';
 import {
   DEFAULT_AI_CAPABILITIES,
   DEFAULT_WORKSPACE_BRAND,
@@ -65,6 +65,21 @@ import type { BillableStatusFilter } from './features/billable/BillablePlacement
 const UserManagementView = React.lazy(() =>
   import('./features/user-management/UserManagementView').then((m) => ({
     default: m.UserManagementView,
+  }))
+);
+const UserDetailPage = React.lazy(() =>
+  import('./features/user-management/UserDetailPage').then((m) => ({
+    default: m.UserDetailPage,
+  }))
+);
+const UserEditPage = React.lazy(() =>
+  import('./features/user-management/UserEditPage').then((m) => ({
+    default: m.UserEditPage,
+  }))
+);
+const UserInvitePage = React.lazy(() =>
+  import('./features/user-management/UserInvitePage').then((m) => ({
+    default: m.UserInvitePage,
   }))
 );
 const CustomFieldsView = React.lazy(() =>
@@ -292,13 +307,13 @@ const normalizePlacement = (p: any): BillablePlacement => {
   let billing = '';
   if (typeof p.billing === 'string' && p.billing.trim()) {
     const num = parseNum(p.billing);
-    billing = /(?:A\$|S\$|[$£€₹])/.test(p.billing) ? formatRateDisplay(p.billing.trim(), sym) : num > 0 ? `${sym}${num}/hr` : p.billing.trim();
+    billing = hasCurrencySymbol(p.billing) ? formatRateDisplay(p.billing.trim(), sym) : num > 0 ? `${sym}${num}/hr` : p.billing.trim();
   } else if (p.billRate !== undefined && p.billRate !== null && p.billRate !== '') {
     billing = `${sym}${parseNum(p.billRate)}/hr`;
   }
 
   let payRate = '';
-  if (typeof p.payRate === 'string' && /(?:A\$|S\$|[$£€₹])/.test(p.payRate)) {
+  if (typeof p.payRate === 'string' && hasCurrencySymbol(p.payRate)) {
     payRate = formatRateDisplay(p.payRate.trim(), sym);
   } else if (p.payRate !== undefined && p.payRate !== null && p.payRate !== '') {
     payRate = `${sym}${parseNum(p.payRate)}/hr`;
@@ -481,6 +496,9 @@ export const App: React.FC = () => {
   const [selectedPlacementForDetail, setSelectedPlacementForDetail] =
     useState<BillablePlacement | null>(null);
   const [placementDetailReturnView, setPlacementDetailReturnView] = useState<string>('billable');
+  const [selectedUserForDetail, setSelectedUserForDetail] = useState<User | null>(null);
+  const [userDetailReturnView, setUserDetailReturnView] = useState<string>('user_management');
+  const [userEditFocusSection, setUserEditFocusSection] = useState<'profile' | 'access'>('profile');
 
   const handleToggleSidebarCollapse = () => {
     setSidebarCollapsed((prev) => {
@@ -792,6 +810,54 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleOpenUserEdit = (
+    user: User,
+    fromView?: string,
+    focusSection: 'profile' | 'access' = 'profile',
+    options?: { skipHistory?: boolean }
+  ) => {
+    const originView =
+      fromView || (currentView !== 'user_edit' ? currentView : userDetailReturnView);
+    if (originView && originView !== 'user_edit') {
+      setUserDetailReturnView(originView);
+    }
+    setSelectedUserForDetail(user);
+    setUserEditFocusSection(focusSection);
+    setResolvingRouteId(null);
+    setRouteTarget({ view: 'user_edit', entityId: user.id });
+    setCurrentView('user_edit');
+    if (!options?.skipHistory) {
+      pushRouteUrl('user_edit', {
+        entityId: user.id,
+        returnView: originView || 'user_management',
+      });
+    }
+  };
+
+  const handleOpenUserDetail = (
+    user: User,
+    startEditing = false,
+    fromView?: string,
+    options?: { skipHistory?: boolean }
+  ) => {
+    if (startEditing) {
+      handleOpenUserEdit(user, fromView, 'profile', options);
+      return;
+    }
+    const returnView =
+      fromView || (currentView !== 'user_detail' && currentView !== 'user_edit'
+        ? currentView
+        : userDetailReturnView);
+    setUserDetailReturnView(returnView);
+    setSelectedUserForDetail(user);
+    setResolvingRouteId(null);
+    setRouteTarget({ view: 'user_detail', entityId: user.id });
+    setCurrentView('user_detail');
+    if (!options?.skipHistory) {
+      pushRouteUrl('user_detail', { entityId: user.id, returnView });
+    }
+  };
+
   const handleNavigateView = (
     nextView: string,
     options?: { skipHistory?: boolean; query?: Record<string, string | undefined | null> }
@@ -816,6 +882,17 @@ export const App: React.FC = () => {
     }
     if (
       ![
+        'user_detail',
+        'user_edit',
+        'requirement_detail',
+        'consultant_detail',
+        'placement_detail',
+      ].includes(nextView)
+    ) {
+      setSelectedUserForDetail(null);
+    }
+    if (
+      ![
         'placement_detail',
         'client_detail',
         'client_edit',
@@ -831,8 +908,8 @@ export const App: React.FC = () => {
     }
     let nextQuery: Record<string, string> | undefined = options?.query
       ? (Object.fromEntries(
-          Object.entries(options.query).filter(([, v]) => Boolean(v && String(v).trim()))
-        ) as Record<string, string>)
+        Object.entries(options.query).filter(([, v]) => Boolean(v && String(v).trim()))
+      ) as Record<string, string>)
       : undefined;
     if (nextView === 'billable') {
       if (options?.query?.status !== undefined) {
@@ -1065,6 +1142,7 @@ export const App: React.FC = () => {
     setRules([]);
     setAuditLogs([]);
     setCustomFields([]);
+    setSelectedUserForDetail(null);
     setSidebarCounts({
       requirements: 0,
       consultants: 0,
@@ -1223,31 +1301,23 @@ export const App: React.FC = () => {
     return [];
   };
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (): Promise<User[]> => {
     try {
       const res = await apiClient.get('/users');
       if (res.data?.data) {
-        const raw = res.data.data;
-        const mapped = raw.map((u: any) => ({
-          id: u.id,
-          name: u.fullName || u.name || '',
-          email: u.email || '',
-          role: formatUserRole(u.role),
-          desk: u.desk || '',
-          rateMasked: u.rateMasked ?? true,
-          workload: u.workload || '',
-          status: formatUserStatus(u.status),
-          isSuperAdmin: Boolean(u.isSuperAdmin),
-          isCurrentUser: u.isCurrentUser ?? false,
-          lastActive: u.lastActive || 'Active Now',
-        }));
+        const currentEmail = currentUserRef.current?.email || currentUser?.email;
+        const mapped: User[] = res.data.data.map((u: any) =>
+          mapUserFromApi(u, currentEmail)
+        );
         setUsers(mapped);
         setSidebarCounts((prev) => ({ ...prev, users: mapped.length }));
         loadedEntities.current.add('users');
+        return mapped;
       }
     } catch (e) {
       console.warn('API fetch users:', e);
     }
+    return [];
   };
 
   const fetchSlaTasks = async () => {
@@ -1481,7 +1551,15 @@ export const App: React.FC = () => {
         break;
 
       case 'user_management':
+      case 'user_invite':
+      case 'user_detail':
+      case 'user_edit':
         if (adminAccess && !loadedEntities.current.has('users')) fetchUsers();
+        if (adminAccess && view === 'user_detail') {
+          if (!loadedEntities.current.has('requirements')) fetchRequirements();
+          if (!loadedEntities.current.has('candidates')) fetchCandidates();
+          if (!loadedEntities.current.has('placements')) fetchPlacements();
+        }
         break;
 
       case 'automation':
@@ -1670,11 +1748,13 @@ export const App: React.FC = () => {
     clients,
     vendors,
     placements,
+    users,
     selectedReqForDetail,
     selectedCandForDetail,
     selectedClientForDetail,
     selectedVendorForDetail,
     selectedPlacementForDetail,
+    selectedUserForDetail,
   });
   routeStateRef.current = {
     requirements,
@@ -1682,11 +1762,13 @@ export const App: React.FC = () => {
     clients,
     vendors,
     placements,
+    users,
     selectedReqForDetail,
     selectedCandForDetail,
     selectedClientForDetail,
     selectedVendorForDetail,
     selectedPlacementForDetail,
+    selectedUserForDetail,
   };
 
   const routeHandlersRef = React.useRef({
@@ -1701,6 +1783,8 @@ export const App: React.FC = () => {
     handleOpenVendorDetail,
     handleOpenVendorEdit,
     handleOpenPlacementDetail,
+    handleOpenUserDetail,
+    handleOpenUserEdit,
     handleOpenWorkflowPage,
   });
   routeHandlersRef.current = {
@@ -1715,6 +1799,8 @@ export const App: React.FC = () => {
     handleOpenVendorDetail,
     handleOpenVendorEdit,
     handleOpenPlacementDetail,
+    handleOpenUserDetail,
+    handleOpenUserEdit,
     handleOpenWorkflowPage,
   };
 
@@ -1791,6 +1877,14 @@ export const App: React.FC = () => {
     } else if (currentView === 'placement_detail' && selectedPlacementForDetail) {
       recordLabel =
         selectedPlacementForDetail.resourceName || selectedPlacementForDetail.deployment;
+    } else if (
+      (currentView === 'user_detail' || currentView === 'user_edit') &&
+      selectedUserForDetail
+    ) {
+      recordLabel =
+        currentView === 'user_edit'
+          ? `Edit ${selectedUserForDetail.name}`
+          : selectedUserForDetail.name;
     }
     document.title = buildDocumentTitle(currentView, recordLabel);
   }, [
@@ -1803,6 +1897,7 @@ export const App: React.FC = () => {
     selectedClientForDetail,
     selectedVendorForDetail,
     selectedPlacementForDetail,
+    selectedUserForDetail,
   ]);
 
   // Support browser Back / Forward navigation via popstate
@@ -1961,6 +2056,26 @@ export const App: React.FC = () => {
         }
         if (returnView) setPlacementDetailReturnView(returnView);
         setSelectedPlacementForDetail(null);
+      } else if (parsed.view === 'user_edit') {
+        const matched = stateSnapshot.users.find((u) => u.id === entityId);
+        if (matched) {
+          routeHandlersRef.current.handleOpenUserEdit(matched, returnView, 'profile', {
+            skipHistory: true,
+          });
+          return;
+        }
+        if (returnView && returnView !== 'user_edit') setUserDetailReturnView(returnView);
+        setSelectedUserForDetail(null);
+      } else if (parsed.view === 'user_detail') {
+        const matched = stateSnapshot.users.find((u) => u.id === entityId);
+        if (matched) {
+          routeHandlersRef.current.handleOpenUserDetail(matched, false, returnView, {
+            skipHistory: true,
+          });
+          return;
+        }
+        if (returnView) setUserDetailReturnView(returnView);
+        setSelectedUserForDetail(null);
       }
 
       setResolvingRouteId(entityId);
@@ -1999,7 +2114,10 @@ export const App: React.FC = () => {
           snapshot.vendors.some((v) => v.id === targetId))) ||
       (routeTarget.view === 'placement_detail' &&
         (snapshot.selectedPlacementForDetail?.id === targetId ||
-          snapshot.placements.some((p) => p.id === targetId)))
+          snapshot.placements.some((p) => p.id === targetId))) ||
+      ((routeTarget.view === 'user_detail' || routeTarget.view === 'user_edit') &&
+        (snapshot.selectedUserForDetail?.id === targetId ||
+          snapshot.users.some((u) => u.id === targetId)))
     ) {
       if (
         (routeTarget.view === 'requirement_detail' ||
@@ -2085,6 +2203,23 @@ export const App: React.FC = () => {
           routeHandlersRef.current.handleOpenPlacementDetail(cached, undefined, {
             skipHistory: true,
           });
+          return;
+        }
+      } else if (
+        (routeTarget.view === 'user_detail' || routeTarget.view === 'user_edit') &&
+        !snapshot.selectedUserForDetail
+      ) {
+        const cached = snapshot.users.find((u) => u.id === targetId);
+        if (cached) {
+          if (routeTarget.view === 'user_edit') {
+            routeHandlersRef.current.handleOpenUserEdit(cached, undefined, 'profile', {
+              skipHistory: true,
+            });
+          } else {
+            routeHandlersRef.current.handleOpenUserDetail(cached, false, undefined, {
+              skipHistory: true,
+            });
+          }
           return;
         }
       }
@@ -2182,6 +2317,34 @@ export const App: React.FC = () => {
             routeHandlersRef.current.handleOpenPlacementDetail(matched, undefined, {
               skipHistory: true,
             });
+          }
+        } else if (routeTarget.view === 'user_detail' || routeTarget.view === 'user_edit') {
+          let matched: User | undefined;
+          try {
+            const res = await apiClient.get(`/users/${encodeURIComponent(targetId)}`);
+            if (!cancelled && res.data?.data) {
+              const currentEmail = currentUserRef.current?.email || currentUser?.email;
+              matched = mapUserFromApi(res.data.data, currentEmail);
+              setUsers((prev) =>
+                prev.some((u) => u.id === matched!.id)
+                  ? prev.map((u) => (u.id === matched!.id ? matched! : u))
+                  : [...prev, matched!]
+              );
+            }
+          } catch {
+            const loaded = await fetchUsers();
+            matched = loaded.find((u) => u.id === targetId);
+          }
+          if (!cancelled && matched) {
+            if (routeTarget.view === 'user_edit') {
+              routeHandlersRef.current.handleOpenUserEdit(matched, undefined, 'profile', {
+                skipHistory: true,
+              });
+            } else {
+              routeHandlersRef.current.handleOpenUserDetail(matched, false, undefined, {
+                skipHistory: true,
+              });
+            }
           }
         }
       } catch (e) {
@@ -2919,13 +3082,131 @@ export const App: React.FC = () => {
     try {
       const res = await apiClient.put(`/users/${updated.id}`, updated);
       const saved: User = res.data?.data
-        ? mapUserFromApi(res.data.data, currentUser?.email)
+        ? mapUserFromApi(res.data.data, updated.isCurrentUser ? res.data.data.email : currentUser?.email)
         : updated;
       setUsers((prev) => prev.map((u) => (u.id === saved.id ? { ...u, ...saved } : u)));
+      setSelectedUserForDetail((prev) =>
+        prev && prev.id === saved.id ? { ...prev, ...saved } : prev
+      );
+      if (saved.isCurrentUser || saved.id === currentUser?.id) {
+        applySyncedUser({
+          name: saved.name,
+          email: saved.email,
+          desk: saved.desk,
+          role: saved.role,
+          rateMasked: saved.rateMasked,
+          status: saved.status,
+        });
+      }
       showToast('Member Updated', `${saved.name} profile saved.`, 'success');
     } catch (e: any) {
       console.warn('API update user failed:', e);
       showApiErrorToast(e, 'Update Failed', `Could not update ${updated.name}.`);
+      throw e;
+    }
+  };
+
+  const handleToggleUserRateMask = async (user: User) => {
+    try {
+      await apiClient.patch(`/users/${user.id}/rate-mask`);
+      const nextMasked = !user.rateMasked;
+      setUsers((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, rateMasked: nextMasked } : u))
+      );
+      setSelectedUserForDetail((prev) =>
+        prev && prev.id === user.id ? { ...prev, rateMasked: nextMasked } : prev
+      );
+      if (user.isCurrentUser || user.id === currentUser?.id) {
+        applySyncedUser({ rateMasked: nextMasked });
+      }
+      showToast(
+        'Clearance Updated',
+        `${user.name}'s billing rate visibility is now ${nextMasked ? 'Masked (••••)' : 'Visible'}.`
+      );
+    } catch (e: any) {
+      console.warn('API toggle rate-mask:', e);
+      showApiErrorToast(e, 'Action Not Allowed', `Could not update rate visibility for ${user.name}.`);
+    }
+  };
+
+  const handleInviteUser = async (newUser: Partial<User>) => {
+    if (!newUser.name || !newUser.email) return;
+    const name: string = newUser.name;
+    const email: string = newUser.email;
+    let invitedUser: User = {
+      id: 'usr_' + Date.now(),
+      name,
+      email,
+      role: newUser.role || 'Technical Recruiter',
+      desk: newUser.desk || 'US IT Contract (C2C & W2)',
+      rateMasked: newUser.rateMasked ?? true,
+      workload: '0 Requisitions • 0 Submissions',
+      status: 'Invited',
+      lastActive: 'Invite Pending',
+    };
+    try {
+      const res = await apiClient.post('/users/invite', newUser);
+      if (res.data?.data) {
+        invitedUser = mapUserFromApi(res.data.data, currentUser?.email);
+      }
+      setUsers((prev) => [...prev, invitedUser]);
+      fetchSidebarCounts();
+    } catch (e: any) {
+      console.warn('API invite user failed:', e);
+      showApiErrorToast(e, 'Invitation Failed', `Could not invite ${email}.`);
+      throw e;
+    }
+  };
+
+  const handleResendUserInvite = async (user: User) => {
+    try {
+      const res = await apiClient.post(`/users/${user.id}/resend-invite`);
+      const emailDelivered = res.data?.delivered !== false;
+      const inviteUrl = res.data?.inviteUrl;
+      if (!emailDelivered && inviteUrl && typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(inviteUrl).catch(() => { });
+      }
+      showToast(
+        emailDelivered ? 'Invitation Resent' : 'Fresh Invite Link Copied',
+        emailDelivered
+          ? `Sent a fresh onboarding invite link to ${user.email}.`
+          : `SMTP unavailable — copied fresh invite link for ${user.email} to clipboard.`,
+        emailDelivered ? 'success' : 'warning'
+      );
+    } catch (e: any) {
+      console.warn('API resend invite failed:', e);
+      showApiErrorToast(e, 'Resend Failed', `Could not resend invitation link for ${user.email}.`);
+    }
+  };
+
+  const handleToggleUserStatus = async (user: User) => {
+    try {
+      const res = await apiClient.patch(`/users/${user.id}/status`);
+      const newStatus: User['status'] =
+        res.data?.data?.status === 'SUSPENDED' ? 'Suspended' : 'Active';
+      setUsers((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u))
+      );
+      setSelectedUserForDetail((prev) =>
+        prev && prev.id === user.id ? { ...prev, status: newStatus } : prev
+      );
+      showToast('Status Updated', `${user.name} is now ${newStatus}.`, 'shield');
+    } catch (e: any) {
+      console.warn('API toggle status failed:', e);
+      showApiErrorToast(e, 'Status Update Failed', `Could not update status for ${user.name}.`);
+    }
+  };
+
+  const handleDeleteUser = async (user: User) => {
+    try {
+      await apiClient.delete(`/users/${user.id}`);
+      setUsers((prev) => prev.filter((u) => u.id !== user.id));
+      setSelectedUserForDetail((prev) => (prev && prev.id === user.id ? null : prev));
+      fetchSidebarCounts();
+      showToast('Member Removed', `${user.name} has been removed from agency roster.`, 'delete');
+    } catch (e: any) {
+      console.warn('API delete user failed:', e);
+      showApiErrorToast(e, 'Remove Failed', `Could not remove ${user.name}.`);
       throw e;
     }
   };
@@ -3294,7 +3575,10 @@ export const App: React.FC = () => {
         selectedVendorForDetail?.id !== resolvingRouteId) ||
       (currentView === 'placement_detail' &&
         !placements.some((p) => p.id === resolvingRouteId) &&
-        selectedPlacementForDetail?.id !== resolvingRouteId));
+        selectedPlacementForDetail?.id !== resolvingRouteId) ||
+      ((currentView === 'user_detail' || currentView === 'user_edit') &&
+        !users.some((u) => u.id === resolvingRouteId) &&
+        selectedUserForDetail?.id !== resolvingRouteId));
 
   return (
     <div className="h-screen w-full flex overflow-hidden text-slate-800 bg-[#FAFAFA]">
@@ -3441,7 +3725,9 @@ export const App: React.FC = () => {
                     ? 'clients'
                     : reqDetailReturnView === 'consultant_detail'
                       ? 'consultants'
-                      : 'pipeline'
+                      : reqDetailReturnView === 'user_detail'
+                        ? 'user_management'
+                        : 'pipeline'
                 : currentView === 'consultant_detail'
                   ? candDetailReturnView === 'dashboard'
                     ? 'dashboard'
@@ -3451,7 +3737,9 @@ export const App: React.FC = () => {
                         ? 'vendors'
                         : candDetailReturnView === 'placement_detail'
                           ? 'billable'
-                          : 'consultants'
+                          : candDetailReturnView === 'user_detail'
+                            ? 'user_management'
+                            : 'consultants'
                   : currentView === 'client_detail' || currentView === 'client_edit'
                     ? 'clients'
                     : currentView === 'vendor_detail' || currentView === 'vendor_edit'
@@ -3469,10 +3757,16 @@ export const App: React.FC = () => {
                               ? 'consultants'
                               : placementDetailReturnView === 'requirement_detail'
                                 ? 'pipeline'
-                                : placementDetailReturnView === 'dashboard'
-                                  ? 'dashboard'
-                                  : 'billable'
-                        : currentView
+                                : placementDetailReturnView === 'user_detail'
+                                  ? 'user_management'
+                                  : placementDetailReturnView === 'dashboard'
+                                    ? 'dashboard'
+                                    : 'billable'
+                        : currentView === 'user_detail' ||
+                          currentView === 'user_edit' ||
+                          currentView === 'user_invite'
+                          ? 'user_management'
+                          : currentView
         }
         onNavigate={handleNavigateView}
         counts={computedSidebarCounts}
@@ -3526,6 +3820,7 @@ export const App: React.FC = () => {
                     'client_detail',
                     'vendor_detail',
                     'placement_detail',
+                    'user_detail',
                   ].includes(currentView)
                     ? 'detail'
                     : 'workspace'
@@ -3704,7 +3999,9 @@ export const App: React.FC = () => {
                         ? 'Back to Consultant'
                         : reqDetailReturnView === 'placement_detail'
                           ? 'Back to Placement'
-                          : 'Back to Pipeline'
+                          : reqDetailReturnView === 'user_detail'
+                            ? 'Back to Member'
+                            : 'Back to Pipeline'
                 }
                 onBack={() => handleNavigateView(reqDetailReturnView)}
                 candidates={candidates}
@@ -3918,7 +4215,9 @@ export const App: React.FC = () => {
                         ? 'Back to Vendor'
                         : candDetailReturnView === 'placement_detail'
                           ? 'Back to Placement'
-                          : 'Back to Consultants'
+                          : candDetailReturnView === 'user_detail'
+                            ? 'Back to Member'
+                            : 'Back to Consultants'
                 }
                 onBack={() => handleNavigateView(candDetailReturnView)}
                 requirements={requirements}
@@ -4287,9 +4586,11 @@ export const App: React.FC = () => {
                         ? 'Back to Consultant'
                         : placementDetailReturnView === 'requirement_detail'
                           ? 'Back to Requirement'
-                          : placementDetailReturnView === 'dashboard'
-                            ? 'Back to Dashboard'
-                            : 'Back to Billable Consultants'
+                          : placementDetailReturnView === 'user_detail'
+                            ? 'Back to Member'
+                            : placementDetailReturnView === 'dashboard'
+                              ? 'Back to Dashboard'
+                              : 'Back to Billable Consultants'
                 }
                 onBack={() => {
                   if (placementDetailReturnView === 'billable') {
@@ -4336,117 +4637,130 @@ export const App: React.FC = () => {
               (isAdmin ? (
                 <UserManagementView
                   users={users}
-                  onToggleRateMask={async (user) => {
-                    try {
-                      await apiClient.patch(`/users/${user.id}/rate-mask`);
-                      setUsers((prev) =>
-                        prev.map((u) => (u.id === user.id ? { ...u, rateMasked: !u.rateMasked } : u))
-                      );
-                      showToast(
-                        'Clearance Updated',
-                        `${user.name}'s billing rate visibility is now ${!user.rateMasked ? 'Masked (••••)' : 'Visible'
-                        }.`
-                      );
-                    } catch (e: any) {
-                      console.warn('API toggle rate-mask:', e);
-                      showApiErrorToast(e, 'Action Not Allowed', `Could not update rate visibility for ${user.name}.`);
-                    }
-                  }}
-                  onInviteUser={async (newUser) => {
-                    if (!newUser.name || !newUser.email) return;
-                    const name: string = newUser.name;
-                    const email: string = newUser.email;
-                    let invitedUser: User = {
-                      id: 'usr_' + Date.now(),
-                      name,
-                      email,
-                      role: newUser.role || 'Technical Recruiter',
-                      desk: newUser.desk || 'US IT Contract (C2C & W2)',
-                      rateMasked: newUser.rateMasked ?? true,
-                      workload: '0 Requisitions • 0 Submissions',
-                      status: 'Invited',
-                      lastActive: 'Active Now',
-                    };
-                    try {
-                      const res = await apiClient.post('/users/invite', newUser);
-                      if (res.data?.data) {
-                        const u = res.data.data;
-                        invitedUser = {
-                          id: u.id,
-                          name: u.fullName || name,
-                          email: u.email || email,
-                          role: formatUserRole(u.role),
-                          desk: u.desk || invitedUser.desk,
-                          rateMasked: u.rateMasked ?? invitedUser.rateMasked,
-                          workload: u.workload || invitedUser.workload,
-                          status: formatUserStatus(u.status),
-                          isSuperAdmin: Boolean(u.isSuperAdmin),
-                          lastActive: 'Invited',
-                        };
-                      }
-                      setUsers((prev) => [...prev, invitedUser]);
-                      fetchSidebarCounts();
-                    } catch (e: any) {
-                      console.warn('API invite user failed:', e);
-                      showApiErrorToast(e, 'Invitation Failed', `Could not invite ${email}.`);
-                      throw e;
-                    }
-                  }}
-                  onResendInvite={async (user) => {
-                    try {
-                      const res = await apiClient.post(`/users/${user.id}/resend-invite`);
-                      const emailDelivered = res.data?.delivered !== false;
-                      const inviteUrl = res.data?.inviteUrl;
-                      if (!emailDelivered && inviteUrl && typeof navigator !== 'undefined' && navigator.clipboard) {
-                        await navigator.clipboard.writeText(inviteUrl).catch(() => { });
-                      }
-                      showToast(
-                        emailDelivered ? 'Invitation Resent' : 'Fresh Invite Link Copied',
-                        emailDelivered
-                          ? `Sent a fresh onboarding invite link to ${user.email}.`
-                          : `SMTP unavailable — copied fresh invite link for ${user.email} to clipboard.`,
-                        emailDelivered ? 'success' : 'warning'
-                      );
-                    } catch (e: any) {
-                      console.warn('API resend invite failed:', e);
-                      showApiErrorToast(
-                        e,
-                        'Resend Failed',
-                        `Could not resend invitation link for ${user.email}.`
-                      );
-                    }
-                  }}
-                  onToggleUserStatus={async (user) => {
-                    try {
-                      const res = await apiClient.patch(`/users/${user.id}/status`);
-                      const newStatus = res.data?.data?.status === 'SUSPENDED' ? 'Suspended' : 'Active';
-                      setUsers((prev) =>
-                        prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u))
-                      );
-                      showToast('Status Updated', `${user.name} is now ${newStatus}.`, 'shield');
-                    } catch (e: any) {
-                      console.warn('API toggle status failed:', e);
-                      showApiErrorToast(e, 'Status Update Failed', `Could not update status for ${user.name}.`);
-                    }
-                  }}
+                  onOpenInvitePage={() => handleNavigateView('user_invite')}
+                  onSelectUser={(user, startEditing) =>
+                    handleOpenUserDetail(user, Boolean(startEditing), 'user_management')
+                  }
+                  onEditUser={(user) =>
+                    handleOpenUserEdit(user, 'user_management', 'profile')
+                  }
+                  onToggleRateMask={handleToggleUserRateMask}
+                  onInviteUser={handleInviteUser}
+                  onResendInvite={handleResendUserInvite}
+                  onToggleUserStatus={handleToggleUserStatus}
                   onUpdateUser={handleUpdateUser}
-                  onDeleteUser={async (user) => {
-                    try {
-                      await apiClient.delete(`/users/${user.id}`);
-                      setUsers((prev) => prev.filter((u) => u.id !== user.id));
-                      showToast('Member Removed', `${user.name} has been removed from agency roster.`, 'delete');
-                    } catch (e: any) {
-                      console.warn('API delete user failed:', e);
-                      showApiErrorToast(e, 'Remove Failed', `Could not remove ${user.name}.`);
-                      throw e;
-                    }
-                  }}
+                  onDeleteUser={handleDeleteUser}
                   showToast={showToast}
                 />
               ) : (
                 <AccessRestrictedView
                   moduleName="User Management & Team Permissions"
                   description="Inviting team members, changing workspace roles, and controlling billing rate visibility are restricted to workspace Administrators."
+                  currentRole={normalizedUserRole}
+                  requiredRoles={['Administrator']}
+                  onBackToDashboard={() => handleNavigateView('dashboard')}
+                />
+              ))}
+
+            {currentView === 'user_invite' &&
+              (isAdmin ? (
+                <UserInvitePage
+                  existingUsers={users}
+                  onBack={() => handleNavigateView('user_management')}
+                  onMembersInvited={(createdUsers) => {
+                    if (createdUsers.length > 0) {
+                      setUsers((prev) => {
+                        const existingIds = new Set(prev.map((u) => u.id));
+                        const nextAdditions = createdUsers.filter((u) => !existingIds.has(u.id));
+                        return [...prev, ...nextAdditions];
+                      });
+                      fetchSidebarCounts();
+                    }
+                  }}
+                  showToast={showToast}
+                />
+              ) : (
+                <AccessRestrictedView
+                  moduleName="Invite Team Members"
+                  description="Sending team invitations and configuring workspace permissions is restricted to workspace Administrators."
+                  currentRole={normalizedUserRole}
+                  requiredRoles={['Administrator']}
+                  onBackToDashboard={() => handleNavigateView('dashboard')}
+                />
+              ))}
+
+            {currentView === 'user_detail' &&
+              !isResolvingCurrentDetail &&
+              (isAdmin ? (
+                <UserDetailPage
+                  user={
+                    users.find((u) => u.id === selectedUserForDetail?.id) ||
+                    selectedUserForDetail
+                  }
+                  backLabel={
+                    userDetailReturnView === 'dashboard'
+                      ? 'Back to Dashboard'
+                      : 'Back to Team Members'
+                  }
+                  onBack={() => handleNavigateView(userDetailReturnView || 'user_management')}
+                  requirements={requirements}
+                  candidates={candidates}
+                  placements={placements}
+                  rateMasked={rateMasked}
+                  onEditUser={(user, section) =>
+                    handleOpenUserEdit(user, 'user_detail', section || 'profile')
+                  }
+                  onToggleRateMask={handleToggleUserRateMask}
+                  onToggleUserStatus={handleToggleUserStatus}
+                  onResendInvite={handleResendUserInvite}
+                  onDeleteUser={handleDeleteUser}
+                  onOpenRequirement={(req) => handleOpenRequirementDetail(req, 'user_detail')}
+                  onOpenConsultant={(cand) => handleOpenConsultantDetail(cand, false, 'user_detail')}
+                  onSelectPlacement={(p) => handleOpenPlacementDetail(p, 'user_detail')}
+                />
+              ) : (
+                <AccessRestrictedView
+                  moduleName="Team Member Details"
+                  description="Viewing detailed workspace permissions and rate clearance settings is restricted to workspace Administrators."
+                  currentRole={normalizedUserRole}
+                  requiredRoles={['Administrator']}
+                  onBackToDashboard={() => handleNavigateView('dashboard')}
+                />
+              ))}
+
+            {currentView === 'user_edit' &&
+              !isResolvingCurrentDetail &&
+              (isAdmin ? (() => {
+                const editingMember =
+                  users.find(
+                    (u) => u.id === (selectedUserForDetail?.id || routeTarget.entityId)
+                  ) || selectedUserForDetail;
+                return (
+                  <UserEditPage
+                    user={editingMember}
+                    backLabel={
+                      userDetailReturnView === 'user_management'
+                        ? 'Back to Team Members'
+                        : editingMember?.name
+                          ? `Back to ${editingMember.name}`
+                          : 'Back to Member Details'
+                    }
+                    initialFocusSection={userEditFocusSection}
+                    onBack={() => {
+                      if (editingMember && userDetailReturnView === 'user_detail') {
+                        handleOpenUserDetail(editingMember, false, 'user_management');
+                      } else {
+                        handleNavigateView(userDetailReturnView || 'user_management');
+                      }
+                    }}
+                    onUpdateUser={handleUpdateUser}
+                    showToast={showToast}
+                  />
+                );
+              })() : (
+                <AccessRestrictedView
+                  moduleName="Edit Team Member"
+                  description="Modifying team member profiles, roles, and rate visibility is restricted to workspace Administrators."
                   currentRole={normalizedUserRole}
                   requiredRoles={['Administrator']}
                   onBackToDashboard={() => handleNavigateView('dashboard')}

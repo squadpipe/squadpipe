@@ -165,7 +165,7 @@ export class UserService {
       createdAt: true
     };
 
-    const enrichUsers = async (rows: Array<{ id: string; tenantId: string; workload: string | null; [k: string]: any }>) => {
+    const enrichUsers = async (rows: Array<{ id: string; tenantId: string; workload: string | null;[k: string]: any }>) => {
       if (rows.length === 0) return rows;
       const scopeTenant = tenantId || rows[0].tenantId;
       const [workloads, superAdminId] = await Promise.all([
@@ -265,9 +265,12 @@ export class UserService {
     };
   }
 
-  async getUserById(id: string) {
-    return prisma.user.findUnique({
-      where: { id },
+  async getUserById(id: string, tenantId?: string) {
+    const where: Prisma.UserWhereInput = { id };
+    if (tenantId) where.tenantId = tenantId;
+
+    const user = await prisma.user.findFirst({
+      where,
       select: {
         id: true,
         email: true,
@@ -278,9 +281,28 @@ export class UserService {
         desk: true,
         rateMasked: true,
         status: true,
-        workload: true
-      }
+        workload: true,
+        lastActiveAt: true,
+        createdAt: true,
+      },
     });
+    if (!user) return null;
+
+    const scopeTenant = tenantId || user.tenantId;
+    const [workloads, superAdminId] = await Promise.all([
+      analyticsService.getLiveWorkloadsMap(scopeTenant, [user.id]),
+      this.resolveSuperAdminId(scopeTenant),
+    ]);
+    const live = workloads.get(user.id);
+
+    return {
+      ...user,
+      isSuperAdmin: user.id === superAdminId,
+      workload: live?.workloadText || formatLiveWorkloadText(0, 0, 0),
+      metrics: live
+        ? { openReqs: live.openReqs, submissions: live.submissions, placements: live.placements }
+        : { openReqs: 0, submissions: 0, placements: 0 },
+    };
   }
 
   async toggleRateMask(id: string, tenantId: string) {
@@ -364,8 +386,63 @@ export class UserService {
       ...invitedUser,
       isSuperAdmin: false,
       emailDelivered: dispatch.emailDelivered,
+      emailError: dispatch.emailError,
       inviteUrl: dispatch.inviteUrl,
     };
+  }
+
+  async inviteUsersBatch(
+    members: Array<{
+      fullName?: string;
+      name?: string;
+      email: string;
+      role: any;
+      desk?: string;
+      rateMasked?: boolean;
+    }>,
+    tenantId: string = 'squadpipe-agency',
+    agencyName?: string
+  ) {
+    const cleanMembers = Array.isArray(members) ? members.slice(0, 25) : [];
+    const results: Array<{
+      index: number;
+      email: string;
+      ok: boolean;
+      user?: Awaited<ReturnType<UserService['inviteUser']>>;
+      inviteUrl?: string;
+      emailDelivered?: boolean;
+      error?: string;
+    }> = [];
+
+    for (let index = 0; index < cleanMembers.length; index++) {
+      const entry = cleanMembers[index];
+      const normalizedEmail = String(entry?.email || '').trim().toLowerCase();
+      try {
+        const invited = await this.inviteUser(entry, tenantId, agencyName);
+        results.push({
+          index,
+          email: invited.email,
+          ok: true,
+          user: invited,
+          inviteUrl: invited.inviteUrl,
+          emailDelivered: invited.emailDelivered,
+        });
+      } catch (err: any) {
+        results.push({
+          index,
+          email: normalizedEmail,
+          ok: false,
+          error: err?.message || 'Failed to invite user',
+        });
+      }
+    }
+
+    const created = results.filter((r) => r.ok && r.user).map((r) => r.user!);
+    const failed = results
+      .filter((r) => !r.ok)
+      .map((r) => ({ index: r.index, email: r.email, error: r.error || 'Failed to invite user' }));
+
+    return { results, created, failed };
   }
 
   async resendInvite(

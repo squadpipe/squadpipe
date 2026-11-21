@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useMemo, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { animate, motion } from 'framer-motion';
 import {
   AlertTriangle,
@@ -30,7 +30,6 @@ import {
 } from '../../types';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { MaskedValue } from '../../components/shared/MaskedValue';
-import { APPLE_EASE } from '../../components/shared/MotionPrimitives';
 import {
   DetailBreadcrumb,
   DetailTabItem,
@@ -59,14 +58,15 @@ const BAR_TONE_CLASSES: Record<ProgressTone, string> = {
   rose: 'bg-gradient-to-r from-rose-500 to-rose-400',
 };
 
+const PROGRESS_EASE = [0.22, 1, 0.36, 1] as const;
+
 const RING_TONE_STYLES: Record<
   ProgressTone,
-  { start: string; end: string; glow?: string; pulseBorder: string; labelClass: string }
+  { start: string; end: string; pulseBorder: string; labelClass: string }
 > = {
   emerald: {
     start: '#34d399',
     end: '#059669',
-    glow: 'drop-shadow(0 0 4px rgba(16, 185, 129, 0.28))',
     pulseBorder: 'border-emerald-400',
     labelClass: 'text-emerald-700',
   },
@@ -84,28 +84,63 @@ const RING_TONE_STYLES: Record<
   },
 };
 
+interface AnimatedPercentTextProps {
+  pct: number;
+  hasTimeline: boolean;
+  replayKey: string;
+  className?: string;
+}
+
 /**
- * Smoothly counts a percentage readout from 0 to targetPct when timeline progress mounts or updates.
+ * Animates a percentage readout directly via DOM ref so count-ups never trigger React re-renders.
  */
-function useAnimatedPercentage(targetPct: number, active: boolean, replayKey: string): number {
-  const [displayPct, setDisplayPct] = useState(0);
+const AnimatedPercentText: React.FC<AnimatedPercentTextProps> = ({
+  pct,
+  hasTimeline,
+  replayKey,
+  className,
+}) => {
+  const spanRef = useRef<HTMLSpanElement | null>(null);
 
   useEffect(() => {
-    if (!active) {
-      setDisplayPct(0);
+    const el = spanRef.current;
+    if (!el) return;
+    if (!hasTimeline) {
+      el.textContent = '—';
       return;
     }
-    setDisplayPct(0);
-    const controls = animate(0, targetPct, {
-      duration: 0.85,
-      ease: APPLE_EASE,
-      onUpdate: (latest) => setDisplayPct(Math.round(latest)),
-    });
-    return () => controls.stop();
-  }, [active, targetPct, replayKey]);
 
-  return displayPct;
-}
+    const target = Math.min(100, Math.max(0, pct));
+    let lastShown = 0;
+    el.textContent = '0%';
+
+    const controls = animate(0, target, {
+      duration: 0.9,
+      delay: 0.08,
+      ease: PROGRESS_EASE,
+      onUpdate: (latest) => {
+        const rounded = Math.round(latest);
+        if (rounded !== lastShown && spanRef.current) {
+          lastShown = rounded;
+          spanRef.current.textContent = `${rounded}%`;
+        }
+      },
+      onComplete: () => {
+        if (spanRef.current) {
+          spanRef.current.textContent = `${target}%`;
+        }
+      },
+    });
+
+    return () => controls.stop();
+  }, [pct, hasTimeline, replayKey]);
+
+  return (
+    <span ref={spanRef} className={className}>
+      {hasTimeline ? '0%' : '—'}
+    </span>
+  );
+};
 
 interface ContractProgressRingProps {
   pct: number;
@@ -115,7 +150,7 @@ interface ContractProgressRingProps {
 }
 
 /**
- * Animated radial SVG progress ring with smooth stroke sweep and completion pulse.
+ * Animated radial SVG progress ring with smooth GPU stroke sweep and completion pulse.
  */
 const ContractProgressRing: React.FC<ContractProgressRingProps> = ({
   pct,
@@ -125,7 +160,6 @@ const ContractProgressRing: React.FC<ContractProgressRingProps> = ({
 }) => {
   const gradientId = useId();
   const clampedPct = hasTimeline ? Math.min(100, Math.max(0, pct)) : 0;
-  const displayPct = useAnimatedPercentage(clampedPct, hasTimeline, replayKey);
 
   const sizePx = 56;
   const strokeWidth = 5;
@@ -135,21 +169,19 @@ const ContractProgressRing: React.FC<ContractProgressRingProps> = ({
   const toneStyle = RING_TONE_STYLES[tone];
 
   return (
-    <motion.div
-      key={replayKey}
-      initial={{ scale: 0.92, opacity: 0.75 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 0.35, ease: APPLE_EASE }}
+    <div
       className="relative inline-flex items-center justify-center shrink-0"
       style={{ width: sizePx, height: sizePx }}
       aria-label={hasTimeline ? `${clampedPct}% of contract timeline elapsed` : 'Timeline unavailable'}
     >
       {hasTimeline && clampedPct === 100 && (
         <motion.span
+          key={`pulse-${replayKey}`}
           aria-hidden="true"
-          initial={{ scale: 0.9, opacity: 0.6 }}
+          initial={{ scale: 0.94, opacity: 0.55 }}
           animate={{ scale: 1.24, opacity: 0 }}
-          transition={{ duration: 0.85, delay: 0.55, ease: 'easeOut' }}
+          transition={{ duration: 0.75, delay: 0.92, ease: [0.16, 1, 0.3, 1] }}
+          style={{ willChange: 'transform, opacity' }}
           className={`absolute inset-0 rounded-full border-2 pointer-events-none ${toneStyle.pulseBorder}`}
         />
       )}
@@ -157,6 +189,7 @@ const ContractProgressRing: React.FC<ContractProgressRingProps> = ({
         width={sizePx}
         height={sizePx}
         viewBox={`0 0 ${sizePx} ${sizePx}`}
+        shapeRendering="geometricPrecision"
         className="-rotate-90"
       >
         <defs>
@@ -175,6 +208,7 @@ const ContractProgressRing: React.FC<ContractProgressRingProps> = ({
         />
         {hasTimeline && clampedPct > 0 && (
           <motion.circle
+            key={`stroke-${replayKey}`}
             cx={sizePx / 2}
             cy={sizePx / 2}
             r={radius}
@@ -183,21 +217,22 @@ const ContractProgressRing: React.FC<ContractProgressRingProps> = ({
             strokeDasharray={circumference}
             initial={{ strokeDashoffset: circumference }}
             animate={{ strokeDashoffset }}
-            transition={{ duration: 0.85, ease: APPLE_EASE }}
+            transition={{ duration: 0.9, delay: 0.08, ease: PROGRESS_EASE }}
             strokeLinecap="round"
             stroke={`url(#${gradientId})`}
-            style={toneStyle.glow ? { filter: toneStyle.glow } : undefined}
+            style={{ willChange: 'stroke-dashoffset' }}
           />
         )}
       </svg>
-      <span
+      <AnimatedPercentText
+        pct={clampedPct}
+        hasTimeline={hasTimeline}
+        replayKey={replayKey}
         className={`absolute inset-0 flex items-center justify-center text-[11px] font-bold font-mono tabular-nums ${
           clampedPct === 100 ? toneStyle.labelClass : 'text-slate-900'
         }`}
-      >
-        {hasTimeline ? `${displayPct}%` : '—'}
-      </span>
-    </motion.div>
+      />
+    </div>
   );
 };
 
@@ -255,11 +290,6 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
     ? getContractTimelineMetrics(placement.startDate, placement.endDate)
     : null;
   const timelinePct = timeline ? (ended ? 100 : timeline.progressPct) : 0;
-  const heroDisplayPct = useAnimatedPercentage(
-    timelinePct,
-    Boolean(placement && timeline),
-    `${placement?.id || 'none'}-${timelinePct}`
-  );
 
   useEffect(() => {
     setWorkspaceTab('billing');
@@ -678,9 +708,12 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
             </div>
             <div className="flex items-baseline justify-between gap-2">
               <div className="leading-none">
-                <span className="text-lg font-bold font-mono text-slate-900 tabular-nums">
-                  {timeline ? `${heroDisplayPct}%` : '—'}
-                </span>
+                <AnimatedPercentText
+                  pct={timelinePct}
+                  hasTimeline={Boolean(timeline)}
+                  replayKey={`${placement.id}-${timelinePct}`}
+                  className="text-lg font-bold font-mono text-slate-900 tabular-nums"
+                />
                 <span className="text-[11px] text-slate-500 ml-1.5">elapsed</span>
               </div>
               <span className="text-[11px] font-mono text-slate-500 truncate tabular-nums">
@@ -688,29 +721,36 @@ export const PlacementDetailPage: React.FC<PlacementDetailPageProps> = ({
               </span>
             </div>
             <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden relative">
-              <motion.div
-                key={`hero-bar-${placement.id}-${timelinePct}`}
-                initial={{ width: '0%' }}
-                animate={{ width: `${timeline ? timelinePct : 0}%` }}
-                transition={{ duration: 0.85, ease: APPLE_EASE }}
-                className={`relative h-full rounded-full overflow-hidden ${progressBarClass}`}
-              >
-                {timeline && timelinePct > 0 && (
+              {timeline && timelinePct > 0 && (
+                <div
+                  className="relative h-full overflow-hidden rounded-full"
+                  style={{ width: `${Math.min(100, Math.max(0, timelinePct))}%` }}
+                >
+                  <motion.div
+                    key={`hero-bar-${placement.id}-${timelinePct}`}
+                    initial={{ scaleX: 0 }}
+                    animate={{ scaleX: 1 }}
+                    transition={{ duration: 0.9, delay: 0.08, ease: PROGRESS_EASE }}
+                    style={{ transformOrigin: 'left center', willChange: 'transform' }}
+                    className={`h-full w-full rounded-full ${progressBarClass}`}
+                  />
                   <motion.span
+                    key={`hero-sheen-${placement.id}-${timelinePct}`}
                     aria-hidden="true"
-                    initial={{ x: '-100%' }}
-                    animate={{ x: '220%' }}
+                    initial={{ x: '-120%', opacity: 0 }}
+                    animate={{ x: '240%', opacity: [0, 0.85, 0.85, 0] }}
                     transition={{
-                      duration: 1.4,
-                      delay: 0.45,
+                      duration: 1.5,
+                      delay: 1.05,
                       ease: 'easeInOut',
                       repeat: Infinity,
-                      repeatDelay: 2.5,
+                      repeatDelay: 2.8,
                     }}
-                    className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none"
+                    style={{ willChange: 'transform, opacity' }}
+                    className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-white/45 to-transparent pointer-events-none"
                   />
-                )}
-              </motion.div>
+                </div>
+              )}
             </div>
           </div>
         </div>

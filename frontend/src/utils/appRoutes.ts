@@ -42,6 +42,7 @@ const STATIC_ROUTE_TO_VIEW: Record<string, string> = {
   '/usage': 'usage',
   '/settings': 'settings_general',
   '/users': 'user_management',
+  '/users/invite': 'user_invite',
 };
 
 const VIEW_TO_STATIC_PATH: Record<string, string> = {
@@ -67,6 +68,7 @@ const VIEW_TO_STATIC_PATH: Record<string, string> = {
   usage: '/usage',
   settings_general: '/settings',
   user_management: '/users',
+  user_invite: '/users/invite',
 };
 
 const VIEW_TITLE_LABELS: Record<string, string> = {
@@ -103,6 +105,9 @@ const VIEW_TITLE_LABELS: Record<string, string> = {
   usage: 'Usage & Storage',
   settings_general: 'General Settings',
   user_management: 'Team Members',
+  user_invite: 'Invite Team Members',
+  user_detail: 'Member Details',
+  user_edit: 'Edit Team Member',
 };
 
 function safeDecodeSegment(segment: string): string {
@@ -154,6 +159,8 @@ export function parseAppRoute(pathname: string, search?: string): ParsedAppRoute
     [/^\/vendors\/([^/]+)\/edit$/i, 'vendor_edit'],
     [/^\/vendors\/([^/]+)$/i, 'vendor_detail'],
     [/^\/(?:placements|billable)\/([^/]+)$/i, 'placement_detail'],
+    [/^\/users\/([^/]+)\/edit$/i, 'user_edit'],
+    [/^\/users\/([^/]+)$/i, 'user_detail'],
     [/^\/application-forms\/([^/]+)\/edit$/i, 'application_form_edit'],
   ];
 
@@ -208,6 +215,12 @@ export function buildAppPath(
       break;
     case 'placement_detail':
       basePath = id ? `/placements/${id}` : '/billable';
+      break;
+    case 'user_edit':
+      basePath = id ? `/users/${id}/edit` : '/users';
+      break;
+    case 'user_detail':
+      basePath = id ? `/users/${id}` : '/users';
       break;
     case 'application_form_edit':
       basePath = id ? `/application-forms/${id}/edit` : '/application-forms';

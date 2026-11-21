@@ -1,16 +1,110 @@
 import { useEffect, useState } from 'react';
+import type { CustomSelectOption } from '../components/shared/CustomSelect';
 import { apiClient } from '../config/api.config';
 import { setAiCapabilities, setWorkspaceBrand, setWorkspacePolicies } from './workspaceBrand';
 
-export const CURRENCY_OPTIONS = [
-  'USD ($)',
-  'CAD ($)',
-  'GBP (£)',
-  'EUR (€)',
-  'INR (₹)',
-  'AUD (A$)',
-  'SGD (S$)',
+export interface CurrencyCatalogEntry {
+  code: string;
+  symbol: string;
+  value: string;
+  name: string;
+  keywords: string;
+}
+
+export const CURRENCY_CATALOG: readonly CurrencyCatalogEntry[] = [
+  // Core Staffing & Major Reserve Currencies
+  { code: 'USD', symbol: '$', value: 'USD ($)', name: 'US Dollar', keywords: 'united states america us global' },
+  { code: 'EUR', symbol: '€', value: 'EUR (€)', name: 'Euro', keywords: 'europe eu germany france netherlands ireland spain italy' },
+  { code: 'GBP', symbol: '£', value: 'GBP (£)', name: 'British Pound Sterling', keywords: 'uk united kingdom england britain london' },
+  { code: 'CAD', symbol: '$', value: 'CAD ($)', name: 'Canadian Dollar', keywords: 'canada toronto vancouver montreal' },
+  { code: 'AUD', symbol: 'A$', value: 'AUD (A$)', name: 'Australian Dollar', keywords: 'australia sydney melbourne' },
+  { code: 'INR', symbol: '₹', value: 'INR (₹)', name: 'Indian Rupee', keywords: 'india bengaluru hyderabad mumbai pune delhi' },
+  { code: 'SGD', symbol: 'S$', value: 'SGD (S$)', name: 'Singapore Dollar', keywords: 'singapore apac' },
+  { code: 'CHF', symbol: 'CHF', value: 'CHF (CHF)', name: 'Swiss Franc', keywords: 'switzerland zurich geneva' },
+  { code: 'JPY', symbol: '¥', value: 'JPY (¥)', name: 'Japanese Yen', keywords: 'japan tokyo' },
+  { code: 'NZD', symbol: 'NZ$', value: 'NZD (NZ$)', name: 'New Zealand Dollar', keywords: 'new zealand auckland wellington' },
+  // Middle East
+  { code: 'AED', symbol: 'AED', value: 'AED (AED)', name: 'UAE Dirham', keywords: 'united arab emirates dubai abu dhabi gulf' },
+  { code: 'SAR', symbol: 'SAR', value: 'SAR (SAR)', name: 'Saudi Riyal', keywords: 'saudi arabia riyadh ksa' },
+  { code: 'QAR', symbol: 'QAR', value: 'QAR (QAR)', name: 'Qatari Riyal', keywords: 'qatar doha' },
+  { code: 'KWD', symbol: 'KWD', value: 'KWD (KWD)', name: 'Kuwaiti Dinar', keywords: 'kuwait' },
+  { code: 'BHD', symbol: 'BHD', value: 'BHD (BHD)', name: 'Bahraini Dinar', keywords: 'bahrain manama' },
+  { code: 'OMR', symbol: 'OMR', value: 'OMR (OMR)', name: 'Omani Rial', keywords: 'oman muscat' },
+  { code: 'ILS', symbol: '₪', value: 'ILS (₪)', name: 'Israeli New Shekel', keywords: 'israel tel aviv jerusalem' },
+  { code: 'TRY', symbol: '₺', value: 'TRY (₺)', name: 'Turkish Lira', keywords: 'turkey istanbul ankara' },
+  // Europe (Non-Eurozone)
+  { code: 'SEK', symbol: 'kr', value: 'SEK (kr)', name: 'Swedish Krona', keywords: 'sweden stockholm nordics' },
+  { code: 'NOK', symbol: 'kr', value: 'NOK (kr)', name: 'Norwegian Krone', keywords: 'norway oslo nordics' },
+  { code: 'DKK', symbol: 'kr', value: 'DKK (kr)', name: 'Danish Krone', keywords: 'denmark copenhagen nordics' },
+  { code: 'PLN', symbol: 'zł', value: 'PLN (zł)', name: 'Polish Zloty', keywords: 'poland warsaw krakow' },
+  { code: 'CZK', symbol: 'Kč', value: 'CZK (Kč)', name: 'Czech Koruna', keywords: 'czechia prague' },
+  { code: 'HUF', symbol: 'Ft', value: 'HUF (Ft)', name: 'Hungarian Forint', keywords: 'hungary budapest' },
+  { code: 'RON', symbol: 'lei', value: 'RON (lei)', name: 'Romanian Leu', keywords: 'romania bucharest' },
+  { code: 'BGN', symbol: 'лв', value: 'BGN (лв)', name: 'Bulgarian Lev', keywords: 'bulgaria sofia' },
+  { code: 'ISK', symbol: 'kr', value: 'ISK (kr)', name: 'Icelandic Króna', keywords: 'iceland reykjavik' },
+  { code: 'UAH', symbol: '₴', value: 'UAH (₴)', name: 'Ukrainian Hryvnia', keywords: 'ukraine kyiv' },
+  // Asia-Pacific
+  { code: 'CNY', symbol: '¥', value: 'CNY (¥)', name: 'Chinese Yuan Renminbi', keywords: 'china beijing shanghai rmb' },
+  { code: 'HKD', symbol: 'HK$', value: 'HKD (HK$)', name: 'Hong Kong Dollar', keywords: 'hong kong' },
+  { code: 'TWD', symbol: 'NT$', value: 'TWD (NT$)', name: 'New Taiwan Dollar', keywords: 'taiwan taipei' },
+  { code: 'KRW', symbol: '₩', value: 'KRW (₩)', name: 'South Korean Won', keywords: 'korea seoul' },
+  { code: 'MYR', symbol: 'RM', value: 'MYR (RM)', name: 'Malaysian Ringgit', keywords: 'malaysia kuala lumpur' },
+  { code: 'THB', symbol: '฿', value: 'THB (฿)', name: 'Thai Baht', keywords: 'thailand bangkok' },
+  { code: 'IDR', symbol: 'Rp', value: 'IDR (Rp)', name: 'Indonesian Rupiah', keywords: 'indonesia jakarta' },
+  { code: 'PHP', symbol: '₱', value: 'PHP (₱)', name: 'Philippine Peso', keywords: 'philippines manila cebu' },
+  { code: 'VND', symbol: '₫', value: 'VND (₫)', name: 'Vietnamese Dong', keywords: 'vietnam hanoi ho chi minh' },
+  { code: 'PKR', symbol: '₨', value: 'PKR (₨)', name: 'Pakistani Rupee', keywords: 'pakistan karachi lahore' },
+  { code: 'BDT', symbol: '৳', value: 'BDT (৳)', name: 'Bangladeshi Taka', keywords: 'bangladesh dhaka' },
+  { code: 'LKR', symbol: 'Rs', value: 'LKR (Rs)', name: 'Sri Lankan Rupee', keywords: 'sri lanka colombo' },
+  // Latin America & Caribbean
+  { code: 'MXN', symbol: 'MX$', value: 'MXN (MX$)', name: 'Mexican Peso', keywords: 'mexico latam' },
+  { code: 'BRL', symbol: 'R$', value: 'BRL (R$)', name: 'Brazilian Real', keywords: 'brazil sao paulo latam' },
+  { code: 'ARS', symbol: '$', value: 'ARS ($)', name: 'Argentine Peso', keywords: 'argentina buenos aires latam' },
+  { code: 'CLP', symbol: '$', value: 'CLP ($)', name: 'Chilean Peso', keywords: 'chile santiago latam' },
+  { code: 'COP', symbol: '$', value: 'COP ($)', name: 'Colombian Peso', keywords: 'colombia bogota latam' },
+  { code: 'PEN', symbol: 'S/', value: 'PEN (S/)', name: 'Peruvian Sol', keywords: 'peru lima latam' },
+  // Africa
+  { code: 'ZAR', symbol: 'R', value: 'ZAR (R)', name: 'South African Rand', keywords: 'south africa johannesburg cape town' },
+  { code: 'NGN', symbol: '₦', value: 'NGN (₦)', name: 'Nigerian Naira', keywords: 'nigeria lagos' },
+  { code: 'KES', symbol: 'KSh', value: 'KES (KSh)', name: 'Kenyan Shilling', keywords: 'kenya nairobi' },
+  { code: 'EGP', symbol: 'E£', value: 'EGP (E£)', name: 'Egyptian Pound', keywords: 'egypt cairo' },
+  { code: 'MAD', symbol: 'MAD', value: 'MAD (MAD)', name: 'Moroccan Dirham', keywords: 'morocco casablanca' },
 ] as const;
+
+export const CURRENCY_OPTIONS = CURRENCY_CATALOG.map((c) => c.value);
+
+const CURRENCY_BY_VALUE = new Map<string, CurrencyCatalogEntry>(
+  CURRENCY_CATALOG.map((entry) => [entry.value, entry])
+);
+
+const CURRENCY_BY_CODE = new Map<string, CurrencyCatalogEntry>(
+  CURRENCY_CATALOG.map((entry) => [entry.code, entry])
+);
+
+export const CURRENCY_SELECT_OPTIONS: CustomSelectOption[] = CURRENCY_CATALOG.map((entry) => ({
+  value: entry.value,
+  label: `${entry.code} (${entry.symbol}) · ${entry.name}`,
+  description: entry.keywords,
+  keywords: `${entry.code} ${entry.symbol} ${entry.name} ${entry.keywords}`,
+}));
+
+/**
+ * Returns searchable currency options, preserving any custom/legacy saved value if outside the standard catalog.
+ */
+export function getCurrencySelectOptions(currentValue?: string | null): CustomSelectOption[] {
+  const trimmed = String(currentValue ?? '').trim();
+  if (trimmed && !CURRENCY_BY_VALUE.has(trimmed)) {
+    return [
+      {
+        value: trimmed,
+        label: trimmed,
+        description: 'Previously saved currency',
+      },
+      ...CURRENCY_SELECT_OPTIONS,
+    ];
+  }
+  return CURRENCY_SELECT_OPTIONS;
+}
 
 const STORAGE_KEY = 'squadpipe_currency';
 const LEGACY_STORAGE_KEY = 'talentos_currency';
@@ -35,19 +129,87 @@ let currentCurrency: string = (() => {
 
 const listeners = new Set<(currency: string) => void>();
 
+// Separate non-alphabetic currency symbols from alphabetic codes so plain English words (e.g. "HR 100") never false-match.
+const SYMBOL_TOKENS = Array.from(
+  new Set(
+    CURRENCY_CATALOG.map((c) => c.symbol)
+      .filter((s) => !/^[A-Za-z]+$/.test(s))
+      .map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  )
+).sort((a, b) => b.length - a.length);
+
+const WORD_CODE_TOKENS = Array.from(
+  new Set(
+    CURRENCY_CATALOG.flatMap((c) => [c.symbol, c.code])
+      .filter((s) => /^[A-Za-z]+$/.test(s))
+      .map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  )
+).sort((a, b) => b.length - a.length);
+
+const CURRENCY_PREFIX_TEST_REGEX = new RegExp(
+  `(?:(?:${SYMBOL_TOKENS.join('|')})|(?:^|[^A-Za-z])(?:${WORD_CODE_TOKENS.join('|')}))(?=\\s*\\d)`
+);
+
+const CURRENCY_PREFIX_REPLACE_REGEX = new RegExp(
+  `(^|[^A-Za-z])(?:${WORD_CODE_TOKENS.join('|')})\\s*(?=\\d)|(?:${SYMBOL_TOKENS.join('|')})\\s*(?=\\d)`,
+  'g'
+);
+
+export function hasCurrencySymbol(val?: string | null): boolean {
+  if (!val) return false;
+  return CURRENCY_PREFIX_TEST_REGEX.test(val);
+}
+
 export function extractCurrencySymbol(currencyStr?: string | null): string {
   if (!currencyStr) return '$';
   const match = String(currencyStr).match(/\(([^)]+)\)/);
   if (match && match[1]) {
     return match[1].trim();
   }
-  const upper = String(currencyStr).toUpperCase();
-  if (upper.includes('GBP')) return '£';
-  if (upper.includes('EUR')) return '€';
-  if (upper.includes('INR')) return '₹';
-  if (upper.includes('AUD')) return 'A$';
-  if (upper.includes('SGD')) return 'S$';
+  const upper = String(currencyStr).toUpperCase().trim();
+  const direct = CURRENCY_BY_CODE.get(upper);
+  if (direct) return direct.symbol;
+
+  for (const entry of CURRENCY_CATALOG) {
+    if (upper.includes(entry.code)) {
+      return entry.symbol;
+    }
+  }
   return '$';
+}
+
+export function getCurrencyMeta(currencyStr?: string | null): {
+  code: string;
+  symbol: string;
+  name: string;
+  value: string;
+} {
+  const trimmed = String(currencyStr ?? '').trim() || DEFAULT_CURRENCY;
+  const byVal = CURRENCY_BY_VALUE.get(trimmed);
+  if (byVal) {
+    return {
+      code: byVal.code,
+      symbol: byVal.symbol,
+      name: byVal.name,
+      value: byVal.value,
+    };
+  }
+  const codeMatch = trimmed.toUpperCase().match(/\b([A-Z]{3})\b/);
+  if (codeMatch && CURRENCY_BY_CODE.has(codeMatch[1])) {
+    const entry = CURRENCY_BY_CODE.get(codeMatch[1])!;
+    return {
+      code: entry.code,
+      symbol: entry.symbol,
+      name: entry.name,
+      value: trimmed,
+    };
+  }
+  return {
+    code: codeMatch?.[1] || 'USD',
+    symbol: extractCurrencySymbol(trimmed),
+    name: trimmed,
+    value: trimmed,
+  };
 }
 
 export function getWorkspaceCurrency(): string {
@@ -131,15 +293,16 @@ export function formatRateDisplay(
   sym: string = getCurrencySymbol()
 ): string {
   if (val === undefined || val === null || val === '') return '';
+  const prefix = /^[A-Z]{2,}$/.test(sym) ? `${sym} ` : sym;
   if (typeof val === 'number') {
-    return `${sym}${val}/hr`;
+    return `${prefix}${val}/hr`;
   }
   const str = String(val).trim();
   if (!str) return '';
   if (/^\d+(?:\.\d+)?$/.test(str)) {
-    return `${sym}${str}/hr`;
+    return `${prefix}${str}/hr`;
   }
-  return str.replace(/(?:A\$|S\$|[$£€₹])(?=\d)/g, sym);
+  return str.replace(CURRENCY_PREFIX_REPLACE_REGEX, (_match, leading = '') => `${leading}${prefix}`);
 }
 
 export function useCurrency() {
@@ -166,4 +329,3 @@ export function useCurrency() {
     formatRate,
   };
 }
-
