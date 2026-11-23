@@ -84,6 +84,13 @@ export const matchSearchCandidates = async (req: Request, res: Response) => {
         body.matchMode === 'strict' || body.matchMode === 'overlap' || body.matchMode === 'all'
           ? body.matchMode
           : undefined,
+      sortBy:
+        body.sortBy === 'match' ||
+        body.sortBy === 'bench' ||
+        body.sortBy === 'rate_asc' ||
+        body.sortBy === 'recent'
+          ? body.sortBy
+          : undefined,
       excludeAttached: typeof body.excludeAttached === 'boolean' ? body.excludeAttached : true,
       excludeCandidateIds: Array.isArray(body.excludeCandidateIds) ? body.excludeCandidateIds : undefined,
       page: body.page ? Number(body.page) : 1,

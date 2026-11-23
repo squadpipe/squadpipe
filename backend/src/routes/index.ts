@@ -638,10 +638,12 @@ router.post('/match-skills', async (req: Request, res: Response) => {
       relocation,
       maxRate,
       matchMode,
+      sortBy,
       candidateIds,
       excludeCandidateIds,
       excludeAttached,
       candidates,
+      forceRefresh,
     } = req.body || {};
 
     if (!requirementId) {
@@ -674,11 +676,19 @@ router.post('/match-skills', async (req: Request, res: Response) => {
         matchMode === 'strict' || matchMode === 'overlap' || matchMode === 'semantic' || matchMode === 'all'
           ? matchMode
           : undefined,
+      sortBy:
+        sortBy === 'match' ||
+        sortBy === 'bench' ||
+        sortBy === 'rate_asc' ||
+        sortBy === 'recent'
+          ? sortBy
+          : undefined,
       candidateIds: Array.isArray(candidateIds) ? candidateIds : undefined,
       excludeCandidateIds: Array.isArray(excludeCandidateIds) ? excludeCandidateIds : undefined,
       excludeAttached: typeof excludeAttached === 'boolean' ? excludeAttached : true,
       candidates: Array.isArray(candidates) ? candidates : undefined,
       rateMasked: Boolean(req.user?.rateMasked),
+      forceRefresh: Boolean(forceRefresh),
     });
     res.json({ success: true, data: result });
   } catch (error: any) {
@@ -884,6 +894,29 @@ router.post('/submissions/:id/evaluate', async (req: Request, res: Response) => 
     res.status(status).json({
       success: false,
       message: error?.message || 'Failed to evaluate submission capability',
+    });
+  }
+});
+
+router.post('/requirements/:requirementId/candidates/:candidateId/evaluate', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const evaluation = await capabilityService.evaluateCandidateForRequirement(
+      req.params.requirementId,
+      req.params.candidateId,
+      tenantId,
+      {
+        rateMasked: Boolean(req.user?.rateMasked),
+        userId: req.user?.id,
+        forceRefresh: Boolean(req.body?.forceRefresh),
+      }
+    );
+    res.json({ success: true, data: evaluation });
+  } catch (error: any) {
+    const status = error?.statusCode || 500;
+    res.status(status).json({
+      success: false,
+      message: error?.message || 'Failed to evaluate candidate fit score',
     });
   }
 });

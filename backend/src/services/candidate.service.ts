@@ -58,6 +58,7 @@ export interface CandidateFilterParams {
 
 export type MatchAvailabilityScope = 'bench' | 'non_billable' | 'all';
 export type SkillMatchFilterMode = 'strict' | 'overlap' | 'all';
+export type CandidateMatchSortBy = 'match' | 'bench' | 'rate_asc' | 'recent';
 
 export interface CandidateMatchSearchParams {
   tenantId: string;
@@ -71,6 +72,7 @@ export interface CandidateMatchSearchParams {
   maxRate?: number;
   rateMasked?: boolean;
   matchMode?: SkillMatchFilterMode;
+  sortBy?: CandidateMatchSortBy;
   excludeAttached?: boolean;
   excludeCandidateIds?: string[];
   page?: number;
@@ -370,6 +372,7 @@ export class CandidateService {
       maxRate,
       rateMasked = false,
       matchMode: requestedMatchMode,
+      sortBy: requestedSortBy = 'match',
       excludeAttached = true,
       excludeCandidateIds = [],
       page: rawPage = 1,
@@ -572,6 +575,41 @@ export class CandidateService {
     const whereBaseFilteredSql = Prisma.join(filterConditions, ' AND ');
     const whereActiveSql = Prisma.join(activeConditions, ' AND ');
 
+    const effectiveSortBy: CandidateMatchSortBy =
+      requestedSortBy === 'bench' ||
+      requestedSortBy === 'recent' ||
+      (requestedSortBy === 'rate_asc' && !rateMasked)
+        ? requestedSortBy
+        : 'match';
+
+    const orderBySql =
+      effectiveSortBy === 'bench'
+        ? Prisma.sql`
+            (c."pipelineStage" = 'AVAILABLE_BENCH'::"CandidatePipelineStage") DESC,
+            "matchedCount" DESC,
+            c."updatedAt" DESC,
+            c."id" DESC
+          `
+        : effectiveSortBy === 'rate_asc'
+          ? Prisma.sql`
+              COALESCE(c."hourlyRateW2", c."hourlyRateC2c") ASC NULLS LAST,
+              "matchedCount" DESC,
+              (c."pipelineStage" = 'AVAILABLE_BENCH'::"CandidatePipelineStage") DESC,
+              c."id" DESC
+            `
+          : effectiveSortBy === 'recent'
+            ? Prisma.sql`
+                c."updatedAt" DESC,
+                "matchedCount" DESC,
+                c."id" DESC
+              `
+            : Prisma.sql`
+                "matchedCount" DESC,
+                (c."pipelineStage" = 'AVAILABLE_BENCH'::"CandidatePipelineStage") DESC,
+                c."updatedAt" DESC,
+                c."id" DESC
+              `;
+
     const [poolCountRows, filteredStatsRows, pageIdRows] = await Promise.all([
       prisma.$queryRaw<Array<{ total: bigint | number }>>`
         SELECT COUNT(*)::bigint AS total
@@ -591,11 +629,7 @@ export class CandidateService {
           ${matchedCountExpr}::int AS "matchedCount"
         FROM "Candidate" c
         WHERE ${whereActiveSql}
-        ORDER BY
-          "matchedCount" DESC,
-          (c."pipelineStage" = 'AVAILABLE_BENCH'::"CandidatePipelineStage") DESC,
-          c."updatedAt" DESC,
-          c."id" DESC
+        ORDER BY ${orderBySql}
         LIMIT ${limit}
         OFFSET ${(page - 1) * limit}
       `,
