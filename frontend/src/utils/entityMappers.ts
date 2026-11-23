@@ -301,6 +301,15 @@ export const mapCandidateFromApi = (c: any): Candidate => ({
   education: c.education || '',
   currentTitle: c.currentTitle || '',
   skillset: c.skillset || '',
+  normalizedSkills: Array.isArray(c.normalizedSkills) ? c.normalizedSkills : undefined,
+  matchSummary:
+    c.matchSummary && typeof c.matchSummary === 'object'
+      ? {
+          score: Number(c.matchSummary.score ?? 0),
+          matched: Array.isArray(c.matchSummary.matched) ? c.matchSummary.matched : [],
+          missing: Array.isArray(c.matchSummary.missing) ? c.matchSummary.missing : [],
+        }
+      : undefined,
   hourlyRate: formatRateDisplay(
     c.hourlyRateDisplay ||
       (c.hourlyRateW2

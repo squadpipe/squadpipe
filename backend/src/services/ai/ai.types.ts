@@ -74,6 +74,7 @@ export interface CapabilityCandidateInput {
   fullName?: string;
   currentTitle?: string;
   skillset?: string;
+  normalizedSkills?: string[];
   workAuth?: string;
   relocation?: string;
   hourlyRateDisplay?: string;

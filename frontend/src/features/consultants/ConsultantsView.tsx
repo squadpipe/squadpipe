@@ -54,8 +54,10 @@ import { useMasterTaxonomies } from '../../components/shared/DynamicCustomFields
 import {
   extractResumeMatchExcerpt,
   matchesCandidateQuery,
+  parseBooleanSearchAst,
   parseCandidateHourlyRate,
 } from '../../utils/candidateSearch';
+import type { SkillTypoCorrection } from '../../utils/skillMatcher';
 
 interface ConsultantsViewProps {
   candidates: Candidate[];
@@ -90,6 +92,8 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
 }) => {
   const aiCapabilities = useAiCapabilities();
   const [search, setSearch] = useState('');
+  const [exactOnly, setExactOnly] = useState(false);
+  const [searchCorrections, setSearchCorrections] = useState<SkillTypoCorrection[]>([]);
   const [workAuthFilter, setWorkAuthFilter] = useState('All');
   const [stageFilter, setStageFilter] = useState('All');
   const [minRate, setMinRate] = useState('');
@@ -131,6 +135,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
     setPage(1);
   }, [
     debouncedSearch,
+    exactOnly,
     workAuthFilter,
     stageFilter,
     debouncedMinRate,
@@ -140,12 +145,16 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
   ]);
 
   useEffect(() => {
+    setExactOnly(false);
+  }, [search]);
+
+  useEffect(() => {
     let active = true;
     const minNum = !rateMasked && debouncedMinRate.trim() !== '' ? Number(debouncedMinRate) : NaN;
     const maxNum = !rateMasked && debouncedMaxRate.trim() !== '' ? Number(debouncedMaxRate) : NaN;
 
     const localFiltered = candidates.filter((c) => {
-      const matchesSearch = matchesCandidateQuery(c, debouncedSearch);
+      const matchesSearch = matchesCandidateQuery(c, debouncedSearch, { exactOnly });
       const matchesAuth =
         workAuthFilter === 'All' ||
         (c.workAuth || '').toLowerCase().includes(workAuthFilter.toLowerCase());
@@ -167,9 +176,12 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
       return matchesSearch && matchesAuth && matchesStage && matchesRate;
     });
 
+    const localCorrections = parseBooleanSearchAst(debouncedSearch, { exactOnly }).corrections;
+
     if (!hasServerSyncRef.current && candidates.length > 0 && !tableSort.sort.sortBy) {
       setTotalRows(localFiltered.length);
       setTableRows(localFiltered.slice((page - 1) * limit, page * limit));
+      setSearchCorrections(localCorrections);
       setIsLoadingRows(false);
     } else {
       setIsLoadingRows(true);
@@ -182,6 +194,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
       .get('/candidates', {
         params: {
           search: debouncedSearch.trim() || undefined,
+          exactOnly: exactOnly ? 'true' : undefined,
           workAuth: workAuthFilter !== 'All' ? workAuthFilter : undefined,
           stage: stageFilter !== 'All' ? stageFilter : undefined,
           minRate: !rateMasked && Number.isFinite(minNum) ? minNum : undefined,
@@ -198,6 +211,8 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
           const mapped = res.data.data.map(mapCandidateFromApi);
           setTableRows(mapped);
           setTotalRows(res.data.pagination?.total ?? mapped.length);
+          const apiCorrections = res.data.meta?.corrections;
+          setSearchCorrections(Array.isArray(apiCorrections) ? apiCorrections : localCorrections);
         }
       })
       .catch(() => {
@@ -212,6 +227,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
         });
         setTotalRows(sortedFallback.length);
         setTableRows(sortedFallback.slice((page - 1) * limit, page * limit));
+        setSearchCorrections(localCorrections);
       })
       .finally(() => {
         if (active) setIsLoadingRows(false);
@@ -221,6 +237,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
     };
   }, [
     debouncedSearch,
+    exactOnly,
     workAuthFilter,
     stageFilter,
     debouncedMinRate,
@@ -304,7 +321,7 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search name, skills, boolean (AND / OR), or resume text..."
+              placeholder="Search name, skills, boolean (AND / OR / NOT), or resume text..."
               className="w-full h-8 pl-8 pr-7 text-xs border border-slate-200 rounded-lg bg-white text-slate-700 placeholder:text-slate-400 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/10 transition-all"
             />
             {search && (
@@ -387,6 +404,36 @@ export const ConsultantsView: React.FC<ConsultantsViewProps> = ({
             )}
           </div>
         </div>
+
+        {(searchCorrections.length > 0 || (exactOnly && debouncedSearch.trim())) && (
+          <div className="px-5 py-2 border-b border-slate-100 bg-brand-50/40 flex items-center justify-between gap-2 text-[11px] text-slate-700 flex-wrap">
+            {exactOnly ? (
+              <span>
+                Searching exact literal text{' '}
+                <strong className="font-semibold text-slate-900">"{debouncedSearch.trim()}"</strong> only.
+              </span>
+            ) : (
+              <span>
+                Auto-included{' '}
+                {searchCorrections.map((c, idx) => (
+                  <React.Fragment key={`${c.from}-${c.canonical}`}>
+                    {idx > 0 ? ', ' : ''}
+                    <strong className="font-semibold text-slate-900">{c.display}</strong> for{' '}
+                    <span className="font-mono text-slate-500">"{c.from}"</span>
+                  </React.Fragment>
+                ))}
+                .
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setExactOnly((prev) => !prev)}
+              className="font-semibold text-brand-700 hover:underline cursor-pointer whitespace-nowrap"
+            >
+              {exactOnly ? 'Include typo matches' : `Search exact "${debouncedSearch.trim()}" only`}
+            </button>
+          </div>
+        )}
 
         {/* Data Table */}
         <div className="overflow-x-auto">

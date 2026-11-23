@@ -50,6 +50,10 @@ import { revokeAllUserSessions } from '../services/sessionToken.service';
 import { escapeHtml, sanitizeEmailHtml } from '../utils/cryptoSecret';
 import { sanitizePublicSummaryHtml } from '../utils/publicSummary';
 import { capabilityService } from '../services/capability.service';
+import {
+  complianceService,
+  extractRequestNetworkMeta,
+} from '../services/compliance.service';
 import { pitchDraftService } from '../services/pitchDraft.service';
 import { publicIntakeService } from '../services/publicIntake.service';
 import { searchService } from '../services/search.service';
@@ -383,6 +387,7 @@ const LEADERSHIP_ROLES: UserRole[] = [
 ];
 
 router.get('/candidates', candidateController.getCandidates);
+router.post('/candidates/match-search', candidateController.matchSearchCandidates);
 router.get('/candidates/vector-status', async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
@@ -424,6 +429,120 @@ router.put('/candidates/:id', uploadRateLimiter, optionalSingleCvUpload, candida
 router.post('/candidates/:id/cv', uploadRateLimiter, optionalSingleCvUpload, candidateController.uploadCandidateCv);
 router.get('/candidates/:id/cv', candidateController.downloadCandidateCv);
 router.patch('/candidates/:id/stage', candidateController.updateCandidate);
+router.patch('/candidates/:id/consent', requireRole(LEADERSHIP_ROLES), async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const netMeta = extractRequestNetworkMeta(req);
+    const {
+      consentStatus,
+      lawfulBasis,
+      privacyNoticeVersion,
+      retentionDays,
+      eraseOnWithdraw,
+    } = req.body || {};
+
+    const updated = await complianceService.updateCandidateConsent({
+      candidateId: req.params.id,
+      tenantId,
+      consentStatus,
+      lawfulBasis,
+      privacyNoticeVersion,
+      retentionDays,
+      actorUserId: req.user?.id,
+      actorEmail: req.user?.email,
+      actorRole: req.user?.role,
+      ...netMeta,
+    });
+
+    if (
+      Boolean(eraseOnWithdraw) &&
+      String(consentStatus || '').trim().toUpperCase() === 'WITHDRAWN'
+    ) {
+      const erasure = await complianceService.executeVerifiedCandidateErasure({
+        candidateId: req.params.id,
+        tenantId,
+        requestedById: req.user?.id,
+        requestedByEmail: req.user?.email,
+        requestedByRole: req.user?.role,
+        ...netMeta,
+        reason: 'CONSENT_WITHDRAWN',
+      });
+      return res.json({
+        success: true,
+        erased: true,
+        data: erasure,
+        message: 'Consent withdrawn and candidate data permanently erased.',
+      });
+    }
+
+    res.json({ success: true, erased: false, data: updated });
+  } catch (error: any) {
+    const status = error?.statusCode || 500;
+    res.status(status).json({
+      success: false,
+      message: error?.message || 'Failed to update candidate consent settings',
+    });
+  }
+});
+router.get('/candidates/:id/export', requireRole(LEADERSHIP_ROLES), async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const netMeta = extractRequestNetworkMeta(req);
+    const exportBundle = await complianceService.exportCandidateDsar(req.params.id, tenantId, {
+      rateMasked: Boolean(req.user?.rateMasked),
+      actorUserId: req.user?.id,
+      actorEmail: req.user?.email,
+      actorRole: req.user?.role,
+      ...netMeta,
+    });
+
+    if (String(req.query.download || '') === '1' || String(req.query.download || '').toLowerCase() === 'true') {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="candidate-dsar-${req.params.id}.json"`
+      );
+      res.setHeader('Cache-Control', 'private, no-store');
+      return res.send(JSON.stringify(exportBundle, null, 2));
+    }
+
+    res.json({ success: true, data: exportBundle });
+  } catch (error: any) {
+    const status = error?.statusCode || 500;
+    res.status(status).json({
+      success: false,
+      message: error?.message || 'Failed to export candidate DSAR bundle',
+    });
+  }
+});
+router.delete('/candidates/:id/erasure', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const netMeta = extractRequestNetworkMeta(req);
+    const allowActivePlacements = Boolean(req.body?.forceDsarErasure);
+    const erasure = await complianceService.executeVerifiedCandidateErasure({
+      candidateId: req.params.id,
+      tenantId,
+      requestedById: req.user?.id,
+      requestedByEmail: req.user?.email,
+      requestedByRole: req.user?.role,
+      ...netMeta,
+      reason: String(req.body?.reason || 'DSAR_ERASURE').trim() || 'DSAR_ERASURE',
+      allowActivePlacements,
+    });
+    res.json({
+      success: true,
+      message: 'Candidate permanently erased and associated PII scrubbed.',
+      data: erasure,
+    });
+  } catch (error: any) {
+    const status = error?.statusCode || 500;
+    res.status(status).json({
+      success: false,
+      message: error?.message || 'Failed to execute candidate erasure',
+    });
+  }
+});
 router.delete('/candidates/:id', requireRole(LEADERSHIP_ROLES), candidateController.deleteCandidate);
 router.post('/candidates/csv-import', requireRole(LEADERSHIP_ROLES), async (req: Request, res: Response) => {
   try {
@@ -631,16 +750,29 @@ router.post('/match-skills', async (req: Request, res: Response) => {
       requirementId,
       skillsRequired,
       search,
+      exactOnly,
       workAuth,
+      availabilityScope,
+      relocation,
+      maxRate,
+      matchMode,
+      sortBy,
       candidateIds,
       excludeCandidateIds,
       excludeAttached,
       candidates,
+      forceRefresh,
     } = req.body || {};
 
     if (!requirementId) {
       return res.status(400).json({ success: false, message: 'requirementId is required' });
     }
+
+    const allowRateFilter = !req.user?.rateMasked;
+    const parsedMaxRate =
+      allowRateFilter && maxRate !== undefined && maxRate !== null && String(maxRate).trim() !== ''
+        ? Number(maxRate)
+        : undefined;
 
     const result = await capabilityService.rankMatchingCandidates({
       tenantId,
@@ -648,12 +780,33 @@ router.post('/match-skills', async (req: Request, res: Response) => {
       requirementId: String(requirementId).trim(),
       skillsRequiredOverride: skillsRequired ? String(skillsRequired) : undefined,
       search: search ? String(search) : undefined,
+      exactOnly: Boolean(exactOnly),
       workAuth: workAuth ? String(workAuth) : undefined,
+      availabilityScope:
+        availabilityScope === 'bench' ||
+        availabilityScope === 'non_billable' ||
+        availabilityScope === 'all'
+          ? availabilityScope
+          : undefined,
+      relocation: relocation ? String(relocation) : undefined,
+      maxRate: parsedMaxRate !== undefined && Number.isFinite(parsedMaxRate) ? parsedMaxRate : undefined,
+      matchMode:
+        matchMode === 'strict' || matchMode === 'overlap' || matchMode === 'semantic' || matchMode === 'all'
+          ? matchMode
+          : undefined,
+      sortBy:
+        sortBy === 'match' ||
+        sortBy === 'bench' ||
+        sortBy === 'rate_asc' ||
+        sortBy === 'recent'
+          ? sortBy
+          : undefined,
       candidateIds: Array.isArray(candidateIds) ? candidateIds : undefined,
       excludeCandidateIds: Array.isArray(excludeCandidateIds) ? excludeCandidateIds : undefined,
       excludeAttached: typeof excludeAttached === 'boolean' ? excludeAttached : true,
       candidates: Array.isArray(candidates) ? candidates : undefined,
       rateMasked: Boolean(req.user?.rateMasked),
+      forceRefresh: Boolean(forceRefresh),
     });
     res.json({ success: true, data: result });
   } catch (error: any) {
@@ -859,6 +1012,29 @@ router.post('/submissions/:id/evaluate', async (req: Request, res: Response) => 
     res.status(status).json({
       success: false,
       message: error?.message || 'Failed to evaluate submission capability',
+    });
+  }
+});
+
+router.post('/requirements/:requirementId/candidates/:candidateId/evaluate', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const evaluation = await capabilityService.evaluateCandidateForRequirement(
+      req.params.requirementId,
+      req.params.candidateId,
+      tenantId,
+      {
+        rateMasked: Boolean(req.user?.rateMasked),
+        userId: req.user?.id,
+        forceRefresh: Boolean(req.body?.forceRefresh),
+      }
+    );
+    res.json({ success: true, data: evaluation });
+  } catch (error: any) {
+    const status = error?.statusCode || 500;
+    res.status(status).json({
+      success: false,
+      message: error?.message || 'Failed to evaluate candidate fit score',
     });
   }
 });
@@ -1168,6 +1344,46 @@ router.put('/users/:id', requireRole([UserRole.ADMINISTRATOR]), async (req: Requ
     if (isSuspending) {
       await revokeAllUserSessions(user.id);
     }
+    const netMeta = extractRequestNetworkMeta(req);
+    if (resolvedNextRole && resolvedNextRole !== user.role) {
+      await complianceService.recordSecurityAuditEvent({
+        tenantId,
+        actorUserId: req.user?.id,
+        actorEmail: req.user?.email,
+        actorRole: req.user?.role,
+        action: 'USER_ROLE_CHANGED',
+        targetType: 'USER',
+        targetId: user.id,
+        ...netMeta,
+        metadata: { previousRole: user.role, nextRole: resolvedNextRole },
+      });
+    }
+    if (rateMasked !== undefined && Boolean(rateMasked) !== user.rateMasked) {
+      await complianceService.recordSecurityAuditEvent({
+        tenantId,
+        actorUserId: req.user?.id,
+        actorEmail: req.user?.email,
+        actorRole: req.user?.role,
+        action: 'USER_RATE_MASK_CHANGED',
+        targetType: 'USER',
+        targetId: user.id,
+        ...netMeta,
+        metadata: { previousRateMasked: user.rateMasked, rateMasked: Boolean(rateMasked) },
+      });
+    }
+    if (resolvedNextStatus && resolvedNextStatus !== user.status) {
+      await complianceService.recordSecurityAuditEvent({
+        tenantId,
+        actorUserId: req.user?.id,
+        actorEmail: req.user?.email,
+        actorRole: req.user?.role,
+        action: 'USER_STATUS_CHANGED',
+        targetType: 'USER',
+        targetId: user.id,
+        ...netMeta,
+        metadata: { previousStatus: user.status, nextStatus: resolvedNextStatus },
+      });
+    }
     const enrichedUpdated = await userService.getUserById(user.id, tenantId);
     res.json({ success: true, data: enrichedUpdated });
   } catch (error: any) {
@@ -1201,6 +1417,17 @@ router.patch('/users/:id/status', requireRole([UserRole.ADMINISTRATOR]), async (
     if (nextStatus === 'SUSPENDED') {
       await revokeAllUserSessions(user.id);
     }
+    await complianceService.recordSecurityAuditEvent({
+      tenantId,
+      actorUserId: req.user?.id,
+      actorEmail: req.user?.email,
+      actorRole: req.user?.role,
+      action: 'USER_STATUS_CHANGED',
+      targetType: 'USER',
+      targetId: user.id,
+      ...extractRequestNetworkMeta(req),
+      metadata: { previousStatus: user.status, nextStatus },
+    });
     res.json({ success: true, data: updated });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Failed to update user status' });
@@ -1218,6 +1445,17 @@ router.delete('/users/:id', requireRole([UserRole.ADMINISTRATOR]), async (req: R
       return res.status(400).json({ success: false, message: 'Cannot delete your own administrator account.' });
     }
     await prisma.user.delete({ where: { id: req.params.id } });
+    await complianceService.recordSecurityAuditEvent({
+      tenantId,
+      actorUserId: req.user?.id,
+      actorEmail: req.user?.email,
+      actorRole: req.user?.role,
+      action: 'USER_DELETED',
+      targetType: 'USER',
+      targetId: user.id,
+      ...extractRequestNetworkMeta(req),
+      metadata: { deletedRole: user.role },
+    });
     res.json({ success: true, message: 'User removed successfully' });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Failed to delete user' });
@@ -1946,9 +2184,108 @@ router.put('/settings/general', requireRole([UserRole.ADMINISTRATOR]), async (re
   try {
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
     const updated = await saveGeneralSettings(tenantId, req.body || {});
+    await complianceService.recordSecurityAuditEvent({
+      tenantId,
+      actorUserId: req.user?.id,
+      actorEmail: req.user?.email,
+      actorRole: req.user?.role,
+      action: 'TENANT_SETTINGS_UPDATED',
+      targetType: 'WORKSPACE',
+      targetId: tenantId,
+      ...extractRequestNetworkMeta(req),
+      metadata: {
+        dataRegion: updated.dataRegion,
+        candidateRetentionDays: updated.candidateRetentionDays,
+      },
+    });
     res.json({ success: true, data: updated, message: 'General settings updated' });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'Failed to save general settings' });
+  }
+});
+
+// GDPR / DPDPA Privacy Governance, 365-Day Security Audit Logs & Workspace Export
+router.get('/compliance/overview', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const overview = await complianceService.getComplianceOverview(tenantId);
+    res.json({ success: true, data: overview });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: error?.message || 'Failed to fetch compliance overview',
+    });
+  }
+});
+
+router.get('/compliance/audit-logs', requireRole([UserRole.ADMINISTRATOR]), async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const logs = await complianceService.getSecurityAuditLogs(tenantId, {
+      action: typeof req.query.action === 'string' ? req.query.action : undefined,
+      targetType: typeof req.query.targetType === 'string' ? req.query.targetType : undefined,
+      actorUserId: typeof req.query.actorUserId === 'string' ? req.query.actorUserId : undefined,
+      from: typeof req.query.from === 'string' ? req.query.from : undefined,
+      to: typeof req.query.to === 'string' ? req.query.to : undefined,
+      page: typeof req.query.page === 'string' ? Number(req.query.page) : undefined,
+      limit: typeof req.query.limit === 'string' ? Number(req.query.limit) : undefined,
+    });
+    res.json({ success: true, ...logs });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: error?.message || 'Failed to fetch security audit logs',
+    });
+  }
+});
+
+router.get(
+  '/compliance/workspace-export',
+  requireRole([UserRole.ADMINISTRATOR]),
+  requireUnmaskedRates,
+  async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.user?.tenantId || 'squadpipe-agency';
+      const netMeta = extractRequestNetworkMeta(req);
+      const bundle = await complianceService.exportWorkspaceData(tenantId, {
+        rateMasked: Boolean(req.user?.rateMasked),
+        actorUserId: req.user?.id,
+        actorEmail: req.user?.email,
+        actorRole: req.user?.role,
+        ...netMeta,
+      });
+
+      if (String(req.query.download || '') === '1' || String(req.query.download || '').toLowerCase() === 'true') {
+        const stamp = new Date().toISOString().slice(0, 10);
+        const safeTenant = tenantId.replace(/[^a-zA-Z0-9_-]/g, '_');
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="squadpipe-workspace-export-${safeTenant}-${stamp}.json"`
+        );
+        res.setHeader('Cache-Control', 'private, no-store');
+        return res.send(JSON.stringify(bundle, null, 2));
+      }
+
+      res.json({ success: true, data: bundle });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: error?.message || 'Failed to export workspace data',
+      });
+    }
+  }
+);
+
+router.post('/compliance/erasure-outbox/process', requireRole([UserRole.ADMINISTRATOR]), async (_req: Request, res: Response) => {
+  try {
+    const result = await complianceService.processPendingErasureOutbox(50);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: error?.message || 'Failed to process erasure outbox',
+    });
   }
 });
 

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { X } from 'lucide-react';
-import { MULTI_INDUSTRY_SKILLS_TAXONOMY } from '../../utils/skillsTaxonomy';
+import { getFuzzySkillSuggestions } from '../../utils/skillMatcher';
 
 interface SkillTagInputProps {
   value: string;
@@ -49,19 +49,7 @@ export const SkillTagInput: React.FC<SkillTagInputProps> = ({
 
   const suggestions = useMemo(() => {
     const selectedSet = new Set(skillTags.map((t) => t.toLowerCase()));
-    const available = MULTI_INDUSTRY_SKILLS_TAXONOMY.filter(
-      (s) => !selectedSet.has(s.toLowerCase())
-    );
-    const q = skillInput.trim().toLowerCase();
-    if (!q) return available.slice(0, 12);
-    const startsWith: string[] = [];
-    const contains: string[] = [];
-    for (const s of available) {
-      const lower = s.toLowerCase();
-      if (lower.startsWith(q)) startsWith.push(s);
-      else if (lower.includes(q)) contains.push(s);
-    }
-    return [...startsWith, ...contains].slice(0, 12);
+    return getFuzzySkillSuggestions(skillInput, selectedSet, 12);
   }, [skillInput, skillTags]);
 
   const handleAdd = (raw: string) => {
@@ -132,7 +120,7 @@ export const SkillTagInput: React.FC<SkillTagInputProps> = ({
                   highlightedIdx >= 0 &&
                   suggestions[highlightedIdx]
                 ) {
-                  handleAdd(suggestions[highlightedIdx]);
+                  handleAdd(suggestions[highlightedIdx].label);
                 } else {
                   handleAdd(skillInput);
                 }
@@ -149,18 +137,23 @@ export const SkillTagInput: React.FC<SkillTagInputProps> = ({
               <div className="flex flex-wrap gap-1.5">
                 {suggestions.map((suggestion, idx) => (
                   <button
-                    key={suggestion}
+                    key={suggestion.label}
                     type="button"
                     onMouseDown={(e) => {
                       e.preventDefault();
-                      handleAdd(suggestion);
+                      handleAdd(suggestion.label);
                     }}
                     className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${idx === highlightedIdx
                       ? 'bg-brand-600 text-white border-brand-600'
                       : 'bg-white hover:bg-brand-50/40 text-slate-700 hover:text-brand-700 border-slate-300 hover:border-brand-300'
                       }`}
                   >
-                    + {suggestion}
+                    + {suggestion.label}
+                    {suggestion.correctedFrom ? (
+                      <span className="ml-1 opacity-75 text-[10px]">
+                        (did you mean?)
+                      </span>
+                    ) : null}
                   </button>
                 ))}
               </div>

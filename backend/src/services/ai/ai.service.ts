@@ -26,6 +26,16 @@ import {
   sanitizePublicSummaryHtml,
   scrubConfidentialText,
 } from '../../utils/publicSummary';
+import {
+  canonicalizeSkillExact,
+  normalizeSkillWithTypoFallback,
+  textContainsCanonicalSkill,
+} from '../../utils/skillMatcher';
+import {
+  computeCandidateSkillVerification,
+  extractRelevantResumeEvidence,
+  SHARED_CAPABILITY_SCORING_RUBRIC,
+} from './resumeEvidence';
 import type {
   AiProviderAdapter,
   CapabilityCandidateInput,
@@ -163,8 +173,16 @@ function skillMatchesHaystack(skill: string, haystackLower: string, skillSetLowe
   if (!needle) return false;
   if (skillSetLower.has(needle)) return true;
 
+  const exactSlug = canonicalizeSkillExact(needle);
+  const normalized = normalizeSkillWithTypoFallback(needle, { allowTypoCorrection: true });
+  const targetSlug = normalized.canonical || exactSlug;
+
+  for (const candSkill of skillSetLower) {
+    if (canonicalizeSkillExact(candSkill) === targetSlug) return true;
+  }
+  if (textContainsCanonicalSkill(haystackLower, targetSlug)) return true;
+
   const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  // Preserve short symbols like C#, C++, .NET, Go without failing \b word-boundary checks
   const hasEdgeSymbols = /[^a-z0-9]/i.test(needle);
   if (hasEdgeSymbols) {
     return haystackLower.includes(needle);
@@ -216,6 +234,8 @@ export function buildPiiSafeCandidatePromptData(
     maxSnippetChars: number;
     maxMatchedChunkChars?: number;
     includeHourlyRate?: boolean;
+    requirement?: CapabilityRequirementInput;
+    includeSkillVerification?: boolean;
   }
 ): Record<string, unknown> {
   const retrievedContext =
@@ -225,6 +245,17 @@ export function buildPiiSafeCandidatePromptData(
 
   const matchedChunkLimit =
     options.maxMatchedChunkChars ?? Math.max(options.maxSnippetChars, 2400);
+  const effectiveLimit = candidate.matchedChunks?.length
+    ? matchedChunkLimit
+    : options.maxSnippetChars;
+
+  const rateCleanContext = options.rateMasked
+    ? redactRatesFromText(retrievedContext)
+    : String(retrievedContext || '').trim();
+
+  const targetedContext = options.requirement
+    ? extractRelevantResumeEvidence(rateCleanContext, options.requirement, effectiveLimit)
+    : rateCleanContext;
 
   const safeCand: Record<string, unknown> = {
     candidateId: candidate.id,
@@ -232,11 +263,15 @@ export function buildPiiSafeCandidatePromptData(
     skillset: candidate.skillset || '',
     workAuth: candidate.workAuth || '',
     relocation: candidate.relocation || '',
-    resumeSummaryExcerpt: truncateInput(
-      options.rateMasked ? redactRatesFromText(retrievedContext) : retrievedContext,
-      candidate.matchedChunks?.length ? matchedChunkLimit : options.maxSnippetChars
-    ),
+    resumeSummaryExcerpt: truncateInput(targetedContext, effectiveLimit),
   };
+
+  if (options.includeSkillVerification && options.requirement) {
+    const skillFacts = computeCandidateSkillVerification(candidate, options.requirement);
+    if (skillFacts) {
+      safeCand.skillVerification = skillFacts;
+    }
+  }
 
   if (options.includeHourlyRate && !options.rateMasked && candidate.hourlyRateDisplay) {
     safeCand.hourlyRateDisplay = candidate.hourlyRateDisplay;
@@ -868,8 +903,10 @@ export class AiService {
       );
       const safeCand = buildPiiSafeCandidatePromptData(candidate, {
         rateMasked,
-        maxSnippetChars: Math.min(config.maxInputChars, 9000),
+        maxSnippetChars: Math.min(config.maxInputChars, 3500),
         includeHourlyRate: !rateMasked,
+        requirement,
+        includeSkillVerification: true,
       });
 
       const result = await completeValidatedJson({
@@ -880,7 +917,7 @@ export class AiService {
           {
             role: 'system',
             content:
-              'You are an IT staffing capability evaluator. Score how well the candidate resume satisfies the job requirement, recognizing equivalent/adjacent skills (e.g. AKS/EKS with Kubernetes, PySpark with Spark). Never mention hidden financial rates. Return ONLY JSON with keys: fitScore (0-100 integer), recommendation ("STRONG_FIT"|"GOOD_FIT"|"PARTIAL_FIT"|"LOW_FIT"), strengths (max 5 concise bullets), gaps (max 5 concise bullets), verdict (1 clear sentence).',
+              `You are an IT staffing capability evaluator. Score how well the candidate resume satisfies the job requirement. ${SHARED_CAPABILITY_SCORING_RUBRIC} Return ONLY JSON with keys: fitScore (0-100 integer), recommendation ("STRONG_FIT"|"GOOD_FIT"|"PARTIAL_FIT"|"LOW_FIT"), strengths (max 5 concise bullets), gaps (max 5 concise bullets), verdict (1 clear sentence).`,
           },
           {
             role: 'user',
@@ -931,15 +968,18 @@ export class AiService {
       timeoutMs: number;
       maxTokens: number;
       allowChunkSkipOnError: boolean;
+      requirement: CapabilityRequirementInput;
     }
   ) {
     try {
       const safeCandidates = chunk.map((c) =>
         buildPiiSafeCandidatePromptData(c, {
           rateMasked: params.rateMasked,
-          maxSnippetChars: 450,
-          maxMatchedChunkChars: 650,
+          maxSnippetChars: 1350,
+          maxMatchedChunkChars: 1500,
           includeHourlyRate: false,
+          requirement: params.requirement,
+          includeSkillVerification: true,
         })
       );
 
@@ -953,7 +993,7 @@ export class AiService {
           {
             role: 'system',
             content:
-              `You rank shortlisted staffing candidates against a requirement using anonymized candidate profiles. You MUST evaluate and return ALL ${chunk.length} candidateIds from the input candidates array without skipping any. Return ONLY JSON: { "rankings": [{ "candidateId": string, "fitScore": 0-100, "matchedHighlights": string[], "gaps": string[], "oneLineSummary": string }] } ordered highest fitScore first.`,
+              `You rank shortlisted staffing candidates against a requirement using anonymized candidate profiles. ${SHARED_CAPABILITY_SCORING_RUBRIC} You MUST evaluate and return ALL ${chunk.length} candidateIds from the input candidates array without skipping any. Return ONLY JSON: { "rankings": [{ "candidateId": string, "fitScore": 0-100, "matchedHighlights": string[], "gaps": string[], "oneLineSummary": string }] } ordered highest fitScore first.`,
           },
           {
             role: 'user',
@@ -1030,7 +1070,7 @@ export class AiService {
       const safeReq = buildRateSafeRequirementPromptData(
         requirement,
         rateMasked,
-        Math.min(config.maxInputChars, 2200)
+        Math.min(config.maxInputChars, 2800)
       );
 
       const toChunks = (list: CapabilityCandidateInput[]) => {
@@ -1099,8 +1139,9 @@ export class AiService {
             adapter,
             rateMasked,
             timeoutMs: chunkTimeoutMs,
-            maxTokens: 1500,
+            maxTokens: 1800,
             allowChunkSkipOnError: true,
+            requirement,
           })
         )
       );
@@ -1123,8 +1164,9 @@ export class AiService {
               adapter,
               rateMasked,
               timeoutMs: chunkTimeoutMs,
-              maxTokens: 1500,
+              maxTokens: 1800,
               allowChunkSkipOnError: true,
+              requirement,
             })
           )
         );

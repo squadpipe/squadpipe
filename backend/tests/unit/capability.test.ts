@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import { resolveAiConfig } from '../../src/config/ai.config';
 import { AiService } from '../../src/services/ai/ai.service';
 import {
+  computeCandidateSkillVerification,
+  extractRelevantResumeEvidence,
+} from '../../src/services/ai/resumeEvidence';
+import {
   CapabilityService,
   evaluateCandidateCapabilityPure,
   formatRecommendationLabel,
@@ -426,6 +430,120 @@ export const runCapabilityTests = async () => {
     optInPartialFallback.rankings.find((r) => r.candidateId === 'batch-cand-11')?.aiEvaluated,
     false
   );
+
+  // 8. Targeted resume evidence & Check Fit vs Rank AI prompt parity without bloated tokens
+  const fillerIntro =
+    'Seasoned IT consultant based in Austin TX. Dedicated communicator with enterprise delivery awards and cross-functional governance background. ' +
+    'Extensive academic workshops, volunteer coordination, and vendor management initiatives across regional retail offices. '.repeat(8);
+  const deepEvidence =
+    'Principal Cloud Platform Lead (2022-2026): Designed multi-region AWS Kubernetes clusters with Terraform IaC modules, Helm charts, and zero-downtime CI/CD pipelines.';
+  const longResume = `${fillerIntro}\n\n${'Additional legacy administrative documentation and compliance audits. '.repeat(20)}\n\n${deepEvidence}`;
+
+  const targetedSnippet = extractRelevantResumeEvidence(
+    longResume,
+    {
+      opportunityTitle: 'Lead Kubernetes Platform Engineer',
+      skillsRequired: 'Kubernetes, Terraform, AWS',
+    },
+    1350
+  );
+  assert.ok(targetedSnippet.length <= 1370);
+  assert.ok(targetedSnippet.includes('Kubernetes'));
+  assert.ok(targetedSnippet.includes('Terraform'));
+
+  const skillFacts = computeCandidateSkillVerification(
+    {
+      id: 'cand-deep-parity',
+      skillset: 'AWS, Terraform',
+      normalizedSkills: ['aws', 'terraform', 'kubernetes'],
+      rawSnippet: longResume,
+    },
+    { skillsRequired: 'AWS, Kubernetes, Terraform, Kafka' }
+  );
+  assert.ok(skillFacts && skillFacts.coveragePct === 75);
+  assert.ok(skillFacts.missingSkills.includes('Kafka'));
+
+  let checkFitBody = '';
+  let rankBatchBody = '';
+  const parityAi = new AiService({
+    getConfig: () =>
+      resolveAiConfig({
+        AI_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'sk-test',
+      }),
+    fetchImpl: async (_url, init) => {
+      const bodyStr = String(init?.body || '');
+      const parsed = JSON.parse(bodyStr);
+      const userJson = JSON.parse(parsed.messages.find((m: any) => m.role === 'user').content);
+      if (Array.isArray(userJson.candidates)) {
+        rankBatchBody = bodyStr;
+        return makeJsonResponse({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  rankings: userJson.candidates.map((c: any) => ({
+                    candidateId: c.candidateId,
+                    fitScore: 86,
+                    matchedHighlights: ['Kubernetes', 'Terraform'],
+                    gaps: ['Kafka'],
+                    oneLineSummary: 'Strong IaC + Kubernetes fit.',
+                  })),
+                }),
+              },
+            },
+          ],
+        });
+      }
+      checkFitBody = bodyStr;
+      return makeJsonResponse({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                fitScore: 88,
+                recommendation: 'STRONG_FIT',
+                strengths: ['Kubernetes', 'Terraform'],
+                gaps: ['Kafka'],
+                verdict: 'Strong IaC + Kubernetes fit.',
+              }),
+            },
+          },
+        ],
+      });
+    },
+  });
+
+  const deepCandidate = {
+    id: 'cand-parity',
+    currentTitle: 'Cloud Platform Engineer',
+    skillset: 'AWS, Terraform',
+    normalizedSkills: ['aws', 'terraform', 'kubernetes'],
+    rawSnippet: longResume,
+  };
+  const deepReq = {
+    opportunityTitle: 'Lead Kubernetes Platform Engineer',
+    skillsRequired: 'AWS, Kubernetes, Terraform, Kafka',
+  };
+
+  await parityAi.evaluateSubmissionCapability(deepCandidate, deepReq);
+  await parityAi.rankCandidatesForRequirement([deepCandidate], deepReq);
+
+  const checkFitParsed = JSON.parse(checkFitBody);
+  const rankBatchParsed = JSON.parse(rankBatchBody);
+  const checkFitSys = checkFitParsed.messages.find((m: any) => m.role === 'system').content;
+  const rankBatchSys = rankBatchParsed.messages.find((m: any) => m.role === 'system').content;
+  const checkFitUser = JSON.parse(checkFitParsed.messages.find((m: any) => m.role === 'user').content);
+  const rankBatchUser = JSON.parse(rankBatchParsed.messages.find((m: any) => m.role === 'user').content);
+
+  assert.ok(checkFitSys.includes('AKS/EKS with Kubernetes'));
+  assert.ok(rankBatchSys.includes('AKS/EKS with Kubernetes'));
+  assert.ok(rankBatchSys.includes('80-100 = Strong Fit'));
+  assert.ok(String(rankBatchUser.candidates[0].resumeSummaryExcerpt).includes('Kubernetes'));
+  assert.ok(rankBatchUser.candidates[0].resumeSummaryExcerpt.length <= 1370);
+  assert.ok(checkFitUser.candidate.resumeSummaryExcerpt.length <= 3520);
+  assert.equal(rankBatchUser.candidates[0].skillVerification.coveragePct, 75);
+  assert.equal(checkFitUser.candidate.skillVerification.coveragePct, 75);
 
   console.log('✅ Submitted Resume Capability Check Tests: PASSED');
 };

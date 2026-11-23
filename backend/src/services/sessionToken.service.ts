@@ -207,18 +207,50 @@ export async function rotateSessionRefreshToken(rawToken: string): Promise<Rotat
   };
 }
 
-export async function revokeSessionRefreshToken(rawToken?: string): Promise<void> {
+export interface RevokedSessionActor {
+  id: string;
+  tenantId: string;
+  email: string;
+  role: string;
+}
+
+export async function revokeSessionRefreshToken(
+  rawToken?: string
+): Promise<RevokedSessionActor | null> {
   const trimmed = String(rawToken || '').trim();
-  if (!trimmed || !isValidRawSessionTokenFormat(trimmed)) return;
-  await prisma.refreshToken
-    .updateMany({
+  if (!trimmed || !isValidRawSessionTokenFormat(trimmed)) return null;
+  const tokenHash = hashSessionRefreshToken(trimmed);
+  try {
+    const record = await prisma.refreshToken.findFirst({
       where: {
-        token: hashSessionRefreshToken(trimmed),
+        token: tokenHash,
+        revokedAt: null,
+      },
+      include: {
+        user: {
+          select: { id: true, tenantId: true, email: true, role: true },
+        },
+      },
+    });
+    await prisma.refreshToken.updateMany({
+      where: {
+        token: tokenHash,
         revokedAt: null,
       },
       data: { revokedAt: new Date() },
-    })
-    .catch(() => {});
+    });
+    if (record?.user) {
+      return {
+        id: record.user.id,
+        tenantId: record.user.tenantId || 'squadpipe-agency',
+        email: record.user.email,
+        role: String(record.user.role),
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 export async function revokeAllUserSessions(userId: string): Promise<void> {

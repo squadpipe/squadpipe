@@ -6,8 +6,16 @@ export interface HybridSearchQuery {
   queryVector?: number[] | null;
   skillTokens: string[];
   searchFilter?: string;
+  exactOnly?: boolean;
   workAuthFilter?: string;
   pipelineStageFilter?: string;
+  availabilityScope?: 'bench' | 'non_billable' | 'all';
+  relocationFilter?: string;
+  maxRate?: number;
+  rateMasked?: boolean;
+  requiredSkillSlugs?: string[];
+  matchMode?: 'strict' | 'overlap' | 'semantic' | 'all';
+  allowUnmatchedFallback?: boolean;
   candidateIdsFilter?: string[];
   excludeCandidateIds?: string[];
   limit?: number;

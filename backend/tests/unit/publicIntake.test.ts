@@ -157,6 +157,35 @@ export const runPublicIntakeTests = () => {
     (err: any) => err.statusCode === 400
   );
 
+  assert.throws(
+    () =>
+      validatePublicApplicationInput(
+        {
+          fullName: 'Jordan Patel',
+          email: 'jordan@example.com',
+          phone: '+1 555 222 3333',
+          workAuth: 'US Citizen',
+          privacyConsent: false,
+        },
+        dummyCv
+      ),
+    (err: any) => err.statusCode === 400 && /consent/i.test(err.message)
+  );
+
+  assert.throws(
+    () =>
+      validatePublicApplicationInput(
+        {
+          fullName: 'Jordan Patel',
+          email: 'jordan@example.com',
+          phone: '+1 555 222 3333',
+          workAuth: 'US Citizen',
+        },
+        dummyCv
+      ),
+    (err: any) => err.statusCode === 400 && /consent/i.test(err.message)
+  );
+
   const validApp = validatePublicApplicationInput(
     {
       fullName: '  Jordan Patel  ',
@@ -165,6 +194,8 @@ export const runPublicIntakeTests = () => {
       workAuth: 'US Citizen',
       submittedRate: '$95/hr (W2)',
       submittedVendorName: 'PartnerTek LLC',
+      privacyConsent: 'true',
+      privacyNoticeVersion: '2026-11-22',
     },
     dummyCv
   );
@@ -172,6 +203,8 @@ export const runPublicIntakeTests = () => {
   assert.equal(validApp.email, 'jordan.patel@example.com');
   assert.equal(validApp.submittedRate, '$95/hr (W2)');
   assert.equal(validApp.submittedVendorName, 'PartnerTek LLC');
+  assert.equal(validApp.privacyConsent, true);
+  assert.equal(validApp.privacyNoticeVersion, '2026-11-22');
 
   // 5. RateMask middleware masks submittedRate on public-intake submissions for rate-masked users
   const maskedSub = maskFinancialRecord({
@@ -247,6 +280,7 @@ export const runPublicIntakeTests = () => {
           email: 'jordan@example.com',
           phone: '+1 555 222 3333',
           workAuth: 'US Citizen',
+          privacyConsent: true,
           customFields: JSON.stringify({
             project_notes: '<p><br></p>',
           }),
@@ -275,6 +309,7 @@ export const runPublicIntakeTests = () => {
       email: 'jordan@example.com',
       phone: '+1 555 222 3333',
       workAuth: 'US Citizen',
+      privacyConsent: true,
       customFields: JSON.stringify({
         project_notes: '<p onclick="evil()"><strong>Led AWS migration</strong></p><ul><li>Terraform</li></ul><script>alert(1)</script>',
         portfolio_link: 'github.com/jordan',

@@ -47,6 +47,14 @@ export interface SignedRequestSpec {
   headers: Record<string, string>;
 }
 
+export interface VerifiedDeleteResult {
+  deleted: boolean;
+  alreadyMissing: boolean;
+  provider: CvStorageProvider;
+  objectKey: string;
+  error?: string;
+}
+
 const MAX_CV_BYTES = 15 * 1024 * 1024;
 
 const EXT_TO_FORMAT: Record<string, string> = {
@@ -257,10 +265,25 @@ export function getS3CompatibleConfig(
       process.env.R2_SECRET_ACCESS_KEY ||
       ''
     ).trim();
+    const jurisdiction = (
+      process.env.CLOUDFLARE_R2_JURISDICTION ||
+      process.env.R2_JURISDICTION ||
+      ''
+    )
+      .trim()
+      .toLowerCase();
+    const defaultAccountEndpoint = accountId
+      ? jurisdiction === 'eu' ||
+        jurisdiction === 'us' ||
+        jurisdiction === 'fedramp' ||
+        jurisdiction === 'fedramp-high'
+        ? `https://${accountId}.${jurisdiction}.r2.cloudflarestorage.com`
+        : `https://${accountId}.r2.cloudflarestorage.com`
+      : '';
     const endpointRaw = (
       process.env.CLOUDFLARE_R2_ENDPOINT ||
       process.env.R2_ENDPOINT ||
-      (accountId ? `https://${accountId}.r2.cloudflarestorage.com` : '')
+      defaultAccountEndpoint
     ).trim();
 
     if (!bucket || !accessKeyId || !secretAccessKey || !endpointRaw) {
@@ -599,17 +622,48 @@ class CvStorageService {
   }
 
   /**
-   * Best-effort cleanup of a stored CV file when replaced or deleted.
+   * Deletes a stored CV and returns explicit verification status so erasure flows
+   * never silently leave orphaned files behind in R2/S3 or local storage.
    */
-  async deleteCv(storageUri?: string | null): Promise<void> {
+  async deleteCvVerified(storageUri?: string | null): Promise<VerifiedDeleteResult> {
     const parsed = parseCvStorageUri(storageUri);
-    if (!parsed) return;
+    if (!parsed) {
+      return {
+        deleted: true,
+        alreadyMissing: true,
+        provider: 'local',
+        objectKey: '',
+      };
+    }
 
     try {
       if (parsed.provider === 'local') {
         const targetPath = resolveSafeLocalPath(getLocalCvBaseDir(), parsed.objectKey);
-        await fs.unlink(targetPath);
-        return;
+        try {
+          await fs.unlink(targetPath);
+          return {
+            deleted: true,
+            alreadyMissing: false,
+            provider: 'local',
+            objectKey: parsed.objectKey,
+          };
+        } catch (err: any) {
+          if (err?.code === 'ENOENT') {
+            return {
+              deleted: true,
+              alreadyMissing: true,
+              provider: 'local',
+              objectKey: parsed.objectKey,
+            };
+          }
+          return {
+            deleted: false,
+            alreadyMissing: false,
+            provider: 'local',
+            objectKey: parsed.objectKey,
+            error: err?.message || 'Failed to unlink local CV file',
+          };
+        }
       }
 
       const config = getS3CompatibleConfig(parsed.provider, parsed.bucket);
@@ -619,13 +673,52 @@ class CvStorageService {
         objectKey: parsed.objectKey,
       });
 
-      await fetch(signed.url, {
+      const response = await fetch(signed.url, {
         method: signed.method,
         headers: signed.headers,
       });
-    } catch {
-      // Ignore cleanup errors so DB updates or deletes do not fail
+
+      if (response.ok || response.status === 404) {
+        return {
+          deleted: true,
+          alreadyMissing: response.status === 404,
+          provider: parsed.provider,
+          objectKey: parsed.objectKey,
+        };
+      }
+
+      const errorText = await response.text().catch(() => '');
+      return {
+        deleted: false,
+        alreadyMissing: false,
+        provider: parsed.provider,
+        objectKey: parsed.objectKey,
+        error: `Failed to delete CV from ${parsed.provider.toUpperCase()} storage (${response.status}): ${errorText.slice(0, 240) || response.statusText}`,
+      };
+    } catch (err: any) {
+      return {
+        deleted: false,
+        alreadyMissing: false,
+        provider: parsed.provider,
+        objectKey: parsed.objectKey,
+        error: err?.message || `Failed to delete CV from ${parsed.provider.toUpperCase()} storage`,
+      };
     }
+  }
+
+  /**
+   * Cleanup of a stored CV file when replaced or deleted.
+   * Pass `{ throwOnError: true }` when the caller requires strict failure propagation.
+   */
+  async deleteCv(
+    storageUri?: string | null,
+    options?: { throwOnError?: boolean }
+  ): Promise<VerifiedDeleteResult> {
+    const result = await this.deleteCvVerified(storageUri);
+    if (!result.deleted && options?.throwOnError) {
+      throw new Error(result.error || 'Failed to delete stored CV file');
+    }
+    return result;
   }
 }
 

@@ -14,6 +14,10 @@ import {
   renderSignupVerificationEmail,
 } from '../services/emailTemplate.service';
 import { analyticsService } from '../services/analytics.service';
+import {
+  complianceService,
+  extractRequestNetworkMeta,
+} from '../services/compliance.service';
 import { userService } from '../services/user.service';
 import {
   clearSessionRefreshCookie,
@@ -273,6 +277,16 @@ export const login = async (req: Request, res: Response) => {
   }
 
   if (user.status === UserStatus.SUSPENDED) {
+    await complianceService.recordSecurityAuditEvent({
+      tenantId: user.tenantId || 'squadpipe-agency',
+      actorUserId: user.id,
+      actorEmail: user.email,
+      actorRole: user.role,
+      action: 'AUTH_LOGIN_BLOCKED_SUSPENDED',
+      targetType: 'USER',
+      targetId: user.id,
+      ...extractRequestNetworkMeta(req),
+    });
     return res.status(403).json({
       success: false,
       message: 'Your account has been suspended. Please contact your administrator.'
@@ -284,6 +298,16 @@ export const login = async (req: Request, res: Response) => {
     ? await bcrypt.compare(password, user.passwordHash)
     : process.env.NODE_ENV !== 'production' && user.passwordHash === password;
   if (!isMatch) {
+    await complianceService.recordSecurityAuditEvent({
+      tenantId: user.tenantId || 'squadpipe-agency',
+      actorUserId: user.id,
+      actorEmail: user.email,
+      actorRole: user.role,
+      action: 'AUTH_LOGIN_FAILED',
+      targetType: 'USER',
+      targetId: user.id,
+      ...extractRequestNetworkMeta(req),
+    });
     return res.status(401).json({
       success: false,
       message: 'Invalid credentials. Please verify your password.'
@@ -339,6 +363,17 @@ export const login = async (req: Request, res: Response) => {
   ]);
 
   setSessionRefreshCookie(req, res, refreshSessionData.rawToken, persistent);
+
+  await complianceService.recordSecurityAuditEvent({
+    tenantId: session.tenantId,
+    actorUserId: updatedUser.id,
+    actorEmail: updatedUser.email,
+    actorRole: updatedUser.role,
+    action: 'AUTH_LOGIN_SUCCESS',
+    targetType: 'USER',
+    targetId: updatedUser.id,
+    ...extractRequestNetworkMeta(req),
+  });
 
   res.json({
     success: true,
@@ -455,16 +490,58 @@ export const refreshSession = async (req: Request, res: Response) => {
 export const logout = async (req: Request, res: Response) => {
   try {
     const rawRefreshToken = getRefreshCookieFromRequest(req);
+    let actor: { id: string; tenantId: string; email?: string; role?: string } | null = req.user
+      ? {
+          id: req.user.id,
+          tenantId: req.user.tenantId,
+          email: req.user.email,
+          role: req.user.role,
+        }
+      : null;
+
     if (rawRefreshToken) {
       // Revoke only this browser/device refresh token so other active sessions remain signed in
-      await revokeSessionRefreshToken(rawRefreshToken);
-    } else if (req.user?.id) {
-      await prisma.user.updateMany({
-        where: { id: req.user.id },
-        data: { tokenVersion: { increment: 1 } },
-      });
+      const revokedActor = await revokeSessionRefreshToken(rawRefreshToken);
+      if (!actor && revokedActor) {
+        actor = revokedActor;
+      }
+    } else {
+      const authHeader = req.headers.authorization;
+      if (!actor && authHeader?.startsWith('Bearer ')) {
+        try {
+          const decoded = jwt.verify(authHeader.split(' ')[1], getJwtAccessSecret()) as AuthenticatedUser;
+          if (decoded?.id) {
+            actor = {
+              id: decoded.id,
+              tenantId: decoded.tenantId || 'squadpipe-agency',
+              email: decoded.email,
+              role: decoded.role,
+            };
+          }
+        } catch {
+          // Expired/invalid bearer during logout is non-blocking
+        }
+      }
+      if (actor?.id) {
+        await prisma.user.updateMany({
+          where: { id: actor.id },
+          data: { tokenVersion: { increment: 1 } },
+        });
+      }
     }
     clearSessionRefreshCookie(req, res);
+    if (actor?.id) {
+      await complianceService.recordSecurityAuditEvent({
+        tenantId: actor.tenantId,
+        actorUserId: actor.id,
+        actorEmail: actor.email,
+        actorRole: actor.role,
+        action: 'AUTH_LOGOUT',
+        targetType: 'USER',
+        targetId: actor.id,
+        ...extractRequestNetworkMeta(req),
+      });
+    }
     res.json({
       success: true,
       message: 'Signed out successfully'
@@ -838,6 +915,17 @@ export const verifySignupOtp = async (req: Request, res: Response) => {
 
     setSessionRefreshCookie(req, res, refreshSessionData.rawToken, true);
 
+    await complianceService.recordSecurityAuditEvent({
+      tenantId: session.tenantId,
+      actorUserId: verifiedUser.id,
+      actorEmail: verifiedUser.email,
+      actorRole: verifiedUser.role,
+      action: 'AUTH_SIGNUP_VERIFIED',
+      targetType: 'USER',
+      targetId: verifiedUser.id,
+      ...extractRequestNetworkMeta(req),
+    });
+
     res.json({
       success: true,
       message: `Email verified! Let’s finish setting up ${session.resolvedAgencyName}.`,
@@ -1122,6 +1210,17 @@ export const resetPassword = async (req: Request, res: Response) => {
     ]);
 
     await revokeAllUserSessions(user.id);
+
+    await complianceService.recordSecurityAuditEvent({
+      tenantId: user.tenantId || 'squadpipe-agency',
+      actorUserId: user.id,
+      actorEmail: user.email,
+      actorRole: user.role,
+      action: 'AUTH_PASSWORD_RESET',
+      targetType: 'USER',
+      targetId: user.id,
+      ...extractRequestNetworkMeta(req),
+    });
 
     res.json({
       success: true,
