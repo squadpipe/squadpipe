@@ -2,6 +2,7 @@ import { prisma } from '../config/prisma.config';
 import { runSlaRadarJob } from './slaRadar.job';
 import { runComplianceWatchJob } from './complianceWatch.job';
 import { candidateIndexingService } from '../services/vector/candidateIndexing.service';
+import { complianceService } from '../services/compliance.service';
 
 const CRON_ADVISORY_LOCK_KEY = 948201;
 let schedulerInterval: NodeJS.Timeout | null = null;
@@ -30,6 +31,15 @@ async function executeScheduledJobsWithLock() {
       },
       { maxWait: 5000, timeout: 120000 }
     );
+
+    // Enforce 365-day retention on SecurityAuditLog (logs only) and retry user-initiated ErasureOutbox tasks.
+    // Candidate profiles are never auto-deleted by background cron; erasure occurs only on explicit user/admin action.
+    try {
+      await complianceService.purgeExpiredSecurityAuditLogs();
+      await complianceService.processPendingErasureOutbox(25);
+    } catch (err: any) {
+      console.warn('[Scheduler] Privacy & log retention maintenance warning:', err?.message || err);
+    }
 
     // Non-blocking background chunk & vector backfill catch-up for large 10k+ resume pools
     void candidateIndexingService

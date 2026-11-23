@@ -3,6 +3,10 @@ import {
   CANDIDATE_SORTABLE_FIELDS,
   candidateService,
 } from '../services/candidate.service';
+import {
+  complianceService,
+  extractRequestNetworkMeta,
+} from '../services/compliance.service';
 import { parseSortParams } from '../utils/tableSort';
 
 export const getCandidates = async (req: Request, res: Response) => {
@@ -161,6 +165,21 @@ export const downloadCandidateCv = async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
     const downloaded = await candidateService.downloadCandidateCv(req.params.id, tenantId);
+    const netMeta = extractRequestNetworkMeta(req);
+    await complianceService.recordSecurityAuditEvent({
+      tenantId,
+      actorUserId: req.user?.id,
+      actorEmail: req.user?.email,
+      actorRole: req.user?.role,
+      action: 'CV_DOWNLOADED',
+      targetType: 'CANDIDATE',
+      targetId: req.params.id,
+      ...netMeta,
+      metadata: {
+        provider: downloaded.provider,
+        fileName: downloaded.fileName,
+      },
+    });
     const fallbackName = downloaded.fileName.replace(/["\\\r\n]/g, '_');
     const encodedName = encodeURIComponent(downloaded.fileName);
 
@@ -181,8 +200,19 @@ export const downloadCandidateCv = async (req: Request, res: Response) => {
 export const deleteCandidate = async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
-    await candidateService.deleteCandidate(req.params.id, tenantId);
-    res.json({ success: true, message: 'Candidate removed from roster' });
+    const netMeta = extractRequestNetworkMeta(req);
+    const erasure = await candidateService.deleteCandidate(req.params.id, tenantId, {
+      userId: req.user?.id,
+      email: req.user?.email,
+      role: req.user?.role,
+      ...netMeta,
+      reason: 'CANDIDATE_DELETED',
+    });
+    res.json({
+      success: true,
+      message: 'Candidate removed and PII scrubbed',
+      data: erasure,
+    });
   } catch (error: any) {
     const status = error.statusCode || 500;
     res.status(status).json({ success: false, message: error.message || 'Failed to delete candidate' });

@@ -1,11 +1,24 @@
 import { prisma } from '../config/prisma.config';
-import { CandidatePipelineStage, PlacementStatus, Prisma } from '@prisma/client';
+import {
+  CandidateLawfulBasis,
+  CandidatePipelineStage,
+  ConsentStatus,
+  PlacementStatus,
+  Prisma,
+} from '@prisma/client';
 import {
   cvStorageService,
   parseCvStorageUri,
   StoredCvMetadata,
   UploadedCvFile,
 } from './cvStorage.service';
+import { getTenantSettings } from '../config/smtp.config';
+import {
+  complianceService,
+  computeRetentionExpiresAt,
+  CURRENT_PRIVACY_NOTICE_VERSION,
+  resolveConsentConfirmation,
+} from './compliance.service';
 import { parseCustomFields } from '../utils/customFields';
 import { parseRateNumber } from '../utils/rateParser';
 import { candidateIndexingService } from './vector/candidateIndexing.service';
@@ -759,6 +772,30 @@ export class CandidateService {
     const createSkills = raw.skillset?.trim() || 'General Engineering';
     const createSnippet = raw.rawSnippet || null;
 
+    const now = new Date();
+    const { general: tenantGeneral } = await getTenantSettings(tenantId).catch(() => ({
+      general: { candidateRetentionDays: 365 } as any,
+    }));
+    const consentGranted = resolveConsentConfirmation(raw.privacyConsent ?? raw.consentGranted);
+    const rawBasis = String(raw.lawfulBasis || '').trim().toUpperCase();
+    const resolvedLawfulBasis =
+      rawBasis && Object.values(CandidateLawfulBasis).includes(rawBasis as CandidateLawfulBasis)
+        ? (rawBasis as CandidateLawfulBasis)
+        : consentGranted
+          ? CandidateLawfulBasis.CONSENT
+          : CandidateLawfulBasis.LEGITIMATE_INTEREST;
+    const rawConsentStatus = String(raw.consentStatus || '').trim().toUpperCase();
+    const resolvedConsentStatus =
+      rawConsentStatus && Object.values(ConsentStatus).includes(rawConsentStatus as ConsentStatus)
+        ? (rawConsentStatus as ConsentStatus)
+        : consentGranted
+          ? ConsentStatus.GRANTED
+          : ConsentStatus.PENDING;
+    const retentionExpiresAt = computeRetentionExpiresAt(
+      now,
+      tenantGeneral?.candidateRetentionDays
+    );
+
     try {
       const created = await prisma.candidate.create({
         data: {
@@ -784,6 +821,14 @@ export class CandidateService {
           resumeFileUrl,
           rawSnippet: createSnippet,
           pipelineStage: mappedStage,
+          lawfulBasis: resolvedLawfulBasis,
+          consentStatus: resolvedConsentStatus,
+          consentCapturedAt: resolvedConsentStatus === ConsentStatus.GRANTED ? now : null,
+          privacyNoticeVersion:
+            String(raw.privacyNoticeVersion || '').trim() ||
+            (resolvedConsentStatus === ConsentStatus.GRANTED ? CURRENT_PRIVACY_NOTICE_VERSION : null),
+          intakeSource: String(raw.intakeSource || 'MANUAL').trim().toUpperCase() || 'MANUAL',
+          retentionExpiresAt,
           ...(customFields !== undefined ? { customFields } : {}),
           assignedRecruiterId: resolvedRecruiterId,
           ...(resolvedVendorId ? { vendorId: resolvedVendorId } : {}),
@@ -930,42 +975,30 @@ export class CandidateService {
     );
   }
 
-  async deleteCandidate(id: string, tenantId?: string) {
-    const existing = await prisma.candidate.findUnique({ where: { id } });
-    if (!existing || (tenantId && existing.tenantId !== tenantId)) {
-      const notFoundErr: any = new Error('Candidate not found or unauthorized');
-      notFoundErr.statusCode = 404;
-      throw notFoundErr;
+  async deleteCandidate(
+    id: string,
+    tenantId?: string,
+    actor?: {
+      userId?: string;
+      email?: string;
+      role?: string;
+      ipAddress?: string;
+      userAgent?: string;
+      reason?: string;
+      allowActivePlacements?: boolean;
     }
-
-    const linkedPlacementsCount = await prisma.placement.count({
-      where: {
-        tenantId: existing.tenantId,
-        status: { in: [PlacementStatus.ACTIVE, PlacementStatus.EXTENDED, PlacementStatus.EXPIRING_SOON] },
-        OR: [
-          { candidateId: existing.id },
-          {
-            candidateId: null,
-            resourceName: { equals: existing.fullName, mode: 'insensitive' },
-          },
-        ],
-      },
+  ) {
+    return complianceService.executeVerifiedCandidateErasure({
+      candidateId: id,
+      tenantId,
+      requestedById: actor?.userId,
+      requestedByEmail: actor?.email,
+      requestedByRole: actor?.role,
+      ipAddress: actor?.ipAddress,
+      userAgent: actor?.userAgent,
+      reason: actor?.reason || 'CANDIDATE_DELETED',
+      allowActivePlacements: actor?.allowActivePlacements,
     });
-
-    if (linkedPlacementsCount > 0 || existing.pipelineStage === CandidatePipelineStage.BILLABLE) {
-      const conflictErr: any = new Error(
-        'Cannot delete a billable consultant. Please remove them from Billable Consultants first.'
-      );
-      conflictErr.statusCode = 409;
-      throw conflictErr;
-    }
-
-    const deleted = await prisma.candidate.delete({ where: { id } });
-    await candidateIndexingService.deleteCandidate(existing.tenantId, id).catch(() => {});
-    if (existing.resumeFileUrl) {
-      await cvStorageService.deleteCv(existing.resumeFileUrl);
-    }
-    return deleted;
   }
 }
 

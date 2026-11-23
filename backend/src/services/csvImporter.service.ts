@@ -1,7 +1,9 @@
 import { prisma } from '../config/prisma.config';
-import { CandidatePipelineStage } from '@prisma/client';
+import { CandidateLawfulBasis, CandidatePipelineStage, ConsentStatus } from '@prisma/client';
 import { candidateIndexingService } from './vector/candidateIndexing.service';
 import { extractNormalizedSkills } from '../utils/skillMatcher';
+import { getTenantSettings } from '../config/smtp.config';
+import { computeRetentionExpiresAt } from './compliance.service';
 
 export interface CsvCandidateRow {
   fullName: string;
@@ -31,6 +33,14 @@ export function parseCsvHourlyRates(rateDisplayInput?: string) {
 export class CsvImporterService {
   async importCandidates(rows: CsvCandidateRow[], tenantId: string = 'squadpipe-agency', recruiterId?: string) {
     const results = [];
+    const now = new Date();
+    const { general: tenantGeneral } = await getTenantSettings(tenantId).catch(() => ({
+      general: { candidateRetentionDays: 365 } as any,
+    }));
+    const retentionExpiresAt = computeRetentionExpiresAt(
+      now,
+      tenantGeneral?.candidateRetentionDays
+    );
 
     for (const row of rows) {
       if (!row.fullName || !row.email) continue;
@@ -62,6 +72,7 @@ export class CsvImporterService {
           hourlyRateDisplay,
           hourlyRateW2,
           hourlyRateC2c,
+          retentionExpiresAt,
         },
         create: {
           tenantId,
@@ -81,6 +92,10 @@ export class CsvImporterService {
           hourlyRateC2c,
           relocation: row.relocation || 'Yes',
           pipelineStage: CandidatePipelineStage.AVAILABLE_BENCH,
+          lawfulBasis: CandidateLawfulBasis.LEGITIMATE_INTEREST,
+          consentStatus: ConsentStatus.PENDING,
+          intakeSource: 'CSV_IMPORT',
+          retentionExpiresAt,
           assignedRecruiterId: recruiterId || row.assignedRecruiterId || null,
         },
       });

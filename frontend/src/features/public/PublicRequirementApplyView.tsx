@@ -69,6 +69,13 @@ interface PublicRequirementDetails {
   highlights?: string[];
   engagementSummary?: string | null;
   formTemplate?: PublicFormTemplateConfig;
+  privacyNotice?: {
+    version: string;
+    retentionDays: number;
+    dataRegion: 'US' | 'UK' | 'IN';
+    privacyPolicyUrl: string;
+    grievanceEmail: string;
+  };
   isPreview?: boolean;
   publicLinkEnabled?: boolean;
 }
@@ -110,6 +117,7 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
   const [noticePeriod, setNoticePeriod] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState('');
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
+  const [privacyConsent, setPrivacyConsent] = useState(false);
   const [honeypotWebsite, setHoneypotWebsite] = useState('');
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [isParsingCv, setIsParsingCv] = useState(false);
@@ -310,6 +318,7 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
             valid: cf.type === 'RICH_TEXT' ? !isRichTextEmpty(val) : Boolean(val.trim()),
           };
         }),
+      { label: 'Privacy & Data Processing Consent', valid: privacyConsent },
     ]);
     if (missingFields.length > 0 || !cvFile) {
       setValidationAttempted(true);
@@ -341,6 +350,8 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
     if (Object.keys(customFieldValues).length > 0) {
       formData.append('customFields', JSON.stringify(customFieldValues));
     }
+    formData.append('privacyConsent', 'true');
+    formData.append('privacyNoticeVersion', roleDetails?.privacyNotice?.version || '2026-11-22');
     if (honeypotWebsite.trim()) formData.append('_hpWebsite', honeypotWebsite.trim());
     formData.append('file', cvFile, cvFile.name);
 
@@ -917,6 +928,41 @@ export const PublicRequirementApplyView: React.FC<PublicRequirementApplyViewProp
               )}
 
               <div className="pt-1 space-y-3">
+                <label
+                  className={`flex items-start gap-2.5 p-3 rounded-lg border text-xs cursor-pointer transition-colors ${
+                    validationAttempted && !privacyConsent
+                      ? 'border-rose-400 bg-rose-50/40 text-rose-900'
+                      : 'border-slate-200 bg-slate-50/70 text-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={privacyConsent}
+                    onChange={(e) => setPrivacyConsent(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-600 shrink-0 cursor-pointer"
+                  />
+                  <span className="leading-relaxed">
+                    I consent to{' '}
+                    <strong className="font-semibold text-slate-900">
+                      {roleDetails.agencyName}
+                    </strong>{' '}
+                    processing and storing my application, resume, and contact details for recruiting and bench consideration until I withdraw consent or request deletion in accordance with the{' '}
+                    <a
+                      href={roleDetails.privacyNotice?.privacyPolicyUrl || 'https://squadpipe.com/privacy-policy'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-brand-600 hover:text-brand-700 underline underline-offset-2 font-medium"
+                    >
+                      Privacy Policy
+                    </a>
+                    . I may withdraw consent or request deletion anytime via{' '}
+                    <span className="font-medium text-slate-900">
+                      {roleDetails.privacyNotice?.grievanceEmail || 'privacy@squadpipe.com'}
+                    </span>
+                    . *
+                  </span>
+                </label>
+
                 {!isPreviewMode && (
                   <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
                     <ShieldCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />

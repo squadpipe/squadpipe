@@ -151,6 +151,24 @@ enum EmailStatus {
   FAILED
 }
 
+enum CandidateLawfulBasis {
+  CONSENT
+  LEGITIMATE_INTEREST
+  CONTRACT
+}
+
+enum ConsentStatus {
+  GRANTED
+  WITHDRAWN
+  PENDING
+}
+
+enum ErasureTaskStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
 model User {
   id              String         @id @default(uuid())
   email           String         @unique
@@ -215,6 +233,14 @@ model Candidate {
   normalizedSkills   String[]               @default([])
   pipelineStage      CandidatePipelineStage @default(AVAILABLE_BENCH)
   customFields       Json?                  @default("{}")
+  lawfulBasis        CandidateLawfulBasis   @default(LEGITIMATE_INTEREST)
+  consentStatus      ConsentStatus          @default(PENDING)
+  consentCapturedAt  DateTime?
+  consentWithdrawnAt DateTime?
+  privacyNoticeVersion String?
+  intakeSource       String?                @default("MANUAL")
+  retentionExpiresAt DateTime?
+  erasureNoticeSentAt DateTime?
   assignedRecruiterId String?
   assignedRecruiter  User?                  @relation("RecruiterCandidates", fields: [assignedRecruiterId], references: [id], onDelete: SetNull)
   vendorId           String?
@@ -233,6 +259,8 @@ model Candidate {
   @@index([assignedRecruiterId])
   @@index([vendorId])
   @@index([tenantId])
+  @@index([tenantId, retentionExpiresAt])
+  @@index([tenantId, consentStatus])
 }
 
 model CandidateChunk {
@@ -599,5 +627,46 @@ model EmailLog {
   @@index([recipientEmail])
   @@index([status])
   @@index([tenantId])
+}
+
+model SecurityAuditLog {
+  id          String   @id @default(uuid())
+  tenantId    String   @default("squadpipe-agency")
+  actorUserId String?
+  actorEmail  String?
+  actorRole   String?
+  action      String
+  targetType  String?
+  targetId    String?
+  ipAddress   String?
+  userAgent   String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, action])
+  @@index([targetType, targetId])
+}
+
+model ErasureOutbox {
+  id             String            @id @default(uuid())
+  tenantId       String            @default("squadpipe-agency")
+  candidateId    String
+  subjectHash    String
+  storageUri     String?
+  vectorDeleted  Boolean           @default(false)
+  storageDeleted Boolean           @default(false)
+  status         ErasureTaskStatus @default(PENDING)
+  attempts       Int               @default(0)
+  lastError      String?           @db.Text
+  requestedById  String?
+  reason         String?
+  completedAt    DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([status, updatedAt])
+  @@index([tenantId, createdAt])
+  @@index([subjectHash])
 }
 

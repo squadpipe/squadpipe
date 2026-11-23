@@ -1,5 +1,11 @@
 import crypto from 'node:crypto';
-import { AutomationCategory, CandidatePipelineStage, SlaCategory } from '@prisma/client';
+import {
+  AutomationCategory,
+  CandidateLawfulBasis,
+  CandidatePipelineStage,
+  ConsentStatus,
+  SlaCategory,
+} from '@prisma/client';
 import { getJwtAccessSecret } from '../config/jwt.config';
 import { prisma } from '../config/prisma.config';
 import {
@@ -8,7 +14,17 @@ import {
   DEFAULT_APPLICATION_FORMS,
   getApplicationForms,
   getTenantSettings,
+  resolveDeploymentDataRegion,
+  resolveEnvCandidateRetentionDays,
+  resolveEnvGrievanceEmail,
+  resolveEnvPrivacyPolicyUrl,
 } from '../config/smtp.config';
+import {
+  complianceService,
+  computeRetentionExpiresAt,
+  CURRENT_PRIVACY_NOTICE_VERSION,
+  resolveConsentConfirmation,
+} from './compliance.service';
 import { parseRateNumber } from '../utils/rateParser';
 import { automationEngineService } from './automationEngine.service';
 import { capabilityService } from './capability.service';
@@ -77,6 +93,13 @@ export interface PublicRequirementView {
   highlights: string[];
   engagementSummary: string | null;
   formTemplate?: PublicFormTemplateView;
+  privacyNotice?: {
+    version: string;
+    retentionDays: number;
+    dataRegion: 'US' | 'UK' | 'IN';
+    privacyPolicyUrl: string;
+    grievanceEmail: string;
+  };
   isPreview?: boolean;
   publicLinkEnabled?: boolean;
 }
@@ -100,6 +123,8 @@ export interface ValidatedPublicApplication {
   noticePeriod: string | null;
   linkedinUrl: string | null;
   customFieldValues: Record<string, string>;
+  privacyConsent: boolean;
+  privacyNoticeVersion: string;
 }
 
 export type PublicSubmissionHook = (context: {
@@ -305,6 +330,18 @@ export function validatePublicApplicationInput(
     throw createHttpError('Work Authorization is required.', 400);
   }
 
+  const privacyConsent = resolveConsentConfirmation(
+    input.privacyConsent ?? input.consentAccepted ?? input.acceptedPrivacyNotice
+  );
+  if (!privacyConsent) {
+    throw createHttpError(
+      'Please confirm consent to process your application and resume before submitting.',
+      400
+    );
+  }
+  const privacyNoticeVersion =
+    String(input.privacyNoticeVersion || '').trim().slice(0, 40) || CURRENT_PRIVACY_NOTICE_VERSION;
+
   if (!file || !file.buffer || file.buffer.length === 0) {
     throw createHttpError('Please attach your resume (.pdf, .doc, .docx, .txt, or .rtf).', 400);
   }
@@ -417,6 +454,8 @@ export function validatePublicApplicationInput(
     noticePeriod,
     linkedinUrl,
     customFieldValues,
+    privacyConsent,
+    privacyNoticeVersion,
   };
 }
 
@@ -766,7 +805,7 @@ export class PublicIntakeService {
         overrideTemplateId
       ),
     ]);
-    return serializePublicRequirementPayload(
+    const basePayload = serializePublicRequirementPayload(
       reqRecord,
       tenantSettings.general.agencyName,
       formTemplate,
@@ -774,6 +813,20 @@ export class PublicIntakeService {
         ? { isPreview: true, publicLinkEnabled: Boolean(reqRecord.publicFormEnabled) }
         : undefined
     );
+    return {
+      ...basePayload,
+      privacyNotice: {
+        version: CURRENT_PRIVACY_NOTICE_VERSION,
+        retentionDays: resolveEnvCandidateRetentionDays(),
+        dataRegion: resolveDeploymentDataRegion(),
+        privacyPolicyUrl: resolveEnvPrivacyPolicyUrl(),
+        grievanceEmail:
+          resolveEnvGrievanceEmail() ||
+          tenantSettings.general.grievanceEmail ||
+          tenantSettings.general.supportEmail ||
+          'privacy@squadpipe.com',
+      },
+    };
   }
 
   /**
@@ -911,6 +964,13 @@ export class PublicIntakeService {
     const rateDigits = rateSource ? parseRateNumber(rateSource, 0) : 0;
     const isC2C = /c2c/i.test(rateSource);
 
+    const tenantSettings = await getTenantSettings(requirement.tenantId);
+    const now = new Date();
+    const retentionExpiresAt = computeRetentionExpiresAt(
+      now,
+      tenantSettings.general.candidateRetentionDays
+    );
+
     let createdResult: {
       candidateId: string;
       candidateName: string;
@@ -979,6 +1039,14 @@ export class PublicIntakeService {
               resumeFileName: storedCv.originalFileName,
               resumeFormat: storedCv.resumeFormat,
               resumeFileUrl: storedCv.storageUri,
+              lawfulBasis: CandidateLawfulBasis.CONSENT,
+              consentStatus: ConsentStatus.GRANTED,
+              consentCapturedAt: now,
+              consentWithdrawnAt: null,
+              privacyNoticeVersion: valid.privacyNoticeVersion,
+              intakeSource: 'PUBLIC_FORM',
+              retentionExpiresAt,
+              erasureNoticeSentAt: null,
               ...(Object.keys(extraCandidateAttributes).length > 0
                 ? { customFields: { ...existingCf, ...extraCandidateAttributes } }
                 : {}),
@@ -1027,6 +1095,12 @@ export class PublicIntakeService {
               resumeFileUrl: storedCv.storageUri,
               rawSnippet: parsedCv.rawSnippet,
               pipelineStage: CandidatePipelineStage.SUBMITTED,
+              lawfulBasis: CandidateLawfulBasis.CONSENT,
+              consentStatus: ConsentStatus.GRANTED,
+              consentCapturedAt: now,
+              privacyNoticeVersion: valid.privacyNoticeVersion,
+              intakeSource: 'PUBLIC_FORM',
+              retentionExpiresAt,
               assignedRecruiterId: requirement.assignedRecruiterId || null,
               ...(Object.keys(extraCandidateAttributes).length > 0
                 ? { customFields: extraCandidateAttributes }
@@ -1073,6 +1147,17 @@ export class PublicIntakeService {
 
     // Non-critical post-intake lifecycle notifications & downstream capability hook.
     try {
+      await complianceService.recordSecurityAuditEvent({
+        tenantId: requirement.tenantId,
+        action: 'PUBLIC_APPLICATION_CONSENT_GRANTED',
+        targetType: 'CANDIDATE',
+        targetId: createdResult.candidateId,
+        metadata: {
+          requirementId: requirement.id,
+          privacyNoticeVersion: valid.privacyNoticeVersion,
+          retentionExpiresAt: retentionExpiresAt.toISOString(),
+        },
+      });
       await slaEngineService.resolveTasksForEntity(requirement.tenantId, 'requirement', requirement.id, [
         SlaCategory.STALE_REQUIREMENT,
       ]);
@@ -1117,8 +1202,6 @@ export class PublicIntakeService {
         // Non-critical downstream evaluation hook
       }
     }
-
-    const tenantSettings = await getTenantSettings(requirement.tenantId);
 
     return {
       agencyName: tenantSettings.general.agencyName || 'SquadPipe Staffing',

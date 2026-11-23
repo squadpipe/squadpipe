@@ -130,6 +130,8 @@ export const DEFAULT_APPLICATION_FORMS: ApplicationFormTemplate[] = [
   },
 ];
 
+export type TenantDataRegion = 'US' | 'UK' | 'IN';
+
 export interface GeneralSettings {
   agencyName: string;
   legalEntityName: string;
@@ -144,6 +146,9 @@ export interface GeneralSettings {
   standardMonthlyHours: number;
   maskRatesByDefault: boolean;
   requirePoForPlacement: boolean;
+  dataRegion?: TenantDataRegion;
+  candidateRetentionDays?: number;
+  grievanceEmail?: string;
   onboardingCompleted?: boolean;
   applicationForms?: ApplicationFormTemplate[];
 }
@@ -189,6 +194,9 @@ export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
   standardMonthlyHours: 160,
   maskRatesByDefault: true,
   requirePoForPlacement: false,
+  dataRegion: 'US',
+  candidateRetentionDays: 365,
+  grievanceEmail: '',
 };
 
 const settingsMemoryCache = new Map<string, TenantSettingsBundle>();
@@ -213,6 +221,57 @@ async function ensureTenantSettingsTable() {
   tableInitialized = true;
 }
 
+export function normalizeTenantDataRegion(raw?: unknown): TenantDataRegion {
+  const clean = String(raw || '').trim().toUpperCase();
+  if (clean === 'UK' || clean === 'GB' || clean === 'EU' || clean === 'LONDON' || clean.startsWith('EU-')) {
+    return 'UK';
+  }
+  if (clean === 'IN' || clean === 'INDIA' || clean === 'MUMBAI' || clean.startsWith('AP-SOUTH')) {
+    return 'IN';
+  }
+  return 'US';
+}
+
+export function resolveDeploymentDataRegion(env: NodeJS.ProcessEnv = process.env): TenantDataRegion {
+  const explicit = (env.DEPLOYMENT_REGION || env.APP_REGION || env.DATA_REGION || '').trim();
+  if (explicit) {
+    return normalizeTenantDataRegion(explicit);
+  }
+
+  const awsRegion = (env.AWS_S3_REGION || env.AWS_REGION || '').trim().toLowerCase();
+  if (awsRegion.startsWith('ap-south')) return 'IN';
+  if (awsRegion.startsWith('eu-')) return 'UK';
+  if (awsRegion.startsWith('us-')) return 'US';
+
+  const r2Jurisdiction = (env.CLOUDFLARE_R2_JURISDICTION || env.R2_JURISDICTION || '').trim().toLowerCase();
+  if (r2Jurisdiction === 'eu') return 'UK';
+  if (r2Jurisdiction === 'us') return 'US';
+
+  const r2Endpoint = (env.CLOUDFLARE_R2_ENDPOINT || env.R2_ENDPOINT || '').trim().toLowerCase();
+  if (r2Endpoint.includes('.eu.r2.')) return 'UK';
+  if (r2Endpoint.includes('.us.r2.')) return 'US';
+
+  return 'US';
+}
+
+export function resolveEnvCandidateRetentionDays(env: NodeJS.ProcessEnv = process.env): number {
+  return normalizeCandidateRetentionDays(env.CANDIDATE_RETENTION_DAYS);
+}
+
+export function resolveEnvGrievanceEmail(env: NodeJS.ProcessEnv = process.env): string {
+  return (env.PRIVACY_GRIEVANCE_EMAIL || '').trim().toLowerCase();
+}
+
+export function resolveEnvPrivacyPolicyUrl(env: NodeJS.ProcessEnv = process.env): string {
+  return (env.PRIVACY_POLICY_URL || '').trim() || 'https://squadpipe.com/privacy-policy';
+}
+
+export function normalizeCandidateRetentionDays(raw?: unknown): number {
+  const parsed = Number.parseInt(String(raw ?? ''), 10);
+  if (!Number.isFinite(parsed)) return 365;
+  return Math.max(30, Math.min(1825, parsed));
+}
+
 async function resolveTenantBrandDefaults(
   tenantId: string,
   general: GeneralSettings
@@ -235,6 +294,10 @@ async function resolveTenantBrandDefaults(
     general: {
       ...general,
       agencyName: resolvedAgencyName,
+      // Region & baseline compliance defaults always come from the server's .env (not tenant input)
+      dataRegion: resolveDeploymentDataRegion(),
+      candidateRetentionDays: resolveEnvCandidateRetentionDays(),
+      grievanceEmail: resolveEnvGrievanceEmail() || general.supportEmail || '',
       // Existing/legacy tenant settings without this flag treat onboarding as completed
       onboardingCompleted:
         general.onboardingCompleted !== undefined ? Boolean(general.onboardingCompleted) : true,
@@ -274,11 +337,17 @@ export async function getTenantSettings(tenantId = 'squadpipe-agency'): Promise<
     return initialBundle;
   } catch (err) {
     console.warn('getTenantSettings fallback to cache:', err);
-    return (
-      settingsMemoryCache.get(key) || {
-        general: { ...DEFAULT_GENERAL_SETTINGS },
-      }
-    );
+    const cachedGeneral = settingsMemoryCache.get(key)?.general;
+    const baseGeneral = cachedGeneral ? { ...cachedGeneral } : { ...DEFAULT_GENERAL_SETTINGS };
+    return {
+      general: {
+        ...baseGeneral,
+        dataRegion: resolveDeploymentDataRegion(),
+        candidateRetentionDays: resolveEnvCandidateRetentionDays(),
+        grievanceEmail:
+          resolveEnvGrievanceEmail() || baseGeneral.supportEmail || baseGeneral.grievanceEmail || '',
+      },
+    };
   }
 }
 
@@ -287,9 +356,15 @@ export async function saveGeneralSettings(
   partial: Partial<GeneralSettings>
 ): Promise<GeneralSettings> {
   const current = await getTenantSettings(tenantId);
+  const {
+    dataRegion: _ignoredRegion,
+    candidateRetentionDays: _ignoredRetention,
+    grievanceEmail: _ignoredGrievance,
+    ...safeTenantPartial
+  } = partial;
   const nextGeneral: GeneralSettings = {
     ...current.general,
-    ...partial,
+    ...safeTenantPartial,
     standardMonthlyHours: Number(partial.standardMonthlyHours ?? current.general.standardMonthlyHours) || 160,
     maskRatesByDefault:
       partial.maskRatesByDefault !== undefined
@@ -299,6 +374,9 @@ export async function saveGeneralSettings(
       partial.requirePoForPlacement !== undefined
         ? Boolean(partial.requirePoForPlacement)
         : current.general.requirePoForPlacement,
+    dataRegion: resolveDeploymentDataRegion(),
+    candidateRetentionDays: resolveEnvCandidateRetentionDays(),
+    grievanceEmail: resolveEnvGrievanceEmail() || String(partial.supportEmail ?? current.general.supportEmail ?? '').trim().toLowerCase(),
     onboardingCompleted:
       partial.onboardingCompleted !== undefined
         ? Boolean(partial.onboardingCompleted)
