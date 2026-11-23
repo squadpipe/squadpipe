@@ -14,6 +14,21 @@ import {
   buildPrismaOrderBy,
   sortRecordsByColumn,
 } from '../utils/tableSort';
+import {
+  compileBooleanAstToPrismaWhere,
+  compileBooleanAstToSql,
+  parseBooleanSearchQuery,
+} from '../utils/booleanSearch';
+import {
+  canonicalizeSkillExact,
+  damerauLevenshtein,
+  evaluateNormalizedSkillOverlap,
+  extractNormalizedSkills,
+  isKnownCanonicalSkill,
+  normalizeSkillWithTypoFallback,
+  splitSkillItems,
+  type SkillTypoCorrection,
+} from '../utils/skillMatcher';
 
 export const CANDIDATE_SORTABLE_FIELDS = [
   'fullName',
@@ -29,6 +44,7 @@ export const CANDIDATE_SORTABLE_FIELDS = [
 export interface CandidateFilterParams {
   tenantId?: string;
   search?: string;
+  exactOnly?: boolean;
   stage?: string;
   workAuth?: string;
   vendorId?: string;
@@ -38,6 +54,27 @@ export interface CandidateFilterParams {
   limit?: number;
   sortBy?: string;
   sortDir?: SortDirection;
+}
+
+export type MatchAvailabilityScope = 'bench' | 'non_billable' | 'all';
+export type SkillMatchFilterMode = 'strict' | 'overlap' | 'all';
+
+export interface CandidateMatchSearchParams {
+  tenantId: string;
+  requirementId?: string;
+  skillsRequired?: string;
+  search?: string;
+  exactOnly?: boolean;
+  workAuth?: string;
+  availabilityScope?: MatchAvailabilityScope;
+  relocation?: string;
+  maxRate?: number;
+  rateMasked?: boolean;
+  matchMode?: SkillMatchFilterMode;
+  excludeAttached?: boolean;
+  excludeCandidateIds?: string[];
+  page?: number;
+  limit?: number;
 }
 
 export function parseCandidateSearchTokens(search?: string): string[] {
@@ -58,8 +95,11 @@ export function parseCandidateSearchTokens(search?: string): string[] {
   return tokens;
 }
 
-export function buildCandidateWhereClause(params: CandidateFilterParams): Prisma.CandidateWhereInput {
-  const { search, stage, workAuth, vendorId, minRate, maxRate, tenantId } = params;
+export function buildCandidateWhereClause(
+  params: CandidateFilterParams,
+  parsedQuery?: ReturnType<typeof parseBooleanSearchQuery>
+): Prisma.CandidateWhereInput {
+  const { search, exactOnly, stage, workAuth, vendorId, minRate, maxRate, tenantId } = params;
   const where: Prisma.CandidateWhereInput = {};
 
   if (tenantId) {
@@ -67,20 +107,14 @@ export function buildCandidateWhereClause(params: CandidateFilterParams): Prisma
   }
 
   const andClauses: Prisma.CandidateWhereInput[] = [];
-  const tokens = parseCandidateSearchTokens(search);
-  for (const token of tokens) {
-    andClauses.push({
-      OR: [
-        { fullName: { contains: token, mode: 'insensitive' } },
-        { skillset: { contains: token, mode: 'insensitive' } },
-        { currentTitle: { contains: token, mode: 'insensitive' } },
-        { workAuth: { contains: token, mode: 'insensitive' } },
-        { rawSnippet: { contains: token, mode: 'insensitive' } },
-        { email: { contains: token, mode: 'insensitive' } },
-        { phone: { contains: token, mode: 'insensitive' } },
-        { vendor: { name: { contains: token, mode: 'insensitive' } } },
-      ],
-    });
+  const parsed = parsedQuery ?? parseBooleanSearchQuery(search, { exactOnly });
+  const compiledSearch = compileBooleanAstToPrismaWhere(parsed.ast);
+  if (compiledSearch) {
+    if (Array.isArray((compiledSearch as any).AND)) {
+      andClauses.push(...((compiledSearch as any).AND as Prisma.CandidateWhereInput[]));
+    } else {
+      andClauses.push(compiledSearch);
+    }
   }
 
   const hasMinRate = typeof minRate === 'number' && Number.isFinite(minRate) && minRate >= 0;
@@ -140,8 +174,11 @@ const CANDIDATE_DEFAULT_INCLUDE = {
 } satisfies Prisma.CandidateInclude;
 
 export class CandidateService {
-  private buildWhereClause(params: CandidateFilterParams): Prisma.CandidateWhereInput {
-    return buildCandidateWhereClause(params);
+  private buildWhereClause(
+    params: CandidateFilterParams,
+    parsedQuery?: ReturnType<typeof parseBooleanSearchQuery>
+  ): Prisma.CandidateWhereInput {
+    return buildCandidateWhereClause(params, parsedQuery);
   }
 
   private async resolveTenantVendorId(
@@ -204,7 +241,8 @@ export class CandidateService {
   }
 
   async getCandidatesPaginated(params: CandidateFilterParams) {
-    const where = this.buildWhereClause(params);
+    const parsedSearch = parseBooleanSearchQuery(params.search, { exactOnly: params.exactOnly });
+    const where = this.buildWhereClause(params, parsedSearch);
     const hasPagination = params.page !== undefined || params.limit !== undefined;
     const page = params.page ? Math.max(1, params.page) : 1;
     const limit = params.limit ? Math.max(1, Math.min(100, params.limit)) : 10;
@@ -261,6 +299,9 @@ export class CandidateService {
           total,
           totalPages: hasPagination ? Math.max(1, Math.ceil(total / limit)) : 1,
         },
+        meta: {
+          corrections: parsedSearch.corrections,
+        },
       };
     }
 
@@ -279,7 +320,10 @@ export class CandidateService {
           limit: data.length || 10,
           total: data.length,
           totalPages: 1
-        }
+        },
+        meta: {
+          corrections: parsedSearch.corrections,
+        },
       };
     }
 
@@ -301,7 +345,314 @@ export class CandidateService {
         limit,
         total,
         totalPages: Math.max(1, Math.ceil(total / limit))
+      },
+      meta: {
+        corrections: parsedSearch.corrections,
+      },
+    };
+  }
+
+  /**
+   * Filter-first deterministic search across ALL candidates (5,000+ scale) with canonical skill tags,
+   * Boolean query support, typo auto-correction, hard constraints (availability, work auth, max rate),
+   * and exact skill-coverage sorting BEFORE AI shortlist ranking.
+   */
+  async searchMatchedCandidates(params: CandidateMatchSearchParams) {
+    const {
+      tenantId,
+      requirementId,
+      skillsRequired: skillsRequiredOverride,
+      search,
+      exactOnly = false,
+      workAuth,
+      availabilityScope = 'non_billable',
+      relocation,
+      maxRate,
+      rateMasked = false,
+      matchMode: requestedMatchMode,
+      excludeAttached = true,
+      excludeCandidateIds = [],
+      page: rawPage = 1,
+      limit: rawLimit = 50,
+    } = params;
+
+    const page = Math.max(1, Number(rawPage) || 1);
+    const limit = Math.max(1, Math.min(100, Number(rawLimit) || 50));
+
+    // Fast inline backfill for a small synchronous slice; drain any remaining legacy rows in the background without a hard cap
+    try {
+      const updated = await candidateIndexingService.backfillNormalizedSkills(tenantId, 250);
+      if (updated === 250) {
+        void candidateIndexingService.drainNormalizedSkillsBackfill(tenantId).catch(() => {});
       }
+    } catch {
+      // Non-blocking if running without live DB in unit tests
+    }
+
+    let effectiveSkillsCsv = skillsRequiredOverride ?? '';
+    let attachedIds: string[] = [];
+
+    if (requirementId) {
+      const [reqRecord, subRows] = await Promise.all([
+        skillsRequiredOverride === undefined
+          ? prisma.requirement.findFirst({
+              where: { id: requirementId, tenantId },
+              select: { skillsRequired: true },
+            })
+          : Promise.resolve(null),
+        excludeAttached
+          ? prisma.submission.findMany({
+              where: { requirementId, tenantId },
+              select: { candidateId: true },
+            })
+          : Promise.resolve([]),
+      ]);
+      if (reqRecord && skillsRequiredOverride === undefined) {
+        effectiveSkillsCsv = reqRecord.skillsRequired || '';
+      }
+      attachedIds = subRows.map((s) => s.candidateId);
+    }
+
+    const cleanExcludeIds = Array.from(
+      new Set(
+        [...attachedIds, ...(excludeCandidateIds || [])]
+          .map((id) => String(id || '').trim())
+          .filter(Boolean)
+      )
+    ).slice(0, 12000);
+
+    const parsedSearch = parseBooleanSearchQuery(search, { exactOnly });
+    const corrections: SkillTypoCorrection[] = [...parsedSearch.corrections];
+    const seenCorrectionKeys = new Set(
+      corrections.map((c) => `${c.from.toLowerCase()}->${c.canonical}`)
+    );
+
+    const reqSkillsMeta: Array<{ raw: string; canonical: string; display: string }> = [];
+    const seenReqSlugs = new Set<string>();
+    for (const rawSkill of splitSkillItems(effectiveSkillsCsv).slice(0, 20)) {
+      const norm = normalizeSkillWithTypoFallback(rawSkill, {
+        allowTypoCorrection: !exactOnly,
+      });
+      const slug = norm.canonical || canonicalizeSkillExact(rawSkill);
+      if (!slug || seenReqSlugs.has(slug)) continue;
+      seenReqSlugs.add(slug);
+      reqSkillsMeta.push({
+        raw: rawSkill,
+        canonical: slug,
+        display: norm.display || rawSkill,
+      });
+      if (norm.matchedViaTypo) {
+        const key = `${rawSkill.toLowerCase()}->${norm.canonical}`;
+        if (!seenCorrectionKeys.has(key)) {
+          seenCorrectionKeys.add(key);
+          corrections.push({
+            from: rawSkill,
+            canonical: norm.canonical,
+            display: norm.display,
+            distance: damerauLevenshtein(rawSkill, norm.display),
+          });
+        }
+      }
+    }
+
+    const effectiveMatchMode: SkillMatchFilterMode =
+      reqSkillsMeta.length === 0
+        ? 'all'
+        : requestedMatchMode === 'strict' || requestedMatchMode === 'overlap' || requestedMatchMode === 'all'
+          ? requestedMatchMode
+          : 'overlap';
+
+    const poolConditions: Prisma.Sql[] = [
+      Prisma.sql`c."tenantId" = ${tenantId}`,
+      Prisma.sql`c."pipelineStage" <> 'ARCHIVED'::"CandidatePipelineStage"`,
+    ];
+    if (cleanExcludeIds.length > 0) {
+      poolConditions.push(Prisma.sql`NOT (c."id" = ANY(${cleanExcludeIds}::text[]))`);
+    }
+
+    const filterConditions: Prisma.Sql[] = [...poolConditions];
+
+    if (availabilityScope === 'bench') {
+      filterConditions.push(
+        Prisma.sql`c."pipelineStage" = 'AVAILABLE_BENCH'::"CandidatePipelineStage"`
+      );
+    } else if (availabilityScope === 'non_billable') {
+      filterConditions.push(
+        Prisma.sql`c."pipelineStage" <> 'BILLABLE'::"CandidatePipelineStage"`
+      );
+    }
+
+    const cleanWorkAuth = String(workAuth || '').trim();
+    if (cleanWorkAuth && cleanWorkAuth !== 'All' && cleanWorkAuth !== 'ALL') {
+      filterConditions.push(Prisma.sql`c."workAuth" ILIKE ${`%${cleanWorkAuth}%`}`);
+    }
+
+    const cleanRelocation = String(relocation || '').trim();
+    if (cleanRelocation && cleanRelocation !== 'All' && cleanRelocation !== 'ALL') {
+      filterConditions.push(Prisma.sql`c."relocation" ILIKE ${`${cleanRelocation}%`}`);
+    }
+
+    if (!rateMasked && typeof maxRate === 'number' && Number.isFinite(maxRate) && maxRate > 0) {
+      filterConditions.push(
+        Prisma.sql`(COALESCE(c."hourlyRateW2", c."hourlyRateC2c") IS NOT NULL AND COALESCE(c."hourlyRateW2", c."hourlyRateC2c") <= ${maxRate})`
+      );
+    }
+
+    const booleanSearchSql = compileBooleanAstToSql(parsedSearch.ast);
+    if (booleanSearchSql) {
+      filterConditions.push(booleanSearchSql);
+    }
+
+    const buildSkillSqlCondition = (skill: { raw: string; canonical: string; display: string }): Prisma.Sql => {
+      const hasKnownCanonical = isKnownCanonicalSkill(skill.canonical);
+      const ginContainsSql = Prisma.sql`c."normalizedSkills" @> ARRAY[${skill.canonical}]::text[]`;
+
+      if (hasKnownCanonical) {
+        // Known skills are pre-extracted into GIN-indexed `normalizedSkills` (sub-5ms at 20k rows).
+        // Only fall back to FTS/trigram for rows that have not been backfilled yet.
+        return Prisma.sql`(
+          ${ginContainsSql}
+          OR (
+            cardinality(c."normalizedSkills") = 0
+            AND (
+              c."skillset" ILIKE ${`%${skill.display}%`}
+              OR c."currentTitle" ILIKE ${`%${skill.display}%`}
+              OR to_tsvector('english', COALESCE(c."fullName", '') || ' ' || COALESCE(c."currentTitle", '') || ' ' || COALESCE(c."skillset", '') || ' ' || COALESCE(c."rawSnippet", ''))
+                 @@ plainto_tsquery('english', ${skill.display})
+            )
+          )
+        )`;
+      }
+
+      // Custom/unlisted skills use GIN-indexed full-text + trigram skillset lookup (zero full-table regex scans)
+      const ftsQuery = skill.raw.trim();
+      return Prisma.sql`(
+        ${ginContainsSql}
+        OR c."skillset" ILIKE ${`%${ftsQuery}%`}
+        OR c."currentTitle" ILIKE ${`%${ftsQuery}%`}
+        OR to_tsvector('english', COALESCE(c."fullName", '') || ' ' || COALESCE(c."currentTitle", '') || ' ' || COALESCE(c."skillset", '') || ' ' || COALESCE(c."rawSnippet", ''))
+           @@ plainto_tsquery('english', ${ftsQuery})
+      )`;
+    };
+
+    const skillSqlExprs = reqSkillsMeta.map(buildSkillSqlCondition);
+    const reqCanonicalSlugs = reqSkillsMeta.map((s) => s.canonical);
+    const allKnownCanonical = reqSkillsMeta.every((s) => isKnownCanonicalSkill(s.canonical));
+
+    const matchedCountExpr =
+      skillSqlExprs.length > 0
+        ? Prisma.sql`(${Prisma.join(
+            skillSqlExprs.map((expr) => Prisma.sql`CASE WHEN ${expr} THEN 1 ELSE 0 END`),
+            ' + '
+          )})`
+        : Prisma.sql`0`;
+
+    const strictAllSql =
+      skillSqlExprs.length > 0
+        ? allKnownCanonical
+          ? Prisma.sql`(c."normalizedSkills" @> ${reqCanonicalSlugs}::text[] OR (cardinality(c."normalizedSkills") = 0 AND (${Prisma.join(skillSqlExprs, ' AND ')})))`
+          : Prisma.sql`(${Prisma.join(skillSqlExprs, ' AND ')})`
+        : Prisma.sql`TRUE`;
+
+    const overlapAnySql =
+      skillSqlExprs.length > 0
+        ? allKnownCanonical
+          ? Prisma.sql`(c."normalizedSkills" && ${reqCanonicalSlugs}::text[] OR (cardinality(c."normalizedSkills") = 0 AND (${Prisma.join(skillSqlExprs, ' OR ')})))`
+          : Prisma.sql`(${Prisma.join(skillSqlExprs, ' OR ')})`
+        : Prisma.sql`TRUE`;
+
+    const activeConditions = [...filterConditions];
+    if (effectiveMatchMode === 'strict' && skillSqlExprs.length > 0) {
+      activeConditions.push(strictAllSql);
+    } else if (effectiveMatchMode === 'overlap' && skillSqlExprs.length > 0) {
+      activeConditions.push(overlapAnySql);
+    }
+
+    const wherePoolSql = Prisma.join(poolConditions, ' AND ');
+    const whereBaseFilteredSql = Prisma.join(filterConditions, ' AND ');
+    const whereActiveSql = Prisma.join(activeConditions, ' AND ');
+
+    const [poolCountRows, filteredStatsRows, pageIdRows] = await Promise.all([
+      prisma.$queryRaw<Array<{ total: bigint | number }>>`
+        SELECT COUNT(*)::bigint AS total
+        FROM "Candidate" c
+        WHERE ${wherePoolSql}
+      `,
+      prisma.$queryRaw<Array<{ totalMatched: bigint | number; exactAllCount: bigint | number }>>`
+        SELECT
+          COUNT(*)::bigint AS "totalMatched",
+          COUNT(*) FILTER (WHERE ${strictAllSql})::bigint AS "exactAllCount"
+        FROM "Candidate" c
+        WHERE ${effectiveMatchMode === 'all' ? whereBaseFilteredSql : whereActiveSql}
+      `,
+      prisma.$queryRaw<Array<{ id: string; matchedCount: number }>>`
+        SELECT
+          c."id",
+          ${matchedCountExpr}::int AS "matchedCount"
+        FROM "Candidate" c
+        WHERE ${whereActiveSql}
+        ORDER BY
+          "matchedCount" DESC,
+          (c."pipelineStage" = 'AVAILABLE_BENCH'::"CandidatePipelineStage") DESC,
+          c."updatedAt" DESC,
+          c."id" DESC
+        LIMIT ${limit}
+        OFFSET ${(page - 1) * limit}
+      `,
+    ]);
+
+    const totalPool = Number(poolCountRows[0]?.total ?? 0);
+    const totalMatched = Number(filteredStatsRows[0]?.totalMatched ?? 0);
+    const exactAllCount =
+      reqSkillsMeta.length > 0 ? Number(filteredStatsRows[0]?.exactAllCount ?? 0) : totalMatched;
+
+    const pageIds = pageIdRows.map((r) => r.id);
+    const fullRows =
+      pageIds.length > 0
+        ? await prisma.candidate.findMany({
+            where: { id: { in: pageIds } },
+            include: CANDIDATE_DEFAULT_INCLUDE,
+          })
+        : [];
+    const rowById = new Map(fullRows.map((r) => [r.id, r]));
+    const orderedData = pageIds
+      .map((id) => {
+        const row = rowById.get(id);
+        if (!row) return null;
+        const overlap = evaluateNormalizedSkillOverlap({
+          requiredSkillsCsv: effectiveSkillsCsv,
+          candidateSkillset: row.skillset,
+          candidateNormalizedSkills: (row as any).normalizedSkills,
+          candidateTitle: row.currentTitle,
+          candidateRawSnippet: row.rawSnippet,
+        });
+        return {
+          ...row,
+          matchSummary: {
+            score: overlap.score,
+            matched: overlap.matched,
+            missing: overlap.missing,
+          },
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => Boolean(x));
+
+    return {
+      data: orderedData,
+      pagination: {
+        page,
+        limit,
+        total: totalMatched,
+        totalPages: Math.max(1, Math.ceil(totalMatched / limit)),
+      },
+      meta: {
+        totalPool,
+        totalMatched,
+        exactAllCount,
+        corrections,
+        matchMode: effectiveMatchMode,
+        availabilityScope,
+      },
     };
   }
 
@@ -370,6 +721,10 @@ export class CandidateService {
 
     const resolvedVendorId = await this.resolveTenantVendorId(tenantId, raw);
 
+    const createTitle = raw.currentTitle?.trim() || 'Software Engineer';
+    const createSkills = raw.skillset?.trim() || 'General Engineering';
+    const createSnippet = raw.rawSnippet || null;
+
     try {
       const created = await prisma.candidate.create({
         data: {
@@ -377,10 +732,15 @@ export class CandidateService {
           fullName: raw.fullName?.trim() || 'Anonymous Candidate',
           email: raw.email?.trim()?.toLowerCase() || `cand_${Date.now()}@domain.com`,
           phone: raw.phone?.trim() || null,
-          currentTitle: raw.currentTitle?.trim() || 'Software Engineer',
+          currentTitle: createTitle,
           workAuth: raw.workAuth?.trim() || 'US Citizen',
           education: raw.education?.trim() || "Master's Degree",
-          skillset: raw.skillset?.trim() || 'General Engineering',
+          skillset: createSkills,
+          normalizedSkills: extractNormalizedSkills({
+            skillset: createSkills,
+            currentTitle: createTitle,
+            rawSnippet: createSnippet,
+          }),
           hourlyRateDisplay: rateDisplay,
           hourlyRateW2: isC2C ? null : rateDigits,
           hourlyRateC2c: isC2C ? rateDigits : null,
@@ -388,7 +748,7 @@ export class CandidateService {
           resumeFileName,
           resumeFormat,
           resumeFileUrl,
-          rawSnippet: raw.rawSnippet || null,
+          rawSnippet: createSnippet,
           pipelineStage: mappedStage,
           ...(customFields !== undefined ? { customFields } : {}),
           assignedRecruiterId: resolvedRecruiterId,
@@ -457,6 +817,14 @@ export class CandidateService {
       const isC2C = rateDisplay.toUpperCase().includes('C2C');
       data.hourlyRateW2 = isC2C ? null : rateDigits;
       data.hourlyRateC2c = isC2C ? rateDigits : null;
+    }
+
+    if (raw.skillset !== undefined || raw.currentTitle !== undefined || raw.rawSnippet !== undefined) {
+      data.normalizedSkills = extractNormalizedSkills({
+        skillset: raw.skillset !== undefined ? String(raw.skillset).trim() : existing.skillset,
+        currentTitle: raw.currentTitle !== undefined ? String(raw.currentTitle).trim() : existing.currentTitle,
+        rawSnippet: raw.rawSnippet !== undefined ? (raw.rawSnippet || null) : existing.rawSnippet,
+      });
     }
 
     const resolvedVendorId = await this.resolveTenantVendorId(existing.tenantId, raw);

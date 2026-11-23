@@ -5,10 +5,17 @@ import {
   computeOfflineCapabilityEvaluation,
   redactRatesFromText,
 } from './ai/ai.service';
+import { candidateService, type MatchAvailabilityScope } from './candidate.service';
 import { candidateIndexingService } from './vector/candidateIndexing.service';
 import { embeddingService } from './vector/embedding.service';
 import { buildRequirementSearchQuery } from './vector/resumeChunker';
 import { getVectorStore } from './vector/vectorStore.router';
+import {
+  canonicalizeSkillExact,
+  normalizeSkillWithTypoFallback,
+  splitSkillItems,
+  type SkillTypoCorrection,
+} from '../utils/skillMatcher';
 import type {
   CapabilityCandidateInput,
   CapabilityEvaluationResult,
@@ -316,7 +323,12 @@ export class CapabilityService {
     requirementId: string;
     skillsRequiredOverride?: string;
     search?: string;
+    exactOnly?: boolean;
     workAuth?: string;
+    availabilityScope?: MatchAvailabilityScope;
+    relocation?: string;
+    maxRate?: number;
+    matchMode?: 'strict' | 'overlap' | 'semantic' | 'all';
     candidateIds?: string[];
     excludeCandidateIds?: string[];
     excludeAttached?: boolean;
@@ -328,8 +340,11 @@ export class CapabilityService {
     rankings: RankedCandidateResult[];
     candidates: any[];
     aiUsed: boolean;
-    retrievalMethod?: 'pgvector_hybrid' | 'pg_fts' | 'in_memory';
+    retrievalMethod?: 'exact_filter' | 'pgvector_hybrid' | 'pg_fts' | 'in_memory';
     totalTenantPool?: number;
+    totalFilteredMatches?: number;
+    exactAllCount?: number;
+    corrections?: SkillTypoCorrection[];
     totalEvaluated: number;
     remainingUnrankedCount: number;
     excludedCount: number;
@@ -341,7 +356,12 @@ export class CapabilityService {
       requirementId,
       skillsRequiredOverride,
       search,
+      exactOnly = false,
       workAuth,
+      availabilityScope = 'non_billable',
+      relocation,
+      maxRate,
+      matchMode = 'overlap',
       candidateIds,
       excludeCandidateIds,
       excludeAttached = true,
@@ -393,6 +413,7 @@ export class CapabilityService {
       education: true,
       currentTitle: true,
       skillset: true,
+      normalizedSkills: true,
       hourlyRateW2: true,
       hourlyRateC2c: true,
       hourlyRateDisplay: true,
@@ -418,84 +439,172 @@ export class CapabilityService {
     const batchLimit = Math.max(1, Math.min(20, maxShortlist));
     let candidatePool: CapabilityCandidateInput[] = [];
     const fullRowById = new Map<string, any>();
-    let retrievalMethod: 'pgvector_hybrid' | 'pg_fts' | 'in_memory' = 'pg_fts';
+    let retrievalMethod: 'exact_filter' | 'pgvector_hybrid' | 'pg_fts' | 'in_memory' =
+      matchMode === 'semantic' ? 'pg_fts' : 'exact_filter';
     let totalTenantPool = 0;
+    let totalFilteredMatches = 0;
+    let exactAllCount = 0;
+    let corrections: SkillTypoCorrection[] = [];
 
-    try {
-      // Sync a fast FTS chunk slice locally; push remaining chunk & vector backfill asynchronously
-      await candidateIndexingService.ensureTenantIndexedForSearch(tenantId, {
-        maxChunkSync: 100,
-        maxEmbedChunks: 0,
-      });
-      void candidateIndexingService
-        .ensureTenantIndexedForSearch(tenantId, {
-          maxChunkSync: 500,
-          maxEmbedChunks: 64,
-        })
-        .catch(() => {});
+    const requiredSkillSlugs = splitSkillItems(effectiveReq.skillsRequired)
+      .map((s) => {
+        const norm = normalizeSkillWithTypoFallback(s, { allowTypoCorrection: !exactOnly });
+        return norm.canonical || canonicalizeSkillExact(s);
+      })
+      .filter(Boolean);
 
-      const { queryText, skillTokens } = buildRequirementSearchQuery({
-        opportunityTitle: effectiveReq.opportunityTitle,
-        skillsRequired: effectiveReq.skillsRequired,
-        location: effectiveReq.location,
-        workModel: effectiveReq.workModel,
-        publicDescription: requirement.publicDescription,
-        rawEmailText: effectiveReq.rawEmailText,
-      });
-
-      const queryEmbedded = await embeddingService.embedTexts([queryText], {
-        tenantId,
-        timeoutMs: 3500,
-      });
-      const queryVector = queryEmbedded?.vectors?.[0] ?? null;
-      const vectorStore = getVectorStore();
-
-      const hybridRes = await vectorStore.hybridSearchCandidates({
-        tenantId,
-        queryText,
-        queryVector,
-        skillTokens,
-        searchFilter: search,
-        workAuthFilter: workAuth,
-        candidateIdsFilter: cleanIds,
-        excludeCandidateIds: cleanExcludeIds,
-        limit: batchLimit,
-      });
-
-      retrievalMethod = hybridRes.retrievalMethod;
-      totalTenantPool = hybridRes.totalTenantPool;
-
-      const matchedIds = hybridRes.matches.map((m) => m.candidateId);
-      if (matchedIds.length > 0) {
-        const dbRows = await prisma.candidate.findMany({
-          where: { tenantId, id: { in: matchedIds } },
-          select: candidateSelect,
+    if (matchMode !== 'semantic' && !cleanIds?.length) {
+      try {
+        const exactRes = await candidateService.searchMatchedCandidates({
+          tenantId,
+          requirementId,
+          skillsRequired: effectiveReq.skillsRequired,
+          search,
+          exactOnly,
+          workAuth,
+          availabilityScope,
+          relocation,
+          maxRate,
+          rateMasked,
+          matchMode: matchMode === 'strict' ? 'strict' : matchMode === 'all' ? 'all' : 'overlap',
+          excludeAttached,
+          excludeCandidateIds: cleanExcludeIds,
+          page: 1,
+          limit: batchLimit,
         });
-        for (const r of dbRows) fullRowById.set(r.id, r);
 
-        const matchMetaById = new Map(hybridRes.matches.map((m) => [m.candidateId, m]));
-        candidatePool = matchedIds
-          .map((id) => {
-            const row = fullRowById.get(id);
-            if (!row) return null;
-            const input = toCapabilityCandidateInput(row);
-            const meta = matchMetaById.get(id);
-            if (meta?.matchedChunks?.length) {
-              input.matchedChunks = meta.matchedChunks;
-            }
-            return input;
-          })
-          .filter((x): x is CapabilityCandidateInput => Boolean(x));
+        retrievalMethod = 'exact_filter';
+        totalTenantPool = exactRes.meta.totalPool;
+        totalFilteredMatches = exactRes.meta.totalMatched;
+        exactAllCount = exactRes.meta.exactAllCount;
+        corrections = exactRes.meta.corrections || [];
+
+        if (exactRes.data.length === 0) {
+          return {
+            rankings: [],
+            candidates: [],
+            aiUsed: false,
+            retrievalMethod,
+            totalTenantPool,
+            totalFilteredMatches: 0,
+            exactAllCount,
+            corrections,
+            totalEvaluated: 0,
+            remainingUnrankedCount: 0,
+            excludedCount: cleanExcludeIds.length,
+          };
+        }
+
+        for (const row of exactRes.data) {
+          fullRowById.set(row.id, row);
+          candidatePool.push(toCapabilityCandidateInput(row));
+        }
+      } catch {
+        candidatePool = [];
       }
-    } catch {
-      // Safe fallback to in-memory/Prisma query if vector table is unavailable in isolated runs
-      candidatePool = [];
+    }
+
+    if (candidatePool.length === 0 && (matchMode === 'semantic' || cleanIds?.length)) {
+      try {
+        await candidateIndexingService.ensureTenantIndexedForSearch(tenantId, {
+          maxChunkSync: 100,
+          maxEmbedChunks: 0,
+        });
+        void candidateIndexingService
+          .ensureTenantIndexedForSearch(tenantId, {
+            maxChunkSync: 500,
+            maxEmbedChunks: 64,
+          })
+          .catch(() => {});
+
+        const { queryText, skillTokens } = buildRequirementSearchQuery({
+          opportunityTitle: effectiveReq.opportunityTitle,
+          skillsRequired: effectiveReq.skillsRequired,
+          location: effectiveReq.location,
+          workModel: effectiveReq.workModel,
+          publicDescription: requirement.publicDescription,
+          rawEmailText: effectiveReq.rawEmailText,
+        });
+
+        const queryEmbedded = await embeddingService.embedTexts([queryText], {
+          tenantId,
+          timeoutMs: 3500,
+        });
+        const queryVector = queryEmbedded?.vectors?.[0] ?? null;
+        const vectorStore = getVectorStore();
+
+        const hybridRes = await vectorStore.hybridSearchCandidates({
+          tenantId,
+          queryText,
+          queryVector,
+          skillTokens,
+          searchFilter: search,
+          exactOnly,
+          workAuthFilter: workAuth,
+          availabilityScope,
+          relocationFilter: relocation,
+          maxRate,
+          rateMasked,
+          requiredSkillSlugs,
+          matchMode: matchMode === 'strict' ? 'strict' : 'semantic',
+          allowUnmatchedFallback: false,
+          candidateIdsFilter: cleanIds,
+          excludeCandidateIds: cleanExcludeIds,
+          limit: batchLimit,
+        });
+
+        retrievalMethod = hybridRes.retrievalMethod;
+        totalTenantPool = hybridRes.totalTenantPool;
+        totalFilteredMatches = Math.max(hybridRes.matches.length, hybridRes.totalTenantPool);
+
+        const matchedIds = hybridRes.matches.map((m) => m.candidateId);
+        if (matchedIds.length > 0) {
+          const dbRows = await prisma.candidate.findMany({
+            where: { tenantId, id: { in: matchedIds } },
+            select: candidateSelect,
+          });
+          for (const r of dbRows) fullRowById.set(r.id, r);
+
+          const matchMetaById = new Map(hybridRes.matches.map((m) => [m.candidateId, m]));
+          candidatePool = matchedIds
+            .map((id) => {
+              const row = fullRowById.get(id);
+              if (!row) return null;
+              const input = toCapabilityCandidateInput(row);
+              const meta = matchMetaById.get(id);
+              if (meta?.matchedChunks?.length) {
+                input.matchedChunks = meta.matchedChunks;
+              }
+              return input;
+            })
+            .filter((x): x is CapabilityCandidateInput => Boolean(x));
+        }
+      } catch {
+        candidatePool = [];
+      }
     }
 
     if (candidatePool.length === 0 && Array.isArray(suppliedCandidates) && suppliedCandidates.length > 0) {
       retrievalMethod = 'in_memory';
       candidatePool = suppliedCandidates.filter((c) => !excludeSet.has(c.id));
       totalTenantPool = candidatePool.length;
+      totalFilteredMatches = candidatePool.length;
+    }
+
+    if (candidatePool.length === 0) {
+      return {
+        rankings: [],
+        candidates: [],
+        aiUsed: false,
+        retrievalMethod,
+        totalTenantPool,
+        totalFilteredMatches: 0,
+        exactAllCount,
+        corrections,
+        totalEvaluated: 0,
+        remainingUnrankedCount: 0,
+        excludedCount: cleanExcludeIds.length,
+      };
     }
 
     const shortlisted =
@@ -515,7 +624,11 @@ export class CapabilityService {
     const rankedCandidates = sortedRankings
       .map((r) => fullRowById.get(r.candidateId))
       .filter(Boolean);
-    const remainingUnrankedCount = Math.max(0, totalTenantPool - shortlisted.length);
+    const effectiveTotalMatched =
+      retrievalMethod === 'exact_filter'
+        ? totalFilteredMatches
+        : Math.max(totalFilteredMatches, totalTenantPool);
+    const remainingUnrankedCount = Math.max(0, effectiveTotalMatched - shortlisted.length);
 
     return {
       rankings: sortedRankings,
@@ -523,6 +636,9 @@ export class CapabilityService {
       aiUsed: rankedResult.aiUsed,
       retrievalMethod,
       totalTenantPool,
+      totalFilteredMatches: effectiveTotalMatched,
+      exactAllCount,
+      corrections,
       totalEvaluated: sortedRankings.length,
       remainingUnrankedCount,
       excludedCount: cleanExcludeIds.length,

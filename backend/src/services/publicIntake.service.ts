@@ -30,6 +30,7 @@ import { REQUIREMENT_INCLUDE, RequirementStatus } from './requirement.service';
 import { resumeParserClientService } from './resumeParserClient.service';
 import { slaEngineService } from './slaEngine.service';
 import { candidateIndexingService } from './vector/candidateIndexing.service';
+import { extractNormalizedSkills } from '../utils/skillMatcher';
 import {
   buildClientSafePublicSummaryHtml,
   formatWorkModelLabel,
@@ -962,6 +963,14 @@ export class PublicIntakeService {
               ? (existingCandidate.customFields as Record<string, any>)
               : {};
 
+          const nextSkillset =
+            parsedCv.skillset &&
+            parsedCv.skillset !== 'Software Engineering' &&
+            parsedCv.skillset.length > existingCandidate.skillset.length
+              ? parsedCv.skillset
+              : existingCandidate.skillset;
+          const nextRawSnippet = parsedCv.rawSnippet || existingCandidate.rawSnippet;
+
           const updatedCand = await tx.candidate.update({
             where: { id: existingCandidate.id },
             data: {
@@ -979,6 +988,11 @@ export class PublicIntakeService {
                 parsedCv.skillset.length > existingCandidate.skillset.length
                 ? { skillset: parsedCv.skillset }
                 : {}),
+              normalizedSkills: extractNormalizedSkills({
+                skillset: nextSkillset,
+                currentTitle: existingCandidate.currentTitle,
+                rawSnippet: nextRawSnippet,
+              }),
               ...(shouldAdvanceToSubmitted
                 ? { pipelineStage: CandidatePipelineStage.SUBMITTED }
                 : {}),
@@ -988,16 +1002,22 @@ export class PublicIntakeService {
           candidateId = updatedCand.id;
           candidateName = updatedCand.fullName;
         } else {
+          const newCandTitle = valid.currentTitleInput || parsedCv.currentTitle;
           const newCand = await tx.candidate.create({
             data: {
               tenantId: requirement.tenantId,
               fullName: valid.fullName,
               email: valid.email,
               phone: valid.phone,
-              currentTitle: valid.currentTitleInput || parsedCv.currentTitle,
+              currentTitle: newCandTitle,
               workAuth: valid.workAuth,
               education: parsedCv.education,
               skillset: parsedCv.skillset,
+              normalizedSkills: extractNormalizedSkills({
+                skillset: parsedCv.skillset,
+                currentTitle: newCandTitle,
+                rawSnippet: parsedCv.rawSnippet,
+              }),
               hourlyRateDisplay: valid.submittedRate || parsedCv.hourlyRate,
               hourlyRateW2: rateDigits > 0 && !isC2C ? rateDigits : null,
               hourlyRateC2c: rateDigits > 0 && isC2C ? rateDigits : null,

@@ -1,8 +1,9 @@
-import { CandidatePipelineStage } from '@prisma/client';
+import { CandidatePipelineStage, Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma.config';
 import { embeddingService } from './embedding.service';
 import { buildCandidateChunks } from './resumeChunker';
 import { getVectorStore } from './vectorStore.router';
+import { extractNormalizedSkills } from '../../utils/skillMatcher';
 
 const INDEX_CANDIDATE_SELECT = {
   id: true,
@@ -185,6 +186,96 @@ export class CandidateIndexingService {
     await store.deleteCandidateChunks(tenantId, candidateId);
   }
 
+  private activeNormalizedDrains = new Set<string>();
+
+  /**
+   * Populates canonical `normalizedSkills` on a keyset batch of legacy/bulk-imported candidate rows
+   * so GIN `@>` matching across any pool size works without scanning raw resume text.
+   */
+  private async backfillNormalizedSkillsBatch(
+    tenantId: string,
+    maxRows: number,
+    afterId?: string
+  ): Promise<{ fetched: number; updated: number; lastId?: string }> {
+    const cursorFilter = afterId ? Prisma.sql`AND c."id" > ${afterId}` : Prisma.empty;
+    const missing = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        currentTitle: string;
+        skillset: string;
+        rawSnippet: string | null;
+      }>
+    >`
+      SELECT c."id", c."currentTitle", c."skillset", c."rawSnippet"
+      FROM "Candidate" c
+      WHERE c."tenantId" = ${tenantId}
+        AND cardinality(c."normalizedSkills") = 0
+        AND (
+          COALESCE(c."skillset", '') <> ''
+          OR COALESCE(c."currentTitle", '') <> ''
+          OR COALESCE(c."rawSnippet", '') <> ''
+        )
+        ${cursorFilter}
+      ORDER BY c."id" ASC
+      LIMIT ${Math.max(1, maxRows)}
+    `;
+
+    if (missing.length === 0) return { fetched: 0, updated: 0 };
+
+    let updated = 0;
+    const CHUNK = 500;
+    for (let i = 0; i < missing.length; i += CHUNK) {
+      const slice = missing.slice(i, i + CHUNK);
+      const payload = slice.map((cand) => ({
+        id: cand.id,
+        skills: extractNormalizedSkills({
+          skillset: cand.skillset,
+          currentTitle: cand.currentTitle,
+          rawSnippet: cand.rawSnippet,
+        }),
+      }));
+      await prisma.$executeRaw`
+        UPDATE "Candidate" AS c
+        SET "normalizedSkills" = COALESCE(v.skills, ARRAY[]::text[])
+        FROM jsonb_to_recordset(${JSON.stringify(payload)}::jsonb) AS v(id text, skills text[])
+        WHERE c."id" = v.id
+          AND c."tenantId" = ${tenantId}
+      `;
+      updated += slice.length;
+    }
+    return {
+      fetched: missing.length,
+      updated,
+      lastId: missing[missing.length - 1].id,
+    };
+  }
+
+  async backfillNormalizedSkills(tenantId: string, maxRows = 2000): Promise<number> {
+    const res = await this.backfillNormalizedSkillsBatch(tenantId, maxRows);
+    return res.updated;
+  }
+
+  /**
+   * Drains all remaining un-normalized candidate rows in a tenant asynchronously with no row cap.
+   */
+  async drainNormalizedSkillsBackfill(tenantId: string): Promise<number> {
+    if (this.activeNormalizedDrains.has(tenantId)) return 0;
+    this.activeNormalizedDrains.add(tenantId);
+    let totalUpdated = 0;
+    let cursorId: string | undefined;
+    try {
+      while (true) {
+        const batch = await this.backfillNormalizedSkillsBatch(tenantId, 1000, cursorId);
+        totalUpdated += batch.updated;
+        if (batch.fetched < 1000 || !batch.lastId) break;
+        cursorId = batch.lastId;
+      }
+      return totalUpdated;
+    } finally {
+      this.activeNormalizedDrains.delete(tenantId);
+    }
+  }
+
   /**
    * Ensures unindexed active consultants in a tenant have FTS chunks ready immediately
    * (and embeds a responsive inline batch when an embedding provider is configured).
@@ -195,6 +286,8 @@ export class CandidateIndexingService {
   ): Promise<void> {
     const { maxChunkSync = 500, maxEmbedChunks = 48 } = options;
     const store = getVectorStore();
+
+    await this.backfillNormalizedSkills(tenantId, Math.max(maxChunkSync, 1000)).catch(() => 0);
 
     const missingCandidates = await prisma.$queryRaw<
       Array<{

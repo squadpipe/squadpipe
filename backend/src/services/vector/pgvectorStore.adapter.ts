@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma.config';
 import { toPgVectorLiteral } from './embedding.service';
+import { compileBooleanAstToSql, parseBooleanSearchQuery } from '../../utils/booleanSearch';
 import type {
   HybridCandidateMatch,
   HybridSearchQuery,
@@ -288,8 +289,16 @@ export class PgVectorStoreAdapter implements VectorStoreAdapter {
       queryVector,
       skillTokens,
       searchFilter,
+      exactOnly = false,
       workAuthFilter,
       pipelineStageFilter,
+      availabilityScope,
+      relocationFilter,
+      maxRate,
+      rateMasked = false,
+      requiredSkillSlugs = [],
+      matchMode,
+      allowUnmatchedFallback = false,
       candidateIdsFilter,
       excludeCandidateIds,
       limit = 50,
@@ -298,6 +307,7 @@ export class PgVectorStoreAdapter implements VectorStoreAdapter {
     const cleanSearch = String(searchFilter || '').trim();
     const cleanWorkAuth = String(workAuthFilter || '').trim();
     const cleanStage = String(pipelineStageFilter || '').trim();
+    const cleanRelocation = String(relocationFilter || '').trim();
     const cleanExcludeIds = Array.isArray(excludeCandidateIds)
       ? Array.from(new Set(excludeCandidateIds.map((id) => String(id || '').trim()).filter(Boolean)))
       : [];
@@ -312,21 +322,43 @@ export class PgVectorStoreAdapter implements VectorStoreAdapter {
       candidateConditions.push(
         Prisma.sql`c."pipelineStage" = ${cleanStage}::"CandidatePipelineStage"`
       );
+    } else if (availabilityScope === 'bench') {
+      candidateConditions.push(
+        Prisma.sql`c."pipelineStage" = 'AVAILABLE_BENCH'::"CandidatePipelineStage"`
+      );
+    } else if (availabilityScope === 'non_billable') {
+      candidateConditions.push(
+        Prisma.sql`c."pipelineStage" <> 'BILLABLE'::"CandidatePipelineStage"`
+      );
     }
 
-    if (cleanWorkAuth && cleanWorkAuth !== 'All') {
+    if (cleanWorkAuth && cleanWorkAuth !== 'All' && cleanWorkAuth !== 'ALL') {
       const authPattern = `%${cleanWorkAuth}%`;
       candidateConditions.push(Prisma.sql`c."workAuth" ILIKE ${authPattern}`);
     }
 
+    if (cleanRelocation && cleanRelocation !== 'All' && cleanRelocation !== 'ALL') {
+      candidateConditions.push(Prisma.sql`c."relocation" ILIKE ${`${cleanRelocation}%`}`);
+    }
+
+    if (!rateMasked && typeof maxRate === 'number' && Number.isFinite(maxRate) && maxRate > 0) {
+      candidateConditions.push(
+        Prisma.sql`(COALESCE(c."hourlyRateW2", c."hourlyRateC2c") IS NOT NULL AND COALESCE(c."hourlyRateW2", c."hourlyRateC2c") <= ${maxRate})`
+      );
+    }
+
     if (cleanSearch) {
-      const sPattern = `%${cleanSearch}%`;
-      candidateConditions.push(Prisma.sql`(
-        c."fullName" ILIKE ${sPattern} OR
-        c."skillset" ILIKE ${sPattern} OR
-        c."currentTitle" ILIKE ${sPattern} OR
-        COALESCE(c."rawSnippet", '') ILIKE ${sPattern}
-      )`);
+      const parsedSearch = parseBooleanSearchQuery(cleanSearch, { exactOnly });
+      const booleanSql = compileBooleanAstToSql(parsedSearch.ast);
+      if (booleanSql) {
+        candidateConditions.push(booleanSql);
+      }
+    }
+
+    if (matchMode === 'strict' && requiredSkillSlugs.length > 0) {
+      candidateConditions.push(
+        Prisma.sql`c."normalizedSkills" @> ${requiredSkillSlugs}::text[]`
+      );
     }
 
     if (Array.isArray(candidateIdsFilter) && candidateIdsFilter.length > 0) {
@@ -466,8 +498,8 @@ export class PgVectorStoreAdapter implements VectorStoreAdapter {
 
     let matches = mergeHybridCandidateRanks({ ftsHits, vectorHits, limit });
 
-    // If neither FTS tokens nor vector embeddings matched, return most relevant active bench profiles up to limit
-    if (matches.length === 0) {
+    // Only fall back to recency when no strict filter/search was requested (explicitly opted-in)
+    if (matches.length === 0 && allowUnmatchedFallback && !cleanSearch && matchMode !== 'strict') {
       const fallbackRows = await prisma.$queryRaw<Array<{ id: string }>>`
         SELECT c."id"
         FROM "Candidate" c

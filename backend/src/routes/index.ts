@@ -383,6 +383,7 @@ const LEADERSHIP_ROLES: UserRole[] = [
 ];
 
 router.get('/candidates', candidateController.getCandidates);
+router.post('/candidates/match-search', candidateController.matchSearchCandidates);
 router.get('/candidates/vector-status', async (req: Request, res: Response) => {
   try {
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
@@ -631,7 +632,12 @@ router.post('/match-skills', async (req: Request, res: Response) => {
       requirementId,
       skillsRequired,
       search,
+      exactOnly,
       workAuth,
+      availabilityScope,
+      relocation,
+      maxRate,
+      matchMode,
       candidateIds,
       excludeCandidateIds,
       excludeAttached,
@@ -642,13 +648,32 @@ router.post('/match-skills', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'requirementId is required' });
     }
 
+    const allowRateFilter = !req.user?.rateMasked;
+    const parsedMaxRate =
+      allowRateFilter && maxRate !== undefined && maxRate !== null && String(maxRate).trim() !== ''
+        ? Number(maxRate)
+        : undefined;
+
     const result = await capabilityService.rankMatchingCandidates({
       tenantId,
       userId: req.user?.id,
       requirementId: String(requirementId).trim(),
       skillsRequiredOverride: skillsRequired ? String(skillsRequired) : undefined,
       search: search ? String(search) : undefined,
+      exactOnly: Boolean(exactOnly),
       workAuth: workAuth ? String(workAuth) : undefined,
+      availabilityScope:
+        availabilityScope === 'bench' ||
+        availabilityScope === 'non_billable' ||
+        availabilityScope === 'all'
+          ? availabilityScope
+          : undefined,
+      relocation: relocation ? String(relocation) : undefined,
+      maxRate: parsedMaxRate !== undefined && Number.isFinite(parsedMaxRate) ? parsedMaxRate : undefined,
+      matchMode:
+        matchMode === 'strict' || matchMode === 'overlap' || matchMode === 'semantic' || matchMode === 'all'
+          ? matchMode
+          : undefined,
       candidateIds: Array.isArray(candidateIds) ? candidateIds : undefined,
       excludeCandidateIds: Array.isArray(excludeCandidateIds) ? excludeCandidateIds : undefined,
       excludeAttached: typeof excludeAttached === 'boolean' ? excludeAttached : true,

@@ -7,7 +7,7 @@ import { parseSortParams } from '../utils/tableSort';
 
 export const getCandidates = async (req: Request, res: Response) => {
   try {
-    const { search, stage, workAuth, vendorId, minRate, maxRate, page, limit } = req.query;
+    const { search, exactOnly, stage, workAuth, vendorId, minRate, maxRate, page, limit } = req.query;
     const tenantId = req.user?.tenantId || 'squadpipe-agency';
     const parsedPage = page ? Math.max(1, parseInt(String(page), 10) || 1) : undefined;
     const parsedLimit = limit ? Math.max(1, Math.min(100, parseInt(String(limit), 10) || 10)) : undefined;
@@ -31,6 +31,7 @@ export const getCandidates = async (req: Request, res: Response) => {
     const result = await candidateService.getCandidatesPaginated({
       tenantId,
       search: search ? String(search) : undefined,
+      exactOnly: String(exactOnly || '').toLowerCase() === 'true',
       stage: stage ? String(stage) : undefined,
       workAuth: workAuth ? String(workAuth) : undefined,
       vendorId: vendorId ? String(vendorId) : undefined,
@@ -41,9 +42,62 @@ export const getCandidates = async (req: Request, res: Response) => {
       sortBy,
       sortDir,
     });
-    res.json({ success: true, data: result.data, pagination: result.pagination });
+    res.json({
+      success: true,
+      data: result.data,
+      pagination: result.pagination,
+      meta: result.meta,
+    });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'Failed to fetch candidates' });
+  }
+};
+
+export const matchSearchCandidates = async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId || 'squadpipe-agency';
+    const body = req.body || {};
+    const allowRateFilter = !req.user?.rateMasked;
+    const rawMaxRate = body.maxRate;
+    const parsedMaxRate =
+      allowRateFilter && rawMaxRate !== undefined && rawMaxRate !== null && String(rawMaxRate).trim() !== ''
+        ? Number(rawMaxRate)
+        : undefined;
+
+    const result = await candidateService.searchMatchedCandidates({
+      tenantId,
+      requirementId: body.requirementId ? String(body.requirementId).trim() : undefined,
+      skillsRequired: body.skillsRequired !== undefined ? String(body.skillsRequired) : undefined,
+      search: body.search ? String(body.search) : undefined,
+      exactOnly: Boolean(body.exactOnly),
+      workAuth: body.workAuth ? String(body.workAuth) : undefined,
+      availabilityScope:
+        body.availabilityScope === 'bench' ||
+        body.availabilityScope === 'non_billable' ||
+        body.availabilityScope === 'all'
+          ? body.availabilityScope
+          : 'non_billable',
+      relocation: body.relocation ? String(body.relocation) : undefined,
+      maxRate: parsedMaxRate !== undefined && Number.isFinite(parsedMaxRate) ? parsedMaxRate : undefined,
+      rateMasked: Boolean(req.user?.rateMasked),
+      matchMode:
+        body.matchMode === 'strict' || body.matchMode === 'overlap' || body.matchMode === 'all'
+          ? body.matchMode
+          : undefined,
+      excludeAttached: typeof body.excludeAttached === 'boolean' ? body.excludeAttached : true,
+      excludeCandidateIds: Array.isArray(body.excludeCandidateIds) ? body.excludeCandidateIds : undefined,
+      page: body.page ? Number(body.page) : 1,
+      limit: body.limit ? Number(body.limit) : 50,
+    });
+    res.json({
+      success: true,
+      data: result.data,
+      pagination: result.pagination,
+      meta: result.meta,
+    });
+  } catch (error: any) {
+    const status = error?.statusCode || 500;
+    res.status(status).json({ success: false, message: error.message || 'Candidate match search failed' });
   }
 };
 

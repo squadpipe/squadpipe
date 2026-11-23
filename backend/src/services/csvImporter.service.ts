@@ -1,6 +1,7 @@
 import { prisma } from '../config/prisma.config';
 import { CandidatePipelineStage } from '@prisma/client';
 import { candidateIndexingService } from './vector/candidateIndexing.service';
+import { extractNormalizedSkills } from '../utils/skillMatcher';
 
 export interface CsvCandidateRow {
   fullName: string;
@@ -38,6 +39,11 @@ export class CsvImporterService {
         row.hourlyRateDisplay
       );
 
+      const titleForUpsert = row.currentTitle || '';
+      const skillsForUpsert = row.skillset || '';
+      const createTitle = row.currentTitle || 'Software Engineer';
+      const createSkills = row.skillset || 'Technical Skills';
+
       const created = await prisma.candidate.upsert({
         where: {
           tenantId_email: {
@@ -46,8 +52,12 @@ export class CsvImporterService {
           }
         },
         update: {
-          currentTitle: row.currentTitle || '',
-          skillset: row.skillset || '',
+          currentTitle: titleForUpsert,
+          skillset: skillsForUpsert,
+          normalizedSkills: extractNormalizedSkills({
+            skillset: skillsForUpsert,
+            currentTitle: titleForUpsert,
+          }),
           workAuth: row.workAuth || 'US Citizen',
           hourlyRateDisplay,
           hourlyRateW2,
@@ -60,8 +70,12 @@ export class CsvImporterService {
           phone: row.phone || '',
           workAuth: row.workAuth || 'US Citizen',
           education: row.education || "Master's Degree",
-          currentTitle: row.currentTitle || 'Software Engineer',
-          skillset: row.skillset || 'Technical Skills',
+          currentTitle: createTitle,
+          skillset: createSkills,
+          normalizedSkills: extractNormalizedSkills({
+            skillset: createSkills,
+            currentTitle: createTitle,
+          }),
           hourlyRateDisplay,
           hourlyRateW2,
           hourlyRateC2c,

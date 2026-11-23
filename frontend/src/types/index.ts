@@ -33,6 +33,12 @@ export interface Candidate {
   education: string;
   currentTitle: string;
   skillset: string;
+  normalizedSkills?: string[];
+  matchSummary?: {
+    score: number;
+    matched: string[];
+    missing: string[];
+  };
   hourlyRate: string;
   relocation: string;
   resumeName: string;

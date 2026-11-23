@@ -12,7 +12,17 @@ import { useCurrency } from '../../utils/currency';
 import { useAiCapabilities } from '../../utils/workspaceBrand';
 import { useDebounce } from '../../utils/useDebounce';
 import { mapCandidateFromApi, mapRequirementFromApi } from '../../utils/entityMappers';
-import { extractResumeMatchExcerpt, matchesCandidateQuery } from '../../utils/candidateSearch';
+import {
+  extractResumeMatchExcerpt,
+  matchesCandidateQuery,
+  parseCandidateHourlyRate,
+} from '../../utils/candidateSearch';
+import {
+  canonicalizeSkillExact,
+  suggestSkillCorrection,
+  textContainsCanonicalSkill,
+  type SkillTypoCorrection,
+} from '../../utils/skillMatcher';
 import { useMasterTaxonomies } from '../shared/DynamicCustomFieldsSection';
 import { CustomSelect } from '../shared/CustomSelect';
 import { MaskedValue } from '../shared/MaskedValue';
@@ -39,12 +49,13 @@ function normalizeSkillToken(token: string): string {
 
 /**
  * Scores a candidate's skillset and title against the requirement's comma-separated skills,
- * preserving display casing and avoiding short-token false positives.
+ * normalizing skill aliases (React.js -> React, K8s -> Kubernetes) and safe typo matches (Rect -> React).
  */
 export function computeCandidateSkillMatch(
   requiredSkillsCsv: string | undefined,
   candidateSkillsCsv: string | undefined,
-  candidateTitle?: string
+  candidateTitle?: string,
+  candidateNormalizedSkills?: string[]
 ): SkillMatchSummary {
   const rawReqSkills = String(requiredSkillsCsv || '')
     .split(',')
@@ -55,34 +66,47 @@ export function computeCandidateSkillMatch(
     return { score: 0, matched: [], missing: [] };
   }
 
-  const reqSkills: Array<{ label: string; norm: string }> = [];
+  const reqSkills: Array<{ label: string; norm: string; canonical: string }> = [];
   const seenReq = new Set<string>();
   for (const s of rawReqSkills) {
     const norm = normalizeSkillToken(s);
-    if (!norm || seenReq.has(norm)) continue;
-    seenReq.add(norm);
-    reqSkills.push({ label: s, norm });
+    const exactCanon = canonicalizeSkillExact(s);
+    const typoFix = suggestSkillCorrection(s, { allowSearchStopwords: true });
+    const canonical = typoFix?.canonical || exactCanon || norm;
+    if (!canonical || seenReq.has(canonical)) continue;
+    seenReq.add(canonical);
+    reqSkills.push({ label: s, norm, canonical });
   }
 
   const candSkills = String(candidateSkillsCsv || '')
     .split(/[,;|]/)
     .map(normalizeSkillToken)
     .filter(Boolean);
+  const candCanonicalSet = new Set<string>([
+    ...candSkills.map((cs) => canonicalizeSkillExact(cs)).filter(Boolean),
+    ...(Array.isArray(candidateNormalizedSkills)
+      ? candidateNormalizedSkills.map((s) => canonicalizeSkillExact(s)).filter(Boolean)
+      : []),
+  ]);
   const titleLower = normalizeSkillToken(candidateTitle || '');
 
   const matched: string[] = [];
   const missing: string[] = [];
 
   for (const req of reqSkills) {
-    const isDirectMatch = candSkills.some((cs) => {
-      if (cs === req.norm) return true;
-      if (req.norm.length >= 3 && cs.includes(req.norm)) return true;
-      if (cs.length >= 3 && req.norm.includes(cs)) return true;
-      return false;
-    });
+    const isDirectMatch =
+      candCanonicalSet.has(req.canonical) ||
+      candSkills.some((cs) => {
+        if (cs === req.norm) return true;
+        if (req.norm.length >= 3 && cs.includes(req.norm)) return true;
+        if (cs.length >= 3 && req.norm.includes(cs)) return true;
+        return false;
+      });
 
     const isTitleMatch =
-      !isDirectMatch && req.norm.length >= 3 && titleLower.includes(req.norm);
+      !isDirectMatch &&
+      (textContainsCanonicalSkill(titleLower, req.canonical) ||
+        (req.norm.length >= 3 && titleLower.includes(req.norm)));
 
     if (isDirectMatch || isTitleMatch) {
       matched.push(req.label);
@@ -238,7 +262,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   onCandidatesSeen,
   showToast,
 }) => {
-  const { formatRate } = useCurrency();
+  const { formatRate, symbol: currencySymbol } = useCurrency();
   const aiCapabilities = useAiCapabilities();
   const taxonomies = useMasterTaxonomies(isOpen);
 
@@ -265,8 +289,15 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   const [showAllReqSkills, setShowAllReqSkills] = useState(false);
   const [expandedCandSkillIds, setExpandedCandSkillIds] = useState<Record<string, boolean>>({});
   const [benchSearch, setBenchSearch] = useState('');
+  const [exactOnly, setExactOnly] = useState(false);
   const [benchWorkAuth, setBenchWorkAuth] = useState('All');
+  const [availabilityScope, setAvailabilityScope] = useState<'bench' | 'non_billable' | 'all'>(
+    'non_billable'
+  );
+  const [matchMode, setMatchMode] = useState<'overlap' | 'strict' | 'semantic' | 'all'>('overlap');
+  const [maxRate, setMaxRate] = useState('');
   const debouncedBenchSearch = useDebounce(benchSearch, 250);
+  const debouncedMaxRate = useDebounce(maxRate, 250);
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
   const [attachingCandId, setAttachingCandId] = useState<string | null>(null);
   const [isBatchAttaching, setIsBatchAttaching] = useState(false);
@@ -279,6 +310,9 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   const [aiRankError, setAiRankError] = useState('');
   const [aiRankScopeNote, setAiRankScopeNote] = useState('');
   const [remainingUnrankedCount, setRemainingUnrankedCount] = useState<number | null>(null);
+  const [totalPoolCount, setTotalPoolCount] = useState<number>(candidates.length);
+  const [exactAllCount, setExactAllCount] = useState<number>(0);
+  const [searchCorrections, setSearchCorrections] = useState<SkillTypoCorrection[]>([]);
   const [aiRankMap, setAiRankMap] = useState<
     Record<
       string,
@@ -342,12 +376,19 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
     setAttachingCandId(null);
     setIsBatchAttaching(false);
     setBenchSearch('');
+    setExactOnly(false);
     setBenchWorkAuth('All');
+    setAvailabilityScope('non_billable');
+    setMatchMode('overlap');
+    setMaxRate('');
     setClientDuplicateMap({});
     setAiRankMap({});
     setAiRankError('');
     setAiRankScopeNote('');
     setRemainingUnrankedCount(null);
+    setTotalPoolCount(candidates.length);
+    setExactAllCount(0);
+    setSearchCorrections([]);
     setIsAiRanking(false);
     setAiRankBatchMode('initial');
     setAiRankProgress(0);
@@ -357,6 +398,10 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
     setTotalBenchCount(candidates.length);
     setHasMoreBench(candidates.length > BENCH_PAGE_SIZE);
   }, [isOpen, requirement?.id, selectedReqId]);
+
+  useEffect(() => {
+    setExactOnly(false);
+  }, [benchSearch]);
 
   useEffect(() => {
     if (!isAiRanking) {
@@ -387,7 +432,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
     setAiRankError('');
     setAiRankScopeNote('');
     setRemainingUnrankedCount(null);
-  }, [debouncedBenchSearch, benchWorkAuth]);
+  }, [debouncedBenchSearch, exactOnly, benchWorkAuth, availabilityScope, debouncedMaxRate, matchMode]);
 
   const baseReq = useMemo(() => {
     if (allowRequirementSwitch && requirements.length > 0) {
@@ -446,32 +491,84 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
     return map;
   }, [currentReq?.submissions]);
 
+  const reqSkillList = useMemo(
+    () =>
+      String(currentReq?.skillsRequired || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    [currentReq?.skillsRequired]
+  );
+
+  const parsedMaxRate = useMemo(() => {
+    if (rateMasked || !debouncedMaxRate.trim()) return undefined;
+    const num = Number(debouncedMaxRate);
+    return Number.isFinite(num) && num > 0 ? num : undefined;
+  }, [rateMasked, debouncedMaxRate]);
+
+  const effectiveMatchMode = reqSkillList.length === 0 ? 'all' : matchMode;
+
   const filteredLocalCandidates = useMemo(() => {
     return candidates.filter((c) => {
-      const matchesSearch = matchesCandidateQuery(c, debouncedBenchSearch);
+      if (availabilityScope === 'bench' && c.pipelineStage !== 'Available / Bench') return false;
+      if (availabilityScope === 'non_billable' && c.pipelineStage === 'Billable') return false;
+      const matchesSearch = matchesCandidateQuery(c, debouncedBenchSearch, { exactOnly });
       const matchesAuth =
         benchWorkAuth === 'All' ||
         (c.workAuth || '').toLowerCase().includes(benchWorkAuth.toLowerCase());
-      return matchesSearch && matchesAuth;
+      let matchesRate = true;
+      if (parsedMaxRate !== undefined) {
+        const rateNum = parseCandidateHourlyRate(c.hourlyRate);
+        matchesRate = rateNum !== null && rateNum <= parsedMaxRate;
+      }
+      if (!matchesSearch || !matchesAuth || !matchesRate) return false;
+      if (reqSkillList.length > 0 && effectiveMatchMode !== 'all') {
+        const summary =
+          c.matchSummary ||
+          computeCandidateSkillMatch(
+            currentReq?.skillsRequired,
+            c.skillset,
+            c.currentTitle,
+            c.normalizedSkills
+          );
+        if (effectiveMatchMode === 'strict' && summary.missing.length > 0) return false;
+        if (effectiveMatchMode === 'overlap' && summary.matched.length === 0) return false;
+      }
+      return true;
     });
-  }, [candidates, debouncedBenchSearch, benchWorkAuth]);
+  }, [
+    candidates,
+    availabilityScope,
+    debouncedBenchSearch,
+    exactOnly,
+    benchWorkAuth,
+    parsedMaxRate,
+    reqSkillList.length,
+    effectiveMatchMode,
+    currentReq?.skillsRequired,
+  ]);
 
   useEffect(() => {
     if (!isOpen) return;
     let active = true;
     const searchTerm = debouncedBenchSearch.trim();
-    const filterKey = `${searchTerm}|${benchWorkAuth}`;
+    const filterKey = `${currentReq?.id || ''}|${searchTerm}|${exactOnly}|${benchWorkAuth}|${availabilityScope}|${parsedMaxRate ?? ''}|${effectiveMatchMode}`;
     activeSearchRef.current = filterKey;
     setIsLoadingBench(true);
 
     apiClient
-      .get('/candidates', {
-        params: {
-          page: 1,
-          limit: BENCH_PAGE_SIZE,
-          search: searchTerm || undefined,
-          workAuth: benchWorkAuth !== 'All' ? benchWorkAuth : undefined,
-        },
+      .post('/candidates/match-search', {
+        requirementId: currentReq?.id || undefined,
+        skillsRequired: currentReq?.skillsRequired || undefined,
+        search: searchTerm || undefined,
+        exactOnly,
+        workAuth: benchWorkAuth !== 'All' ? benchWorkAuth : undefined,
+        availabilityScope,
+        maxRate: parsedMaxRate,
+        matchMode: effectiveMatchMode,
+        excludeAttached: true,
+        page: 1,
+        limit: BENCH_PAGE_SIZE,
       })
       .then((res) => {
         if (!active) return;
@@ -482,12 +579,16 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
         }
         onCandidatesSeen?.(mapped);
         const pagination = res.data?.pagination;
+        const meta = res.data?.meta;
         const total = typeof pagination?.total === 'number' ? pagination.total : mapped.length;
         const totalPages = typeof pagination?.totalPages === 'number' ? pagination.totalPages : 1;
         setPagedCandidates(mapped);
         setBenchPage(1);
         setTotalBenchCount(total);
         setHasMoreBench(1 < totalPages);
+        if (typeof meta?.totalPool === 'number') setTotalPoolCount(meta.totalPool);
+        if (typeof meta?.exactAllCount === 'number') setExactAllCount(meta.exactAllCount);
+        setSearchCorrections(Array.isArray(meta?.corrections) ? meta.corrections : []);
       })
       .catch(() => {
         if (!active) return;
@@ -496,6 +597,18 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
         setBenchPage(1);
         setTotalBenchCount(filteredLocalCandidates.length);
         setHasMoreBench(filteredLocalCandidates.length > slice.length);
+        setTotalPoolCount(candidates.length);
+        setExactAllCount(
+          filteredLocalCandidates.filter((c) => {
+            const s = computeCandidateSkillMatch(
+              currentReq?.skillsRequired,
+              c.skillset,
+              c.currentTitle,
+              c.normalizedSkills
+            );
+            return reqSkillList.length > 0 && s.missing.length === 0;
+          }).length
+        );
       })
       .finally(() => {
         if (active) {
@@ -509,7 +622,17 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
     return () => {
       active = false;
     };
-  }, [isOpen, debouncedBenchSearch, benchWorkAuth]);
+  }, [
+    isOpen,
+    currentReq?.id,
+    currentReq?.skillsRequired,
+    debouncedBenchSearch,
+    exactOnly,
+    benchWorkAuth,
+    availabilityScope,
+    parsedMaxRate,
+    effectiveMatchMode,
+  ]);
 
   // Keep open drawer synchronized when inline Resume/CSV popups add or update candidates
   useEffect(() => {
@@ -580,17 +703,22 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
 
     const nextPage = benchPage + 1;
     const searchTerm = debouncedBenchSearch.trim();
-    const filterKey = `${searchTerm}|${benchWorkAuth}`;
+    const filterKey = `${currentReq?.id || ''}|${searchTerm}|${exactOnly}|${benchWorkAuth}|${availabilityScope}|${parsedMaxRate ?? ''}|${effectiveMatchMode}`;
     setIsLoadingMoreBench(true);
 
     apiClient
-      .get('/candidates', {
-        params: {
-          page: nextPage,
-          limit: BENCH_PAGE_SIZE,
-          search: searchTerm || undefined,
-          workAuth: benchWorkAuth !== 'All' ? benchWorkAuth : undefined,
-        },
+      .post('/candidates/match-search', {
+        requirementId: currentReq?.id || undefined,
+        skillsRequired: currentReq?.skillsRequired || undefined,
+        search: searchTerm || undefined,
+        exactOnly,
+        workAuth: benchWorkAuth !== 'All' ? benchWorkAuth : undefined,
+        availabilityScope,
+        maxRate: parsedMaxRate,
+        matchMode: effectiveMatchMode,
+        excludeAttached: true,
+        page: nextPage,
+        limit: BENCH_PAGE_SIZE,
       })
       .then((res) => {
         if (activeSearchRef.current !== filterKey) return;
@@ -625,8 +753,14 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
       });
   }, [
     benchPage,
+    currentReq?.id,
+    currentReq?.skillsRequired,
     debouncedBenchSearch,
+    exactOnly,
     benchWorkAuth,
+    availabilityScope,
+    parsedMaxRate,
+    effectiveMatchMode,
     filteredLocalCandidates,
     hasMoreBench,
     isLoadingBench,
@@ -706,15 +840,6 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
     });
   }, [attachedEntries, debouncedBenchSearch, benchWorkAuth]);
 
-  const reqSkillList = useMemo(
-    () =>
-      String(currentReq?.skillsRequired || '')
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean),
-    [currentReq?.skillsRequired]
-  );
-
   const aiModeEnabled = aiCapabilities.enabled;
   const aiRankedCount = Object.keys(aiRankMap).length;
   const hasAiRankResults = aiRankedCount > 0;
@@ -722,15 +847,18 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
   const availableRankedCandidates = useMemo(() => {
     const unattached = pagedCandidates.filter((con) => !attachedStageByCandId.has(con.id));
     const items = unattached.map((con, idx) => {
-      const localMatch = computeCandidateSkillMatch(
-        currentReq?.skillsRequired,
-        con.skillset,
-        con.currentTitle
-      );
+      const localMatch =
+        con.matchSummary ||
+        computeCandidateSkillMatch(
+          currentReq?.skillsRequired,
+          con.skillset,
+          con.currentTitle,
+          con.normalizedSkills
+        );
       const aiEntry = aiRankMap[con.id];
       const isAiRanked = Boolean(aiEntry);
       const isRowAiEvaluated = Boolean(aiEntry?.aiEvaluated);
-      const showMatch = aiModeEnabled ? isAiRanked : reqSkillList.length > 0;
+      const showMatch = aiModeEnabled ? isAiRanked || Boolean(con.matchSummary) : reqSkillList.length > 0;
 
       return {
         con,
@@ -782,10 +910,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
     hasAiRankResults,
   ]);
 
-  const availableTabCount = Math.max(
-    availableRankedCandidates.length,
-    totalBenchCount - filteredAttachedEntries.length
-  );
+  const availableTabCount = Math.max(availableRankedCandidates.length, totalBenchCount);
 
   // If every consultant on the currently loaded page is already attached, automatically load the next page
   useEffect(() => {
@@ -809,8 +934,13 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
     loadNextBenchPage,
   ]);
 
-  const handleAiRankTopMatches = async (appendNextBatch = false) => {
-    if (!currentReq?.id || isAiRanking || availableTabCount === 0) return;
+  const handleAiRankTopMatches = async (
+    appendNextBatch = false,
+    modeOverride?: 'overlap' | 'strict' | 'semantic' | 'all'
+  ) => {
+    const activeMode = modeOverride ?? effectiveMatchMode;
+    if (!currentReq?.id || isAiRanking) return;
+    if (activeMode !== 'semantic' && availableTabCount === 0) return;
     rankAbortRef.current?.abort();
     const controller = new AbortController();
     rankAbortRef.current = controller;
@@ -837,7 +967,11 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
           requirementId: currentReq.id,
           skillsRequired: currentReq.skillsRequired,
           search: benchSearch.trim() || undefined,
+          exactOnly,
           workAuth: benchWorkAuth !== 'All' ? benchWorkAuth : undefined,
+          availabilityScope,
+          maxRate: parsedMaxRate,
+          matchMode: activeMode,
           excludeCandidateIds,
         },
         {
@@ -855,6 +989,19 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
         typeof res.data?.data?.remainingUnrankedCount === 'number'
           ? res.data.data.remainingUnrankedCount
           : null;
+      const filteredTotalFromApi =
+        typeof res.data?.data?.totalFilteredMatches === 'number'
+          ? res.data.data.totalFilteredMatches
+          : null;
+      if (typeof res.data?.data?.totalTenantPool === 'number') {
+        setTotalPoolCount(res.data.data.totalTenantPool);
+      }
+      if (typeof res.data?.data?.exactAllCount === 'number') {
+        setExactAllCount(res.data.data.exactAllCount);
+      }
+      if (Array.isArray(res.data?.data?.corrections)) {
+        setSearchCorrections(res.data.data.corrections);
+      }
 
       if (Array.isArray(rawMatchedCandidates) && rawMatchedCandidates.length > 0) {
         const hydratedTop: Candidate[] = rawMatchedCandidates.map(mapCandidateFromApi);
@@ -867,6 +1014,9 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
           const remaining = prev.filter((p) => !topIds.has(p.id));
           return [...hydratedTop, ...remaining];
         });
+        if (filteredTotalFromApi !== null) {
+          setTotalBenchCount(filteredTotalFromApi);
+        }
       }
 
       if (Array.isArray(rankings)) {
@@ -904,8 +1054,8 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
           notifyToast('SquadAI Notice', quotaNotice, 'warning');
         }
         setAiRankScopeNote(
-          `${evaluatedCount} ${evaluatedCount === 1 ? 'candidate' : 'candidates'} evaluated${remainingFromApi && remainingFromApi > 0
-            ? ` · ${remainingFromApi} more available`
+          `${evaluatedCount} of ${filteredTotalFromApi ?? evaluatedCount} matches evaluated${remainingFromApi && remainingFromApi > 0
+            ? ` · ${remainingFromApi} remaining`
             : ''
           }`
         );
@@ -1195,7 +1345,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                   autoFocus
                   value={benchSearch}
                   onChange={(e) => setBenchSearch(e.target.value)}
-                  placeholder="Search by candidate name, title, skills, or resume..."
+                  placeholder="Search skills, boolean (AND / OR / NOT), or resume..."
                   className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-brand-600 transition-colors"
                 />
               </div>
@@ -1206,7 +1356,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                   onChange={setBenchWorkAuth}
                   size="sm"
                   fullWidth={false}
-                  minMenuWidth={155}
+                  minMenuWidth={145}
                   options={[
                     { value: 'All', label: 'All Work Auth' },
                     ...taxonomies.workAuth.map((auth) => ({ value: auth, label: auth })),
@@ -1215,13 +1365,66 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
               </div>
             </div>
 
+            <div className="flex items-center gap-2 flex-wrap">
+              <CustomSelect
+                ariaLabel="Availability pool"
+                value={availabilityScope}
+                onChange={(val) =>
+                  setAvailabilityScope(val as 'bench' | 'non_billable' | 'all')
+                }
+                size="sm"
+                fullWidth={false}
+                minMenuWidth={155}
+                options={[
+                  { value: 'non_billable', label: 'Bench + In-Process' },
+                  { value: 'bench', label: 'Bench Only' },
+                  { value: 'all', label: 'All (incl. Billable)' },
+                ]}
+              />
+
+              {reqSkillList.length > 0 && (
+                <CustomSelect
+                  ariaLabel="Skill filter mode"
+                  value={matchMode}
+                  onChange={(val) =>
+                    setMatchMode(val as 'overlap' | 'strict' | 'all')
+                  }
+                  size="sm"
+                  fullWidth={false}
+                  minMenuWidth={155}
+                  options={[
+                    { value: 'overlap', label: 'Best Skill Overlap' },
+                    { value: 'strict', label: 'Exact All Skills' },
+                    { value: 'all', label: 'All Consultants' },
+                  ]}
+                />
+              )}
+
+              {!rateMasked && (
+                <div className="inline-flex items-center h-8 bg-white border border-slate-200 rounded-lg px-2 gap-1 focus-within:border-brand-600 transition-all">
+                  <span className="text-[11px] font-semibold text-slate-400 pr-1 border-r border-slate-100 select-none whitespace-nowrap">
+                    Max {currencySymbol}/hr
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={maxRate}
+                    onChange={(e) => setMaxRate(e.target.value.replace(/[^\d]/g, ''))}
+                    placeholder="Any"
+                    aria-label="Maximum hourly pay rate"
+                    className="w-12 text-center text-xs text-slate-700 placeholder:text-slate-400 bg-transparent outline-none"
+                  />
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <SegmentedControl<'available' | 'attached'>
                 value={drawerTab}
                 onChange={setDrawerTab}
                 ariaLabel="Switch between available and attached candidates"
                 options={[
-                  { value: 'available', label: `Available (${availableTabCount})` },
+                  { value: 'available', label: `Matches (${availableTabCount})` },
                   { value: 'attached', label: `Attached (${attachedEntries.length})` },
                 ]}
               />
@@ -1232,7 +1435,7 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                     type="button"
                     disabled={isAiRanking || isAutoRankWaiting || isLoadingBench || isAttaching}
                     onClick={() => void handleAiRankTopMatches(true)}
-                    title={`Rank the next ${Math.min(20, remainingUnrankedCount!)} unattached consultants (${remainingUnrankedCount} remaining)`}
+                    title={`Rank the next ${Math.min(20, remainingUnrankedCount!)} matched consultants (${remainingUnrankedCount} remaining)`}
                     className="px-2.5 py-1 rounded-lg border border-teal-300 bg-white hover:bg-teal-50/50 text-teal-700 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
                   >
                     {isAiRanking ? (
@@ -1277,23 +1480,66 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
               )}
             </div>
 
-            {drawerTab === 'available' && (availableRankedCandidates.length < availableTabCount || aiRankScopeNote) && (
-              <div className="flex items-center justify-between gap-2 text-[11px] font-medium text-slate-500 flex-wrap">
-                <span>
-                  {availableRankedCandidates.length < availableTabCount ? (
-                    <>
-                      Showing <strong className="font-semibold text-slate-700">{availableRankedCandidates.length}</strong> of{' '}
-                      <strong className="font-semibold text-slate-700">{availableTabCount}</strong> available consultants
-                    </>
-                  ) : (
-                    <>
-                      <strong className="font-semibold text-slate-700">{availableTabCount}</strong> available consultant
-                      {availableTabCount === 1 ? '' : 's'}
-                    </>
+            {drawerTab === 'available' && (totalPoolCount > 0 || aiRankScopeNote || searchCorrections.length > 0) && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2 text-[11px] font-medium text-slate-500 flex-wrap">
+                  <span>
+                    <strong className="font-semibold text-slate-800">{availableTabCount}</strong>{' '}
+                    {effectiveMatchMode === 'strict'
+                      ? 'exact all-skill match'
+                      : effectiveMatchMode === 'overlap' && reqSkillList.length > 0
+                        ? 'skill match'
+                        : 'eligible consultant'}
+                    {availableTabCount === 1 ? '' : 's'}
+                    {totalPoolCount > 0 && (
+                      <>
+                        {' '}out of <strong className="font-semibold text-slate-700">{totalPoolCount}</strong> total
+                      </>
+                    )}
+                    {reqSkillList.length > 0 && exactAllCount > 0 && effectiveMatchMode !== 'strict' && (
+                      <>
+                        {' '}&bull;{' '}
+                        <button
+                          type="button"
+                          onClick={() => setMatchMode('strict')}
+                          className="font-semibold text-emerald-700 hover:underline cursor-pointer"
+                        >
+                          {exactAllCount} match all skills
+                        </button>
+                      </>
+                    )}
+                  </span>
+                  {aiRankScopeNote && (
+                    <StatusBadge tone="emerald" size="xs" label={aiRankScopeNote} />
                   )}
-                </span>
-                {aiRankScopeNote && (
-                  <StatusBadge tone="emerald" size="xs" label={aiRankScopeNote} />
+                </div>
+
+                {(searchCorrections.length > 0 || (exactOnly && benchSearch.trim())) && (
+                  <div className="px-2.5 py-1.5 rounded-lg bg-brand-50/50 border border-brand-200/70 flex items-center justify-between gap-2 text-[11px] text-slate-700 flex-wrap">
+                    {exactOnly ? (
+                      <span>
+                        Exact literal filter active (no typo auto-correction).
+                      </span>
+                    ) : (
+                      <span>
+                        Typo auto-matched:{' '}
+                        {searchCorrections.map((c, i) => (
+                          <React.Fragment key={`${c.from}-${c.canonical}`}>
+                            {i > 0 ? ', ' : ''}
+                            <span className="font-mono text-slate-500">"{c.from}"</span> &rarr;{' '}
+                            <strong className="font-semibold text-slate-900">{c.display}</strong>
+                          </React.Fragment>
+                        ))}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setExactOnly((prev) => !prev)}
+                      className="font-semibold text-brand-700 hover:underline cursor-pointer whitespace-nowrap"
+                    >
+                      {exactOnly ? 'Enable typo fix' : 'Exact only'}
+                    </button>
+                  </div>
                 )}
               </div>
             )}
@@ -1391,12 +1637,46 @@ export const AttachBenchDrawer: React.FC<AttachBenchDrawerProps> = ({
                 Loading available consultants...
               </div>
             ) : availableRankedCandidates.length === 0 ? (
-              <div className="py-10 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                {benchSearch.trim() || benchWorkAuth !== 'All'
-                  ? 'No unattached consultants match your filter.'
-                  : attachedEntries.length > 0
-                    ? 'All matching consultants are already attached to this requirement.'
-                    : 'No bench consultants available to assign yet.'}
+              <div className="py-10 px-4 text-center text-xs text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-200 space-y-3">
+                <p>
+                  {effectiveMatchMode === 'strict'
+                    ? 'No unattached consultants match ALL required skills under your current filters.'
+                    : effectiveMatchMode === 'overlap' && reqSkillList.length > 0
+                      ? 'No exact skill matches found under your current filters.'
+                      : benchSearch.trim() || benchWorkAuth !== 'All' || parsedMaxRate !== undefined
+                        ? 'No unattached consultants match your filter.'
+                        : attachedEntries.length > 0
+                          ? 'All matching consultants are already attached to this requirement.'
+                          : 'No bench consultants available to assign yet.'}
+                </p>
+                {reqSkillList.length > 0 && effectiveMatchMode !== 'all' && (
+                  <div className="flex items-center justify-center gap-2 flex-wrap">
+                    {effectiveMatchMode === 'strict' && (
+                      <button
+                        type="button"
+                        onClick={() => setMatchMode('overlap')}
+                        className="h-7 px-3 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-[11px] font-semibold cursor-pointer transition-colors"
+                      >
+                        Show Partial Skill Matches
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => void handleAiRankTopMatches(false, 'semantic')}
+                      className="h-7 px-3 rounded-lg bg-white border border-teal-300 hover:bg-teal-50/50 text-teal-700 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                    >
+                      <AiIcon className="w-3 h-3 text-teal-600" />
+                      <span>Try Semantic Match (pgvector)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMatchMode('all')}
+                      className="h-7 px-3 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-[11px] font-semibold cursor-pointer transition-colors"
+                    >
+                      Browse All Consultants
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <>

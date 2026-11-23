@@ -212,6 +212,7 @@ model Candidate {
   resumeFormat       String?
   resumeFileUrl      String?
   rawSnippet         String?                @db.Text
+  normalizedSkills   String[]               @default([])
   pipelineStage      CandidatePipelineStage @default(AVAILABLE_BENCH)
   customFields       Json?                  @default("{}")
   assignedRecruiterId String?

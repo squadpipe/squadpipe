@@ -26,6 +26,11 @@ import {
   sanitizePublicSummaryHtml,
   scrubConfidentialText,
 } from '../../utils/publicSummary';
+import {
+  canonicalizeSkillExact,
+  normalizeSkillWithTypoFallback,
+  textContainsCanonicalSkill,
+} from '../../utils/skillMatcher';
 import type {
   AiProviderAdapter,
   CapabilityCandidateInput,
@@ -163,8 +168,16 @@ function skillMatchesHaystack(skill: string, haystackLower: string, skillSetLowe
   if (!needle) return false;
   if (skillSetLower.has(needle)) return true;
 
+  const exactSlug = canonicalizeSkillExact(needle);
+  const normalized = normalizeSkillWithTypoFallback(needle, { allowTypoCorrection: true });
+  const targetSlug = normalized.canonical || exactSlug;
+
+  for (const candSkill of skillSetLower) {
+    if (canonicalizeSkillExact(candSkill) === targetSlug) return true;
+  }
+  if (textContainsCanonicalSkill(haystackLower, targetSlug)) return true;
+
   const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  // Preserve short symbols like C#, C++, .NET, Go without failing \b word-boundary checks
   const hasEdgeSymbols = /[^a-z0-9]/i.test(needle);
   if (hasEdgeSymbols) {
     return haystackLower.includes(needle);
