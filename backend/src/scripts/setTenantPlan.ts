@@ -3,7 +3,8 @@ import { prisma } from '../config/prisma.config';
 import { aiUsageService } from '../services/ai/aiUsage.service';
 
 interface CliOptions {
-  tenantId: string;
+  list: boolean;
+  target: string;
   planCode?: string;
   credits?: number;
   name?: string;
@@ -31,22 +32,25 @@ function parseNonNegativeInt(raw: string, flag: string): number {
 
 function printUsage(): void {
   console.log(`Usage:
-  node dist/scripts/setTenantPlan.js <tenantId> [planCode] [options]
+  node dist/scripts/setTenantPlan.js --list
+  node dist/scripts/setTenantPlan.js <tenantId_or_userEmail> [planCode] [options]
 
 Examples:
-  node dist/scripts/setTenantPlan.js tenant_mwv9x9nl_4e4de916
+  node dist/scripts/setTenantPlan.js --list
   node dist/scripts/setTenantPlan.js tenant_mwv9x9nl_4e4de916 growth
-  node dist/scripts/setTenantPlan.js tenant_mwv9x9nl_4e4de916 custom --credits 10000 --name "Custom 10k" --byo true
-  node dist/scripts/setTenantPlan.js tenant_mwv9x9nl_4e4de916 --add-credits 1000 --notes "Promo pack"
+  node dist/scripts/setTenantPlan.js founder@agency.com growth
+  node dist/scripts/setTenantPlan.js founder@agency.com custom --credits 10000 --name "Custom 10k" --byo true
+  node dist/scripts/setTenantPlan.js founder@agency.com --add-credits 1000 --notes "Promo pack"
 
 Options:
-  --credits <n>      Monthly plan credits (for custom plans; 0 = unlimited)
-  --name <label>     Display name for custom plan
-  --byo <true|false> Override Bring-Your-Own-Key permission
+  --list               List all workspaces with admin email, tenantId, and active plan
+  --credits <n>        Monthly plan credits (for custom plans; 0 = unlimited)
+  --name <label>       Display name for custom plan
+  --byo <true|false>   Override Bring-Your-Own-Key permission
   --agent <true|false> Override Action Center AI permission
-  --add-credits <n>  Grant extra add-on credits to workspace wallet
-  --notes <text>     Notes recorded on add-on credit grant
-  --force            Create/update subscription even if no users exist yet for tenantId`);
+  --add-credits <n>    Grant extra add-on credits to workspace wallet
+  --notes <text>       Notes recorded on add-on credit grant
+  --force              Create/update subscription even if no users exist yet for tenantId`);
 }
 
 function parseArgs(argv: string[]): CliOptions {
@@ -56,7 +60,7 @@ function parseArgs(argv: string[]): CliOptions {
   }
 
   const positional: string[] = [];
-  const opts: Partial<CliOptions> = { force: false };
+  const opts: Partial<CliOptions> = { force: false, list: false };
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -73,6 +77,9 @@ function parseArgs(argv: string[]): CliOptions {
     };
 
     switch (arg) {
+      case '--list':
+        opts.list = true;
+        break;
       case '--credits':
         opts.credits = parseNonNegativeInt(next(), '--credits');
         break;
@@ -99,13 +106,14 @@ function parseArgs(argv: string[]): CliOptions {
     }
   }
 
-  const tenantId = (positional[0] || '').trim();
-  if (!tenantId) {
-    throw new Error('tenantId is required.');
+  const target = (positional[0] || '').trim();
+  if (!opts.list && !target) {
+    throw new Error('tenantId or user email is required (or pass --list).');
   }
 
   return {
-    tenantId,
+    list: Boolean(opts.list),
+    target,
     planCode: positional[1]?.trim().toLowerCase() || undefined,
     credits: opts.credits,
     name: opts.name,
@@ -117,23 +125,89 @@ function parseArgs(argv: string[]): CliOptions {
   };
 }
 
-async function assertTenantExists(tenantId: string, force: boolean): Promise<void> {
-  if (force) return;
-  const [userCount, settingsRow, subRow] = await Promise.all([
-    prisma.user.count({ where: { tenantId } }),
-    prisma.tenantSettings.findUnique({ where: { tenantId }, select: { tenantId: true } }),
-    prisma.tenantSubscription.findUnique({ where: { tenantId }, select: { id: true } }),
+async function listAllWorkspaces(): Promise<void> {
+  const [subscriptions, users] = await Promise.all([
+    prisma.tenantSubscription.findMany({
+      include: { plan: true },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.user.findMany({
+      select: { tenantId: true, email: true, agencyName: true, role: true },
+      orderBy: { createdAt: 'asc' },
+    }),
   ]);
-  if (userCount === 0 && !settingsRow && !subRow) {
-    throw new Error(
-      `No workspace records found for "${tenantId}". Double-check the Workspace ID or pass --force to provision anyway.`
-    );
+
+  const byTenant = new Map<string, { emails: string[]; agencyName: string | null }>();
+  for (const u of users) {
+    const entry = byTenant.get(u.tenantId) || { emails: [], agencyName: null };
+    entry.emails.push(u.email);
+    if (!entry.agencyName && u.agencyName) entry.agencyName = u.agencyName;
+    byTenant.set(u.tenantId, entry);
   }
+
+  const allTenantIds = Array.from(
+    new Set([...subscriptions.map((s) => s.tenantId), ...byTenant.keys()])
+  );
+  const subByTenant = new Map(subscriptions.map((s) => [s.tenantId, s]));
+
+  const rows = allTenantIds.map((tenantId) => {
+    const sub = subByTenant.get(tenantId);
+    const meta = byTenant.get(tenantId);
+    const planCode = sub?.plan?.code || 'free';
+    const planName = sub?.customPlanName || sub?.plan?.name || 'Free Trial';
+    const monthlyCredits =
+      sub?.customMonthlyCredits !== null && sub?.customMonthlyCredits !== undefined
+        ? sub.customMonthlyCredits
+        : sub?.plan?.monthlyAiCredits ?? 100;
+    return {
+      tenantId,
+      agencyName: meta?.agencyName || null,
+      users: meta?.emails || [],
+      planCode,
+      planName,
+      monthlyCredits,
+      purchasedCreditsBalance: sub?.purchasedCreditsBalance ?? 0,
+    };
+  });
+
+  console.log(JSON.stringify(rows, null, 2));
+}
+
+async function resolveTenantId(target: string, force: boolean): Promise<string> {
+  if (target.includes('@')) {
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: target.trim(), mode: 'insensitive' } },
+      select: { tenantId: true, email: true },
+    });
+    if (!user) {
+      throw new Error(`No user found with email "${target}".`);
+    }
+    return user.tenantId;
+  }
+
+  if (!force) {
+    const [userCount, settingsRow, subRow] = await Promise.all([
+      prisma.user.count({ where: { tenantId: target } }),
+      prisma.tenantSettings.findUnique({ where: { tenantId: target }, select: { tenantId: true } }),
+      prisma.tenantSubscription.findUnique({ where: { tenantId: target }, select: { id: true } }),
+    ]);
+    if (userCount === 0 && !settingsRow && !subRow) {
+      throw new Error(
+        `No workspace records found for "${target}". Double-check the ID/email or pass --force.`
+      );
+    }
+  }
+  return target;
 }
 
 async function main(): Promise<void> {
   const opts = parseArgs(process.argv.slice(2));
-  await assertTenantExists(opts.tenantId, opts.force);
+  if (opts.list) {
+    await listAllWorkspaces();
+    return;
+  }
+
+  const tenantId = await resolveTenantId(opts.target, opts.force);
 
   const isInspectOnly =
     !opts.planCode &&
@@ -155,7 +229,7 @@ async function main(): Promise<void> {
       const isPresetSwitch =
         Boolean(opts.planCode) && opts.planCode !== 'custom' && opts.planCode !== 'enterprise';
 
-      await aiUsageService.savePlatformAiEntitlement(opts.tenantId, {
+      await aiUsageService.savePlatformAiEntitlement(tenantId, {
         ...(opts.planCode ? { planCode: opts.planCode } : {}),
         ...(opts.name !== undefined ? { customPlanName: opts.name } : {}),
         ...(opts.credits !== undefined ? { customMonthlyCredits: opts.credits } : {}),
@@ -173,7 +247,7 @@ async function main(): Promise<void> {
     }
 
     if (opts.addCredits !== undefined && opts.addCredits > 0) {
-      await aiUsageService.addPurchasedAiCredits(opts.tenantId, {
+      await aiUsageService.addPurchasedAiCredits(tenantId, {
         credits: opts.addCredits,
         source: 'PLATFORM_GRANT',
         notes: opts.notes || 'Server CLI credit grant',
@@ -181,7 +255,7 @@ async function main(): Promise<void> {
     }
   }
 
-  const summary = await aiUsageService.getMonthlyUsageSummary(opts.tenantId);
+  const summary = await aiUsageService.getMonthlyUsageSummary(tenantId);
   console.log(
     JSON.stringify(
       {

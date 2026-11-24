@@ -40,7 +40,7 @@ export const DEFAULT_SAAS_PLANS: readonly SeedPlanDefinition[] = [
     id: 'plan_free',
     code: 'free',
     name: 'Free Trial',
-    description: 'Default workspace trial plan with 100 monthly SquadAI credits.',
+    description: 'Default workspace trial plan with 100 total SquadAI credits.',
     monthlyAiCredits: 100,
     aiEnabled: true,
     allowByoKey: false,

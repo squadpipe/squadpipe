@@ -6,6 +6,6 @@ WHERE "code" = 'enterprise';
 
 UPDATE "SubscriptionPlan"
 SET "name" = 'Free Trial',
-    "description" = 'Default workspace trial plan with 100 monthly SquadAI credits.',
+    "description" = 'Default workspace trial plan with 100 total SquadAI credits.',
     "updatedAt" = CURRENT_TIMESTAMP
 WHERE "code" = 'free';
