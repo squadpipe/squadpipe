@@ -4,8 +4,48 @@ import bcrypt from 'bcryptjs';
 import { DEFAULT_TAXONOMIES } from '../src/config/taxonomies.config';
 import { DEFAULT_GENERAL_SETTINGS } from '../src/config/smtp.config';
 import { DEFAULT_TENANT_RULES } from '../src/services/automationEngine.service';
+import { DEFAULT_SAAS_PLANS } from '../src/services/ai/aiUsage.service';
 
 const prisma = new PrismaClient();
+
+async function seedSubscriptionPlans(): Promise<number> {
+  let createdCount = 0;
+  for (const plan of DEFAULT_SAAS_PLANS) {
+    const existing = await prisma.subscriptionPlan.findUnique({
+      where: { code: plan.code },
+      select: { id: true },
+    });
+    if (!existing) {
+      await prisma.subscriptionPlan.create({
+        data: plan,
+      });
+      createdCount += 1;
+    }
+  }
+  return createdCount;
+}
+
+async function ensureTenantFreeSubscription(tenantId: string): Promise<void> {
+  const existing = await prisma.tenantSubscription.findUnique({
+    where: { tenantId },
+    select: { id: true },
+  });
+  if (existing) return;
+
+  const freePlan = await prisma.subscriptionPlan.findUnique({
+    where: { code: 'free' },
+    select: { id: true },
+  });
+  if (!freePlan) return;
+
+  await prisma.tenantSubscription.create({
+    data: {
+      tenantId,
+      planId: freePlan.id,
+      aiEnabled: true,
+    },
+  });
+}
 
 async function seedBootstrapAdmin(tenantId: string, agencyName: string): Promise<string | undefined> {
   const adminEmail = (process.env.SEED_ADMIN_EMAIL || '').trim().toLowerCase();
@@ -114,13 +154,15 @@ async function main() {
 
   console.log(`Seeding essential bootstrap data for tenant "${tenantId}" (non-destructive)...`);
 
+  const planCount = await seedSubscriptionPlans();
   const adminId = await seedBootstrapAdmin(tenantId, agencyName);
   await ensureTenantSettings(tenantId, agencyName);
+  await ensureTenantFreeSubscription(tenantId);
   const taxonomyCount = await seedMasterTaxonomies(tenantId);
   const rulesCount = await seedDefaultAutomationRules(tenantId, adminId);
 
   console.log(
-    `Bootstrap seed completed: ${taxonomyCount} new taxonomy option(s), ${rulesCount} new automation rule(s).`
+    `Bootstrap seed completed: ${planCount} new subscription plan(s), ${taxonomyCount} new taxonomy option(s), ${rulesCount} new automation rule(s).`
   );
 }
 

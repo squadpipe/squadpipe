@@ -19,14 +19,137 @@ export const AI_USAGE_FEATURES = [
 
 export type AiUsageFeature = (typeof AI_USAGE_FEATURES)[number];
 
-export interface PlatformTenantAiEntitlement {
-  planTier?: string;
-  aiEnabled?: boolean | null;
-  allowByoKey?: boolean | null;
-  actionCenterAgentEnabled?: boolean | null;
-  monthlyActionLimit?: number | null;
-  monthlyTokenLimit?: number | null;
-  updatedAt?: string;
+export type AiCreditSource = 'plan' | 'purchased' | 'unlimited' | 'byo';
+
+export interface SeedPlanDefinition {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  monthlyAiCredits: number;
+  aiEnabled: boolean;
+  allowByoKey: boolean;
+  actionCenterAgentEnabled: boolean;
+  isCustom: boolean;
+  active: boolean;
+  sortOrder: number;
+}
+
+export const DEFAULT_SAAS_PLANS: readonly SeedPlanDefinition[] = [
+  {
+    id: 'plan_free',
+    code: 'free',
+    name: 'Free',
+    description: 'Default workspace plan with 100 monthly SquadAI credits.',
+    monthlyAiCredits: 100,
+    aiEnabled: true,
+    allowByoKey: false,
+    actionCenterAgentEnabled: false,
+    isCustom: false,
+    active: true,
+    sortOrder: 1,
+  },
+  {
+    id: 'plan_starter',
+    code: 'starter',
+    name: 'Starter',
+    description: 'For small staffing teams with 1,000 monthly SquadAI credits and Action Center AI.',
+    monthlyAiCredits: 1000,
+    aiEnabled: true,
+    allowByoKey: false,
+    actionCenterAgentEnabled: true,
+    isCustom: false,
+    active: true,
+    sortOrder: 2,
+  },
+  {
+    id: 'plan_growth',
+    code: 'growth',
+    name: 'Growth',
+    description: 'For scaling recruiting teams with 5,000 monthly SquadAI credits.',
+    monthlyAiCredits: 5000,
+    aiEnabled: true,
+    allowByoKey: false,
+    actionCenterAgentEnabled: true,
+    isCustom: false,
+    active: true,
+    sortOrder: 3,
+  },
+  {
+    id: 'plan_enterprise',
+    code: 'enterprise',
+    name: 'Enterprise',
+    description: 'Unlimited monthly SquadAI credits with optional Bring-Your-Own-Key support.',
+    monthlyAiCredits: 0,
+    aiEnabled: true,
+    allowByoKey: true,
+    actionCenterAgentEnabled: true,
+    isCustom: false,
+    active: true,
+    sortOrder: 4,
+  },
+  {
+    id: 'plan_custom',
+    code: 'custom',
+    name: 'Custom Plan',
+    description: 'Custom enterprise plan with bespoke monthly SquadAI credits and capabilities.',
+    monthlyAiCredits: 0,
+    aiEnabled: true,
+    allowByoKey: true,
+    actionCenterAgentEnabled: true,
+    isCustom: true,
+    active: true,
+    sortOrder: 5,
+  },
+];
+
+export interface SubscriptionPlanSummary {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  monthlyAiCredits: number;
+  aiEnabled: boolean;
+  allowByoKey: boolean;
+  actionCenterAgentEnabled: boolean;
+  isCustom: boolean;
+  active: boolean;
+  sortOrder: number;
+}
+
+export interface TenantSubscriptionSnapshot {
+  tenantId?: string;
+  aiEnabled: boolean;
+  customPlanName?: string | null;
+  customMonthlyCredits?: number | null;
+  customAllowByoKey?: boolean | null;
+  customActionCenterAgent?: boolean | null;
+  purchasedCreditsBalance: number;
+  purchasedCreditsTotal: number;
+  plan: {
+    id?: string;
+    code: string;
+    name: string;
+    description?: string | null;
+    monthlyAiCredits: number;
+    aiEnabled: boolean;
+    allowByoKey: boolean;
+    actionCenterAgentEnabled: boolean;
+    isCustom: boolean;
+  };
+}
+
+export interface ResolvedPlanEntitlement {
+  planCode: string;
+  planName: string;
+  planDescription: string;
+  isCustomPlan: boolean;
+  aiEnabled: boolean;
+  monthlyPlanCredits: number;
+  allowByoKey: boolean;
+  actionCenterAgentEnabled: boolean;
+  purchasedCreditsBalance: number;
+  purchasedCreditsTotal: number;
 }
 
 export interface StoredTenantAiConfig {
@@ -38,14 +161,6 @@ export interface StoredTenantAiConfig {
   customBaseUrl?: string;
   modelFast?: string;
   modelSmart?: string;
-  /** Optional tenant self-imposed soft ceiling (never exceeds platformEntitlement). */
-  selfActionLimit?: number | null;
-  selfTokenLimit?: number | null;
-  /** Legacy aliases kept for backwards-compatible deserialization of existing rows. */
-  monthlyActionLimit?: number | null;
-  monthlyTokenLimit?: number | null;
-  /** Server/Platform/Partner-controlled entitlement block; never editable by tenant admins. */
-  platformEntitlement?: PlatformTenantAiEntitlement;
 }
 
 export interface PublicTenantByoConfig {
@@ -57,53 +172,72 @@ export interface PublicTenantByoConfig {
   customBaseUrl: string;
   modelFast: string;
   modelSmart: string;
-  selfActionLimit: number | null;
-  selfTokenLimit: number | null;
-  monthlyActionLimit: number | null;
-  monthlyTokenLimit: number | null;
 }
 
 export interface QuotaCheckResult {
   exceeded: boolean;
   reason?: string;
-  actionsUsed: number;
-  tokensUsed: number;
-  actionLimit: number;
-  tokenLimit: number;
+  planCreditsUsed: number;
+  totalCreditsUsedThisMonth: number;
+  planCreditsLimit: number;
+  planCreditsRemaining: number | null;
+  purchasedCreditsRemaining: number;
+  totalCreditsRemaining: number | null;
 }
 
-export interface AiModelUsageRow {
-  provider: string;
-  model: string;
-  actions: number;
-  inputTokens: number;
-  outputTokens: number;
-  avgLatencyMs: number;
+export interface AiCreditHistoryEntry {
+  id: string;
+  feature: AiUsageFeature | string;
+  creditsUsed: number;
+  creditSource: AiCreditSource | string;
+  userId: string | null;
+  userName: string;
+  userEmail: string | null;
+  latencyMs: number;
+  createdAt: string;
+}
+
+export interface AiCreditPurchaseEntry {
+  id: string;
+  creditsAdded: number;
+  source: string;
+  referenceId: string | null;
+  notes: string | null;
+  createdAt: string;
 }
 
 export interface TenantAiUsageSummary {
+  tenantId: string;
   monthStart: string;
-  activeProvider: AiProviderName;
+  resetsAt: string;
   aiConfigured: boolean;
   usingByoKey: boolean;
   allowByoKey: boolean;
   planTier: string;
+  plan: {
+    code: string;
+    name: string;
+    description: string;
+    isCustom: boolean;
+    monthlyCredits: number;
+  };
+  availablePlans: SubscriptionPlanSummary[];
   aiDisabledByPlan: boolean;
-  planActionLimit: number;
-  planTokenLimit: number;
-  actionsUsed: number;
-  inputTokens: number;
-  outputTokens: number;
-  tokensUsed: number;
-  actionLimit: number;
-  tokenLimit: number;
+  creditsUsed: number;
+  planCreditsUsed: number;
+  purchasedCreditsUsedThisMonth: number;
+  creditLimit: number;
+  planCreditLimit: number;
+  creditsRemaining: number | null;
+  planCreditsRemaining: number | null;
+  purchasedCreditsRemaining: number;
+  purchasedCreditsTotal: number;
+  totalCreditsRemaining: number | null;
   quotaExceeded: boolean;
   quotaReason?: string;
-  byFeature: Record<
-    AiUsageFeature,
-    { actions: number; inputTokens: number; outputTokens: number }
-  >;
-  byModel?: AiModelUsageRow[];
+  byFeature: Record<AiUsageFeature, { credits: number; actions: number }>;
+  creditHistory: AiCreditHistoryEntry[];
+  purchaseHistory: AiCreditPurchaseEntry[];
   byo: PublicTenantByoConfig;
 }
 
@@ -135,9 +269,14 @@ const DEFAULT_BYO_SMART: Partial<Record<AiProviderName, string>> = {
 };
 
 const tenantAiConfigCache = new Map<string, StoredTenantAiConfig>();
+let defaultPlansEnsured = false;
 
 export function getUtcMonthStart(now: Date = new Date()): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
+}
+
+export function getUtcNextMonthStart(now: Date = new Date()): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0));
 }
 
 export function maskApiKeyHint(secret?: string | null): string {
@@ -147,78 +286,179 @@ export function maskApiKeyHint(secret?: string | null): string {
   return `${clean.slice(0, 3)}••••${clean.slice(-4)}`;
 }
 
-export function evaluateQuotaStatusPure(params: {
-  actionsUsed: number;
-  tokensUsed: number;
-  actionLimit: number;
-  tokenLimit: number;
-}): QuotaCheckResult {
-  const actionsUsed = Math.max(0, Math.floor(params.actionsUsed || 0));
-  const tokensUsed = Math.max(0, Math.floor(params.tokensUsed || 0));
-  const actionLimit = Math.max(0, Math.floor(params.actionLimit || 0));
-  const tokenLimit = Math.max(0, Math.floor(params.tokenLimit || 0));
+export function normalizePlanCode(raw?: string | null): string {
+  return String(raw || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
 
-  if (actionLimit > 0 && actionsUsed >= actionLimit) {
+function defaultFreeSubscriptionSnapshot(): TenantSubscriptionSnapshot {
+  const free = DEFAULT_SAAS_PLANS[0];
+  return {
+    aiEnabled: true,
+    customPlanName: null,
+    customMonthlyCredits: null,
+    customAllowByoKey: null,
+    customActionCenterAgent: null,
+    purchasedCreditsBalance: 0,
+    purchasedCreditsTotal: 0,
+    plan: {
+      id: free.id,
+      code: free.code,
+      name: free.name,
+      description: free.description,
+      monthlyAiCredits: free.monthlyAiCredits,
+      aiEnabled: free.aiEnabled,
+      allowByoKey: free.allowByoKey,
+      actionCenterAgentEnabled: free.actionCenterAgentEnabled,
+      isCustom: free.isCustom,
+    },
+  };
+}
+
+function serializePlanRow(row: {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  monthlyAiCredits: number;
+  aiEnabled: boolean;
+  allowByoKey: boolean;
+  actionCenterAgentEnabled: boolean;
+  isCustom: boolean;
+  active: boolean;
+  sortOrder: number;
+}): SubscriptionPlanSummary {
+  return {
+    id: row.id,
+    code: row.code,
+    name: row.name,
+    description: row.description || '',
+    monthlyAiCredits: Math.max(0, Math.floor(row.monthlyAiCredits)),
+    aiEnabled: Boolean(row.aiEnabled),
+    allowByoKey: Boolean(row.allowByoKey),
+    actionCenterAgentEnabled: Boolean(row.actionCenterAgentEnabled),
+    isCustom: Boolean(row.isCustom),
+    active: Boolean(row.active),
+    sortOrder: row.sortOrder,
+  };
+}
+
+/**
+ * Resolves a tenant's database plan and optional custom overrides cleanly with zero `.env` limits.
+ */
+export function resolveTenantPlanEntitlementPure(
+  baseConfig: ResolvedAiConfig,
+  subscription?: TenantSubscriptionSnapshot | null
+): ResolvedPlanEntitlement {
+  const snap = subscription || defaultFreeSubscriptionSnapshot();
+  const plan = snap.plan;
+  const aiEnabled = Boolean(snap.aiEnabled && plan.aiEnabled);
+  const hasCustomLimit =
+    typeof snap.customMonthlyCredits === 'number' && Number.isFinite(snap.customMonthlyCredits);
+  const monthlyPlanCredits = hasCustomLimit
+    ? Math.max(0, Math.floor(snap.customMonthlyCredits as number))
+    : Math.max(0, Math.floor(plan.monthlyAiCredits || 0));
+
+  const customPlanName = snap.customPlanName ? snap.customPlanName.trim() : '';
+  const isCustomPlan = Boolean(plan.isCustom || hasCustomLimit || customPlanName);
+  const allowByoKey = aiEnabled
+    ? typeof snap.customAllowByoKey === 'boolean'
+      ? snap.customAllowByoKey
+      : Boolean(plan.allowByoKey || baseConfig.allowByoKey)
+    : false;
+  const actionCenterAgentEnabled = aiEnabled
+    ? typeof snap.customActionCenterAgent === 'boolean'
+      ? snap.customActionCenterAgent
+      : Boolean(plan.actionCenterAgentEnabled || baseConfig.actionCenterAgentEnabled)
+    : false;
+
+  return {
+    planCode: plan.code || 'free',
+    planName: customPlanName || plan.name || 'Free',
+    planDescription: plan.description || '',
+    isCustomPlan,
+    aiEnabled,
+    monthlyPlanCredits,
+    allowByoKey,
+    actionCenterAgentEnabled,
+    purchasedCreditsBalance: Math.max(0, Math.floor(snap.purchasedCreditsBalance || 0)),
+    purchasedCreditsTotal: Math.max(0, Math.floor(snap.purchasedCreditsTotal || 0)),
+  };
+}
+
+/**
+ * Evaluates monthly plan credits plus non-expiring purchased add-on AI credits.
+ */
+export function evaluateCreditQuotaPure(params: {
+  planCreditsUsed: number;
+  totalCreditsUsedThisMonth: number;
+  planCreditsLimit: number;
+  purchasedCreditsBalance: number;
+  usingByoKey: boolean;
+  aiEnabled: boolean;
+}): QuotaCheckResult {
+  const planCreditsUsed = Math.max(0, Math.floor(params.planCreditsUsed || 0));
+  const totalCreditsUsedThisMonth = Math.max(
+    planCreditsUsed,
+    Math.floor(params.totalCreditsUsedThisMonth || 0)
+  );
+  const planCreditsLimit = Math.max(0, Math.floor(params.planCreditsLimit || 0));
+  const purchasedCreditsRemaining = Math.max(0, Math.floor(params.purchasedCreditsBalance || 0));
+
+  if (!params.aiEnabled) {
     return {
       exceeded: true,
-      reason: `SquadAI service limit reached (${actionsUsed}/${actionLimit}). Using standard matching mode.`,
-      actionsUsed,
-      tokensUsed,
-      actionLimit,
-      tokenLimit,
+      reason: 'SquadAI is disabled on your current workspace plan. Upgrade your plan to enable AI features.',
+      planCreditsUsed,
+      totalCreditsUsedThisMonth,
+      planCreditsLimit,
+      planCreditsRemaining: 0,
+      purchasedCreditsRemaining,
+      totalCreditsRemaining: 0,
     };
   }
 
-  if (tokenLimit > 0 && tokensUsed >= tokenLimit) {
+  if (params.usingByoKey || planCreditsLimit === 0) {
+    return {
+      exceeded: false,
+      planCreditsUsed,
+      totalCreditsUsedThisMonth,
+      planCreditsLimit: 0,
+      planCreditsRemaining: null,
+      purchasedCreditsRemaining,
+      totalCreditsRemaining: null,
+    };
+  }
+
+  const planCreditsRemaining = Math.max(0, planCreditsLimit - planCreditsUsed);
+  const totalCreditsRemaining = planCreditsRemaining + purchasedCreditsRemaining;
+
+  if (totalCreditsRemaining <= 0) {
     return {
       exceeded: true,
-      reason: `SquadAI service limit reached (${tokensUsed}/${tokenLimit}). Using standard matching mode.`,
-      actionsUsed,
-      tokensUsed,
-      actionLimit,
-      tokenLimit,
+      reason:
+        'Monthly SquadAI credits exhausted (0 remaining). Upgrade your plan or buy AI credits to continue. Using standard matching mode.',
+      planCreditsUsed,
+      totalCreditsUsedThisMonth,
+      planCreditsLimit,
+      planCreditsRemaining: 0,
+      purchasedCreditsRemaining: 0,
+      totalCreditsRemaining: 0,
     };
   }
 
   return {
     exceeded: false,
-    actionsUsed,
-    tokensUsed,
-    actionLimit,
-    tokenLimit,
+    planCreditsUsed,
+    totalCreditsUsedThisMonth,
+    planCreditsLimit,
+    planCreditsRemaining,
+    purchasedCreditsRemaining,
+    totalCreditsRemaining,
   };
-}
-
-function readSelfCap(val: unknown): number | null {
-  if (typeof val !== 'number' || !Number.isFinite(val) || val <= 0) return null;
-  return Math.floor(val);
-}
-
-/**
- * Resolves the effective enforced monthly ceiling (`0` = unlimited):
- * - When `usingByoKey` is true, the tenant pays their own LLM bill, so only
- *   their optional self-imposed cap applies.
- * - When using the platform's shared key, a tenant can only lower their cap
- *   below `planLimit` (`min(planLimit, selfLimit)`); never raise above it.
- */
-export function resolveEffectiveQuotaCeilingPure(
-  planLimit: number,
-  selfLimit: number | null | undefined,
-  usingByoKey: boolean
-): number {
-  const safePlan = Math.max(0, Math.floor(planLimit || 0));
-  const safeSelf = readSelfCap(selfLimit) || 0;
-
-  if (usingByoKey) {
-    return safeSelf;
-  }
-  if (safePlan > 0 && safeSelf > 0) {
-    return Math.min(safePlan, safeSelf);
-  }
-  if (safePlan > 0) {
-    return safePlan;
-  }
-  return safeSelf;
 }
 
 export function sanitizeStoredTenantAiConfig(
@@ -227,8 +467,6 @@ export function sanitizeStoredTenantAiConfig(
   const cfg = stored || { byoEnabled: false };
   const provider =
     cfg.byoProvider && VALID_BYO_PROVIDERS.has(cfg.byoProvider) ? cfg.byoProvider : 'openai';
-  const selfActionLimit = readSelfCap(cfg.selfActionLimit ?? cfg.monthlyActionLimit);
-  const selfTokenLimit = readSelfCap(cfg.selfTokenLimit ?? cfg.monthlyTokenLimit);
 
   return {
     byoEnabled: Boolean(cfg.byoEnabled),
@@ -239,73 +477,33 @@ export function sanitizeStoredTenantAiConfig(
     customBaseUrl: String(cfg.customBaseUrl || ''),
     modelFast: String(cfg.modelFast || ''),
     modelSmart: String(cfg.modelSmart || ''),
-    selfActionLimit,
-    selfTokenLimit,
-    monthlyActionLimit: selfActionLimit,
-    monthlyTokenLimit: selfTokenLimit,
   };
 }
 
 /**
- * Pure resolver merging platform/partner plan entitlements (locked per tenantId)
- * and optional tenant self-budget + encrypted BYO credentials onto server `.env` defaults.
+ * Pure resolver applying database plan entitlement and encrypted tenant BYO key onto AI config.
  */
-export function applyTenantByoOverridePure(
+export function applyTenantEntitlementAndByoPure(
   baseConfig: ResolvedAiConfig,
+  entitlement: ResolvedPlanEntitlement,
   stored?: StoredTenantAiConfig | null
 ): {
   config: ResolvedAiConfig;
   usingByoKey: boolean;
-  planTier: string;
   aiDisabledByPlan: boolean;
-  planActionLimit: number;
-  planTokenLimit: number;
+  entitlement: ResolvedPlanEntitlement;
 } {
-  const ent = stored?.platformEntitlement;
-  const planTier = String(ent?.planTier || 'default').trim() || 'default';
-  const aiDisabledByPlan = ent?.aiEnabled === false;
-
-  const planActionLimit =
-    typeof ent?.monthlyActionLimit === 'number' &&
-      Number.isFinite(ent.monthlyActionLimit) &&
-      ent.monthlyActionLimit >= 0
-      ? Math.floor(ent.monthlyActionLimit)
-      : baseConfig.monthlyActionLimit;
-
-  const planTokenLimit =
-    typeof ent?.monthlyTokenLimit === 'number' &&
-      Number.isFinite(ent.monthlyTokenLimit) &&
-      ent.monthlyTokenLimit >= 0
-      ? Math.floor(ent.monthlyTokenLimit)
-      : baseConfig.monthlyTokenLimit;
-
-  const effectiveAllowByoKey = aiDisabledByPlan
-    ? false
-    : typeof ent?.allowByoKey === 'boolean'
-      ? ent.allowByoKey
-      : baseConfig.allowByoKey;
-
-  const effectiveAgentEnabled = aiDisabledByPlan
-    ? false
-    : typeof ent?.actionCenterAgentEnabled === 'boolean'
-      ? ent.actionCenterAgentEnabled
-      : baseConfig.actionCenterAgentEnabled;
-
-  if (aiDisabledByPlan) {
+  if (!entitlement.aiEnabled) {
     return {
       usingByoKey: false,
-      planTier,
       aiDisabledByPlan: true,
-      planActionLimit,
-      planTokenLimit,
+      entitlement,
       config: {
         ...baseConfig,
         provider: 'none',
         configured: false,
         allowByoKey: false,
         actionCenterAgentEnabled: false,
-        monthlyActionLimit: planActionLimit,
-        monthlyTokenLimit: planTokenLimit,
         credentials: {
           openaiApiKey: '',
           geminiApiKey: '',
@@ -319,36 +517,18 @@ export function applyTenantByoOverridePure(
     };
   }
 
-  const selfActionLimit = stored?.selfActionLimit ?? stored?.monthlyActionLimit;
-  const selfTokenLimit = stored?.selfTokenLimit ?? stored?.monthlyTokenLimit;
-
-  const sharedActionLimit = resolveEffectiveQuotaCeilingPure(
-    planActionLimit,
-    selfActionLimit,
-    false
-  );
-  const sharedTokenLimit = resolveEffectiveQuotaCeilingPure(
-    planTokenLimit,
-    selfTokenLimit,
-    false
-  );
-
   const nonByoConfig: ResolvedAiConfig = {
     ...baseConfig,
-    allowByoKey: effectiveAllowByoKey,
-    actionCenterAgentEnabled: effectiveAgentEnabled,
-    monthlyActionLimit: sharedActionLimit,
-    monthlyTokenLimit: sharedTokenLimit,
+    allowByoKey: entitlement.allowByoKey,
+    actionCenterAgentEnabled: entitlement.actionCenterAgentEnabled,
   };
 
-  if (!stored || !effectiveAllowByoKey || !stored.byoEnabled || !stored.byoProvider) {
+  if (!stored || !entitlement.allowByoKey || !stored.byoEnabled || !stored.byoProvider) {
     return {
       config: nonByoConfig,
       usingByoKey: false,
-      planTier,
       aiDisabledByPlan: false,
-      planActionLimit,
-      planTokenLimit,
+      entitlement,
     };
   }
 
@@ -357,10 +537,8 @@ export function applyTenantByoOverridePure(
     return {
       config: nonByoConfig,
       usingByoKey: false,
-      planTier,
       aiDisabledByPlan: false,
-      planActionLimit,
-      planTokenLimit,
+      entitlement,
     };
   }
 
@@ -416,27 +594,21 @@ export function applyTenantByoOverridePure(
     return {
       config: nonByoConfig,
       usingByoKey: false,
-      planTier,
       aiDisabledByPlan: false,
-      planActionLimit,
-      planTokenLimit,
+      entitlement,
     };
   }
 
   return {
     usingByoKey: true,
-    planTier,
     aiDisabledByPlan: false,
-    planActionLimit,
-    planTokenLimit,
+    entitlement,
     config: {
       ...baseConfig,
       provider,
       configured: true,
-      allowByoKey: effectiveAllowByoKey,
-      actionCenterAgentEnabled: effectiveAgentEnabled,
-      monthlyActionLimit: resolveEffectiveQuotaCeilingPure(planActionLimit, selfActionLimit, true),
-      monthlyTokenLimit: resolveEffectiveQuotaCeilingPure(planTokenLimit, selfTokenLimit, true),
+      allowByoKey: entitlement.allowByoKey,
+      actionCenterAgentEnabled: entitlement.actionCenterAgentEnabled,
       modelFast:
         stored.modelFast?.trim() ||
         DEFAULT_BYO_FAST[provider] ||
@@ -450,24 +622,9 @@ export function applyTenantByoOverridePure(
   };
 }
 
-function normalizeTenantSelfCapOrNull(val: unknown): number | null | undefined {
-  if (val === undefined) return undefined;
-  if (val === null || val === '') return null;
-  const num = Number(val);
-  return Number.isFinite(num) && num > 0 ? Math.floor(num) : null;
-}
-
-function normalizePlatformCapOrNull(val: unknown): number | null | undefined {
-  if (val === undefined) return undefined;
-  if (val === null || val === '') return null;
-  const num = Number(val);
-  return Number.isFinite(num) && num >= 0 ? Math.floor(num) : null;
-}
-
 /**
- * Pure state transition for tenant-admin updates (`PUT /settings/ai-config`).
- * Strictly preserves `existing.platformEntitlement` untouched so workspace admins
- * can never raise plan quotas or enable BYO keys without platform authorization.
+ * Pure state transition for tenant-admin BYO key updates (`PUT /settings/ai-config`).
+ * Workspace admins can never alter plans, monthly credits, or purchased credit balances here.
  */
 export function mergeTenantAiConfigPure(
   existing: StoredTenantAiConfig,
@@ -480,20 +637,11 @@ export function mergeTenantAiConfigPure(
     customBaseUrl?: string;
     modelFast?: string;
     modelSmart?: string;
-    selfActionLimit?: number | null;
-    selfTokenLimit?: number | null;
-    monthlyActionLimit?: number | null;
-    monthlyTokenLimit?: number | null;
   },
-  baseCfg: ResolvedAiConfig
+  entitlement: Pick<ResolvedPlanEntitlement, 'aiEnabled' | 'allowByoKey'>
 ): StoredTenantAiConfig {
-  const ent = existing.platformEntitlement;
-  const aiDisabledByPlan = ent?.aiEnabled === false;
-  const effectiveAllowByoKey = aiDisabledByPlan
-    ? false
-    : typeof ent?.allowByoKey === 'boolean'
-      ? ent.allowByoKey
-      : baseCfg.allowByoKey;
+  const aiDisabledByPlan = !entitlement.aiEnabled;
+  const effectiveAllowByoKey = aiDisabledByPlan ? false : entitlement.allowByoKey;
 
   const tryingByoChanges =
     input.byoEnabled === true ||
@@ -526,17 +674,6 @@ export function mergeTenantAiConfigPure(
     .trim()
     .toLowerCase() as AiProviderName;
 
-  const requestedActionLimit =
-    input.selfActionLimit !== undefined ? input.selfActionLimit : input.monthlyActionLimit;
-  const requestedTokenLimit =
-    input.selfTokenLimit !== undefined ? input.selfTokenLimit : input.monthlyTokenLimit;
-
-  const nextSelfActionLimit = normalizeTenantSelfCapOrNull(requestedActionLimit);
-  const nextSelfTokenLimit = normalizeTenantSelfCapOrNull(requestedTokenLimit);
-
-  const existingSelfAction = readSelfCap(existing.selfActionLimit ?? existing.monthlyActionLimit);
-  const existingSelfToken = readSelfCap(existing.selfTokenLimit ?? existing.monthlyTokenLimit);
-
   return {
     byoEnabled:
       effectiveAllowByoKey && input.byoEnabled !== undefined
@@ -563,71 +700,211 @@ export function mergeTenantAiConfigPure(
       input.modelSmart !== undefined
         ? String(input.modelSmart || '').trim()
         : existing.modelSmart || '',
-    selfActionLimit:
-      nextSelfActionLimit !== undefined ? nextSelfActionLimit : existingSelfAction,
-    selfTokenLimit:
-      nextSelfTokenLimit !== undefined ? nextSelfTokenLimit : existingSelfToken,
-    ...(ent ? { platformEntitlement: ent } : {}),
   };
 }
 
-/**
- * Pure state transition for platform / white-label partner entitlement updates.
- * Preserves tenant-configured BYO keys and optional self-budget preferences untouched.
- */
-export function mergePlatformEntitlementPure(
-  existing: StoredTenantAiConfig,
-  input: {
-    planTier?: string;
-    aiEnabled?: boolean | null;
-    allowByoKey?: boolean | null;
-    actionCenterAgentEnabled?: boolean | null;
-    monthlyActionLimit?: number | null;
-    monthlyTokenLimit?: number | null;
-  }
-): StoredTenantAiConfig {
-  const prev = existing.platformEntitlement || {};
-  const nextEntitlement: PlatformTenantAiEntitlement = {
-    planTier:
-      input.planTier !== undefined
-        ? String(input.planTier || 'default').trim() || 'default'
-        : prev.planTier || 'default',
-    aiEnabled:
-      input.aiEnabled === undefined
-        ? prev.aiEnabled ?? null
-        : input.aiEnabled === null
-          ? null
-          : Boolean(input.aiEnabled),
-    allowByoKey:
-      input.allowByoKey === undefined
-        ? prev.allowByoKey ?? null
-        : input.allowByoKey === null
-          ? null
-          : Boolean(input.allowByoKey),
-    actionCenterAgentEnabled:
-      input.actionCenterAgentEnabled === undefined
-        ? prev.actionCenterAgentEnabled ?? null
-        : input.actionCenterAgentEnabled === null
-          ? null
-          : Boolean(input.actionCenterAgentEnabled),
-    monthlyActionLimit:
-      input.monthlyActionLimit === undefined
-        ? prev.monthlyActionLimit ?? null
-        : normalizePlatformCapOrNull(input.monthlyActionLimit) ?? null,
-    monthlyTokenLimit:
-      input.monthlyTokenLimit === undefined
-        ? prev.monthlyTokenLimit ?? null
-        : normalizePlatformCapOrNull(input.monthlyTokenLimit) ?? null,
-    updatedAt: new Date().toISOString(),
-  };
-
-  return {
-    ...existing,
-    platformEntitlement: nextEntitlement,
-  };
+function normalizeOptionalCredits(val: unknown): number | null | undefined {
+  if (val === undefined) return undefined;
+  if (val === null || val === '') return null;
+  const num = Number(val);
+  if (!Number.isFinite(num) || num < 0) return null;
+  return Math.floor(num);
 }
 
 export class AiUsageService {
+  async ensureDefaultPlansSeeded(): Promise<void> {
+    if (defaultPlansEnsured) return;
+    try {
+      await prisma.subscriptionPlan.createMany({
+        data: DEFAULT_SAAS_PLANS.map((plan) => ({
+          id: plan.id,
+          code: plan.code,
+          name: plan.name,
+          description: plan.description,
+          monthlyAiCredits: plan.monthlyAiCredits,
+          aiEnabled: plan.aiEnabled,
+          allowByoKey: plan.allowByoKey,
+          actionCenterAgentEnabled: plan.actionCenterAgentEnabled,
+          isCustom: plan.isCustom,
+          active: plan.active,
+          sortOrder: plan.sortOrder,
+        })),
+        skipDuplicates: true,
+      });
+      defaultPlansEnsured = true;
+    } catch {
+      // Safe fallback when running offline or in mocked unit tests without Postgres
+    }
+  }
+
+  async attachDefaultFreePlan(tenantId = 'squadpipe-agency'): Promise<void> {
+    const key = (tenantId || 'squadpipe-agency').trim() || 'squadpipe-agency';
+    try {
+      const existing = await prisma.tenantSubscription.findUnique({
+        where: { tenantId: key },
+        select: { id: true },
+      });
+      if (existing) return;
+
+      await this.ensureDefaultPlansSeeded();
+      const freePlan = await prisma.subscriptionPlan.findUnique({
+        where: { code: 'free' },
+        select: { id: true },
+      });
+      if (!freePlan) return;
+
+      await prisma.tenantSubscription.upsert({
+        where: { tenantId: key },
+        update: {},
+        create: {
+          tenantId: key,
+          planId: freePlan.id,
+          aiEnabled: true,
+        },
+      });
+    } catch {
+      // Do not break auth/registration if subscription provisioning races or runs offline
+    }
+  }
+
+  async getTenantSubscriptionSnapshot(
+    tenantId = 'squadpipe-agency'
+  ): Promise<TenantSubscriptionSnapshot> {
+    const key = (tenantId || 'squadpipe-agency').trim() || 'squadpipe-agency';
+    try {
+      let row = await prisma.tenantSubscription.findUnique({
+        where: { tenantId: key },
+        include: { plan: true },
+      });
+
+      if (!row) {
+        await this.attachDefaultFreePlan(key);
+        row = await prisma.tenantSubscription.findUnique({
+          where: { tenantId: key },
+          include: { plan: true },
+        });
+      }
+
+      if (!row || !row.plan) {
+        return defaultFreeSubscriptionSnapshot();
+      }
+
+      return {
+        tenantId: row.tenantId,
+        aiEnabled: row.aiEnabled,
+        customPlanName: row.customPlanName,
+        customMonthlyCredits: row.customMonthlyCredits,
+        customAllowByoKey: row.customAllowByoKey,
+        customActionCenterAgent: row.customActionCenterAgent,
+        purchasedCreditsBalance: row.purchasedCreditsBalance,
+        purchasedCreditsTotal: row.purchasedCreditsTotal,
+        plan: {
+          id: row.plan.id,
+          code: row.plan.code,
+          name: row.plan.name,
+          description: row.plan.description,
+          monthlyAiCredits: row.plan.monthlyAiCredits,
+          aiEnabled: row.plan.aiEnabled,
+          allowByoKey: row.plan.allowByoKey,
+          actionCenterAgentEnabled: row.plan.actionCenterAgentEnabled,
+          isCustom: row.plan.isCustom,
+        },
+      };
+    } catch {
+      return defaultFreeSubscriptionSnapshot();
+    }
+  }
+
+  async listSubscriptionPlans(includeInactive = false): Promise<SubscriptionPlanSummary[]> {
+    try {
+      await this.ensureDefaultPlansSeeded();
+      const rows = await prisma.subscriptionPlan.findMany({
+        ...(includeInactive ? {} : { where: { active: true } }),
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      });
+      if (rows.length > 0) {
+        return rows.map(serializePlanRow);
+      }
+    } catch {
+      // Fallback to static plan list if DB is temporarily unavailable
+    }
+
+    return DEFAULT_SAAS_PLANS.filter((p) => includeInactive || p.active).map((p) => ({
+      ...p,
+    }));
+  }
+
+  async upsertSubscriptionPlan(input: {
+    code: string;
+    name: string;
+    description?: string;
+    monthlyAiCredits: number;
+    aiEnabled?: boolean;
+    allowByoKey?: boolean;
+    actionCenterAgentEnabled?: boolean;
+    isCustom?: boolean;
+    active?: boolean;
+    sortOrder?: number;
+  }): Promise<SubscriptionPlanSummary> {
+    const code = normalizePlanCode(input.code);
+    if (!code || code.length < 2 || code.length > 48) {
+      const err: any = new Error('Plan code must be 2–48 alphanumeric/hyphen characters.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const name = String(input.name || '').trim();
+    if (!name) {
+      const err: any = new Error('Plan name is required.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const monthlyAiCredits = Math.max(0, Math.floor(Number(input.monthlyAiCredits ?? 0) || 0));
+    await this.ensureDefaultPlansSeeded();
+
+    const row = await prisma.subscriptionPlan.upsert({
+      where: { code },
+      create: {
+        code,
+        name,
+        description: input.description ? String(input.description).trim() : null,
+        monthlyAiCredits,
+        aiEnabled: input.aiEnabled !== undefined ? Boolean(input.aiEnabled) : true,
+        allowByoKey: input.allowByoKey !== undefined ? Boolean(input.allowByoKey) : false,
+        actionCenterAgentEnabled:
+          input.actionCenterAgentEnabled !== undefined
+            ? Boolean(input.actionCenterAgentEnabled)
+            : monthlyAiCredits !== 100,
+        isCustom: input.isCustom !== undefined ? Boolean(input.isCustom) : true,
+        active: input.active !== undefined ? Boolean(input.active) : true,
+        sortOrder:
+          typeof input.sortOrder === 'number' && Number.isFinite(input.sortOrder)
+            ? Math.floor(input.sortOrder)
+            : 100,
+      },
+      update: {
+        name,
+        ...(input.description !== undefined
+          ? { description: input.description ? String(input.description).trim() : null }
+          : {}),
+        monthlyAiCredits,
+        ...(input.aiEnabled !== undefined ? { aiEnabled: Boolean(input.aiEnabled) } : {}),
+        ...(input.allowByoKey !== undefined ? { allowByoKey: Boolean(input.allowByoKey) } : {}),
+        ...(input.actionCenterAgentEnabled !== undefined
+          ? { actionCenterAgentEnabled: Boolean(input.actionCenterAgentEnabled) }
+          : {}),
+        ...(input.isCustom !== undefined ? { isCustom: Boolean(input.isCustom) } : {}),
+        ...(input.active !== undefined ? { active: Boolean(input.active) } : {}),
+        ...(typeof input.sortOrder === 'number' && Number.isFinite(input.sortOrder)
+          ? { sortOrder: Math.floor(input.sortOrder) }
+          : {}),
+      },
+    });
+
+    return serializePlanRow(row);
+  }
+
   async getStoredTenantAiConfig(tenantId = 'squadpipe-agency'): Promise<StoredTenantAiConfig> {
     const key = tenantId || 'squadpipe-agency';
     try {
@@ -657,16 +934,14 @@ export class AiUsageService {
       customBaseUrl?: string;
       modelFast?: string;
       modelSmart?: string;
-      selfActionLimit?: number | null;
-      selfTokenLimit?: number | null;
-      monthlyActionLimit?: number | null;
-      monthlyTokenLimit?: number | null;
     }
   ): Promise<PublicTenantByoConfig> {
     const key = tenantId || 'squadpipe-agency';
-    const baseCfg = resolveAiConfig();
-    const existing = await this.getStoredTenantAiConfig(key);
-    const nextStored = mergeTenantAiConfigPure(existing, input, baseCfg);
+    const [existing, runtime] = await Promise.all([
+      this.getStoredTenantAiConfig(key),
+      this.resolveEffectiveRuntimeConfig(key),
+    ]);
+    const nextStored = mergeTenantAiConfigPure(existing, input, runtime.entitlement);
 
     await prisma.tenantSettings.upsert({
       where: { tenantId: key },
@@ -687,32 +962,144 @@ export class AiUsageService {
   async savePlatformAiEntitlement(
     tenantId: string,
     input: {
+      planCode?: string;
       planTier?: string;
+      customPlanName?: string | null;
+      customMonthlyCredits?: number | null;
+      monthlyActionLimit?: number | null;
       aiEnabled?: boolean | null;
       allowByoKey?: boolean | null;
       actionCenterAgentEnabled?: boolean | null;
-      monthlyActionLimit?: number | null;
-      monthlyTokenLimit?: number | null;
     }
-  ): Promise<PlatformTenantAiEntitlement> {
-    const key = tenantId || 'squadpipe-agency';
-    const existing = await this.getStoredTenantAiConfig(key);
-    const nextStored = mergePlatformEntitlementPure(existing, input);
+  ): Promise<ResolvedPlanEntitlement> {
+    const key = (tenantId || 'squadpipe-agency').trim() || 'squadpipe-agency';
+    await this.ensureDefaultPlansSeeded();
+    await this.attachDefaultFreePlan(key);
 
-    await prisma.tenantSettings.upsert({
+    const requestedCode = normalizePlanCode(input.planCode ?? input.planTier);
+    const customMonthlyInput = normalizeOptionalCredits(
+      input.customMonthlyCredits !== undefined
+        ? input.customMonthlyCredits
+        : input.monthlyActionLimit
+    );
+
+    let targetPlan = requestedCode
+      ? await prisma.subscriptionPlan.findUnique({ where: { code: requestedCode } })
+      : null;
+
+    let inferredCustomName: string | null | undefined =
+      input.customPlanName !== undefined
+        ? input.customPlanName
+          ? String(input.customPlanName).trim()
+          : null
+        : undefined;
+
+    if (requestedCode && !targetPlan) {
+      // Unknown planTier/planCode maps onto the reusable `custom` plan with bespoke label
+      targetPlan = await prisma.subscriptionPlan.findUnique({ where: { code: 'custom' } });
+      if (inferredCustomName === undefined) {
+        inferredCustomName = String(input.planCode ?? input.planTier ?? '').trim() || null;
+      }
+    }
+
+    const switchingPlans = Boolean(targetPlan);
+    const current = await prisma.tenantSubscription.findUnique({ where: { tenantId: key } });
+    const planId = targetPlan?.id || current?.planId;
+    if (!planId) {
+      const err: any = new Error('Target subscription plan not found.');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    const updated = await prisma.tenantSubscription.update({
       where: { tenantId: key },
-      create: {
-        tenantId: key,
-        generalConfig: {},
-        aiConfig: nextStored as unknown as Prisma.InputJsonValue,
+      data: {
+        planId,
+        ...(input.aiEnabled !== undefined && input.aiEnabled !== null
+          ? { aiEnabled: Boolean(input.aiEnabled) }
+          : {}),
+        ...(inferredCustomName !== undefined
+          ? { customPlanName: inferredCustomName }
+          : switchingPlans && targetPlan?.code !== 'custom'
+            ? { customPlanName: null }
+            : {}),
+        ...(customMonthlyInput !== undefined
+          ? { customMonthlyCredits: customMonthlyInput }
+          : switchingPlans && targetPlan?.code !== 'custom'
+            ? { customMonthlyCredits: null }
+            : {}),
+        ...(input.allowByoKey !== undefined ? { customAllowByoKey: input.allowByoKey } : {}),
+        ...(input.actionCenterAgentEnabled !== undefined
+          ? { customActionCenterAgent: input.actionCenterAgentEnabled }
+          : {}),
       },
-      update: {
-        aiConfig: nextStored as unknown as Prisma.InputJsonValue,
-      },
+      include: { plan: true },
     });
-    tenantAiConfigCache.set(key, nextStored);
 
-    return nextStored.platformEntitlement || {};
+    return resolveTenantPlanEntitlementPure(resolveAiConfig(), updated);
+  }
+
+  async addPurchasedAiCredits(
+    tenantId: string,
+    input: {
+      credits: number;
+      source?: 'PURCHASE' | 'PLATFORM_GRANT' | 'PLAN_BONUS';
+      referenceId?: string;
+      notes?: string;
+      userId?: string;
+    }
+  ): Promise<{
+    purchase: AiCreditPurchaseEntry;
+    entitlement: ResolvedPlanEntitlement;
+  }> {
+    const key = (tenantId || 'squadpipe-agency').trim() || 'squadpipe-agency';
+    const credits = Math.floor(Number(input.credits));
+    if (!Number.isFinite(credits) || credits <= 0 || credits > 10_000_000) {
+      const err: any = new Error('Credits to add must be an integer between 1 and 10,000,000.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    await this.ensureDefaultPlansSeeded();
+    await this.attachDefaultFreePlan(key);
+
+    const source = input.source || 'PURCHASE';
+    const result = await prisma.$transaction(async (tx) => {
+      const sub = await tx.tenantSubscription.update({
+        where: { tenantId: key },
+        data: {
+          purchasedCreditsBalance: { increment: credits },
+          purchasedCreditsTotal: { increment: credits },
+        },
+        include: { plan: true },
+      });
+
+      const purchase = await tx.aiCreditPurchase.create({
+        data: {
+          tenantId: key,
+          subscriptionId: sub.id,
+          userId: input.userId || null,
+          creditsAdded: credits,
+          source,
+          referenceId: input.referenceId ? String(input.referenceId).trim() : null,
+          notes: input.notes ? String(input.notes).trim() : null,
+        },
+      });
+
+      return { sub, purchase };
+    });
+
+    return {
+      purchase: {
+        id: result.purchase.id,
+        creditsAdded: result.purchase.creditsAdded,
+        source: result.purchase.source,
+        referenceId: result.purchase.referenceId,
+        notes: result.purchase.notes,
+        createdAt: result.purchase.createdAt.toISOString(),
+      },
+      entitlement: resolveTenantPlanEntitlementPure(resolveAiConfig(), result.sub),
+    };
   }
 
   async resolveEffectiveRuntimeConfig(
@@ -720,27 +1107,33 @@ export class AiUsageService {
     env: NodeJS.ProcessEnv = process.env
   ): Promise<{
     config: ResolvedAiConfig;
+    entitlement: ResolvedPlanEntitlement;
     usingByoKey: boolean;
-    planTier: string;
     aiDisabledByPlan: boolean;
-    planActionLimit: number;
-    planTokenLimit: number;
     stored: StoredTenantAiConfig;
   }> {
     const baseConfig = resolveAiConfig(env);
     if (!tenantId) {
+      const entitlement = resolveTenantPlanEntitlementPure(baseConfig, null);
       return {
-        config: baseConfig,
+        config: {
+          ...baseConfig,
+          allowByoKey: entitlement.allowByoKey,
+          actionCenterAgentEnabled: entitlement.actionCenterAgentEnabled,
+        },
+        entitlement,
         usingByoKey: false,
-        planTier: 'default',
         aiDisabledByPlan: false,
-        planActionLimit: baseConfig.monthlyActionLimit,
-        planTokenLimit: baseConfig.monthlyTokenLimit,
         stored: { byoEnabled: false },
       };
     }
-    const stored = await this.getStoredTenantAiConfig(tenantId);
-    const merged = applyTenantByoOverridePure(baseConfig, stored);
+
+    const [stored, snapshot] = await Promise.all([
+      this.getStoredTenantAiConfig(tenantId),
+      this.getTenantSubscriptionSnapshot(tenantId),
+    ]);
+    const entitlement = resolveTenantPlanEntitlementPure(baseConfig, snapshot);
+    const merged = applyTenantEntitlementAndByoPure(baseConfig, entitlement, stored);
     return { ...merged, stored };
   }
 
@@ -748,39 +1141,46 @@ export class AiUsageService {
     tenantId = 'squadpipe-agency',
     effectiveConfig?: ResolvedAiConfig
   ): Promise<QuotaCheckResult> {
-    const cfg =
-      effectiveConfig || (await this.resolveEffectiveRuntimeConfig(tenantId)).config;
+    const runtime = await this.resolveEffectiveRuntimeConfig(tenantId);
+    const usingByoKey =
+      effectiveConfig && !runtime.usingByoKey
+        ? false
+        : runtime.usingByoKey;
     const monthStart = getUtcMonthStart();
 
     try {
-      const agg = await prisma.aiUsageLog.aggregate({
-        where: {
-          tenantId,
-          createdAt: { gte: monthStart },
-        },
-        _count: { _all: true },
-        _sum: {
-          inputTokens: true,
-          outputTokens: true,
-        },
-      });
+      const [planCreditsUsed, totalCreditsUsedThisMonth] = await Promise.all([
+        prisma.aiUsageLog.count({
+          where: {
+            tenantId,
+            creditSource: 'plan',
+            createdAt: { gte: monthStart },
+          },
+        }),
+        prisma.aiUsageLog.count({
+          where: {
+            tenantId,
+            createdAt: { gte: monthStart },
+          },
+        }),
+      ]);
 
-      const actionsUsed = agg._count?._all || 0;
-      const tokensUsed =
-        (agg._sum?.inputTokens || 0) + (agg._sum?.outputTokens || 0);
-
-      return evaluateQuotaStatusPure({
-        actionsUsed,
-        tokensUsed,
-        actionLimit: cfg.monthlyActionLimit,
-        tokenLimit: cfg.monthlyTokenLimit,
+      return evaluateCreditQuotaPure({
+        planCreditsUsed,
+        totalCreditsUsedThisMonth,
+        planCreditsLimit: runtime.entitlement.monthlyPlanCredits,
+        purchasedCreditsBalance: runtime.entitlement.purchasedCreditsBalance,
+        usingByoKey,
+        aiEnabled: runtime.entitlement.aiEnabled,
       });
     } catch {
-      return evaluateQuotaStatusPure({
-        actionsUsed: 0,
-        tokensUsed: 0,
-        actionLimit: cfg.monthlyActionLimit,
-        tokenLimit: cfg.monthlyTokenLimit,
+      return evaluateCreditQuotaPure({
+        planCreditsUsed: 0,
+        totalCreditsUsedThisMonth: 0,
+        planCreditsLimit: runtime.entitlement.monthlyPlanCredits,
+        purchasedCreditsBalance: runtime.entitlement.purchasedCreditsBalance,
+        usingByoKey,
+        aiEnabled: runtime.entitlement.aiEnabled,
       });
     }
   }
@@ -795,18 +1195,55 @@ export class AiUsageService {
     outputTokens?: number;
     latencyMs?: number;
   }) {
+    const tenantId = params.tenantId || 'squadpipe-agency';
     try {
-      await prisma.aiUsageLog.create({
-        data: {
-          tenantId: params.tenantId || 'squadpipe-agency',
-          userId: params.userId || null,
-          provider: params.provider,
-          model: params.model,
-          feature: params.feature,
-          inputTokens: Math.max(0, Math.round(params.inputTokens || 0)),
-          outputTokens: Math.max(0, Math.round(params.outputTokens || 0)),
-          latencyMs: Math.max(0, Math.round(params.latencyMs || 0)),
-        },
+      const runtime = await this.resolveEffectiveRuntimeConfig(tenantId);
+      const monthStart = getUtcMonthStart();
+
+      await prisma.$transaction(async (tx) => {
+        let creditSource: AiCreditSource = 'plan';
+
+        if (runtime.usingByoKey) {
+          creditSource = 'byo';
+        } else if (runtime.entitlement.monthlyPlanCredits === 0) {
+          creditSource = 'unlimited';
+        } else {
+          const planUsed = await tx.aiUsageLog.count({
+            where: {
+              tenantId,
+              creditSource: 'plan',
+              createdAt: { gte: monthStart },
+            },
+          });
+          if (planUsed < runtime.entitlement.monthlyPlanCredits) {
+            creditSource = 'plan';
+          } else {
+            const debited = await tx.tenantSubscription.updateMany({
+              where: {
+                tenantId,
+                purchasedCreditsBalance: { gt: 0 },
+              },
+              data: {
+                purchasedCreditsBalance: { decrement: 1 },
+              },
+            });
+            creditSource = debited.count > 0 ? 'purchased' : 'plan';
+          }
+        }
+
+        await tx.aiUsageLog.create({
+          data: {
+            tenantId,
+            userId: params.userId || null,
+            provider: params.provider,
+            model: params.model,
+            feature: params.feature,
+            creditSource,
+            inputTokens: Math.max(0, Math.round(params.inputTokens || 0)),
+            outputTokens: Math.max(0, Math.round(params.outputTokens || 0)),
+            latencyMs: Math.max(0, Math.round(params.latencyMs || 0)),
+          },
+        });
       });
     } catch {
       // Usage telemetry must never block user-facing workflows
@@ -851,132 +1288,170 @@ export class AiUsageService {
     };
   }
 
-  async getPlatformAiEntitlement(tenantId = 'squadpipe-agency'): Promise<PlatformTenantAiEntitlement> {
-    const stored = await this.getStoredTenantAiConfig(tenantId);
-    const ent = stored.platformEntitlement || {};
-    return {
-      planTier: ent.planTier || 'default',
-      aiEnabled: ent.aiEnabled ?? null,
-      allowByoKey: ent.allowByoKey ?? null,
-      actionCenterAgentEnabled: ent.actionCenterAgentEnabled ?? null,
-      monthlyActionLimit: ent.monthlyActionLimit ?? null,
-      monthlyTokenLimit: ent.monthlyTokenLimit ?? null,
-      ...(ent.updatedAt ? { updatedAt: ent.updatedAt } : {}),
-    };
+  async getPlatformAiEntitlement(tenantId = 'squadpipe-agency'): Promise<ResolvedPlanEntitlement> {
+    const snapshot = await this.getTenantSubscriptionSnapshot(tenantId);
+    return resolveTenantPlanEntitlementPure(resolveAiConfig(), snapshot);
   }
 
   async getMonthlyUsageSummary(tenantId = 'squadpipe-agency'): Promise<TenantAiUsageSummary> {
-    const monthStart = getUtcMonthStart();
-    const {
-      config,
-      usingByoKey,
-      planTier,
-      aiDisabledByPlan,
-      planActionLimit,
-      planTokenLimit,
-      stored,
-    } = await this.resolveEffectiveRuntimeConfig(tenantId);
+    const key = (tenantId || 'squadpipe-agency').trim() || 'squadpipe-agency';
+    const now = new Date();
+    const monthStart = getUtcMonthStart(now);
+    const resetsAt = getUtcNextMonthStart(now);
+    const [{ config, entitlement, usingByoKey, aiDisabledByPlan, stored }, allPlans] =
+      await Promise.all([
+        this.resolveEffectiveRuntimeConfig(key),
+        this.listSubscriptionPlans(false),
+      ]);
 
     const byFeature: TenantAiUsageSummary['byFeature'] = {
-      resume_parse: { actions: 0, inputTokens: 0, outputTokens: 0 },
-      email_parse: { actions: 0, inputTokens: 0, outputTokens: 0 },
-      capability_check: { actions: 0, inputTokens: 0, outputTokens: 0 },
-      match_rank: { actions: 0, inputTokens: 0, outputTokens: 0 },
-      pitch_draft: { actions: 0, inputTokens: 0, outputTokens: 0 },
-      agent_prep: { actions: 0, inputTokens: 0, outputTokens: 0 },
+      resume_parse: { credits: 0, actions: 0 },
+      email_parse: { credits: 0, actions: 0 },
+      capability_check: { credits: 0, actions: 0 },
+      match_rank: { credits: 0, actions: 0 },
+      pitch_draft: { credits: 0, actions: 0 },
+      agent_prep: { credits: 0, actions: 0 },
     };
 
-    let actionsUsed = 0;
-    let totalInput = 0;
-    let totalOutput = 0;
-    let byModel: AiModelUsageRow[] = [];
+    let creditsUsed = 0;
+    let planCreditsUsed = 0;
+    let purchasedCreditsUsedThisMonth = 0;
+    let creditHistory: AiCreditHistoryEntry[] = [];
+    let purchaseHistory: AiCreditPurchaseEntry[] = [];
 
     try {
-      const [grouped, groupedModels] = await Promise.all([
+      const [grouped, recentLogs, purchases] = await Promise.all([
         prisma.aiUsageLog.groupBy({
-          by: ['feature'],
+          by: ['feature', 'creditSource'],
           where: {
-            tenantId,
+            tenantId: key,
             createdAt: { gte: monthStart },
           },
           _count: { _all: true },
-          _sum: {
-            inputTokens: true,
-            outputTokens: true,
-          },
         }),
-        prisma.aiUsageLog.groupBy({
-          by: ['provider', 'model'],
+        prisma.aiUsageLog.findMany({
           where: {
-            tenantId,
+            tenantId: key,
             createdAt: { gte: monthStart },
           },
-          _count: { _all: true },
-          _sum: {
-            inputTokens: true,
-            outputTokens: true,
-          },
-          _avg: {
+          select: {
+            id: true,
+            feature: true,
+            creditSource: true,
+            userId: true,
             latencyMs: true,
+            createdAt: true,
           },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          take: 100,
+        }),
+        prisma.aiCreditPurchase.findMany({
+          where: { tenantId: key },
+          orderBy: { createdAt: 'desc' },
+          take: 25,
         }),
       ]);
 
       for (const row of grouped) {
         const count = row._count._all || 0;
-        const inp = row._sum.inputTokens || 0;
-        const out = row._sum.outputTokens || 0;
-        actionsUsed += count;
-        totalInput += inp;
-        totalOutput += out;
+        creditsUsed += count;
+        if (row.creditSource === 'purchased') {
+          purchasedCreditsUsedThisMonth += count;
+        } else if (row.creditSource === 'plan') {
+          planCreditsUsed += count;
+        }
 
         if (row.feature in byFeature) {
-          const key = row.feature as AiUsageFeature;
-          byFeature[key] = { actions: count, inputTokens: inp, outputTokens: out };
+          const feat = row.feature as AiUsageFeature;
+          byFeature[feat] = {
+            credits: byFeature[feat].credits + count,
+            actions: byFeature[feat].actions + count,
+          };
         }
       }
 
-      byModel = groupedModels
-        .map((m) => ({
-          provider: String(m.provider || 'unknown'),
-          model: String(m.model || 'unknown'),
-          actions: m._count._all || 0,
-          inputTokens: m._sum.inputTokens || 0,
-          outputTokens: m._sum.outputTokens || 0,
-          avgLatencyMs: Math.round(m._avg?.latencyMs || 0),
-        }))
-        .sort((a, b) => b.actions - a.actions);
+      const actorIds = Array.from(
+        new Set(recentLogs.map((r) => r.userId).filter((id): id is string => Boolean(id)))
+      );
+      const actors =
+        actorIds.length > 0
+          ? await prisma.user.findMany({
+              where: { tenantId: key, id: { in: actorIds } },
+              select: { id: true, fullName: true, email: true },
+            })
+          : [];
+      const actorMap = new Map(actors.map((u) => [u.id, u]));
+
+      creditHistory = recentLogs.map((log) => {
+        const actor = log.userId ? actorMap.get(log.userId) : undefined;
+        return {
+          id: log.id,
+          feature: log.feature,
+          creditsUsed: 1,
+          creditSource: log.creditSource || 'plan',
+          userId: log.userId || null,
+          userName: actor?.fullName || 'Workspace User',
+          userEmail: actor?.email || null,
+          latencyMs: log.latencyMs || 0,
+          createdAt: log.createdAt.toISOString(),
+        };
+      });
+
+      purchaseHistory = purchases.map((p) => ({
+        id: p.id,
+        creditsAdded: p.creditsAdded,
+        source: p.source,
+        referenceId: p.referenceId,
+        notes: p.notes,
+        createdAt: p.createdAt.toISOString(),
+      }));
     } catch {
-      // Graceful zero summary if table/query is unavailable
+      // Graceful zero usage if table/query is unavailable
     }
 
-    const quota = evaluateQuotaStatusPure({
-      actionsUsed,
-      tokensUsed: totalInput + totalOutput,
-      actionLimit: config.monthlyActionLimit,
-      tokenLimit: config.monthlyTokenLimit,
+    const quota = evaluateCreditQuotaPure({
+      planCreditsUsed,
+      totalCreditsUsedThisMonth: creditsUsed,
+      planCreditsLimit: entitlement.monthlyPlanCredits,
+      purchasedCreditsBalance: entitlement.purchasedCreditsBalance,
+      usingByoKey,
+      aiEnabled: entitlement.aiEnabled,
     });
 
+    const availablePlans = allPlans.filter((p) => !p.isCustom || p.code === entitlement.planCode);
+
     return {
+      tenantId: key,
       monthStart: monthStart.toISOString(),
-      activeProvider: config.configured ? config.provider : 'none',
+      resetsAt: resetsAt.toISOString(),
       aiConfigured: config.configured,
       usingByoKey,
       allowByoKey: config.allowByoKey,
-      planTier,
+      planTier: entitlement.planCode,
+      plan: {
+        code: entitlement.planCode,
+        name: entitlement.planName,
+        description: entitlement.planDescription,
+        isCustom: entitlement.isCustomPlan,
+        monthlyCredits: quota.planCreditsLimit,
+      },
+      availablePlans,
       aiDisabledByPlan,
-      planActionLimit,
-      planTokenLimit,
-      actionsUsed,
-      inputTokens: totalInput,
-      outputTokens: totalOutput,
-      tokensUsed: totalInput + totalOutput,
-      actionLimit: config.monthlyActionLimit,
-      tokenLimit: config.monthlyTokenLimit,
+      creditsUsed,
+      planCreditsUsed,
+      purchasedCreditsUsedThisMonth,
+      creditLimit: quota.planCreditsLimit,
+      planCreditLimit: quota.planCreditsLimit,
+      creditsRemaining: quota.totalCreditsRemaining,
+      planCreditsRemaining: quota.planCreditsRemaining,
+      purchasedCreditsRemaining: quota.purchasedCreditsRemaining,
+      purchasedCreditsTotal: entitlement.purchasedCreditsTotal,
+      totalCreditsRemaining: quota.totalCreditsRemaining,
       quotaExceeded: quota.exceeded,
       ...(quota.reason ? { quotaReason: quota.reason } : {}),
       byFeature,
-      byModel,
+      creditHistory,
+      purchaseHistory,
       byo: sanitizeStoredTenantAiConfig(stored),
     };
   }

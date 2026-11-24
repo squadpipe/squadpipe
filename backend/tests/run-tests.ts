@@ -16,6 +16,7 @@ import { runPgvectorRagTests } from './unit/pgvectorRag.test';
 import { runSignupVerificationTests } from './unit/signupVerification.test';
 import { runSkillMatchingTests } from './unit/skillMatching.test';
 import { runComplianceTests } from './unit/compliance.test';
+import { runDatabaseUrlTests } from './unit/databaseUrl.test';
 
 async function runAllBackendTests() {
   console.log('========================================================');
@@ -41,6 +42,7 @@ async function runAllBackendTests() {
     await runSignupVerificationTests();
     runSkillMatchingTests();
     await runComplianceTests();
+    runDatabaseUrlTests();
 
     console.log('\n========================================================');
     console.log('🎉 ALL BACKEND TESTS PASSED (100% Success)');

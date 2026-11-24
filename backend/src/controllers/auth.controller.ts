@@ -14,6 +14,7 @@ import {
   renderSignupVerificationEmail,
 } from '../services/emailTemplate.service';
 import { analyticsService } from '../services/analytics.service';
+import { aiUsageService } from '../services/ai/aiUsage.service';
 import {
   complianceService,
   extractRequestNetworkMeta,
@@ -736,6 +737,8 @@ export const signup = async (req: Request, res: Response) => {
       onboardingCompleted: false,
     }).catch(() => { });
 
+    await aiUsageService.attachDefaultFreePlan(tenantId).catch(() => { });
+
     const otpResult = await dispatchSignupOtp({
       userId: user.id,
       email: normalizedEmail,
@@ -751,6 +754,7 @@ export const signup = async (req: Request, res: Response) => {
       await prisma
         .$executeRawUnsafe(`DELETE FROM tenant_settings WHERE tenant_id = $1`, tenantId)
         .catch(() => {});
+      await prisma.tenantSubscription.deleteMany({ where: { tenantId } }).catch(() => {});
       return res.status(otpResult.status).json({
         success: false,
         message: otpResult.message,
@@ -912,6 +916,8 @@ export const verifySignupOtp = async (req: Request, res: Response) => {
       buildSignedSessionPayload(verifiedUser, { isSuperAdminOverride: !isDemoDomain }),
       issueSessionRefreshToken(verifiedUser.id, true),
     ]);
+
+    await aiUsageService.attachDefaultFreePlan(session.tenantId).catch(() => {});
 
     setSessionRefreshCookie(req, res, refreshSessionData.rawToken, true);
 

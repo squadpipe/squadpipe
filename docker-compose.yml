@@ -5,7 +5,7 @@ services:
   # 1. In-House PostgreSQL (Spun up conditionally if DB_LOCATION=in_house)
   # ============================================================================
   postgres:
-    image: pgvector/pgvector:pg16
+    image: ${POSTGRES_IMAGE:-pgvector/pgvector:pg16}
     container_name: squadpipe-postgres
     restart: unless-stopped
     profiles:
@@ -131,8 +131,6 @@ services:
       - VECTOR_PROVIDER=${VECTOR_PROVIDER:-pgvector}
       - AI_GATEWAY_BASE_URL=${AI_GATEWAY_BASE_URL:-}
       - AI_ACTION_CENTER_AGENT=${AI_ACTION_CENTER_AGENT:-false}
-      - AI_MONTHLY_ACTION_LIMIT=${AI_MONTHLY_ACTION_LIMIT:-0}
-      - AI_MONTHLY_TOKEN_LIMIT=${AI_MONTHLY_TOKEN_LIMIT:-0}
       - AI_ALLOW_BYO_KEY=${AI_ALLOW_BYO_KEY:-false}
       - PLATFORM_ADMIN_SECRET=${PLATFORM_ADMIN_SECRET:-}
       - CLOUDFLARE_AI_ACCOUNT_ID=${CLOUDFLARE_AI_ACCOUNT_ID:-}
