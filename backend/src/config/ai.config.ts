@@ -28,8 +28,6 @@ export interface ResolvedAiConfig {
   configured: boolean;
   fallbackToOffline: boolean;
   allowByoKey: boolean;
-  monthlyActionLimit: number;
-  monthlyTokenLimit: number;
   timeoutMs: number;
   maxInputChars: number;
   modelFast: string;
@@ -155,8 +153,6 @@ export function resolveAiConfig(env: NodeJS.ProcessEnv = process.env): ResolvedA
     configured,
     fallbackToOffline,
     allowByoKey,
-    monthlyActionLimit: clampInt(env.AI_MONTHLY_ACTION_LIMIT, 0, 0, 10000000),
-    monthlyTokenLimit: clampInt(env.AI_MONTHLY_TOKEN_LIMIT, 0, 0, 1000000000),
     timeoutMs: clampInt(env.AI_TIMEOUT_MS, 20000, 1000, 120000),
     maxInputChars: clampInt(env.AI_MAX_INPUT_CHARS, 16000, 1000, 100000),
     modelFast: String(env.AI_MODEL_FAST || '').trim() || DEFAULT_FAST_MODELS[provider],

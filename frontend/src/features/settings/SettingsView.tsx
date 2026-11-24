@@ -63,24 +63,7 @@ interface SettingsViewProps {
 }
 
 interface AiUsageSummaryResponse {
-  monthStart: string;
-  activeProvider: string;
-  aiConfigured: boolean;
-  usingByoKey: boolean;
   allowByoKey: boolean;
-  planTier?: string;
-  aiDisabledByPlan?: boolean;
-  planActionLimit?: number;
-  planTokenLimit?: number;
-  actionsUsed: number;
-  inputTokens: number;
-  outputTokens: number;
-  tokensUsed: number;
-  actionLimit: number;
-  tokenLimit: number;
-  quotaExceeded: boolean;
-  quotaReason?: string;
-  byFeature: Record<string, { actions: number; inputTokens: number; outputTokens: number }>;
   byo: {
     byoEnabled: boolean;
     byoProvider: string;
@@ -90,10 +73,6 @@ interface AiUsageSummaryResponse {
     customBaseUrl: string;
     modelFast: string;
     modelSmart: string;
-    selfActionLimit?: number | null;
-    selfTokenLimit?: number | null;
-    monthlyActionLimit: number | null;
-    monthlyTokenLimit: number | null;
   };
 }
 

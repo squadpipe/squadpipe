@@ -187,12 +187,64 @@ router.post(
   }
 );
 
-// Platform / White-Label Partner tenant AI entitlement provisioning (PLATFORM_ADMIN_SECRET gated)
+// Platform / White-Label SaaS Plan Catalog, Tenant Subscriptions & AI Credits (PLATFORM_ADMIN_SECRET gated)
 const normalizePlatformTenantId = (raw: string): string | null => {
   const clean = String(raw || '').trim();
   if (!clean || clean.length > 100 || !/^[a-zA-Z0-9._-]+$/.test(clean)) return null;
   return clean;
 };
+
+router.get(
+  '/platform/plans',
+  sensitiveAuthRateLimiter,
+  requirePlatformAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const includeInactive = String(req.query?.includeInactive || '') === 'true';
+      const plans = await aiUsageService.listSubscriptionPlans(includeInactive);
+      res.json({ success: true, data: plans });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error?.message || 'Failed to load plans' });
+    }
+  }
+);
+
+router.post(
+  '/platform/plans',
+  sensitiveAuthRateLimiter,
+  requirePlatformAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const plan = await aiUsageService.upsertSubscriptionPlan(req.body || {});
+      res.status(201).json({ success: true, data: plan, message: 'Subscription plan saved' });
+    } catch (error: any) {
+      res.status(error?.statusCode || 500).json({
+        success: false,
+        message: error?.message || 'Failed to create subscription plan',
+      });
+    }
+  }
+);
+
+router.put(
+  '/platform/plans/:code',
+  sensitiveAuthRateLimiter,
+  requirePlatformAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const plan = await aiUsageService.upsertSubscriptionPlan({
+        ...(req.body || {}),
+        code: req.params.code,
+      });
+      res.json({ success: true, data: plan, message: 'Subscription plan updated' });
+    } catch (error: any) {
+      res.status(error?.statusCode || 500).json({
+        success: false,
+        message: error?.message || 'Failed to update subscription plan',
+      });
+    }
+  }
+);
 
 router.get(
   '/platform/tenants/:tenantId/ai-entitlement',
@@ -234,10 +286,47 @@ router.put(
       res.json({
         success: true,
         data: { tenantId, entitlement, summary, ai: capabilities },
-        message: 'Tenant AI entitlement updated',
+        message: 'Tenant plan & AI entitlement updated',
       });
     } catch (error: any) {
-      res.status(500).json({ success: false, message: error?.message || 'Failed to update tenant entitlement' });
+      res.status(error?.statusCode || 500).json({
+        success: false,
+        message: error?.message || 'Failed to update tenant entitlement',
+      });
+    }
+  }
+);
+
+router.post(
+  '/platform/tenants/:tenantId/ai-credits',
+  sensitiveAuthRateLimiter,
+  requirePlatformAdmin,
+  async (req: Request, res: Response) => {
+    const tenantId = normalizePlatformTenantId(req.params.tenantId);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Invalid tenantId parameter.' });
+    }
+    try {
+      const { purchase, entitlement } = await aiUsageService.addPurchasedAiCredits(tenantId, {
+        credits: Number(req.body?.credits),
+        source: req.body?.source,
+        referenceId: req.body?.referenceId,
+        notes: req.body?.notes,
+      });
+      const [summary, capabilities] = await Promise.all([
+        aiUsageService.getMonthlyUsageSummary(tenantId),
+        aiUsageService.getEffectivePublicAiCapabilities(tenantId),
+      ]);
+      res.status(201).json({
+        success: true,
+        data: { tenantId, purchase, entitlement, summary, ai: capabilities },
+        message: `${purchase.creditsAdded} AI credits added to tenant workspace`,
+      });
+    } catch (error: any) {
+      res.status(error?.statusCode || 500).json({
+        success: false,
+        message: error?.message || 'Failed to add AI credits',
+      });
     }
   }
 );
