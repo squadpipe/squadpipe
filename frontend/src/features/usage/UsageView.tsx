@@ -711,7 +711,11 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
                     Workspace ID: <code className="font-mono text-slate-700">{aiUsage.tenantId}</code>
                   </span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div
+                  className={`grid grid-cols-1 sm:grid-cols-2 ${
+                    aiUsage.availablePlans.length <= 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4'
+                  } gap-3`}
+                >
                   {aiUsage.availablePlans.map((p) => {
                     const isCurrent = p.code === aiUsage.plan?.code;
                     return (

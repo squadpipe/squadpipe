@@ -49,7 +49,7 @@ export const runAiUsageTests = async () => {
 
   const defaultFreeEnt = resolveTenantPlanEntitlementPure(rawBaseConfig, null);
   assert.equal(defaultFreeEnt.planCode, 'free');
-  assert.equal(defaultFreeEnt.planName, 'Free');
+  assert.equal(defaultFreeEnt.planName, 'Free Trial');
   assert.equal(defaultFreeEnt.monthlyPlanCredits, 100);
   assert.equal(defaultFreeEnt.isCustomPlan, false);
   assert.equal(defaultFreeEnt.purchasedCreditsBalance, 0);
@@ -273,7 +273,7 @@ export const runAiUsageTests = async () => {
     let attachedPlanId: string | null = null;
     (prisma.subscriptionPlan as any).createMany = async () => ({ count: 5 });
     (prisma.subscriptionPlan as any).findUnique = async ({ where }: any) =>
-      where?.code === 'free' ? { id: 'plan_free', code: 'free', name: 'Free' } : null;
+      where?.code === 'free' ? { id: 'plan_free', code: 'free', name: 'Free Trial' } : null;
     (prisma.tenantSubscription as any).findUnique = async () => null;
     (prisma.tenantSubscription as any).upsert = async ({ create }: any) => {
       attachedPlanId = create.planId;
@@ -374,8 +374,12 @@ export const runAiUsageTests = async () => {
 
     const summary = await aiUsageService.getMonthlyUsageSummary('tenant-credits-test');
     assert.equal(summary.plan.code, 'free');
-    assert.equal(summary.plan.name, 'Free');
-    assert.equal(summary.availablePlans.length, 4); // excludes non-active custom template
+    assert.equal(summary.plan.name, 'Free Trial');
+    assert.equal(summary.availablePlans.length, 3); // Free, Starter, Growth only (Enterprise & Custom are custom-only)
+    assert.deepEqual(
+      summary.availablePlans.map((p) => p.code),
+      ['free', 'starter', 'growth']
+    );
     assert.equal(summary.creditsUsed, 102);
     assert.equal(summary.planCreditsUsed, 100);
     assert.equal(summary.purchasedCreditsUsedThisMonth, 2);
