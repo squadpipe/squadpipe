@@ -3698,7 +3698,6 @@ export const App: React.FC = () => {
           (bulkResumeQueue.isRunning || (bulkTotal > 0 && !bulkResumeQueue.dismissedBanner)) &&
           !isInlineResumeModalOpen &&
           currentView !== 'import_resume';
-        if (!showStickyBulk) return null;
 
         const bulkAdded = bulkResumeQueue.items.filter((i) => i.status === 'added').length;
         const bulkDups = bulkResumeQueue.items.filter((i) => i.status === 'duplicate').length;
@@ -3710,85 +3709,106 @@ export const App: React.FC = () => {
         return (
           <div
             className={`fixed bottom-5 left-1/2 -translate-x-1/2 ${sidebarCollapsed ? 'md:left-[calc(50%+36px)]' : 'md:left-[calc(50%+128px)]'
-              } z-[65] w-[560px] max-w-[calc(100vw-2rem)] bg-[#141615] text-white border border-white/15 rounded-xl shadow-2xl px-4 py-3 space-y-2.5 transition-all`}
+              } z-[65] w-[560px] max-w-[calc(100vw-2rem)] pointer-events-none transition-all`}
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2 min-w-0">
-                {bulkResumeQueue.isRunning ? (
-                  <Loader2 className="w-4 h-4 text-brand-400 animate-spin shrink-0" />
-                ) : (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                )}
-                <div className="min-w-0">
-                  <div className="text-xs font-bold text-white flex items-center gap-1.5 flex-wrap">
-                    <span>
-                      {bulkResumeQueue.isRunning ? 'Parsing Resumes' : 'Bulk Upload Complete'}
-                    </span>
-                    <AiBadge label="SquadAI" size="xs" variant="dark" />
-                    {batchReq && (
-                      <span className="px-1.5 py-0.5 rounded bg-white/10 text-[11px] font-mono text-emerald-300">
-                        {batchReq.code}
-                      </span>
+            <AnimatePresence>
+              {showStickyBulk && (
+                <AnimatedToast
+                  key="bulk-resume-sticky"
+                  onMouseEnter={() => bulkResumeQueue.setBannerPaused(true)}
+                  onMouseLeave={() => bulkResumeQueue.setBannerPaused(false)}
+                  className="pointer-events-auto w-full bg-[#141615] text-white border border-white/15 rounded-xl shadow-2xl px-4 py-3 space-y-2.5"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {bulkResumeQueue.isRunning ? (
+                        <Loader2 className="w-4 h-4 text-brand-400 animate-spin shrink-0" />
+                      ) : (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      )}
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-white flex items-center gap-1.5 flex-wrap">
+                          <span>
+                            {bulkResumeQueue.isRunning ? 'Parsing Resumes' : 'Bulk Upload Complete'}
+                          </span>
+                          <AiBadge label="SquadAI" size="xs" variant="dark" />
+                          {batchReq && (
+                            <span className="px-1.5 py-0.5 rounded bg-white/10 text-[11px] font-mono text-emerald-300">
+                              {batchReq.code}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-slate-300 mt-0.5 tabular-nums">
+                          {bulkProcessed}/{bulkTotal} processed · {bulkAdded} added
+                          {bulkDups > 0 ? ` · ${bulkDups} dup` : ''}
+                          {bulkFailed > 0 ? ` · ${bulkFailed} failed` : ''}
+                          {!bulkResumeQueue.isRunning && (
+                            <span className="text-slate-400">
+                              {bulkResumeQueue.isBannerPaused ? ' · Paused' : ' · Closing shortly'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    {!bulkResumeQueue.isRunning && (
+                      <button
+                        type="button"
+                        onClick={bulkResumeQueue.dismissBanner}
+                        aria-label="Dismiss bulk upload tracker"
+                        className="text-slate-400 hover:text-white p-1 rounded cursor-pointer shrink-0"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
                     )}
                   </div>
-                  <div className="text-[11px] text-slate-300 mt-0.5 tabular-nums">
-                    {bulkProcessed}/{bulkTotal} processed · {bulkAdded} added
-                    {bulkDups > 0 ? ` · ${bulkDups} dup` : ''}
-                    {bulkFailed > 0 ? ` · ${bulkFailed} failed` : ''}
+
+                  <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-300 ${bulkResumeQueue.isRunning ? 'bg-brand-500' : 'bg-emerald-500'
+                        }`}
+                      style={{ width: `${pct}%` }}
+                    />
                   </div>
-                </div>
-              </div>
-              {!bulkResumeQueue.isRunning && (
-                <button
-                  type="button"
-                  onClick={bulkResumeQueue.dismissBanner}
-                  aria-label="Dismiss bulk upload tracker"
-                  className="text-slate-400 hover:text-white p-1 rounded cursor-pointer shrink-0"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
+
+                  <div className="flex items-center justify-between gap-2 pt-0.5 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!bulkResumeQueue.isRunning) {
+                          bulkResumeQueue.dismissBanner();
+                        }
+                        handleOpenInlineResumePopup(batchReq);
+                      }}
+                      className="text-slate-200 hover:text-white font-semibold underline cursor-pointer"
+                    >
+                      View Queue
+                    </button>
+                    <div className="flex items-center gap-1.5">
+                      {bulkResumeQueue.isRunning ? (
+                        <button
+                          type="button"
+                          onClick={bulkResumeQueue.stopBatch}
+                          className="px-2.5 py-1 rounded-md bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-400/30 font-semibold cursor-pointer"
+                        >
+                          Stop
+                        </button>
+                      ) : batchReq && bulkAdded > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            bulkResumeQueue.dismissBanner();
+                            navigateToSpecificReqPage(batchReq, currentView);
+                          }}
+                          className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-semibold cursor-pointer"
+                        >
+                          Open {batchReq.code}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </AnimatedToast>
               )}
-            </div>
-
-            <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
-              <div
-                className={`h-full transition-all duration-300 ${bulkResumeQueue.isRunning ? 'bg-brand-500' : 'bg-emerald-500'
-                  }`}
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-
-            <div className="flex items-center justify-between gap-2 pt-0.5 text-[11px]">
-              <button
-                type="button"
-                onClick={() => handleOpenInlineResumePopup(batchReq)}
-                className="text-slate-200 hover:text-white font-semibold underline cursor-pointer"
-              >
-                View Queue
-              </button>
-              <div className="flex items-center gap-1.5">
-                {bulkResumeQueue.isRunning ? (
-                  <button
-                    type="button"
-                    onClick={bulkResumeQueue.stopBatch}
-                    className="px-2.5 py-1 rounded-md bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-400/30 font-semibold cursor-pointer"
-                  >
-                    Stop
-                  </button>
-                ) : batchReq && bulkAdded > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      bulkResumeQueue.dismissBanner();
-                      navigateToSpecificReqPage(batchReq, currentView);
-                    }}
-                    className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-semibold cursor-pointer"
-                  >
-                    Open {batchReq.code}
-                  </button>
-                ) : null}
-              </div>
-            </div>
+            </AnimatePresence>
           </div>
         );
       })()}

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { apiClient } from '../config/api.config';
 import { Candidate, Requirement } from '../types';
 import { useCurrency } from '../utils/currency';
@@ -20,6 +20,8 @@ export interface BulkResumeQueueController {
   targetRequirement: Requirement | null;
   dismissedBanner: boolean;
   dismissBanner: () => void;
+  isBannerPaused: boolean;
+  setBannerPaused: (paused: boolean) => void;
   startBatch: (files: File[], targetRequirement?: Requirement | null) => Promise<void>;
   stopBatch: () => void;
   clearQueue: () => void;
@@ -48,6 +50,7 @@ export function useBulkResumeQueue({
   const [defaultRecruiter, setDefaultRecruiter] = useState('');
   const [targetRequirement, setTargetRequirement] = useState<Requirement | null>(null);
   const [dismissedBanner, setDismissedBanner] = useState(false);
+  const [isBannerPaused, setIsBannerPaused] = useState(false);
 
   const cancelledRef = useRef(false);
   const runningRef = useRef(false);
@@ -76,11 +79,28 @@ export function useBulkResumeQueue({
     setItems([]);
     setTargetRequirement(null);
     setDismissedBanner(false);
+    setIsBannerPaused(false);
   };
 
   const dismissBanner = () => {
     setDismissedBanner(true);
+    setIsBannerPaused(false);
   };
+
+  const hasFailedItems = items.some((item) => item.status === 'failed');
+
+  // Auto-dismiss the sticky background tracker shortly after completion, pausing while hovered.
+  useEffect(() => {
+    if (isRunning || items.length === 0 || dismissedBanner || isBannerPaused) {
+      return;
+    }
+    const delayMs = hasFailedItems ? 8000 : 5000;
+    const timer = window.setTimeout(() => {
+      setDismissedBanner(true);
+      setIsBannerPaused(false);
+    }, delayMs);
+    return () => window.clearTimeout(timer);
+  }, [isRunning, items.length, dismissedBanner, isBannerPaused, hasFailedItems]);
 
   const startBatch = async (selectedFiles: File[], batchReq?: Requirement | null) => {
     if (runningRef.current) {
@@ -121,6 +141,7 @@ export function useBulkResumeQueue({
     cancelledRef.current = false;
     setTargetRequirement(activeReq);
     setDismissedBanner(false);
+    setIsBannerPaused(false);
     setItems(queue);
     setIsRunning(true);
 
@@ -262,6 +283,8 @@ export function useBulkResumeQueue({
     targetRequirement,
     dismissedBanner,
     dismissBanner,
+    isBannerPaused,
+    setBannerPaused: setIsBannerPaused,
     startBatch,
     stopBatch,
     clearQueue,
