@@ -39,8 +39,8 @@ export const DEFAULT_SAAS_PLANS: readonly SeedPlanDefinition[] = [
   {
     id: 'plan_free',
     code: 'free',
-    name: 'Free',
-    description: 'Default workspace plan with 100 monthly SquadAI credits.',
+    name: 'Free Trial',
+    description: 'Default workspace trial plan with 100 monthly SquadAI credits.',
     monthlyAiCredits: 100,
     aiEnabled: true,
     allowByoKey: false,
@@ -84,7 +84,7 @@ export const DEFAULT_SAAS_PLANS: readonly SeedPlanDefinition[] = [
     aiEnabled: true,
     allowByoKey: true,
     actionCenterAgentEnabled: true,
-    isCustom: false,
+    isCustom: true,
     active: true,
     sortOrder: 4,
   },
@@ -377,7 +377,7 @@ export function resolveTenantPlanEntitlementPure(
 
   return {
     planCode: plan.code || 'free',
-    planName: customPlanName || plan.name || 'Free',
+    planName: customPlanName || plan.name || 'Free Trial',
     planDescription: plan.description || '',
     isCustomPlan,
     aiEnabled,
