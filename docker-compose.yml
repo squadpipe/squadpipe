@@ -5,7 +5,7 @@ services:
   # 1. In-House PostgreSQL (Spun up conditionally if DB_LOCATION=in_house)
   # ============================================================================
   postgres:
-    image: pgvector/pgvector:pg16
+    image: ${POSTGRES_IMAGE:-pgvector/pgvector:pg16}
     container_name: squadpipe-postgres
     restart: unless-stopped
     profiles:

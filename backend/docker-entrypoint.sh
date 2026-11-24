@@ -1,16 +1,10 @@
 #!/bin/sh
 set -e
 
-if [ "${DB_LOCATION:-in_house}" = "external" ]; then
-  if [ -n "${EXTERNAL_DATABASE_URL:-}" ]; then
-    export DATABASE_URL="$EXTERNAL_DATABASE_URL"
-  elif [ -n "${EXTERNAL_DB_HOST:-}" ]; then
-    SSL_QUERY=""
-    if [ "${EXTERNAL_DB_SSL:-false}" = "true" ]; then
-      SSL_QUERY="?sslmode=require"
-    fi
-    export DATABASE_URL="postgresql://${EXTERNAL_DB_USER}:${EXTERNAL_DB_PASSWORD}@${EXTERNAL_DB_HOST}:${EXTERNAL_DB_PORT:-5432}/${EXTERNAL_DB_NAME}${SSL_QUERY}"
-  fi
+if [ -f "./dist/config/databaseUrl.js" ]; then
+  export DATABASE_URL="$(node -e "process.stdout.write(require('./dist/config/databaseUrl').resolveDatabaseUrl())")"
+elif [ -f "./src/config/databaseUrl.ts" ] && [ -x "./node_modules/.bin/tsx" ]; then
+  export DATABASE_URL="$(./node_modules/.bin/tsx -e "import { resolveDatabaseUrl } from './src/config/databaseUrl'; process.stdout.write(resolveDatabaseUrl())")"
 fi
 
 ATTEMPT=1

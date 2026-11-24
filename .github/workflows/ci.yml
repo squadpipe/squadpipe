@@ -100,7 +100,7 @@ jobs:
           ssh -i ~/.ssh/deploy_key "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" << 'EOF'
             set -e
             cd ~/squadpipe
-            docker compose -f docker-compose.yml --profile in_house up -d --build
-            docker compose -f docker-compose.yml exec -T backend npx prisma migrate deploy
+            docker compose -f docker-compose.yml up -d --build
+            docker compose -f docker-compose.yml exec -T backend sh -c 'DATABASE_URL="$(node -e "process.stdout.write(require(\"./dist/config/databaseUrl\").resolveDatabaseUrl())")" npx prisma migrate deploy'
           EOF
 

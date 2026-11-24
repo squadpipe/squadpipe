@@ -1,29 +1,7 @@
 import { PrismaClient } from '@prisma/client';
+import { resolveDatabaseUrl } from './databaseUrl';
 
-export const resolveDatabaseUrl = (): string => {
-  const dbLocation = process.env.DB_LOCATION || 'in_house';
-
-  if (dbLocation === 'external') {
-    if (process.env.EXTERNAL_DATABASE_URL) {
-      return process.env.EXTERNAL_DATABASE_URL;
-    }
-    const host = process.env.EXTERNAL_DB_HOST;
-    const port = process.env.EXTERNAL_DB_PORT || 5432;
-    const user = process.env.EXTERNAL_DB_USER;
-    const pass = process.env.EXTERNAL_DB_PASSWORD;
-    const name = process.env.EXTERNAL_DB_NAME;
-    const ssl = process.env.EXTERNAL_DB_SSL === 'true' ? '?sslmode=require' : '';
-    return `postgresql://${user}:${pass}@${host}:${port}/${name}${ssl}`;
-  }
-
-  // In-House Docker / Local fallback
-  const user = process.env.DB_USER || 'squadpipe_admin';
-  const pass = process.env.DB_PASSWORD || 'squadpipe_secure_password_2026';
-  const host = process.env.DB_HOST || 'postgres';
-  const port = process.env.DB_PORT || 5432;
-  const name = process.env.DB_NAME || 'squadpipe_crm';
-  return `postgresql://${user}:${pass}@${host}:${port}/${name}`;
-};
+export { resolveDatabaseUrl };
 
 export const prisma = new PrismaClient({
   datasources: {
