@@ -586,7 +586,7 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
               <div className="p-5 rounded-xl bg-slate-50/60 border border-slate-200/90 space-y-1.5">
                 <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                  Monthly Plan Credits Used
+                  {aiUsage.plan?.code === 'free' ? 'Trial Credits Used' : 'Monthly Plan Credits Used'}
                 </div>
                 <div className="text-lg font-bold font-mono text-slate-900 tabular-nums">
                   {aiUsage.creditLimit > 0
@@ -664,18 +664,24 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
                 <div className="text-[11px] text-slate-500">
                   {aiUsage.planCreditsRemaining !== null && (
                     <span className="tabular-nums">
-                      Plan: {aiUsage.planCreditsRemaining.toLocaleString()} + Add-on:{' '}
-                      {aiUsage.purchasedCreditsRemaining.toLocaleString()} &bull;{' '}
+                      {aiUsage.plan?.code === 'free' ? 'Trial' : 'Plan'}:{' '}
+                      {aiUsage.planCreditsRemaining.toLocaleString()} + Add-on:{' '}
+                      {aiUsage.purchasedCreditsRemaining.toLocaleString()}
+                      {aiUsage.plan?.code !== 'free' ? ' • ' : ''}
                     </span>
                   )}
-                  Resets{' '}
-                  {new Date(aiUsage.resetsAt).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                    timeZone: 'UTC',
-                  })}{' '}
-                  (UTC)
+                  {aiUsage.plan?.code !== 'free' && (
+                    <>
+                      Resets{' '}
+                      {new Date(aiUsage.resetsAt).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        timeZone: 'UTC',
+                      })}{' '}
+                      (UTC)
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -702,14 +708,9 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
 
             {aiUsage.availablePlans && aiUsage.availablePlans.length > 0 && (
               <div className="rounded-xl border border-slate-200/80 bg-slate-50/40 p-4 space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-700">
-                    <Tag className="w-3.5 h-3.5 text-brand-600" />
-                    <span>Workspace Plans &amp; Custom AI Credit Top-Ups</span>
-                  </div>
-                  <span className="text-[11px] text-slate-500">
-                    Workspace ID: <code className="font-mono text-slate-700">{aiUsage.tenantId}</code>
-                  </span>
+                <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-700">
+                  <Tag className="w-3.5 h-3.5 text-brand-600" />
+                  <span>Workspace Plans &amp; Custom AI Credit Top-Ups</span>
                 </div>
                 <div
                   className={`grid grid-cols-1 sm:grid-cols-2 ${
@@ -743,7 +744,9 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
                               ? `${aiUsage.creditLimit.toLocaleString()} credits/mo`
                               : 'Unlimited credits'
                             : p.monthlyAiCredits > 0
-                              ? `${p.monthlyAiCredits.toLocaleString()} credits/mo`
+                              ? p.code === 'free'
+                                ? `${p.monthlyAiCredits.toLocaleString()} total credits`
+                                : `${p.monthlyAiCredits.toLocaleString()} credits/mo`
                               : 'Unlimited credits'}
                         </div>
                         {p.description && (
@@ -754,7 +757,7 @@ export const UsageView: React.FC<UsageViewProps> = ({ showToast }) => {
                   })}
                 </div>
                 <div className="text-[11px] text-slate-500 pt-1 border-t border-slate-200/70">
-                  Monthly plan credits reset on the 1st of each month (UTC). Purchased add-on credit packs activate automatically whenever monthly plan credits reach 0 and stay in your wallet until consumed.
+                  Monthly paid plan credits reset on the 1st of each month (UTC). Purchased add-on credit packs activate automatically whenever plan credits reach 0 and stay in your wallet until consumed.
                 </div>
               </div>
             )}
